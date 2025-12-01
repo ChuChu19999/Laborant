@@ -1,0 +1,45 @@
+.form-item-wrapper {
+  width: 100%;
+}
+
+.form-item-wrapper .flex-row {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  align-items: center;
+}
+
+.form-item-wrapper .select {
+  width: 225px;
+}
+
+.form-item-wrapper .ant-checkbox-inner {
+  width: 20px;
+  height: 20px;
+}
+
+.form-item-wrapper .options {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.form-item-wrapper .button-delete-item {
+  vertical-align: text-bottom;
+  padding-left: 10px;
+  margin-bottom: 12px;
+  color: #ff4d07;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.form-item-wrapper .button-delete-item:hover {
+  color: #f25c21;
+  transform: scale(1.1);
+}
+
+.form-item-wrapper .button-add {
+  width: 100%;
+  gap: 5px;
+  align-items: center;
+}

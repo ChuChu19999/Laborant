@@ -1,0 +1,10 @@
+.loading-card-wrapper {
+  position: fixed;
+  z-index: 999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #fcfcfc;
+  border-radius: 16px;
+  overflow: hidden;
+}

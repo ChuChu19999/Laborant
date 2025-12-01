@@ -1,0 +1,142 @@
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+import orjson
+from core.logger import logger
+
+FIXTURES_BASE_PATH = Path(__file__).parent.parent / "research_methods_fixtures"
+
+
+def get_available_fixtures(
+    laboratory_name: Optional[str] = None,
+    department_name: Optional[str] = None,
+) -> List[str]:
+    """
+    Получить список доступных фикстур методов исследования.
+
+    Фикстуры привязаны к названиям лабораторий/подразделений.
+    Структура: research_methods_fixtures/{lab_name}/{fixture_type}/
+
+    Args:
+        laboratory_name: Название лаборатории (например, "ИЛНиНМ")
+        department_name: Название подразделения (например, "26 съезда КПСС")
+
+    Returns:
+        Список путей к фикстурам (например, ["ilninm/26th", "ilninm/non-typical"])
+    """
+    if not FIXTURES_BASE_PATH.exists():
+        logger.warning(f"Директория фикстур не найдена: {FIXTURES_BASE_PATH}")
+        return []
+
+    available_fixtures = []
+
+    if laboratory_name and department_name:
+        lab_name_normalized = _normalize_name(laboratory_name)
+        dept_name_normalized = _normalize_name(department_name)
+
+        lab_path = FIXTURES_BASE_PATH / lab_name_normalized
+        if lab_path.exists() and lab_path.is_dir():
+            for fixture_type_dir in lab_path.iterdir():
+                if fixture_type_dir.is_dir():
+                    fixture_type = fixture_type_dir.name
+                    if _matches_department_name(fixture_type, department_name):
+                        fixture_path = f"{lab_name_normalized}/{fixture_type}"
+                        if _has_json_files(fixture_type_dir):
+                            available_fixtures.append(fixture_path)
+
+    elif laboratory_name:
+        lab_name_normalized = _normalize_name(laboratory_name)
+        lab_path = FIXTURES_BASE_PATH / lab_name_normalized
+        if lab_path.exists() and lab_path.is_dir():
+            for fixture_type_dir in lab_path.iterdir():
+                if fixture_type_dir.is_dir():
+                    fixture_path = f"{lab_name_normalized}/{fixture_type_dir.name}"
+                    if _has_json_files(fixture_type_dir):
+                        available_fixtures.append(fixture_path)
+
+    else:
+        for lab_dir in FIXTURES_BASE_PATH.iterdir():
+            if lab_dir.is_dir():
+                lab_name = lab_dir.name
+                for fixture_type_dir in lab_dir.iterdir():
+                    if fixture_type_dir.is_dir():
+                        fixture_path = f"{lab_name}/{fixture_type_dir.name}"
+                        if _has_json_files(fixture_type_dir):
+                            available_fixtures.append(fixture_path)
+
+    return sorted(available_fixtures)
+
+
+def get_fixture_data(fixture_path: str) -> Optional[Dict[str, Any]]:
+    """
+    Получить данные фикстуры по пути.
+
+    Args:
+        fixture_path: Путь к фикстуре (например, "ilninm/26th/01.json")
+
+    Returns:
+        Словарь с данными фикстуры или None, если файл не найден
+    """
+    try:
+        fixture_file = FIXTURES_BASE_PATH / fixture_path
+        if not fixture_file.exists() or not fixture_file.is_file():
+            logger.warning(f"Файл фикстуры не найден: {fixture_file}")
+            return None
+
+        with open(fixture_file, "rb") as f:
+            return orjson.loads(f.read())
+    except Exception as e:
+        logger.error(f"Ошибка при чтении фикстуры {fixture_path}: {str(e)}")
+        return None
+
+
+def list_fixture_files(fixture_path: str) -> List[str]:
+    """
+    Получить список файлов в директории фикстуры.
+
+    Args:
+        fixture_path: Путь к директории фикстуры (например, "ilninm/26th")
+
+    Returns:
+        Список имен файлов JSON
+    """
+    try:
+        fixture_dir = FIXTURES_BASE_PATH / fixture_path
+        if not fixture_dir.exists() or not fixture_dir.is_dir():
+            return []
+
+        json_files = [
+            f.name for f in fixture_dir.iterdir() if f.is_file() and f.suffix == ".json"
+        ]
+        return sorted(json_files)
+    except Exception as e:
+        logger.error(
+            f"Ошибка при получении списка файлов фикстуры {fixture_path}: {str(e)}"
+        )
+        return []
+
+
+def _normalize_name(name: str) -> str:
+    """Нормализация названия для поиска в файловой системе."""
+    name_lower = name.lower().strip()
+    name_mapping = {
+        "илнинм": "ilninm",
+        "умтсик": "umtsik",
+        "26 съезда кпсс": "26th",
+        "26th": "26th",
+    }
+    return name_mapping.get(name_lower, name_lower.replace(" ", "_"))
+
+
+def _matches_department_name(fixture_type: str, department_name: str) -> bool:
+    """Проверка соответствия типа фикстуры названию подразделения."""
+    dept_name_normalized = _normalize_name(department_name)
+    fixture_type_normalized = _normalize_name(fixture_type)
+    return (
+        dept_name_normalized == fixture_type_normalized
+        or fixture_type_normalized in dept_name_normalized
+    )
+
+
+def _has_json_files(directory: Path) -> bool:
+    """Проверка наличия JSON файлов в директории."""
+    return any(f.is_file() and f.suffix == ".json" for f in directory.iterdir())

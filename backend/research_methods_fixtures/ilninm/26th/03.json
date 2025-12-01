@@ -1,0 +1,109 @@
+{
+    "name": "Массовая доля воды",
+    "sample_type": ["oil", "condensate", "diesel_fuel", "spent_oil_products", "liquid_hydrocarbons_mixture"],
+    "formula": "1*Xср",
+    "measurement_error": {
+        "type": "fixed",
+        "value": "0.14"
+    },
+    "unit": "%",
+    "measurement_method": "ГОСТ 2477",
+    "nd_code": "ГОСТ 2477-2014",
+    "nd_name": "Нефть и нефтепродукты. Метод определения содержания воды",
+    "input_data": {
+        "fields": [
+            {
+                "name": "V₀₁",
+                "unit": "см³",
+                "card_index": 1,
+                "description": "Объем воды в ловушке для первой параллели"
+            },
+            {
+                "name": "Vпр₁",
+                "unit": "см³",
+                "card_index": 1,
+                "description": "Объем пробы для первой параллели"
+            },
+            {
+                "name": "V₀₂",
+                "unit": "см³",
+                "card_index": 2,
+                "description": "Объем воды в ловушке для второй параллели"
+            },
+            {
+                "name": "Vпр₂",
+                "unit": "см³",
+                "card_index": 2,
+                "description": "Объем пробы для второй параллели"
+            },
+            {
+                "name": "ρпр",
+                "unit": "г/см³",
+                "card_index": 3,
+                "description": "Плотность пробы"
+            },
+            {
+                "name": "Xсв",
+                "unit": "% об.",
+                "card_index": 3,
+                "description": "Содержание свободной воды"
+            }
+        ]
+    },
+    "intermediate_data": {
+        "fields": [
+            {
+                "name": "X₁",
+                "unit": "%",
+                "formula": "(V₀₁*100)/(ρпр*100)",
+                "description": "Расчет массовой доли воды для первой параллели",
+                "multiple_value": "",
+                "show_calculation": true,
+                "use_multiple_rounding": false
+            },
+            {
+                "name": "X₂",
+                "unit": "%",
+                "formula": "(V₀₂*100)/(ρпр*100)",
+                "description": "Расчет массовой доли воды для второй параллели",
+                "multiple_value": "",
+                "show_calculation": true,
+                "range_calculation": null,
+                "use_multiple_rounding": false
+            },
+            {
+                "name": "Xср",
+                "unit": "%",
+                "formula": "(X₁+X₂)/2",
+                "description": "Среднее значение массовой доли воды",
+                "multiple_value": "",
+                "show_calculation": false,
+                "range_calculation": null,
+                "use_multiple_rounding": false
+            }
+        ]
+    },
+    "convergence_conditions": {
+        "formulas": [
+            {
+                "formula": "abs(X₁-X₂)<=0.1",
+                "convergence_value": "satisfactory"
+            },
+            {
+                "formula": "V₀₁=0 or V₀₂=0",
+                "convergence_value": "absence"
+            },
+            {
+                "formula": "V₀₁<=0.03 or V₀₂<=0.03",
+                "convergence_value": "traces"
+            }
+        ]
+    },
+    "is_deleted": false,
+    "rounding_type": "decimal",
+    "rounding_decimal": 2,
+    "is_active": true,
+    "is_group_member": false,
+    "groups": [],
+    "group_name": ""
+}

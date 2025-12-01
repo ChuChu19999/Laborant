@@ -1,0 +1,163 @@
+{
+    "name": "Массовая доля механических примесей",
+    "sample_type": ["oil", "condensate", "oil_condensate_mixture", "diesel_fuel", "spent_oil_products", "liquid_hydrocarbons_mixture"],
+    "formula": "1*Xср",
+    "measurement_error": {
+        "type": "formula",
+        "value": "1*delta"
+    },
+    "unit": "%",
+    "measurement_method": "ГОСТ 6370",
+    "nd_code": "ГОСТ 6370-2018",
+    "nd_name": "Нефть, нефтепродукты и присадки. Метод определения механических примесей",
+    "input_data": {
+        "fields": [
+            {
+                "name": "M₁₀",
+                "unit": "г",
+                "card_index": 1,
+                "description": "Масса бюкса без мехпримесей для первой параллели"
+            },
+            {
+                "name": "M₁₁",
+                "unit": "г",
+                "card_index": 1,
+                "description": "Масса бюкса с мехпримесями для первой параллели"
+            },
+            {
+                "name": "M₁",
+                "unit": "г",
+                "card_index": 1,
+                "description": "Масса пробы для первой параллели"
+            },
+            {
+                "name": "M₂₀",
+                "unit": "г",
+                "card_index": 2,
+                "description": "Масса бюкса без мехпримесей для второй параллели"
+            },
+            {
+                "name": "M₂₁",
+                "unit": "г",
+                "card_index": 2,
+                "description": "Масса бюкса с мехпримесями для второй параллели"
+            },
+            {
+                "name": "M₂",
+                "unit": "г",
+                "card_index": 2,
+                "description": "Масса пробы для второй параллели"
+            }
+        ]
+    },
+    "intermediate_data": {
+        "fields": [
+            {
+                "name": "X₁",
+                "unit": "%",
+                "formula": "(M₁₁-M₁₀)/M₁*100",
+                "description": "Первый расчет массовой доли механических примесей",
+                "show_calculation": true,
+                "range_calculation": null,
+                "use_multiple_rounding": false
+            },
+            {
+                "name": "X₂",
+                "unit": "%",
+                "formula": "(M₂₁-M₂₀)/M₂*100",
+                "description": "Второй расчет массовой доли механических примесей",
+                "show_calculation": true,
+                "range_calculation": null,
+                "use_multiple_rounding": false
+            },
+            {
+                "name": "Xср",
+                "unit": "%",
+                "formula": "(X₁+X₂)/2",
+                "description": "Среднее значение массовой доли механических примесей",
+                "show_calculation": false,
+                "range_calculation": null,
+                "use_multiple_rounding": false
+            },
+            {
+                "name": "delta",
+                "unit": "%",
+                "formula": "0",
+                "description": "Δ",
+                "show_calculation": true,
+                "range_calculation": {
+                    "ranges": [
+                        {
+                            "formula": "1.0*0.0035",
+                            "condition": "(Xср>=0.005) and (Xср<=0.01)"
+                        },
+                        {
+                            "formula": "1.0*0.007",
+                            "condition": "(Xср>0.01) and (Xср<=0.1)"
+                        },
+                        {
+                            "formula": "1.0*0.01",
+                            "condition": "(Xср>0.01) and (Xср<=1)"
+                        },
+                                                {
+                            "formula": "1.0*0.14",
+                            "condition": "(Xср>1)"
+                        }
+                    ]
+                },
+                "use_multiple_rounding": false
+            },
+            {
+                "name": "r",
+                "unit": "%",
+                "formula": "0",
+                "description": "Повторяемость",
+                "show_calculation": true,
+                "range_calculation": {
+                    "ranges": [
+                        {
+                            "formula": "1.0*0.0025",
+                            "condition": "(Xср>=0.005) and (Xср<=0.01)"
+                        },
+                        {
+                            "formula": "1.0*0.005",
+                            "condition": "(Xср>0.01) and (Xср<=0.1)"
+                        },
+                        {
+                            "formula": "1.0*0.01",
+                            "condition": "(Xср>0.01) and (Xср<=1)"
+                        },
+                        {
+                            "formula": "1.0*0.1",
+                            "condition": "(Xср>1)"
+                        }
+                    ]
+                },
+                "use_multiple_rounding": false
+            }
+        ]
+    },
+    "convergence_conditions": {
+        "formulas": [
+            {
+                "formula": "abs(X₁-X₂)<=r",
+                "convergence_value": "satisfactory"
+            },
+            {
+                "formula": "abs(X₁-X₂)>r",
+                "convergence_value": "unsatisfactory"
+            },
+            {
+                "formula": "Xср<0.005",
+                "convergence_value": "absence"
+            }
+        ]
+    },
+    "is_deleted": false,
+    "rounding_type": "decimal",
+    "rounding_decimal": 2,
+    "is_active": true,
+    "is_group_member": false,
+    "groups": [],
+    "group_name": ""
+}

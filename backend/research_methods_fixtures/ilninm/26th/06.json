@@ -1,0 +1,114 @@
+{
+    "name": "Нефть",
+    "sample_type": ["oil"],
+    "formula": "Mср",
+    "measurement_error": {
+        "type": "formula",
+        "value": "Mср*5/100"
+    },
+    "unit": "у.е.",
+    "measurement_method": "СТО 05751745-199-2015",
+    "nd_code": "СТО 05751745-199-2015",
+    "nd_name": "Конденсат газовый, нефть, нефтепродукты. Определение молекулярной массы. Методика измерения",
+    "input_data": {
+        "fields": [
+            {
+                "name": "a₁",
+                "unit": "г",
+                "card_index": 1,
+                "description": "Навеска вещества для первой параллели"
+            },
+            {
+                "name": "B₁",
+                "unit": "г",
+                "card_index": 1,
+                "description": "Навеска бензола для первой параллели"
+            },
+            {
+                "name": "Tб₁",
+                "unit": "°C",
+                "card_index": 1,
+                "description": "Температура застывания чистого бензола для первой параллели"
+            },
+            {
+                "name": "Tр₁",
+                "unit": "°C",
+                "card_index": 1,
+                "description": "Температура застывания раствора для первой параллели"
+            },
+            {
+                "name": "a₂",
+                "unit": "г",
+                "card_index": 2,
+                "description": "Навеска вещества для второй параллели"
+            },
+            {
+                "name": "B₂",
+                "unit": "г",
+                "card_index": 2,
+                "description": "Навеска бензола для второй параллели"
+            },
+            {
+                "name": "Tб₂",
+                "unit": "°C",
+                "card_index": 2,
+                "description": "Температура застывания чистого бензола для второй параллели"
+            },
+            {
+                "name": "Tр₂",
+                "unit": "°C",
+                "card_index": 2,
+                "description": "Температура застывания раствора для второй параллели"
+            }
+        ]
+    },
+    "intermediate_data": {
+        "fields": [
+            {
+                "name": "M₁",
+                "unit": "у.е",
+                "formula": "(a₁*5.12*1000)/(B₁*(Tб₁-Tр₁))",
+                "description": "Первый расчет молекулярной массы",
+                "show_calculation": true,
+                "range_calculation": null,
+                "use_multiple_rounding": false
+            },
+            {
+                "name": "M₂",
+                "unit": "у.е",
+                "formula": "(a₂*5.12*1000)/(B₂*(Tб₂-Tр₂))",
+                "description": "Второй расчет молекулярной массы",
+                "show_calculation": true,
+                "range_calculation": null,
+                "use_multiple_rounding": false
+            },
+            {
+                "name": "Mср",
+                "unit": "у.е",
+                "formula": "(M₁+M₂)/2",
+                "description": "Среднее значение молекулярной массы",
+                "show_calculation": false,
+                "range_calculation": null,
+                "use_multiple_rounding": false
+            }
+        ]
+    },
+    "convergence_conditions": {
+        "formulas": [
+            {
+                "formula": "abs(M₁-M₂)<=Mср*2.5/100",
+                "convergence_value": "satisfactory"
+            },
+            {
+                "formula": "abs(M₁-M₂)>Mср*2.5/100",
+                "convergence_value": "unsatisfactory"
+            }
+        ]
+    },
+    "is_deleted": false,
+    "rounding_type": "decimal",
+    "rounding_decimal": 1,
+    "is_active": true,
+    "is_group_member": false,
+    "group_name": "Молекулярная масса"
+}

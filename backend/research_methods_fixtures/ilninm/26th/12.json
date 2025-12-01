@@ -1,0 +1,60 @@
+{
+    "name": "Температура плавления парафина",
+    "sample_type": ["oil", "condensate"],
+    "formula": "(T₁+T₂)/2",
+    "measurement_error": {
+        "type": "fixed",
+        "value": "0.3"
+    },
+    "unit": "°C",
+    "measurement_method": "ГОСТ 4255",
+    "nd_code": "ГОСТ 4255-75",
+    "nd_name": "Нефтепродукты. Метод определения температуры плавления по Жукову",
+    "input_data": {
+        "fields": [
+            {
+                "name": "T₁",
+                "unit": "℃",
+                "card_index": 1,
+                "description": "Первая температура плавления"
+            },
+            {
+                "name": "T₂",
+                "unit": "℃",
+                "card_index": 1,
+                "description": "Вторая температура плавления"
+            }
+        ]
+    },
+    "intermediate_data": {
+        "fields": [
+            {
+                    "name": "",
+                    "unit": "",
+                    "formula": "",
+                    "description": "",
+                    "multiple_value": "",
+                    "show_calculation": false,
+                    "use_multiple_rounding": false
+            }
+        ]
+    },
+    "convergence_conditions": {
+        "formulas": [
+            {
+                "formula": "abs(T₁-T₂)<=0.2",
+                "convergence_value": "satisfactory"
+            },
+            {
+                "formula": "abs(T₁-T₂)>0.2",
+                "convergence_value": "unsatisfactory"
+            }
+        ]
+    },
+    "is_deleted": false,
+    "rounding_type": "decimal",
+    "rounding_decimal": 1,
+    "is_active": true,
+    "is_group_member": false,
+    "group_name": ""
+}

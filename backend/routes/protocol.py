@@ -1,0 +1,494 @@
+from typing import Optional
+from fastapi import APIRouter, Depends, Query
+from fastapi.responses import Response
+from sqlalchemy.ext.asyncio import AsyncSession
+from core.database import get_db
+from core.exceptions import NotFoundError
+from core.security import IsAuthenticated
+from schemas.pagination import PaginatedResponse
+from schemas.protocol import (
+    ProtocolCreate,
+    ProtocolResponse,
+    ProtocolTemplateCreate,
+    ProtocolTemplateResponse,
+    ProtocolTemplateUpdate,
+    ProtocolUpdate,
+)
+from schemas.sample import SampleResponse
+from services.protocol import (
+    create_protocol,
+    create_protocol_template,
+    delete_protocol,
+    delete_protocol_template,
+    get_protocol_by_id,
+    get_protocol_template_by_id,
+    get_protocol_templates,
+    get_protocols,
+    update_protocol,
+    update_protocol_template,
+)
+from services.protocol_generator import generate_protocol_excel
+from services.sample import get_sample_by_id
+
+router = APIRouter()
+
+
+@router.get(
+    "/protocols/",
+    response_model=PaginatedResponse[ProtocolResponse],
+    summary="Получение списка протоколов",
+    description=(
+        "Возвращает список протоколов с пагинацией. "
+        "Поддерживает фильтрацию по лабораториям и подразделениям, сортировку."
+    ),
+    responses={200: {"description": "Список протоколов успешно получен"}},
+)
+# @IsAuthenticated
+async def list_protocols(
+    laboratory_id: Optional[int] = Query(None),
+    department_id: Optional[int] = Query(None),
+    include_deleted: bool = Query(False),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    sort_by: Optional[str] = Query(None),
+    sort_order: Optional[str] = Query("desc"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Получить список протоколов с пагинацией.
+
+    Возвращает список протоколов с возможностью фильтрации и сортировки.
+    """
+    protocols, total, total_pages = await get_protocols(
+        db,
+        laboratory_id=laboratory_id,
+        department_id=department_id,
+        include_deleted=include_deleted,
+        page=page,
+        page_size=page_size,
+        sort_by=sort_by,
+        sort_order=sort_order,
+    )
+
+    items = []
+    for protocol in protocols:
+        protocol_dict = ProtocolResponse.model_validate(protocol).model_dump()
+        if hasattr(protocol, "laboratory") and protocol.laboratory:
+            protocol_dict["laboratory_name"] = protocol.laboratory.name
+        if hasattr(protocol, "department") and protocol.department:
+            protocol_dict["department_name"] = protocol.department.name
+
+        if protocol.samples:
+            samples_data = []
+            for sample_id in protocol.samples:
+                sample = await get_sample_by_id(db, sample_id)
+                if sample:
+                    sample_dict = SampleResponse.model_validate(sample).model_dump()
+                    if hasattr(sample, "laboratory") and sample.laboratory:
+                        sample_dict["laboratory_name"] = sample.laboratory.name
+                    if hasattr(sample, "department") and sample.department:
+                        sample_dict["department_name"] = sample.department.name
+                    if hasattr(sample, "branch") and sample.branch:
+                        sample_dict["branch_name"] = sample.branch.name
+                    if (
+                        hasattr(sample, "sampling_location")
+                        and sample.sampling_location
+                    ):
+                        sample_dict["sampling_location_name"] = (
+                            sample.sampling_location.name
+                        )
+                    samples_data.append(sample_dict)
+            protocol_dict["samples_data"] = samples_data
+
+        items.append(ProtocolResponse(**protocol_dict))
+
+    return PaginatedResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages,
+    )
+
+
+@router.post(
+    "/protocols/",
+    response_model=ProtocolResponse,
+    status_code=201,
+    summary="Создание нового протокола",
+    description="Создает новый протокол на основе переданных данных.",
+    responses={
+        201: {"description": "Протокол успешно создан"},
+        400: {"description": "Некорректные данные для создания протокола"},
+    },
+)
+# @IsAuthenticated
+async def create_protocol_endpoint(
+    protocol_data: ProtocolCreate,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Создать протокол.
+
+    Создает новый протокол на основе переданных данных.
+    """
+    protocol = await create_protocol(db, protocol_data)
+    await db.commit()
+    protocol_dict = ProtocolResponse.model_validate(protocol).model_dump()
+    if hasattr(protocol, "laboratory") and protocol.laboratory:
+        protocol_dict["laboratory_name"] = protocol.laboratory.name
+    if hasattr(protocol, "department") and protocol.department:
+        protocol_dict["department_name"] = protocol.department.name
+    return ProtocolResponse(**protocol_dict)
+
+
+@router.get(
+    "/protocols/{protocol_id}/",
+    response_model=ProtocolResponse,
+    summary="Получение протокола по ID",
+    description="Возвращает информацию о протоколе по его идентификатору.",
+    responses={
+        200: {"description": "Протокол успешно получен"},
+        404: {"description": "Протокол не найден"},
+    },
+)
+# @IsAuthenticated
+async def get_protocol(
+    protocol_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Получить протокол по ID.
+
+    Возвращает полную информацию о протоколе по его идентификатору.
+    """
+    protocol = await get_protocol_by_id(db, protocol_id)
+    if not protocol:
+        raise NotFoundError("Протокол не найден")
+    protocol_dict = ProtocolResponse.model_validate(protocol).model_dump()
+    if hasattr(protocol, "laboratory") and protocol.laboratory:
+        protocol_dict["laboratory_name"] = protocol.laboratory.name
+    if hasattr(protocol, "department") and protocol.department:
+        protocol_dict["department_name"] = protocol.department.name
+
+    if protocol.samples:
+        samples_data = []
+        for sample_id in protocol.samples:
+            sample = await get_sample_by_id(db, sample_id)
+            if sample:
+                from schemas.sample import SampleResponse
+
+                sample_dict = SampleResponse.model_validate(sample).model_dump()
+                if hasattr(sample, "laboratory") and sample.laboratory:
+                    sample_dict["laboratory_name"] = sample.laboratory.name
+                if hasattr(sample, "department") and sample.department:
+                    sample_dict["department_name"] = sample.department.name
+                if hasattr(sample, "branch") and sample.branch:
+                    sample_dict["branch_name"] = sample.branch.name
+                if hasattr(sample, "sampling_location") and sample.sampling_location:
+                    sample_dict["sampling_location_name"] = (
+                        sample.sampling_location.name
+                    )
+                samples_data.append(sample_dict)
+        protocol_dict["samples_data"] = samples_data
+
+    return ProtocolResponse(**protocol_dict)
+
+
+@router.patch(
+    "/protocols/{protocol_id}/",
+    response_model=ProtocolResponse,
+    summary="Обновление протокола",
+    description="Обновляет существующий протокол. Можно обновить только указанные поля.",
+    responses={
+        200: {"description": "Протокол успешно обновлен"},
+        404: {"description": "Протокол не найден"},
+    },
+)
+# @IsAuthenticated
+async def update_protocol_endpoint(
+    protocol_id: int,
+    protocol_data: ProtocolUpdate,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Обновить протокол.
+
+    Обновляет существующий протокол по его идентификатору.
+    """
+    protocol = await update_protocol(db, protocol_id, protocol_data)
+    await db.commit()
+    protocol_dict = ProtocolResponse.model_validate(protocol).model_dump()
+    if hasattr(protocol, "laboratory") and protocol.laboratory:
+        protocol_dict["laboratory_name"] = protocol.laboratory.name
+    if hasattr(protocol, "department") and protocol.department:
+        protocol_dict["department_name"] = protocol.department.name
+    return ProtocolResponse(**protocol_dict)
+
+
+@router.delete(
+    "/protocols/{protocol_id}/",
+    status_code=204,
+    summary="Удаление протокола",
+    description="Выполняет мягкое удаление протокола. Протокол помечается как удаленный.",
+    responses={
+        204: {"description": "Протокол успешно удален"},
+        404: {"description": "Протокол не найден"},
+    },
+)
+# @IsAuthenticated
+async def delete_protocol_endpoint(
+    protocol_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Удалить протокол (мягкое удаление).
+
+    Выполняет мягкое удаление протокола по его идентификатору.
+    """
+    await delete_protocol(db, protocol_id)
+    await db.commit()
+
+
+@router.get(
+    "/protocols/{protocol_id}/generate-excel/",
+    response_class=Response,
+    summary="Генерация Excel файла протокола",
+    description=(
+        "Генерирует Excel файл протокола на основе данных протокола и шаблона. "
+        "Возвращает файл Excel для скачивания."
+    ),
+    responses={
+        200: {
+            "description": "Excel файл успешно сгенерирован",
+            "content": {
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
+            },
+        },
+        404: {"description": "Протокол не найден"},
+    },
+)
+# @IsAuthenticated
+async def generate_protocol_excel_endpoint(
+    protocol_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Сгенерировать Excel файл протокола.
+
+    Генерирует Excel файл протокола на основе данных протокола и шаблона.
+    """
+    return await generate_protocol_excel(db, protocol_id)
+
+
+@router.get(
+    "/protocol-templates/",
+    response_model=PaginatedResponse[ProtocolTemplateResponse],
+    summary="Получение списка шаблонов протоколов",
+    description=(
+        "Возвращает список шаблонов протоколов с пагинацией. "
+        "Поддерживает фильтрацию по лабораториям и подразделениям, сортировку."
+    ),
+    responses={200: {"description": "Список шаблонов протоколов успешно получен"}},
+)
+# @IsAuthenticated
+async def list_protocol_templates(
+    laboratory_id: Optional[int] = Query(None),
+    department_id: Optional[int] = Query(None),
+    include_deleted: bool = Query(False),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    sort_by: Optional[str] = Query(None),
+    sort_order: Optional[str] = Query("desc"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Получить список шаблонов протоколов с пагинацией.
+
+    Возвращает список шаблонов протоколов с возможностью фильтрации и сортировки.
+    """
+    templates, total, total_pages = await get_protocol_templates(
+        db,
+        laboratory_id=laboratory_id,
+        department_id=department_id,
+        include_deleted=include_deleted,
+        page=page,
+        page_size=page_size,
+        sort_by=sort_by,
+        sort_order=sort_order,
+    )
+
+    items = []
+    for template in templates:
+        template_dict = ProtocolTemplateResponse.model_validate(template).model_dump()
+        if hasattr(template, "laboratory") and template.laboratory:
+            template_dict["laboratory_name"] = template.laboratory.name
+        if hasattr(template, "department") and template.department:
+            template_dict["department_name"] = template.department.name
+        items.append(ProtocolTemplateResponse(**template_dict))
+
+    return PaginatedResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages,
+    )
+
+
+@router.get(
+    "/protocol-templates/available/",
+    response_model=list[ProtocolTemplateResponse],
+    summary="Получение доступных шаблонов протоколов",
+    description=(
+        "Возвращает список доступных шаблонов протоколов для указанной лаборатории и подразделения."
+    ),
+    responses={200: {"description": "Список доступных шаблонов успешно получен"}},
+)
+# @IsAuthenticated
+async def get_available_protocol_templates(
+    laboratory_id: int = Query(..., description="ID лаборатории"),
+    department_id: Optional[int] = Query(None, description="ID подразделения"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Получить доступные шаблоны для лаборатории/подразделения.
+
+    Возвращает список доступных шаблонов протоколов для указанной лаборатории и подразделения.
+    """
+    templates, _, _ = await get_protocol_templates(
+        db,
+        laboratory_id=laboratory_id,
+        department_id=department_id,
+        include_deleted=True,
+        page=1,
+        page_size=1000,
+    )
+
+    items = []
+    for template in templates:
+        template_dict = ProtocolTemplateResponse.model_validate(template).model_dump()
+        if hasattr(template, "laboratory") and template.laboratory:
+            template_dict["laboratory_name"] = template.laboratory.name
+        if hasattr(template, "department") and template.department:
+            template_dict["department_name"] = template.department.name
+        items.append(ProtocolTemplateResponse(**template_dict))
+
+    return items
+
+
+@router.post(
+    "/protocol-templates/",
+    response_model=ProtocolTemplateResponse,
+    status_code=201,
+    summary="Создание нового шаблона протокола",
+    description="Создает новый шаблон протокола на основе переданных данных.",
+    responses={
+        201: {"description": "Шаблон протокола успешно создан"},
+        400: {"description": "Некорректные данные для создания шаблона протокола"},
+    },
+)
+# @IsAuthenticated
+async def create_protocol_template_endpoint(
+    template_data: ProtocolTemplateCreate,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Создать шаблон протокола.
+
+    Создает новый шаблон протокола на основе переданных данных.
+    """
+    template = await create_protocol_template(db, template_data)
+    await db.commit()
+    template_dict = ProtocolTemplateResponse.model_validate(template).model_dump()
+    if hasattr(template, "laboratory") and template.laboratory:
+        template_dict["laboratory_name"] = template.laboratory.name
+    if hasattr(template, "department") and template.department:
+        template_dict["department_name"] = template.department.name
+    return ProtocolTemplateResponse(**template_dict)
+
+
+@router.get(
+    "/protocol-templates/{template_id}/",
+    response_model=ProtocolTemplateResponse,
+    summary="Получение шаблона протокола по ID",
+    description="Возвращает информацию о шаблоне протокола по его идентификатору.",
+    responses={
+        200: {"description": "Шаблон протокола успешно получен"},
+        404: {"description": "Шаблон протокола не найден"},
+    },
+)
+# @IsAuthenticated
+async def get_protocol_template(
+    template_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Получить шаблон протокола по ID.
+
+    Возвращает полную информацию о шаблоне протокола по его идентификатору.
+    """
+    template = await get_protocol_template_by_id(db, template_id)
+    if not template:
+        raise NotFoundError("Шаблон протокола не найден")
+    template_dict = ProtocolTemplateResponse.model_validate(template).model_dump()
+    if hasattr(template, "laboratory") and template.laboratory:
+        template_dict["laboratory_name"] = template.laboratory.name
+    if hasattr(template, "department") and template.department:
+        template_dict["department_name"] = template.department.name
+    return ProtocolTemplateResponse(**template_dict)
+
+
+@router.patch(
+    "/protocol-templates/{template_id}/",
+    response_model=ProtocolTemplateResponse,
+    summary="Обновление шаблона протокола",
+    description="Обновляет существующий шаблон протокола. Можно обновить только указанные поля.",
+    responses={
+        200: {"description": "Шаблон протокола успешно обновлен"},
+        404: {"description": "Шаблон протокола не найден"},
+    },
+)
+# @IsAuthenticated
+async def update_protocol_template_endpoint(
+    template_id: int,
+    template_data: ProtocolTemplateUpdate,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Обновить шаблон протокола.
+
+    Обновляет существующий шаблон протокола по его идентификатору.
+    """
+    template = await update_protocol_template(db, template_id, template_data)
+    await db.commit()
+    template_dict = ProtocolTemplateResponse.model_validate(template).model_dump()
+    if hasattr(template, "laboratory") and template.laboratory:
+        template_dict["laboratory_name"] = template.laboratory.name
+    if hasattr(template, "department") and template.department:
+        template_dict["department_name"] = template.department.name
+    return ProtocolTemplateResponse(**template_dict)
+
+
+@router.delete(
+    "/protocol-templates/{template_id}/",
+    status_code=204,
+    summary="Удаление шаблона протокола",
+    description="Выполняет мягкое удаление шаблона протокола. Шаблон помечается как удаленный.",
+    responses={
+        204: {"description": "Шаблон протокола успешно удален"},
+        404: {"description": "Шаблон протокола не найден"},
+    },
+)
+# @IsAuthenticated
+async def delete_protocol_template_endpoint(
+    template_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Удалить шаблон протокола (мягкое удаление).
+
+    Выполняет мягкое удаление шаблона протокола по его идентификатору.
+    """
+    await delete_protocol_template(db, template_id)
+    await db.commit()

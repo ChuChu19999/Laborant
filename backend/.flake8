@@ -1,0 +1,21 @@
+[flake8]
+max-line-length = 120
+exclude =
+    .git,
+    __pycache__,
+    venv,
+    .venv,
+    migrations,
+    alembic/versions,
+    build,
+    dist,
+    *.egg-info
+# Запрет импортов внутри кода - только в начале файла
+# E402 - module level import not at top of file
+# TID252 - запрет импортов внутри функций
+select = E402,TID252
+ignore = E501
+enable-extensions = TID
+per-file-ignores =
+    __init__.py:E402
+    alembic/env.py:E402

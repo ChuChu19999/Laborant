@@ -1,0 +1,69 @@
+{
+    "name": "Массовая доля серы",
+    "sample_type": ["oil", "condensate", "diesel_fuel", "turbine_oil", "aviation_oil", "liquid_hydrocarbons_mixture"],
+    "formula": "1*Xср",
+    "measurement_error": {
+        "type": "formula",
+        "value": "(1.96*0.1215*(Xср+0.05555))/2.77"
+    },
+    "unit": "%",
+    "measurement_method": "ГОСТ Р 51947",
+    "nd_code": "ГОСТ Р 51947-2002",
+    "nd_name": "Нефть и нефтепродукты. Определение серы методом энергодисперсионной рентгенофлуоресцентной спектрометрии",
+    "input_data": {
+        "fields": [
+            {
+                "name": "X₁",
+                "unit": "%",
+                "card_index": 1,
+                "description": "Первое значение массовой доли серы"
+            },
+            {
+                "name": "X₂",
+                "unit": "%",
+                "card_index": 1,
+                "description": "Второе значение массовой доли серы"
+            }
+        ]
+    },
+    "intermediate_data": {
+        "fields": [
+            {
+                "name": "Xср",
+                "unit": "%",
+                "formula": "(X₁+X₂)/2",
+                "description": "Среднее значение массовой доли серы",
+                "show_calculation": false,
+                "range_calculation": null,
+                "use_multiple_rounding": false
+            },
+            {
+                "name": "r",
+                "unit": "",
+                "formula": "0.02894*(Xср+0.1691)",
+                "description": "Повторяемость",
+                "show_calculation": false,
+                "range_calculation": null,
+                "use_multiple_rounding": false
+            }
+        ]
+    },
+    "convergence_conditions": {
+        "formulas": [
+            {
+                "formula": "abs(X₁-X₂)<=r",
+                "convergence_value": "satisfactory"
+            },
+            {
+                "formula": "abs(X₁-X₂)>r",
+                "convergence_value": "unsatisfactory"
+            }
+        ]
+    },
+    "is_deleted": false,
+    "rounding_type": "significant",
+    "rounding_decimal": 3,
+    "is_active": true,
+    "is_group_member": false,
+    "group_name": ""
+}

@@ -1,0 +1,60 @@
+{
+        "name": "Температура застывания",
+        "sample_type": ["oil", "condensate", "turbine_oil", "aviation_oil", "corrosion_inhibitor"],
+        "formula": "(T₁+T₂)/2",
+        "measurement_error": {
+            "type": "fixed",
+            "value": "6"
+        },
+        "unit": "°C",
+        "measurement_method": "ГОСТ 20287 (метод Б)",
+        "nd_code": "ГОСТ 20287-2023",
+        "nd_name": "Нефтепродукты. Методы определения температур текучести и застывания",
+        "input_data": {
+            "fields": [
+                {
+                    "name": "T₁",
+                    "unit": "℃",
+                    "card_index": 1,
+                    "description": "Первая температура застывания"
+                },
+                {
+                    "name": "T₂",
+                    "unit": "℃",
+                    "card_index": 1,
+                    "description": "Вторая температура застывания"
+                }
+            ]
+        },
+        "intermediate_data": {
+            "fields": [
+                {
+                    "name": "",
+                    "unit": "",
+                    "formula": "",
+                    "description": "",
+                    "multiple_value": "",
+                    "show_calculation": false,
+                    "use_multiple_rounding": false
+                }
+            ]
+        },
+        "convergence_conditions": {
+            "formulas": [
+                {
+                    "formula": "abs(T₁-T₂)<=2",
+                    "convergence_value": "satisfactory"
+                },
+                {
+                    "formula": "abs(T₁-T₂)>2",
+                    "convergence_value": "unsatisfactory"
+                }
+            ]
+        },
+        "is_deleted": false,
+        "rounding_type": "decimal",
+        "rounding_decimal": 0,
+        "is_active": true,
+        "is_group_member": false,
+        "group_name": ""
+    }

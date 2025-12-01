@@ -1,0 +1,312 @@
+{
+    "name": "Конденсат",
+    "sample_type": ["condensate", "oil_condensate_mixture", "diesel_fuel", "spent_oil_products", "liquid_hydrocarbons_mixture"],
+    "formula": "ρср",
+    "measurement_error": {
+        "type": "fixed",
+        "value": "0.8"
+    },
+    "unit": "кг/м³",
+    "measurement_method": "ГОСТ 3900 (метод 1)",
+    "nd_code": "ГОСТ 3900-2022",
+    "nd_name": "Нефть и нефтепродукты. Методы определения плотности",
+    "input_data": {
+        "fields": [
+            {
+                "name": "t₁₁",
+                "unit": "℃",
+                "card_index": 1,
+                "description": "Первая температура для первой параллели"
+            },
+            {
+                "name": "t₁₂",
+                "unit": "℃",
+                "card_index": 1,
+                "description": "Вторая температура для первой параллели"
+            },
+            {
+                "name": "ρtар₁",
+                "unit": "кг/м³",
+                "card_index": 1,
+                "description": "Плотность для первой параллели"
+            },
+            {
+                "name": "ρтабл_при_tнаим₁",
+                "unit": "кг/м³",
+                "card_index": 1,
+                "description": "Табличная плотность при tнаим для первой параллели"
+            },
+            {
+                "name": "ρтабл_при_tнаиб₁",
+                "unit": "кг/м³",
+                "card_index": 1,
+                "description": "Табличная плотность при tнаиб для первой параллели"
+            },
+            {
+                "name": "t₂₁",
+                "unit": "℃",
+                "card_index": 2,
+                "description": "Первая температура для второй параллели"
+            },
+            {
+                "name": "t₂₂",
+                "unit": "℃",
+                "card_index": 2,
+                "description": "Вторая температура для второй параллели"
+            },
+            {
+                "name": "ρtар₂",
+                "unit": "кг/м³",
+                "card_index": 2,
+                "description": "Плотность для второй параллели"
+            },
+            {
+                "name": "ρтабл_при_tнаим₂",
+                "unit": "кг/м³",
+                "card_index": 2,
+                "description": "Табличная плотность при tнаим для второй параллели"
+            },
+            {
+                "name": "ρтабл_при_tнаиб₂",
+                "unit": "кг/м³",
+                "card_index": 2,
+                "description": "Табличная плотность при tнаиб для второй параллели"
+            }
+        ]
+    },
+    "intermediate_data": {
+        "fields": [
+            {
+                "name": "tср₁",
+                "unit": "℃",
+                "formula": "(t₁₁+t₁₂)/2",
+                "description": "Средняя температура для первой параллели",
+                "multiple_value": "",
+                "show_calculation": true,
+                "use_multiple_rounding": false
+            },
+            {
+                "name": "K₁",
+                "unit": "у.е.",
+                "formula": "1-0.000025*(tср₁-20)",
+                "description": "K₁",
+                "multiple_value": "",
+                "show_calculation": true,
+                "range_calculation": null,
+                "use_multiple_rounding": false
+            },
+            {
+                "name": "ρt₁",
+                "unit": "кг/м³",
+                "formula": "ρtар₁*K₁",
+                "description": "Плотность с учетом поправки на расширение стекла ареометра для первой параллели",
+                "multiple_value": "",
+                "show_calculation": true,
+                "range_calculation": null,
+                "use_multiple_rounding": false
+            },
+            {
+                "name": "ρокруг₁",
+                "unit": "кг/м³",
+                "formula": "ρt₁",
+                "description": "Округленная плотность с учетом поправки на расширение стекла ареометра для первой параллели",
+                "rounding_type": "multiple",
+                "multiple_value": "10",
+                "rounding_decimal": 10,
+                "show_calculation": true,
+                "range_calculation": null,
+                "use_threshold_table": false,
+                "use_multiple_rounding": true
+            },
+            {
+                "name": "tокруг₁",
+                "unit": "℃",
+                "formula": "tср₁",
+                "description": "Округленная температура для первой параллели",
+                "rounding_type": "multiple",
+                "multiple_value": "1",
+                "rounding_decimal": 1,
+                "show_calculation": true,
+                "range_calculation": null,
+                "use_multiple_rounding": true
+            },
+            {
+                "name": "ρтабл₁",
+                "unit": "кг/м³",
+                "formula": "0",
+                "description": "Табличное значение плотности для первой параллели",
+                "rounding_type": "threshold_table",
+                "multiple_value": "",
+                "show_calculation": true,
+                "range_calculation": null,
+                "use_threshold_table": true,
+                "use_multiple_rounding": false,
+                "threshold_table_values": {
+                    "lower_variable": "ρтабл_при_tнаим₁",
+                    "higher_variable": "ρтабл_при_tнаиб₁",
+                    "target_variable": "tокруг₁"
+                }
+            },
+            {
+                "name": "α₁",
+                "unit": "у.е.",
+                "formula": "ρтабл_при_tнаиб₁-ρтабл_при_tнаим₁",
+                "description": "Температурная поправка к плотности для первой параллели",
+                "multiple_value": "",
+                "show_calculation": true,
+                "range_calculation": null,
+                "use_multiple_rounding": false
+            },
+            {
+                "name": "ρ_₁",
+                "unit": "кг/м³",
+                "formula": "ρтабл₁+(ρt₁-ρокруг₁)",
+                "description": "ρ'₁",
+                "multiple_value": "",
+                "show_calculation": true,
+                "range_calculation": null,
+                "use_multiple_rounding": false
+            },
+            {
+                "name": "ρ₁",
+                "unit": "кг/м³",
+                "formula": "ρ_₁+α₁*(tср₁-tокруг₁)",
+                "description": "Первый расчет плотности",
+                "multiple_value": "",
+                "show_calculation": true,
+                "range_calculation": null,
+                "use_multiple_rounding": false
+            },
+            {
+                "name": "tср₂",
+                "unit": "℃",
+                "formula": "(t₂₁+t₂₂)/2",
+                "description": "Средняя температура для второй параллели",
+                "multiple_value": "",
+                "show_calculation": true,
+                "range_calculation": null,
+                "use_multiple_rounding": false
+            },
+            {
+                "name": "K₂",
+                "unit": "у.е.",
+                "formula": "1-0.000025*(tср₂-20)",
+                "description": "K₂",
+                "multiple_value": "",
+                "show_calculation": true,
+                "range_calculation": null,
+                "use_multiple_rounding": false
+            },
+            {
+                "name": "ρt₂",
+                "unit": "кг/м³",
+                "formula": "ρtар₂*K₂",
+                "description": "Плотность с учетом поправки на расширение стекла ареометра для второй параллели",
+                "multiple_value": "",
+                "show_calculation": true,
+                "range_calculation": null,
+                "use_multiple_rounding": false
+            },
+            {
+                "name": "ρокруг₂",
+                "unit": "кг/м³",
+                "formula": "ρt₂",
+                "description": "Округленная плотность с учетом поправки на расширение стекла ареометра для второй параллели",
+                "rounding_type": "multiple",
+                "multiple_value": "10",
+                "rounding_decimal": 10,
+                "show_calculation": true,
+                "range_calculation": null,
+                "use_multiple_rounding": true
+            },
+            {
+                "name": "tокруг₂",
+                "unit": "℃",
+                "formula": "tср₂",
+                "description": "Округленная температура для второй параллели",
+                "rounding_type": "multiple",
+                "multiple_value": "1",
+                "rounding_decimal": 1,
+                "show_calculation": true,
+                "range_calculation": null,
+                "use_multiple_rounding": true
+            },
+            {
+                "name": "ρтабл₂",
+                "unit": "кг/м³",
+                "formula": "0",
+                "description": "Табличное значение плотности для второй параллели",
+                "rounding_type": "threshold_table",
+                "multiple_value": "",
+                "show_calculation": true,
+                "range_calculation": null,
+                "use_threshold_table": true,
+                "use_multiple_rounding": false,
+                "threshold_table_values": {
+                    "lower_variable": "ρтабл_при_tнаим₂",
+                    "higher_variable": "ρтабл_при_tнаиб₂",
+                    "target_variable": "tокруг₂"
+                }
+            },
+            {
+                "name": "α₂",
+                "unit": "у.е.",
+                "formula": "ρтабл_при_tнаиб₂-ρтабл_при_tнаим₂",
+                "description": "Температурная поправка к плотности для второй параллели",
+                "multiple_value": "",
+                "show_calculation": true,
+                "range_calculation": null,
+                "use_multiple_rounding": false
+            },
+            {
+                "name": "ρ_₂",
+                "unit": "кг/м³",
+                "formula": "ρтабл₂+(ρt₂-ρокруг₂)",
+                "description": "ρ'₂",
+                "multiple_value": "",
+                "show_calculation": true,
+                "range_calculation": null,
+                "use_multiple_rounding": false
+            },
+            {
+                "name": "ρ₂",
+                "unit": "кг/м³",
+                "formula": "ρ_₂+α₂*(tср₂-tокруг₂)",
+                "description": "Второй расчет плотности",
+                "multiple_value": "",
+                "show_calculation": true,
+                "range_calculation": null,
+                "use_multiple_rounding": false
+            },
+            {
+                "name": "ρср",
+                "unit": "кг/м³",
+                "formula": "(ρ₁+ρ₂)/2",
+                "description": "Среднее значение итоговой плотности",
+                "multiple_value": "",
+                "show_calculation": false,
+                "range_calculation": null,
+                "use_multiple_rounding": false
+            }
+        ]
+    },
+    "convergence_conditions": {
+        "formulas": [
+            {
+                "formula": "abs(ρ₁-ρ₂)<=0.5",
+                "convergence_value": "satisfactory"
+            },
+            {
+                "formula": "abs(ρ₁-ρ₂)>0.5",
+                "convergence_value": "unsatisfactory"
+            }
+        ]
+    },
+    "is_deleted": false,
+    "rounding_type": "decimal",
+    "rounding_decimal": 1,
+    "is_active": true,
+    "is_group_member": false,
+    "groups": [],
+    "group_name": "Плотность при температуре 20 °C"
+}

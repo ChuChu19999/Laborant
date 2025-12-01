@@ -1,0 +1,13 @@
+.bubble-wrapper {
+  padding: 8px 16px;
+  border-radius: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bubble-wrapper p {
+  margin: 0;
+  font-family: 'HeliosCondC';
+  font-size: 14px;
+}

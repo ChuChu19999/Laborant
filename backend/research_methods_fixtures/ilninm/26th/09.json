@@ -1,0 +1,143 @@
+{
+    "name": "Массовая доля асфальтенов",
+    "sample_type": ["oil", "condensate"],
+    "formula": "1*Xср",
+    "measurement_error": {
+        "type": "formula",
+        "value": "1*delta"
+    },
+    "unit": "%",
+    "measurement_method": "СТО 05751745-198-2014",
+    "nd_code": "СТО 05751745-198-2014",
+    "nd_name": "Конденсат газовый, нефть. Определение асфальтенов, смол, парафина. Методика измерения",
+    "input_data": {
+        "fields": [
+            {
+                "name": "M₁₀",
+                "unit": "г",
+                "card_index": 1,
+                "description": "Масса пустого бюкса для первой параллели"
+            },
+            {
+                "name": "M₁₁",
+                "unit": "г",
+                "card_index": 1,
+                "description": "Масса бюкса с асфальтенами для первой параллели"
+            },
+            {
+                "name": "M₁",
+                "unit": "г",
+                "card_index": 1,
+                "description": "Масса навески для первой параллели"
+            },
+            {
+                "name": "M₂₀",
+                "unit": "г",
+                "card_index": 2,
+                "description": "Масса пустого бюкса для второй параллели"
+            },
+            {
+                "name": "M₂₁",
+                "unit": "г",
+                "card_index": 2,
+                "description": "Масса бюкса с асфальтенами для второй параллели"
+            },
+            {
+                "name": "M₂",
+                "unit": "г",
+                "card_index": 2,
+                "description": "Масса навески для второй параллели"
+            }
+        ]
+    },
+    "intermediate_data": {
+        "fields": [
+            {
+                "name": "X₁",
+                "unit": "%",
+                "formula": "(M₁₁-M₁₀)/M₁*100",
+                "description": "Первый расчет массовой доли асфальтенов",
+                "show_calculation": true,
+                "range_calculation": null,
+                "use_multiple_rounding": false
+            },
+            {
+                "name": "X₂",
+                "unit": "%",
+                "formula": "(M₂₁-M₂₀)/M₂*100",
+                "description": "Второй расчет массовой доли асфальтенов",
+                "show_calculation": true,
+                "range_calculation": null,
+                "use_multiple_rounding": false
+            },
+            {
+                "name": "Xср",
+                "unit": "%",
+                "formula": "(X₁+X₂)/2",
+                "description": "Среднее значение массовой доли асфальтенов",
+                "show_calculation": false,
+                "range_calculation": null,
+                "use_multiple_rounding": false
+            },
+            {
+                "name": "delta",
+                "unit": "%",
+                "formula": "0",
+                "description": "Δ",
+                "show_calculation": true,
+                "range_calculation": {
+                    "ranges": [
+                        {
+                            "formula": "0.22*Xср",
+                            "condition": "(Xср>=0) and (Xср<=0.5)"
+                        },
+                        {
+                            "formula": "0.15*Xср",
+                            "condition": "(Xср>0.5) and (Xср<=1)"
+                        }
+                    ]
+                },
+                "use_multiple_rounding": false
+            },
+            {
+                "name": "r",
+                "unit": "%",
+                "formula": "0",
+                "description": "Повторяемость",
+                "show_calculation": true,
+                "range_calculation": {
+                    "ranges": [
+                        {
+                            "formula": "0.11*Xср",
+                            "condition": "(Xср>=0) and (Xср<=0.5)"
+                        },
+                        {
+                            "formula": "0.075*Xср",
+                            "condition": "(Xср>0.5) and (Xср<=1)"
+                        }
+                    ]
+                },
+                "use_multiple_rounding": false
+            }
+        ]
+    },
+    "convergence_conditions": {
+        "formulas": [
+            {
+                "formula": "abs(X₁-X₂)<=r",
+                "convergence_value": "satisfactory"
+            },
+            {
+                "formula": "abs(X₁-X₂)>r",
+                "convergence_value": "unsatisfactory"
+            }
+        ]
+    },
+    "is_deleted": false,
+    "rounding_type": "significant",
+    "rounding_decimal": 2,
+    "is_active": true,
+    "is_group_member": false,
+    "groups": [],
+    "group_name": ""
+}

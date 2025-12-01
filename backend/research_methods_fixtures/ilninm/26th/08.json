@@ -1,0 +1,90 @@
+{
+    "name": "При 50 ℃",
+    "sample_type": ["oil", "condensate", "diesel_fuel", "spent_oil_products", "corrosion_inhibitor"],
+    "formula": "νср",
+    "measurement_error": {
+        "type": "formula",
+        "value": "νср*0.51/100"
+    },
+    "unit": "мм²/с",
+    "measurement_method": "ГОСТ 33",
+    "nd_code": "ГОСТ 33-2016",
+    "nd_name": "Нефтепродукты. Прозрачные и непрозрачные жидкости. Определение кинематической и динамической вязкости",
+    "input_data": {
+        "fields": [
+            {
+                "name": "t₁",
+                "unit": "с",
+                "card_index": 1,
+                "description": "Время истечения нефтепродукта в вискозиметре для первой параллели"
+            },
+            {
+                "name": "C₁",
+                "unit": "мм/с²",
+                "card_index": 1,
+                "description": "Постоянная вискозиметра для первой параллели"
+            },
+            {
+                "name": "t₂",
+                "unit": "с",
+                "card_index": 2,
+                "description": "Время истечения нефтепродукта в вискозиметре для второй параллели"
+            },
+            {
+                "name": "C₂",
+                "unit": "мм/с²",
+                "card_index": 2,
+                "description": "Постоянная вискозиметра для второй параллели"
+            }
+        ]
+    },
+    "intermediate_data": {
+        "fields": [
+            {
+                "name": "ν₁",
+                "unit": "%",
+                "formula": "C₁*t₁*1.0017",
+                "description": "Первый расчет содержания компонента",
+                "show_calculation": true,
+                "range_calculation": null,
+                "use_multiple_rounding": false
+            },
+            {
+                "name": "ν₂",
+                "unit": "%",
+                "formula": "C₂*t₂*1.0017",
+                "description": "Второй расчет содержания компонента",
+                "show_calculation": true,
+                "range_calculation": null,
+                "use_multiple_rounding": false
+            },
+            {
+                "name": "νср",
+                "unit": "%",
+                "formula": "(ν₁+ν₂)/2",
+                "description": "Среднее значение содержания компонента",
+                "show_calculation": false,
+                "range_calculation": null,
+                "use_multiple_rounding": false
+            }
+        ]
+    },
+    "convergence_conditions": {
+        "formulas": [
+            {
+                "formula": "abs(ν₁-ν₂)<=νср*0.35/100",
+                "convergence_value": "satisfactory"
+            },
+            {
+                "formula": "abs(ν₁-ν₂)>νср*0.35/100",
+                "convergence_value": "unsatisfactory"
+            }
+        ]
+    },
+    "is_deleted": false,
+    "rounding_type": "significant",
+    "rounding_decimal": 4,
+    "is_active": true,
+    "is_group_member": false,
+    "group_name": "Вязкость кинематическая"
+}

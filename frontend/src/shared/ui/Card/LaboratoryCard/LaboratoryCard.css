@@ -1,0 +1,79 @@
+.laboratory-card {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  border: none;
+  padding: 20px;
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
+  background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
+  border-left: 6px solid #0079c2;
+  box-shadow: 0 4px 12px rgba(0, 121, 194, 0.15);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  min-height: 0px;
+}
+
+.laboratory-card:hover {
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.15);
+}
+
+.laboratory-card-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.laboratory-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.laboratory-icon {
+  font-size: 24px;
+  color: #0079c2;
+}
+
+.laboratory-card-content h3 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #004a77;
+  margin: 0;
+}
+
+.laboratory-card-content p {
+  color: #666;
+  margin: 8px 0;
+  font-size: 14px;
+}
+
+.laboratory-info {
+  margin: 4px 0;
+  font-size: 14px;
+  color: #555;
+}
+
+.laboratory-card-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0, 121, 194, 0.1);
+}
+
+.button-wrapper {
+  flex: 1;
+}
+
+.laboratory-card-actions .edit-btn,
+.laboratory-card-actions .delete-btn {
+  width: 100%;
+  font-size: 12px;
+  padding: 6px 12px;
+}

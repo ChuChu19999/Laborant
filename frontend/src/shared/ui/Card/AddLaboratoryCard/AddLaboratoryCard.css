@@ -1,0 +1,49 @@
+.add-laboratory-card {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  padding: 20px;
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
+  background: linear-gradient(135deg, #f0f0f0 0%, #ffffff 100%);
+  border: 2px dashed #0066cc;
+  box-shadow: 0 4px 12px rgba(0, 102, 204, 0.1);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  min-height: 0px;
+}
+
+.add-laboratory-card:hover {
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: 0 8px 18px rgba(0, 102, 204, 0.2);
+  background: linear-gradient(135deg, #e6f2ff 0%, #f0f8ff 100%);
+}
+
+.add-laboratory-card-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.add-laboratory-icon {
+  font-size: 48px;
+  color: #0066cc;
+  transition: transform 0.25s ease;
+}
+
+.add-laboratory-card:hover .add-laboratory-icon {
+  transform: scale(1.1);
+}
+
+.add-laboratory-card-content h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #0066cc;
+  margin: 0;
+  text-align: center;
+}
