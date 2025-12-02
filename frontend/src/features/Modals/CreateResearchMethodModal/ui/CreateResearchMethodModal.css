@@ -1,0 +1,62 @@
+.create-research-method-form {
+  padding: 20px 0;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.form-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.field-group {
+  padding: 12px;
+  border: 1px solid #e8e8e8;
+  border-radius: 4px;
+  background-color: #fafafa;
+  margin-bottom: 8px;
+}
+
+.formula-input-container {
+  position: relative;
+}
+
+.formula-input-container .formula-keyboard {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  margin-top: 8px;
+}
+
+.methods-checkbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid #e8e8e8;
+  border-radius: 4px;
+  background: #fafafa;
+}
+
+.empty-methods {
+  padding: 20px;
+  text-align: center;
+  color: #999;
+}

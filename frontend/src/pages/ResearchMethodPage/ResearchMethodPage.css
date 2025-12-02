@@ -1,0 +1,184 @@
+.input-field-container {
+  max-width: 100%;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
+}
+
+.input-field-container .ant-form-item-label {
+  display: flex;
+  align-items: center;
+  max-width: 100%;
+  margin-bottom: 2px;
+  font-size: 13px;
+}
+
+.input-field-container .ant-form-item-label > label {
+  white-space: normal;
+  text-align: left;
+  line-height: 1.2;
+  height: auto;
+  padding-bottom: 0;
+  font-size: 13px;
+}
+
+.calculation-form {
+  max-width: 600px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0 12px;
+  padding-left: 0;
+}
+
+.calculation-form .ant-form-item-label {
+  padding: 0;
+  max-width: 100%;
+}
+
+.calculation-form .ant-form-item-label label {
+  font-family: 'HeliosCondC';
+  color: #666;
+  font-size: 13px;
+  height: auto;
+  white-space: normal;
+  text-align: left;
+  line-height: 1.2;
+  padding-bottom: 2px;
+}
+
+.calculation-form .ant-input {
+  font-family: 'HeliosCondC';
+  border-radius: 4px;
+  height: 32px;
+  max-width: 100%;
+  font-size: 13px;
+}
+
+.calculation-form .ant-input:hover {
+  border-color: #1677ff !important;
+}
+
+.calculation-form .ant-input:focus {
+  border-color: #1677ff !important;
+  box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.2) !important;
+}
+
+.calculation-results {
+  background-color: #f5f5f5;
+  border-radius: 4px;
+  max-width: 100%;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
+  margin-top: 12px;
+}
+
+.calculation-results > div {
+  margin-bottom: 6px;
+  font-size: 13px;
+  max-width: 100%;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
+}
+
+.input-fields {
+  margin-bottom: 16px;
+  max-width: 100%;
+}
+
+/* Стили для DatePicker */
+.ant-picker {
+  font-family: 'HeliosCondC' !important;
+}
+
+.ant-picker input {
+  font-family: 'HeliosCondC' !important;
+}
+
+.ant-picker-dropdown {
+  font-family: 'HeliosCondC' !important;
+}
+
+.ant-picker-content th,
+.ant-picker-content td {
+  font-family: 'HeliosCondC' !important;
+}
+
+.ant-picker-header-view {
+  font-family: 'HeliosCondC' !important;
+}
+
+.ant-picker-today-btn {
+  font-family: 'HeliosCondC' !important;
+}
+
+.ant-picker-cell {
+  font-family: 'HeliosCondC' !important;
+}
+
+.ant-picker-time-panel-column > li {
+  font-family: 'HeliosCondC' !important;
+}
+
+/* Стили для состояния ошибки DatePicker */
+.ant-picker-status-error {
+  border-color: #ff4d4f !important;
+  background-color: #fff2f0 !important;
+}
+
+.ant-picker-status-error:hover {
+  border-color: #ff7875 !important;
+}
+
+.ant-picker-status-error:focus,
+.ant-picker-status-error-focused {
+  border-color: #ff7875 !important;
+  box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.2) !important;
+  outline: 0;
+}
+
+/* Стили для селектов в расчетах */
+.research-method-select,
+.research-method-select .ant-select,
+.research-method-select .ant-select-selector {
+  border-radius: 8px !important;
+  font-size: 13px !important;
+  font-family: 'HeliosCondC' !important;
+  border-color: #d9d9d9 !important;
+}
+
+.research-method-select .ant-select-selector {
+  border-radius: 8px !important;
+}
+
+.research-method-select .ant-select-selection-item {
+  color: #333333 !important;
+  font-family: 'HeliosCondC' !important;
+  font-size: 13px !important;
+}
+
+.research-method-select .ant-select-dropdown {
+  font-size: 13px !important;
+  font-family: 'HeliosCondC' !important;
+}
+
+.research-method-select .ant-select-dropdown * {
+  font-family: 'HeliosCondC' !important;
+  font-size: 13px !important;
+}
+
+.research-method-select .ant-select-item {
+  padding: 6px 12px !important;
+  color: #333333 !important;
+  font-family: 'HeliosCondC' !important;
+  font-size: 13px !important;
+}
+
+.research-method-select .ant-select-dropdown .ant-select-item-option-content {
+  color: #333333 !important;
+  font-family: 'HeliosCondC' !important;
+  font-size: 13px !important;
+}
