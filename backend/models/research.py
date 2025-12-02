@@ -24,6 +24,27 @@ class SampleType(PyEnum):
     CORROSION_INHIBITOR = "corrosion_inhibitor"
 
 
+research_method_groups_association = Table(
+    "research_method_groups_association",
+    Base.metadata,
+    Column(
+        "research_method_id",
+        Integer,
+        ForeignKey(f"{get_database_schema()}.research_methods.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "research_method_group_id",
+        Integer,
+        ForeignKey(
+            f"{get_database_schema()}.research_method_groups.id", ondelete="CASCADE"
+        ),
+        primary_key=True,
+    ),
+    schema=get_database_schema(),
+)
+
+
 class ResearchMethod(BaseModel):
     __tablename__ = "research_methods"
 
@@ -92,7 +113,7 @@ class ResearchMethod(BaseModel):
     department = relationship("Department", back_populates="research_methods")
     groups = relationship(
         "ResearchMethodGroup",
-        secondary="research_method_groups_association",
+        secondary=research_method_groups_association,
         back_populates="methods",
     )
     calculations = relationship("Calculation", back_populates="research_method")
@@ -132,7 +153,7 @@ class ResearchMethodGroup(BaseModel):
 
     methods = relationship(
         "ResearchMethod",
-        secondary="research_method_groups_association",
+        secondary=research_method_groups_association,
         back_populates="groups",
     )
 
@@ -146,24 +167,3 @@ class ResearchMethodGroup(BaseModel):
 
     def __repr__(self):
         return f"<ResearchMethodGroup(id={self.id}, name='{self.name}')>"
-
-
-research_method_groups_association = Table(
-    "research_method_groups_association",
-    Base.metadata,
-    Column(
-        "research_method_id",
-        Integer,
-        ForeignKey(f"{get_database_schema()}.research_methods.id", ondelete="CASCADE"),
-        primary_key=True,
-    ),
-    Column(
-        "research_method_group_id",
-        Integer,
-        ForeignKey(
-            f"{get_database_schema()}.research_method_groups.id", ondelete="CASCADE"
-        ),
-        primary_key=True,
-    ),
-    schema=get_database_schema(),
-)
