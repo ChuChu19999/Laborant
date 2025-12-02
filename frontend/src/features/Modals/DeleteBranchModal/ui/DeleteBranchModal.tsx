@@ -55,26 +55,34 @@ const DeleteBranchModal: React.FC<DeleteBranchModalProps> = ({
 
   return (
     <>
-      <div className="modal-overlay" onClick={handleClose} />
-      <div className="modal-wrapper-custom">
-        <Modal
-          header="Удаление филиала"
-          onClose={handleClose}
-          onCancel={handleClose}
-          onDelete={handleDelete}
-          deleteTitle="Удалить"
-          showEditButton={false}
-          editable={false}
-        >
-          <div className="delete-branch-confirmation">
-            <div className="confirmation-content">
-              <p className="confirmation-text">
-                Вы действительно хотите удалить филиал &quot;{branch.name}&quot;?
-              </p>
-            </div>
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          zIndex: 999,
+        }}
+      />
+      <Modal
+        header="Удаление филиала"
+        onClose={handleClose}
+        onCancel={handleClose}
+        onDelete={handleDelete}
+        deleteTitle="Удалить"
+        showEditButton={false}
+        editable={false}
+      >
+        <div className="delete-branch-confirmation">
+          <div className="confirmation-content">
+            <p className="confirmation-text">
+              Вы действительно хотите удалить филиал &quot;{branch.name}&quot;?
+            </p>
           </div>
-        </Modal>
-      </div>
+        </div>
+      </Modal>
     </>
   );
 };

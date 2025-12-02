@@ -1,5 +1,7 @@
 export { default as CreateLaboratoryModal } from './CreateLaboratoryModal';
+export { default as EditLaboratoryModal } from './EditLaboratoryModal';
 export { default as CreateDepartmentModal } from './CreateDepartmentModal';
+export { default as EditDepartmentModal } from './EditDepartmentModal';
 export { default as SaveCalculationModal } from './SaveCalculationModal';
 export { default as SaveSampleCalculationModal } from './SaveSampleCalculationModal';
 export { default as CreateResearchMethodModal } from './CreateResearchMethodModal';

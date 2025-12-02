@@ -1,53 +1,55 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { message, Input } from 'antd';
-import { laboratoryApi } from '../../../../shared/api/laboratory';
+import {
+  laboratoryApi,
+  type DepartmentUpdate,
+  type DepartmentResponse,
+} from '../../../../shared/api/laboratory';
 import Modal from '../../../../shared/ui/Modal/ui/Modal';
-import './CreateDepartmentModal.css';
+import './EditDepartmentModal.css';
 
-interface CreateDepartmentModalProps {
+interface EditDepartmentModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
-  laboratoryId: number;
+  department: DepartmentResponse | null;
 }
 
-const CreateDepartmentModal: React.FC<CreateDepartmentModalProps> = ({
+const EditDepartmentModal: React.FC<EditDepartmentModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
-  laboratoryId,
+  department,
 }) => {
   const [name, setName] = useState('');
   const [laboratoryLocation, setLaboratoryLocation] = useState('');
   const queryClient = useQueryClient();
 
-  const createMutation = useMutation({
-    mutationFn: (data: { name: string; laboratory_id: number; laboratory_location: string }) =>
-      laboratoryApi.createDepartment(data),
+  useEffect(() => {
+    if (department && isOpen) {
+      setName(department.name || '');
+      setLaboratoryLocation(department.laboratory_location || '');
+    }
+  }, [department, isOpen]);
+
+  const updateMutation = useMutation({
+    mutationFn: (data: DepartmentUpdate) =>
+      laboratoryApi.updateDepartment(department!.id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['departments'] });
-      queryClient.invalidateQueries({ queryKey: ['departments', laboratoryId] });
-      message.success('Подразделение успешно создано');
-      setName('');
-      setLaboratoryLocation('');
+      queryClient.invalidateQueries({ queryKey: ['departments', department?.laboratory_id] });
+      message.success('Подразделение успешно обновлено');
       onClose();
       if (onSuccess) {
         onSuccess();
       }
     },
     onError: (error: unknown) => {
-      console.error('Ошибка при создании подразделения:', error);
-      message.error('Не удалось создать подразделение');
+      console.error('Ошибка при обновлении подразделения:', error);
+      message.error('Не удалось обновить подразделение');
     },
   });
-
-  useEffect(() => {
-    if (isOpen) {
-      setName('');
-      setLaboratoryLocation('');
-    }
-  }, [isOpen]);
 
   const handleSave = useCallback(() => {
     if (!name.trim()) {
@@ -60,22 +62,28 @@ const CreateDepartmentModal: React.FC<CreateDepartmentModalProps> = ({
       return;
     }
 
-    createMutation.mutate({
+    if (!department) {
+      message.error('Подразделение не выбрано');
+      return;
+    }
+
+    const data: DepartmentUpdate = {
       name: name.trim(),
-      laboratory_id: laboratoryId,
       laboratory_location: laboratoryLocation.trim(),
-    });
-  }, [name, laboratoryLocation, laboratoryId, createMutation]);
+    };
+
+    updateMutation.mutate(data);
+  }, [name, laboratoryLocation, department, updateMutation]);
 
   const handleClose = useCallback(() => {
-    if (!createMutation.isPending) {
+    if (!updateMutation.isPending) {
       setName('');
       setLaboratoryLocation('');
       onClose();
     }
-  }, [createMutation.isPending, onClose]);
+  }, [updateMutation.isPending, onClose]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !department) return null;
 
   return (
     <>
@@ -91,16 +99,16 @@ const CreateDepartmentModal: React.FC<CreateDepartmentModalProps> = ({
         }}
       />
       <Modal
-        header="Добавить подразделение"
+        header="Редактирование подразделения"
         onClose={handleClose}
         onCancel={handleClose}
         onSave={handleSave}
-        saveButtonText="Создать"
+        saveButtonText="Сохранить"
         showEditButton={false}
         editable={false}
         style={{ width: '550px' }}
       >
-        <div className="create-department-form">
+        <div className="edit-department-form">
           <div className="form-group">
             <label>
               Название подразделения <span style={{ color: 'red' }}>*</span>
@@ -137,4 +145,6 @@ const CreateDepartmentModal: React.FC<CreateDepartmentModalProps> = ({
   );
 };
 
-export default CreateDepartmentModal;
+export default EditDepartmentModal;
+
+

@@ -80,49 +80,57 @@ const EditBranchModal: React.FC<EditBranchModalProps> = ({
 
   return (
     <>
-      <div className="modal-overlay" onClick={handleClose} />
-      <div className="modal-wrapper-custom">
-        <Modal
-          header="Редактирование филиала"
-          onClose={handleClose}
-          onCancel={handleClose}
-          onSave={handleSave}
-          saveButtonText="Сохранить"
-          showEditButton={false}
-          editable={false}
-        >
-          <div className="edit-branch-form">
-            <div className="form-group">
-              <label>
-                Название филиала <span style={{ color: 'red' }}>*</span>
-              </label>
-              <Input
-                value={name}
-                onChange={e => setName(e.target.value)}
-                placeholder="Введите название филиала"
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    handleSave();
-                  }
-                }}
-              />
-            </div>
-            <div className="form-group">
-              <label>Номер телефона</label>
-              <Input
-                value={phone}
-                onChange={e => setPhone(e.target.value)}
-                placeholder="Введите номер телефона (необязательно)"
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    handleSave();
-                  }
-                }}
-              />
-            </div>
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          zIndex: 999,
+        }}
+      />
+      <Modal
+        header="Редактирование филиала"
+        onClose={handleClose}
+        onCancel={handleClose}
+        onSave={handleSave}
+        saveButtonText="Сохранить"
+        showEditButton={false}
+        editable={false}
+      >
+        <div className="edit-branch-form">
+          <div className="form-group">
+            <label>
+              Название филиала <span style={{ color: 'red' }}>*</span>
+            </label>
+            <Input
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="Введите название филиала"
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  handleSave();
+                }
+              }}
+            />
           </div>
-        </Modal>
-      </div>
+          <div className="form-group">
+            <label>Номер телефона</label>
+            <Input
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+              placeholder="Введите номер телефона (необязательно)"
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  handleSave();
+                }
+              }}
+            />
+          </div>
+        </div>
+      </Modal>
     </>
   );
 };

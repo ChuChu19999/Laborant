@@ -5,7 +5,12 @@ import { Player } from '@lottiefiles/react-lottie-player';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import packageJson from '../../../package.json';
 import { LoadingCard } from '../../features/Cards';
-import { CreateLaboratoryModal, CreateDepartmentModal } from '../../features/Modals';
+import {
+  CreateLaboratoryModal,
+  EditLaboratoryModal,
+  CreateDepartmentModal,
+  EditDepartmentModal,
+} from '../../features/Modals';
 import {
   laboratoryApi,
   type LaboratoryResponse,
@@ -38,7 +43,11 @@ function MainPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('welcome');
   const [selectedLaboratory, setSelectedLaboratory] = useState<LaboratoryResponse | null>(null);
   const [isCreateLaboratoryModalOpen, setIsCreateLaboratoryModalOpen] = useState(false);
+  const [isEditLaboratoryModalOpen, setIsEditLaboratoryModalOpen] = useState(false);
+  const [laboratoryToEdit, setLaboratoryToEdit] = useState<LaboratoryResponse | null>(null);
   const [isCreateDepartmentModalOpen, setIsCreateDepartmentModalOpen] = useState(false);
+  const [isEditDepartmentModalOpen, setIsEditDepartmentModalOpen] = useState(false);
+  const [departmentToEdit, setDepartmentToEdit] = useState<DepartmentResponse | null>(null);
 
   // Запрос списка лабораторий
   const { data: laboratoriesData, isLoading: isLoadingLaboratories } = useQuery({
@@ -83,57 +92,90 @@ function MainPage() {
     setSelectedLaboratory(null);
   };
 
+  const handleEditLaboratory = (laboratory: LaboratoryResponse) => {
+    setLaboratoryToEdit(laboratory);
+    setIsEditLaboratoryModalOpen(true);
+  };
+
+  const handleEditDepartment = (department: DepartmentResponse) => {
+    setDepartmentToEdit(department);
+    setIsEditDepartmentModalOpen(true);
+  };
+
   if (viewMode === 'welcome') {
     return (
-      <div className="main-page-wrapper">
-        <Layout title="Главная">
-          <div
-            className={`main-page-container ${minimize ? 'sidebar-collapsed' : 'sidebar-expanded'}`}
-          >
-            <div className="welcome-content">
-              <div className="welcome-text-content">
-                <div className="welcome-bubbles">
-                  <Bubble text={`Версия ${packageJson.version}`} color="#619BEF" textColor="#fff" />
-                  {isAdmin && <Bubble text="Администратор" color="#1677ff" textColor="#fff" />}
-                </div>
-                <h1 className="welcome-title">Лаборант ФХИ</h1>
-                <p className="welcome-subtitle">
-                  Система управления физико-химическими испытаниями и лабораторной документацией
-                </p>
-                {isAdmin && (
-                  <div className="welcome-actions">
-                    <Button
-                      type="primary"
-                      onClick={handleShowLaboratories}
-                      buttonColor="#0066cc"
-                      wrapperStyle="admin-button"
-                    >
-                      Управление лабораториями
-                    </Button>
+      <>
+        <div className="main-page-wrapper">
+          <Layout title="Главная">
+            <div
+              className={`main-page-container ${minimize ? 'sidebar-collapsed' : 'sidebar-expanded'}`}
+            >
+              <div className="welcome-content">
+                <div className="welcome-text-content">
+                  <div className="welcome-bubbles">
+                    <Bubble
+                      text={`Версия ${packageJson.version}`}
+                      color="#619BEF"
+                      textColor="#fff"
+                    />
+                    {isAdmin && <Bubble text="Администратор" color="#1677ff" textColor="#fff" />}
                   </div>
-                )}
-              </div>
-              <div className="welcome-animation">
-                <div className="animation-wrapper">
-                  <Player
-                    autoplay
-                    loop
-                    src={ChemistryLabAnimation}
-                    className="lottie-player"
-                    rendererSettings={{
-                      preserveAspectRatio: 'xMidYMid meet',
-                      clearCanvas: true,
-                      progressiveLoad: false,
-                      hideOnTransparent: true,
-                      renderer: 'svg',
-                    }}
-                  />
+                  <h1 className="welcome-title">Лаборант ФХИ</h1>
+                  <p className="welcome-subtitle">
+                    Система управления физико-химическими испытаниями и лабораторной документацией
+                  </p>
+                  {isAdmin && (
+                    <div className="welcome-actions">
+                      <Button
+                        type="primary"
+                        onClick={handleShowLaboratories}
+                        buttonColor="#0066cc"
+                        wrapperStyle="admin-button"
+                      >
+                        Управление лабораториями
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                <div className="welcome-animation">
+                  <div className="animation-wrapper">
+                    <Player
+                      autoplay
+                      loop
+                      src={ChemistryLabAnimation}
+                      className="lottie-player"
+                      rendererSettings={{
+                        preserveAspectRatio: 'xMidYMid meet',
+                        clearCanvas: true,
+                        progressiveLoad: false,
+                        hideOnTransparent: true,
+                        renderer: 'svg',
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </Layout>
-      </div>
+          </Layout>
+        </div>
+        <CreateLaboratoryModal
+          isOpen={isCreateLaboratoryModalOpen}
+          onClose={() => setIsCreateLaboratoryModalOpen(false)}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['laboratories'] });
+          }}
+        />
+        {selectedLaboratory && (
+          <CreateDepartmentModal
+            isOpen={isCreateDepartmentModalOpen}
+            onClose={() => setIsCreateDepartmentModalOpen(false)}
+            onSuccess={() => {
+              queryClient.invalidateQueries({ queryKey: ['departments', selectedLaboratory.id] });
+            }}
+            laboratoryId={selectedLaboratory.id}
+          />
+        )}
+      </>
     );
   }
 
@@ -143,60 +185,149 @@ function MainPage() {
 
     if (isLoading) {
       return (
-        <div className="main-page-wrapper">
-          <Layout title="Управление лабораториями">
-            <div className="laboratories-container" style={{ position: 'relative' }}>
-              <LoadingCard loading={isLoading} />
-            </div>
-          </Layout>
-        </div>
+        <>
+          <div className="main-page-wrapper">
+            <Layout title="Управление лабораториями">
+              <div className="laboratories-container" style={{ position: 'relative' }}>
+                <LoadingCard loading={isLoading} />
+              </div>
+            </Layout>
+          </div>
+          <CreateLaboratoryModal
+            isOpen={isCreateLaboratoryModalOpen}
+            onClose={() => setIsCreateLaboratoryModalOpen(false)}
+            onSuccess={() => {
+              queryClient.invalidateQueries({ queryKey: ['laboratories'] });
+            }}
+          />
+          <EditLaboratoryModal
+            isOpen={isEditLaboratoryModalOpen}
+            onClose={() => {
+              setIsEditLaboratoryModalOpen(false);
+              setLaboratoryToEdit(null);
+            }}
+            onSuccess={() => {
+              queryClient.invalidateQueries({ queryKey: ['laboratories'] });
+            }}
+            laboratory={laboratoryToEdit}
+          />
+          {selectedLaboratory && (
+            <CreateDepartmentModal
+              isOpen={isCreateDepartmentModalOpen}
+              onClose={() => setIsCreateDepartmentModalOpen(false)}
+              onSuccess={() => {
+                queryClient.invalidateQueries({ queryKey: ['departments', selectedLaboratory.id] });
+              }}
+              laboratoryId={selectedLaboratory.id}
+            />
+          )}
+          <EditDepartmentModal
+            isOpen={isEditDepartmentModalOpen}
+            onClose={() => {
+              setIsEditDepartmentModalOpen(false);
+              setDepartmentToEdit(null);
+            }}
+            onSuccess={() => {
+              queryClient.invalidateQueries({ queryKey: ['departments'] });
+              if (selectedLaboratory) {
+                queryClient.invalidateQueries({ queryKey: ['departments', selectedLaboratory.id] });
+              }
+            }}
+            department={departmentToEdit}
+          />
+        </>
       );
     }
 
     return (
-      <div className="main-page-wrapper">
-        <Layout title="Управление лабораториями">
-          <div className="laboratories-container">
-            <NavigationBar
-              breadcrumbs={[
-                { label: 'Главная страница', onClick: handleHome },
-                { label: 'Управление лабораториями' },
-              ]}
-              onBack={handleHome}
-              onHomeClick={handleHome}
-              showBack={false}
-            />
+      <>
+        <div className="main-page-wrapper">
+          <Layout title="Управление лабораториями">
+            <div className="laboratories-container">
+              <NavigationBar
+                breadcrumbs={[
+                  { label: 'Главная страница', onClick: handleHome },
+                  { label: 'Управление лабораториями' },
+                ]}
+                onBack={handleHome}
+                onHomeClick={handleHome}
+                showBack={false}
+              />
 
-            <div className="laboratories-grid">
-              {Array.isArray(laboratories) &&
-                laboratories.map(laboratory => (
-                  <LaboratoryCard
-                    key={laboratory.id}
-                    laboratory={laboratory}
-                    onClick={handleLaboratoryClick}
-                    showActions={false}
-                  />
-                ))}
-              {Array.isArray(laboratories) && laboratories.length > 0 && (
-                <AddLaboratoryCard onClick={() => setIsCreateLaboratoryModalOpen(true)} />
-              )}
-              {(!Array.isArray(laboratories) || laboratories.length === 0) && (
-                <div className="no-laboratories">
-                  <p>Лаборатории не найдены</p>
-                  <Button
-                    type="primary"
-                    onClick={() => setIsCreateLaboratoryModalOpen(true)}
-                    buttonColor="#0066cc"
-                    icon={<PlusOutlined />}
-                  >
-                    Добавить первую лабораторию
-                  </Button>
-                </div>
-              )}
+              <div className="laboratories-grid">
+                {Array.isArray(laboratories) &&
+                  laboratories.map(laboratory => (
+                    <LaboratoryCard
+                      key={laboratory.id}
+                      laboratory={laboratory}
+                      onClick={handleLaboratoryClick}
+                      showActions={isAdmin}
+                      onEdit={handleEditLaboratory}
+                    />
+                  ))}
+                {Array.isArray(laboratories) && laboratories.length > 0 && (
+                  <AddLaboratoryCard onClick={() => setIsCreateLaboratoryModalOpen(true)} />
+                )}
+                {(!Array.isArray(laboratories) || laboratories.length === 0) && (
+                  <div className="no-laboratories">
+                    <p>Лаборатории не найдены</p>
+                    <Button
+                      type="primary"
+                      onClick={() => setIsCreateLaboratoryModalOpen(true)}
+                      buttonColor="#0066cc"
+                      icon={<PlusOutlined />}
+                    >
+                      Добавить первую лабораторию
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        </Layout>
-      </div>
+          </Layout>
+        </div>
+        <CreateLaboratoryModal
+          isOpen={isCreateLaboratoryModalOpen}
+          onClose={() => setIsCreateLaboratoryModalOpen(false)}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['laboratories'] });
+          }}
+        />
+        <EditLaboratoryModal
+          isOpen={isEditLaboratoryModalOpen}
+          onClose={() => {
+            setIsEditLaboratoryModalOpen(false);
+            setLaboratoryToEdit(null);
+          }}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['laboratories'] });
+          }}
+          laboratory={laboratoryToEdit}
+        />
+        {selectedLaboratory && (
+          <CreateDepartmentModal
+            isOpen={isCreateDepartmentModalOpen}
+            onClose={() => setIsCreateDepartmentModalOpen(false)}
+            onSuccess={() => {
+              queryClient.invalidateQueries({ queryKey: ['departments', selectedLaboratory.id] });
+            }}
+            laboratoryId={selectedLaboratory.id}
+          />
+        )}
+        <EditDepartmentModal
+          isOpen={isEditDepartmentModalOpen}
+          onClose={() => {
+            setIsEditDepartmentModalOpen(false);
+            setDepartmentToEdit(null);
+          }}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['departments'] });
+            if (selectedLaboratory) {
+              queryClient.invalidateQueries({ queryKey: ['departments', selectedLaboratory.id] });
+            }
+          }}
+          department={departmentToEdit}
+        />
+      </>
     );
   }
 
@@ -206,84 +337,153 @@ function MainPage() {
 
     if (isLoading) {
       return (
-        <div className="main-page-wrapper">
-          <Layout title={selectedLaboratory.name}>
-            <div style={{ position: 'relative' }}>
-              <LoadingCard loading={isLoading} />
-            </div>
-          </Layout>
-        </div>
+        <>
+          <div className="main-page-wrapper">
+            <Layout title={selectedLaboratory.name}>
+              <div style={{ position: 'relative' }}>
+                <LoadingCard loading={isLoading} />
+              </div>
+            </Layout>
+          </div>
+          <CreateLaboratoryModal
+            isOpen={isCreateLaboratoryModalOpen}
+            onClose={() => setIsCreateLaboratoryModalOpen(false)}
+            onSuccess={() => {
+              queryClient.invalidateQueries({ queryKey: ['laboratories'] });
+            }}
+          />
+          <EditLaboratoryModal
+            isOpen={isEditLaboratoryModalOpen}
+            onClose={() => {
+              setIsEditLaboratoryModalOpen(false);
+              setLaboratoryToEdit(null);
+            }}
+            onSuccess={() => {
+              queryClient.invalidateQueries({ queryKey: ['laboratories'] });
+            }}
+            laboratory={laboratoryToEdit}
+          />
+          {selectedLaboratory && (
+            <CreateDepartmentModal
+              isOpen={isCreateDepartmentModalOpen}
+              onClose={() => setIsCreateDepartmentModalOpen(false)}
+              onSuccess={() => {
+                queryClient.invalidateQueries({ queryKey: ['departments', selectedLaboratory.id] });
+              }}
+              laboratoryId={selectedLaboratory.id}
+            />
+          )}
+          <EditDepartmentModal
+            isOpen={isEditDepartmentModalOpen}
+            onClose={() => {
+              setIsEditDepartmentModalOpen(false);
+              setDepartmentToEdit(null);
+            }}
+            onSuccess={() => {
+              queryClient.invalidateQueries({ queryKey: ['departments'] });
+              if (selectedLaboratory) {
+                queryClient.invalidateQueries({ queryKey: ['departments', selectedLaboratory.id] });
+              }
+            }}
+            department={departmentToEdit}
+          />
+        </>
       );
     }
 
     return (
-      <div className="main-page-wrapper">
-        <Layout title={selectedLaboratory.name}>
-          <div className="departments-container">
-            <NavigationBar
-              breadcrumbs={[
-                { label: 'Главная страница', onClick: handleHome },
-                { label: 'Управление лабораториями', onClick: handleBack },
-                { label: selectedLaboratory.name },
-              ]}
-              onBack={handleBack}
-              onHomeClick={handleHome}
-            />
+      <>
+        <div className="main-page-wrapper">
+          <Layout title={selectedLaboratory.name}>
+            <div className="departments-container">
+              <NavigationBar
+                breadcrumbs={[
+                  { label: 'Главная страница', onClick: handleHome },
+                  { label: 'Управление лабораториями', onClick: handleBack },
+                  { label: selectedLaboratory.name },
+                ]}
+                onBack={handleBack}
+                onHomeClick={handleHome}
+              />
 
-            <div className="departments-grid">
-              {departments.map((department, index) => (
-                <DepartmentCard
-                  key={department.id}
-                  department={department}
-                  onClick={handleDepartmentClick}
-                  showActions={false}
-                  iconIndex={index}
-                />
-              ))}
-              {departments.length > 0 && (
-                <AddDepartmentCard onClick={() => setIsCreateDepartmentModalOpen(true)} />
-              )}
-              {departments.length === 0 && (
-                <div className="no-departments">
-                  <p>Подразделения не найдены</p>
-                  <Button
-                    type="primary"
-                    onClick={() => setIsCreateDepartmentModalOpen(true)}
-                    buttonColor="#0066cc"
-                    icon={<PlusOutlined />}
-                  >
-                    Добавить первое подразделение
-                  </Button>
-                </div>
-              )}
+              <div className="departments-grid">
+                {departments.map((department, index) => (
+                  <DepartmentCard
+                    key={department.id}
+                    department={department}
+                    onClick={handleDepartmentClick}
+                    showActions={isAdmin}
+                    onEdit={handleEditDepartment}
+                    iconIndex={index}
+                  />
+                ))}
+                {departments.length > 0 && (
+                  <AddDepartmentCard onClick={() => setIsCreateDepartmentModalOpen(true)} />
+                )}
+                {departments.length === 0 && (
+                  <div className="no-departments">
+                    <p>Подразделения не найдены</p>
+                    <Button
+                      type="primary"
+                      onClick={() => setIsCreateDepartmentModalOpen(true)}
+                      buttonColor="#0066cc"
+                      icon={<PlusOutlined />}
+                    >
+                      Добавить первое подразделение
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        </Layout>
-      </div>
+          </Layout>
+        </div>
+        <CreateLaboratoryModal
+          isOpen={isCreateLaboratoryModalOpen}
+          onClose={() => setIsCreateLaboratoryModalOpen(false)}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['laboratories'] });
+          }}
+        />
+        <EditLaboratoryModal
+          isOpen={isEditLaboratoryModalOpen}
+          onClose={() => {
+            setIsEditLaboratoryModalOpen(false);
+            setLaboratoryToEdit(null);
+          }}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['laboratories'] });
+          }}
+          laboratory={laboratoryToEdit}
+        />
+        {selectedLaboratory && (
+          <CreateDepartmentModal
+            isOpen={isCreateDepartmentModalOpen}
+            onClose={() => setIsCreateDepartmentModalOpen(false)}
+            onSuccess={() => {
+              queryClient.invalidateQueries({ queryKey: ['departments', selectedLaboratory.id] });
+            }}
+            laboratoryId={selectedLaboratory.id}
+          />
+        )}
+        <EditDepartmentModal
+          isOpen={isEditDepartmentModalOpen}
+          onClose={() => {
+            setIsEditDepartmentModalOpen(false);
+            setDepartmentToEdit(null);
+          }}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['departments'] });
+            if (selectedLaboratory) {
+              queryClient.invalidateQueries({ queryKey: ['departments', selectedLaboratory.id] });
+            }
+          }}
+          department={departmentToEdit}
+        />
+      </>
     );
   }
 
-  return (
-    <>
-      <CreateLaboratoryModal
-        isOpen={isCreateLaboratoryModalOpen}
-        onClose={() => setIsCreateLaboratoryModalOpen(false)}
-        onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ['laboratories'] });
-        }}
-      />
-      {selectedLaboratory && (
-        <CreateDepartmentModal
-          isOpen={isCreateDepartmentModalOpen}
-          onClose={() => setIsCreateDepartmentModalOpen(false)}
-          onSuccess={() => {
-            queryClient.invalidateQueries({ queryKey: ['departments', selectedLaboratory.id] });
-          }}
-          laboratoryId={selectedLaboratory.id}
-        />
-      )}
-    </>
-  );
+  return null;
 }
 
 export default MainPage;

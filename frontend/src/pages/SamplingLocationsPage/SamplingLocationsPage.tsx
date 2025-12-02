@@ -211,538 +211,758 @@ function SamplingLocationsPage() {
   // Обработка состояний загрузки и условный рендер
   if (isLoadingLaboratories) {
     return (
-      <Layout title="Места отбора проб">
-        <div style={{ position: 'relative' }}>
-          <LoadingCard loading={isLoadingLaboratories} />
-        </div>
-      </Layout>
+      <>
+        <Layout title="Места отбора проб">
+          <div style={{ position: 'relative' }}>
+            <LoadingCard loading={isLoadingLaboratories} />
+          </div>
+        </Layout>
+        <CreateBranchModal
+          isOpen={isCreateModalOpen}
+          onClose={() => setIsCreateModalOpen(false)}
+          onSuccess={handleCreateModalSuccess}
+          laboratory={selectedLaboratory}
+          department={selectedDepartment}
+        />
+        <EditBranchModal
+          isOpen={isEditModalOpen}
+          onClose={handleModalClose}
+          onSuccess={handleSuccess}
+          branch={branchToEdit}
+        />
+        <DeleteBranchModal
+          isOpen={isDeleteModalOpen}
+          onClose={handleModalClose}
+          onSuccess={handleSuccess}
+          branch={branchToEdit}
+        />
+        {selectedBranch && (
+          <>
+            <CreateSamplingLocationModal
+              isOpen={isCreateLocationModalOpen}
+              onClose={handleLocationModalClose}
+              onSuccess={handleCreateLocationModalSuccess}
+              branch={selectedBranch}
+            />
+            <EditSamplingLocationModal
+              isOpen={isEditLocationModalOpen}
+              onClose={handleLocationModalClose}
+              onSuccess={handleLocationSuccess}
+              location={selectedLocation}
+            />
+            <DeleteSamplingLocationModal
+              isOpen={isDeleteLocationModalOpen}
+              onClose={handleLocationModalClose}
+              onSuccess={handleLocationSuccess}
+              location={selectedLocation}
+            />
+          </>
+        )}
+      </>
     );
   }
 
   // Выбор лаборатории
   if (!selectedLaboratory) {
     return (
-      <Layout title="Места отбора проб">
-        <div className="laboratories-container">
-          <NavigationBar breadcrumbs={[{ label: 'Места отбора проб' }]} showBack={false} />
-          <div className="laboratories-grid">
-            {laboratories.map(laboratory => (
-              <LaboratoryCard
-                key={laboratory.id}
-                laboratory={laboratory}
-                onClick={handleLaboratoryClick}
-                showActions={false}
-              />
-            ))}
+      <>
+        <Layout title="Места отбора проб">
+          <div className="laboratories-container">
+            <NavigationBar breadcrumbs={[{ label: 'Места отбора проб' }]} showBack={false} />
+            <div className="laboratories-grid">
+              {laboratories.map(laboratory => (
+                <LaboratoryCard
+                  key={laboratory.id}
+                  laboratory={laboratory}
+                  onClick={handleLaboratoryClick}
+                  showActions={false}
+                />
+              ))}
+            </div>
           </div>
-        </div>
-      </Layout>
+        </Layout>
+        <CreateBranchModal
+          isOpen={isCreateModalOpen}
+          onClose={() => setIsCreateModalOpen(false)}
+          onSuccess={handleCreateModalSuccess}
+          laboratory={selectedLaboratory}
+          department={selectedDepartment}
+        />
+        <EditBranchModal
+          isOpen={isEditModalOpen}
+          onClose={handleModalClose}
+          onSuccess={handleSuccess}
+          branch={branchToEdit}
+        />
+        <DeleteBranchModal
+          isOpen={isDeleteModalOpen}
+          onClose={handleModalClose}
+          onSuccess={handleSuccess}
+          branch={branchToEdit}
+        />
+        {selectedBranch && (
+          <>
+            <CreateSamplingLocationModal
+              isOpen={isCreateLocationModalOpen}
+              onClose={handleLocationModalClose}
+              onSuccess={handleCreateLocationModalSuccess}
+              branch={selectedBranch}
+            />
+            <EditSamplingLocationModal
+              isOpen={isEditLocationModalOpen}
+              onClose={handleLocationModalClose}
+              onSuccess={handleLocationSuccess}
+              location={selectedLocation}
+            />
+            <DeleteSamplingLocationModal
+              isOpen={isDeleteLocationModalOpen}
+              onClose={handleLocationModalClose}
+              onSuccess={handleLocationSuccess}
+              location={selectedLocation}
+            />
+          </>
+        )}
+      </>
     );
   }
 
   // Загрузка подразделений
   if (isLoadingDepartments) {
     return (
-      <Layout title={selectedLaboratory.name}>
-        <div style={{ position: 'relative' }}>
-          <LoadingCard loading={isLoadingDepartments} />
-        </div>
-      </Layout>
+      <>
+        <Layout title={selectedLaboratory.name}>
+          <div style={{ position: 'relative' }}>
+            <LoadingCard loading={isLoadingDepartments} />
+          </div>
+        </Layout>
+        <CreateBranchModal
+          isOpen={isCreateModalOpen}
+          onClose={() => setIsCreateModalOpen(false)}
+          onSuccess={handleCreateModalSuccess}
+          laboratory={selectedLaboratory}
+          department={selectedDepartment}
+        />
+        <EditBranchModal
+          isOpen={isEditModalOpen}
+          onClose={handleModalClose}
+          onSuccess={handleSuccess}
+          branch={branchToEdit}
+        />
+        <DeleteBranchModal
+          isOpen={isDeleteModalOpen}
+          onClose={handleModalClose}
+          onSuccess={handleSuccess}
+          branch={branchToEdit}
+        />
+        {selectedBranch && (
+          <>
+            <CreateSamplingLocationModal
+              isOpen={isCreateLocationModalOpen}
+              onClose={handleLocationModalClose}
+              onSuccess={handleCreateLocationModalSuccess}
+              branch={selectedBranch}
+            />
+            <EditSamplingLocationModal
+              isOpen={isEditLocationModalOpen}
+              onClose={handleLocationModalClose}
+              onSuccess={handleLocationSuccess}
+              location={selectedLocation}
+            />
+            <DeleteSamplingLocationModal
+              isOpen={isDeleteLocationModalOpen}
+              onClose={handleLocationModalClose}
+              onSuccess={handleLocationSuccess}
+              location={selectedLocation}
+            />
+          </>
+        )}
+      </>
     );
   }
 
   // Выбор подразделения
   if (departments.length > 0 && !selectedDepartment) {
     return (
-      <Layout title={selectedLaboratory.name}>
-        <div className="departments-container">
-          <NavigationBar
-            breadcrumbs={[
-              { label: 'Места отбора проб', onClick: () => setSelectedLaboratory(null) },
-              { label: selectedLaboratory.name },
-            ]}
-            onBack={handleBack}
-            onHomeClick={() => setSelectedLaboratory(null)}
-          />
-          <div className="departments-grid">
-            {departments.map((department, index) => (
-              <DepartmentCard
-                key={department.id}
-                department={department}
-                onClick={handleDepartmentClick}
-                showActions={false}
-                iconIndex={index}
-              />
-            ))}
+      <>
+        <Layout title={selectedLaboratory.name}>
+          <div className="departments-container">
+            <NavigationBar
+              breadcrumbs={[
+                { label: 'Места отбора проб', onClick: () => setSelectedLaboratory(null) },
+                { label: selectedLaboratory.name },
+              ]}
+              onBack={handleBack}
+              onHomeClick={() => setSelectedLaboratory(null)}
+            />
+            <div className="departments-grid">
+              {departments.map((department, index) => (
+                <DepartmentCard
+                  key={department.id}
+                  department={department}
+                  onClick={handleDepartmentClick}
+                  showActions={false}
+                  iconIndex={index}
+                />
+              ))}
+            </div>
           </div>
-        </div>
-      </Layout>
+        </Layout>
+        <CreateBranchModal
+          isOpen={isCreateModalOpen}
+          onClose={() => setIsCreateModalOpen(false)}
+          onSuccess={handleCreateModalSuccess}
+          laboratory={selectedLaboratory}
+          department={selectedDepartment}
+        />
+        <EditBranchModal
+          isOpen={isEditModalOpen}
+          onClose={handleModalClose}
+          onSuccess={handleSuccess}
+          branch={branchToEdit}
+        />
+        <DeleteBranchModal
+          isOpen={isDeleteModalOpen}
+          onClose={handleModalClose}
+          onSuccess={handleSuccess}
+          branch={branchToEdit}
+        />
+        {selectedBranch && (
+          <>
+            <CreateSamplingLocationModal
+              isOpen={isCreateLocationModalOpen}
+              onClose={handleLocationModalClose}
+              onSuccess={handleCreateLocationModalSuccess}
+              branch={selectedBranch}
+            />
+            <EditSamplingLocationModal
+              isOpen={isEditLocationModalOpen}
+              onClose={handleLocationModalClose}
+              onSuccess={handleLocationSuccess}
+              location={selectedLocation}
+            />
+            <DeleteSamplingLocationModal
+              isOpen={isDeleteLocationModalOpen}
+              onClose={handleLocationModalClose}
+              onSuccess={handleLocationSuccess}
+              location={selectedLocation}
+            />
+          </>
+        )}
+      </>
     );
   }
 
   // Загрузка филиалов
   if (isLoadingBranches) {
     return (
-      <Layout title={selectedDepartment ? selectedDepartment.name : selectedLaboratory.name}>
-        <div style={{ position: 'relative' }}>
-          <LoadingCard loading={isLoadingBranches} />
-        </div>
-      </Layout>
+      <>
+        <Layout title={selectedDepartment ? selectedDepartment.name : selectedLaboratory.name}>
+          <div style={{ position: 'relative' }}>
+            <LoadingCard loading={isLoadingBranches} />
+          </div>
+        </Layout>
+        <CreateBranchModal
+          isOpen={isCreateModalOpen}
+          onClose={() => setIsCreateModalOpen(false)}
+          onSuccess={handleCreateModalSuccess}
+          laboratory={selectedLaboratory}
+          department={selectedDepartment}
+        />
+        <EditBranchModal
+          isOpen={isEditModalOpen}
+          onClose={handleModalClose}
+          onSuccess={handleSuccess}
+          branch={branchToEdit}
+        />
+        <DeleteBranchModal
+          isOpen={isDeleteModalOpen}
+          onClose={handleModalClose}
+          onSuccess={handleSuccess}
+          branch={branchToEdit}
+        />
+        {selectedBranch && (
+          <>
+            <CreateSamplingLocationModal
+              isOpen={isCreateLocationModalOpen}
+              onClose={handleLocationModalClose}
+              onSuccess={handleCreateLocationModalSuccess}
+              branch={selectedBranch}
+            />
+            <EditSamplingLocationModal
+              isOpen={isEditLocationModalOpen}
+              onClose={handleLocationModalClose}
+              onSuccess={handleLocationSuccess}
+              location={selectedLocation}
+            />
+            <DeleteSamplingLocationModal
+              isOpen={isDeleteLocationModalOpen}
+              onClose={handleLocationModalClose}
+              onSuccess={handleLocationSuccess}
+              location={selectedLocation}
+            />
+          </>
+        )}
+      </>
     );
   }
 
   // Отображение филиалов и точек отбора проб в разделенном виде
   return (
-    <Layout title={selectedDepartment ? selectedDepartment.name : selectedLaboratory.name}>
-      <NavigationBar
-        breadcrumbs={[
-          {
-            label: 'Места отбора проб',
-            onClick: () => {
-              setSelectedLaboratory(null);
-              setSelectedDepartment(null);
-              setSelectedBranch(null);
+    <>
+      <Layout title={selectedDepartment ? selectedDepartment.name : selectedLaboratory.name}>
+        <NavigationBar
+          breadcrumbs={[
+            {
+              label: 'Места отбора проб',
+              onClick: () => {
+                setSelectedLaboratory(null);
+                setSelectedDepartment(null);
+                setSelectedBranch(null);
+              },
             },
-          },
-          {
-            label: selectedLaboratory.name,
-            onClick: () => {
-              setSelectedDepartment(null);
-              setSelectedBranch(null);
+            {
+              label: selectedLaboratory.name,
+              onClick: () => {
+                setSelectedDepartment(null);
+                setSelectedBranch(null);
+              },
             },
-          },
-          ...(selectedDepartment
-            ? [{ label: selectedDepartment.name, onClick: () => setSelectedDepartment(null) }]
-            : []),
-        ]}
-        onBack={handleBack}
-        onHomeClick={() => {
-          setSelectedLaboratory(null);
-          setSelectedDepartment(null);
-          setSelectedBranch(null);
-        }}
-      />
-      <div style={{ display: 'flex', height: 'calc(100vh - 180px)', fontFamily: 'HeliosCondC' }}>
-        {/* Левая панель с филиалами */}
-        <div
-          style={{
-            width: '250px',
-            borderRight: '1px solid rgba(44, 82, 130, 0.1)',
-            overflowY: 'auto',
-            padding: '12px',
-            paddingBottom: '0px',
-            background: 'linear-gradient(180deg, #f8faff 0%, #f0f5ff 100%)',
-            height: 'calc(100% + 16px)',
-            position: 'sticky',
-            top: 0,
-            borderBottomLeftRadius: '20px',
-            fontFamily: 'HeliosCondC',
-            boxShadow: 'inset -1px 0 2px rgba(44, 82, 130, 0.05)',
+            ...(selectedDepartment
+              ? [{ label: selectedDepartment.name, onClick: () => setSelectedDepartment(null) }]
+              : []),
+          ]}
+          onBack={handleBack}
+          onHomeClick={() => {
+            setSelectedLaboratory(null);
+            setSelectedDepartment(null);
+            setSelectedBranch(null);
           }}
-        >
+        />
+        <div style={{ display: 'flex', height: 'calc(100vh - 180px)', fontFamily: 'HeliosCondC' }}>
+          {/* Левая панель с филиалами */}
           <div
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: '0px',
+              width: '250px',
+              borderRight: '1px solid rgba(44, 82, 130, 0.1)',
+              overflowY: 'auto',
+              padding: '12px',
+              paddingBottom: '0px',
+              background: 'linear-gradient(180deg, #f8faff 0%, #f0f5ff 100%)',
+              height: 'calc(100% + 16px)',
               position: 'sticky',
               top: 0,
-              background: 'linear-gradient(180deg, #f8faff 0%, #f0f5ff 100%)',
-              zIndex: 1,
-              paddingTop: '1px',
-              paddingBottom: '12px',
-              borderBottom: '1px solid rgba(44, 82, 130, 0.1)',
+              borderBottomLeftRadius: '20px',
+              fontFamily: 'HeliosCondC',
+              boxShadow: 'inset -1px 0 2px rgba(44, 82, 130, 0.05)',
             }}
           >
-            <h3
-              style={{
-                fontSize: '16px',
-                color: '#2c5282',
-                margin: 0,
-                display: 'flex',
-                alignItems: 'center',
-                lineHeight: 1,
-                fontWeight: 600,
-                fontFamily: 'HeliosCondC',
-                flex: 1,
-              }}
-            >
-              Филиалы
-            </h3>
-            <button
-              aria-label="добавить филиал"
-              onClick={() => setIsCreateModalOpen(true)}
-              style={{
-                backgroundColor: 'rgba(44, 82, 130, 0.1)',
-                border: 'none',
-                borderRadius: '4px',
-                padding: '4px 8px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.backgroundColor = 'rgba(44, 82, 130, 0.2)';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.backgroundColor = 'rgba(44, 82, 130, 0.1)';
-              }}
-            >
-              <PlusOutlined style={{ fontSize: '16px' }} />
-            </button>
-          </div>
-          {branches.length === 0 ? (
-            <div
-              style={{
-                padding: '20px',
-                textAlign: 'center',
-                color: '#718096',
-                fontSize: '14px',
-                fontFamily: 'HeliosCondC',
-              }}
-            >
-              Нет филиалов
-            </div>
-          ) : (
             <div
               style={{
                 display: 'flex',
-                flexDirection: 'column',
-                gap: '5px',
-                height: 'calc(100% - 60px)',
-                overflowY: 'auto',
-                paddingRight: '4px',
-                paddingTop: '6px',
-              }}
-            >
-              {branches.map(branch => (
-                <div
-                  key={branch.id}
-                  onClick={() => handleBranchSelect(branch)}
-                  style={{
-                    padding: '8px 12px',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    backgroundColor: selectedBranch?.id === branch.id ? '#e2e8f0' : 'transparent',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    transition: 'all 0.2s ease-in-out',
-                    boxShadow:
-                      selectedBranch?.id === branch.id ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
-                    border:
-                      selectedBranch?.id === branch.id
-                        ? '1px solid #cbd5e0'
-                        : '1px solid transparent',
-                    fontFamily: 'HeliosCondC',
-                  }}
-                  onMouseEnter={e => {
-                    if (selectedBranch?.id !== branch.id) {
-                      e.currentTarget.style.backgroundColor = '#edf2f7';
-                      e.currentTarget.style.transform = 'translateY(-1px)';
-                      e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                      e.currentTarget.style.border = '1px solid #e2e8f0';
-                    }
-                  }}
-                  onMouseLeave={e => {
-                    if (selectedBranch?.id !== branch.id) {
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                      e.currentTarget.style.transform = 'none';
-                      e.currentTarget.style.boxShadow = 'none';
-                      e.currentTarget.style.border = '1px solid transparent';
-                    }
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
-                    <BankOutlined style={{ fontSize: '16px', color: '#2c5282' }} />
-                    <span style={{ fontSize: '14px', fontFamily: 'HeliosCondC', color: '#2c5282' }}>
-                      {branch.name}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', gap: '4px' }}>
-                    <button
-                      onClick={e => {
-                        e.stopPropagation();
-                        handleEdit(branch, e);
-                      }}
-                      style={{
-                        padding: '2px 6px',
-                        border: 'none',
-                        background: 'transparent',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <EditOutlined style={{ fontSize: '14px' }} />
-                    </button>
-                    <button
-                      onClick={e => {
-                        e.stopPropagation();
-                        handleDeleteClick(branch, e);
-                      }}
-                      style={{
-                        padding: '2px 6px',
-                        border: 'none',
-                        background: 'transparent',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <DeleteOutlined style={{ fontSize: '14px', color: '#ff4d4f' }} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Правая панель с точками отбора проб */}
-        <div
-          style={{
-            flex: 1,
-            padding: '16px',
-            overflowY: !selectedBranch ? 'hidden' : 'auto',
-            position: 'relative',
-            width: '100%',
-            maxWidth: '100%',
-            height: 'calc(100% - 10px)',
-            display: !selectedBranch ? 'flex' : 'block',
-            alignItems: !selectedBranch ? 'center' : 'stretch',
-            justifyContent: !selectedBranch ? 'center' : 'flex-start',
-          }}
-        >
-          {!selectedBranch ? (
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
                 alignItems: 'center',
-                justifyContent: 'center',
-                color: '#4a5568',
-                textAlign: 'center',
-                padding: '20px',
+                justifyContent: 'space-between',
+                marginBottom: '0px',
+                position: 'sticky',
+                top: 0,
+                background: 'linear-gradient(180deg, #f8faff 0%, #f0f5ff 100%)',
+                zIndex: 1,
+                paddingTop: '1px',
+                paddingBottom: '12px',
+                borderBottom: '1px solid rgba(44, 82, 130, 0.1)',
               }}
             >
               <h3
                 style={{
-                  marginBottom: '16px',
-                  color: '#2d3748',
+                  fontSize: '16px',
+                  color: '#2c5282',
+                  margin: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  lineHeight: 1,
+                  fontWeight: 600,
                   fontFamily: 'HeliosCondC',
-                  fontSize: '18px',
+                  flex: 1,
                 }}
               >
-                Выберите филиал
+                Филиалы
               </h3>
-              <p
+              <button
+                aria-label="добавить филиал"
+                onClick={() => setIsCreateModalOpen(true)}
                 style={{
-                  marginBottom: '24px',
-                  color: '#718096',
-                  fontFamily: 'HeliosCondC',
-                  fontSize: '14px',
+                  backgroundColor: 'rgba(44, 82, 130, 0.1)',
+                  border: 'none',
+                  borderRadius: '4px',
+                  padding: '4px 8px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.backgroundColor = 'rgba(44, 82, 130, 0.2)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.backgroundColor = 'rgba(44, 82, 130, 0.1)';
                 }}
               >
-                Выберите филиал из списка слева для просмотра точек отбора проб
-              </p>
+                <PlusOutlined style={{ fontSize: '16px' }} />
+              </button>
             </div>
-          ) : (
-            <>
+            {branches.length === 0 ? (
+              <div
+                style={{
+                  padding: '20px',
+                  textAlign: 'center',
+                  color: '#718096',
+                  fontSize: '14px',
+                  fontFamily: 'HeliosCondC',
+                }}
+              >
+                Нет филиалов
+              </div>
+            ) : (
               <div
                 style={{
                   display: 'flex',
-                  justifyContent: 'space-between',
+                  flexDirection: 'column',
+                  gap: '5px',
+                  height: 'calc(100% - 60px)',
+                  overflowY: 'auto',
+                  paddingRight: '4px',
+                  paddingTop: '6px',
+                }}
+              >
+                {branches.map(branch => (
+                  <div
+                    key={branch.id}
+                    onClick={() => handleBranchSelect(branch)}
+                    style={{
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      backgroundColor: selectedBranch?.id === branch.id ? '#e2e8f0' : 'transparent',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      transition: 'all 0.2s ease-in-out',
+                      boxShadow:
+                        selectedBranch?.id === branch.id ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
+                      border:
+                        selectedBranch?.id === branch.id
+                          ? '1px solid #cbd5e0'
+                          : '1px solid transparent',
+                      fontFamily: 'HeliosCondC',
+                    }}
+                    onMouseEnter={e => {
+                      if (selectedBranch?.id !== branch.id) {
+                        e.currentTarget.style.backgroundColor = '#edf2f7';
+                        e.currentTarget.style.transform = 'translateY(-1px)';
+                        e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                        e.currentTarget.style.border = '1px solid #e2e8f0';
+                      }
+                    }}
+                    onMouseLeave={e => {
+                      if (selectedBranch?.id !== branch.id) {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                        e.currentTarget.style.transform = 'none';
+                        e.currentTarget.style.boxShadow = 'none';
+                        e.currentTarget.style.border = '1px solid transparent';
+                      }
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+                      <BankOutlined style={{ fontSize: '16px', color: '#2c5282' }} />
+                      <span
+                        style={{ fontSize: '14px', fontFamily: 'HeliosCondC', color: '#2c5282' }}
+                      >
+                        {branch.name}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <button
+                        onClick={e => {
+                          e.stopPropagation();
+                          handleEdit(branch, e);
+                        }}
+                        style={{
+                          padding: '2px 6px',
+                          border: 'none',
+                          background: 'transparent',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <EditOutlined style={{ fontSize: '14px' }} />
+                      </button>
+                      <button
+                        onClick={e => {
+                          e.stopPropagation();
+                          handleDeleteClick(branch, e);
+                        }}
+                        style={{
+                          padding: '2px 6px',
+                          border: 'none',
+                          background: 'transparent',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <DeleteOutlined style={{ fontSize: '14px', color: '#ff4d4f' }} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Правая панель с точками отбора проб */}
+          <div
+            style={{
+              flex: 1,
+              padding: '16px',
+              overflowY: !selectedBranch ? 'hidden' : 'auto',
+              position: 'relative',
+              width: '100%',
+              maxWidth: '100%',
+              height: 'calc(100% - 10px)',
+              display: !selectedBranch ? 'flex' : 'block',
+              alignItems: !selectedBranch ? 'center' : 'stretch',
+              justifyContent: !selectedBranch ? 'center' : 'flex-start',
+            }}
+          >
+            {!selectedBranch ? (
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
                   alignItems: 'center',
-                  marginBottom: '16px',
-                  gap: '16px',
+                  justifyContent: 'center',
+                  color: '#4a5568',
+                  textAlign: 'center',
+                  padding: '20px',
                 }}
               >
                 <h3
                   style={{
-                    color: '#2c5282',
-                    fontSize: '20px',
-                    fontWeight: 600,
+                    marginBottom: '16px',
+                    color: '#2d3748',
                     fontFamily: 'HeliosCondC',
-                    flex: 1,
+                    fontSize: '18px',
                   }}
                 >
-                  Точки отбора проб: {selectedBranch.name}
+                  Выберите филиал
                 </h3>
-                <Tooltip title="Добавить место отбора пробы">
-                  <button
-                    aria-label="добавить место отбора пробы"
-                    onClick={() => setIsCreateLocationModalOpen(true)}
-                    style={{
-                      backgroundColor: 'rgba(0, 102, 204, 0.1)',
-                      border: 'none',
-                      borderRadius: '4px',
-                      padding: '4px 8px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                    onMouseEnter={e => {
-                      e.currentTarget.style.backgroundColor = 'rgba(0, 102, 204, 0.2)';
-                    }}
-                    onMouseLeave={e => {
-                      e.currentTarget.style.backgroundColor = 'rgba(0, 102, 204, 0.1)';
-                    }}
-                  >
-                    <PlusOutlined style={{ fontSize: '16px', color: '#0066cc' }} />
-                  </button>
-                </Tooltip>
+                <p
+                  style={{
+                    marginBottom: '24px',
+                    color: '#718096',
+                    fontFamily: 'HeliosCondC',
+                    fontSize: '14px',
+                  }}
+                >
+                  Выберите филиал из списка слева для просмотра точек отбора проб
+                </p>
               </div>
-
-              {isLoadingSamplingLocations ? (
-                <LoadingCard loading={isLoadingSamplingLocations} />
-              ) : samplingLocations.length === 0 ? (
+            ) : (
+              <>
                 <div
                   style={{
                     display: 'flex',
-                    flexDirection: 'column',
+                    justifyContent: 'space-between',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    height: 'calc(100% - 100px)',
-                    color: '#4a5568',
-                    textAlign: 'center',
-                    padding: '20px',
+                    marginBottom: '16px',
+                    gap: '16px',
                   }}
                 >
                   <h3
                     style={{
-                      marginBottom: '16px',
-                      color: '#2d3748',
+                      color: '#2c5282',
+                      fontSize: '20px',
+                      fontWeight: 600,
                       fontFamily: 'HeliosCondC',
-                      fontSize: '18px',
+                      flex: 1,
                     }}
                   >
-                    Нет точек отбора проб
+                    Точки отбора проб: {selectedBranch.name}
                   </h3>
-                  <p
-                    style={{
-                      marginBottom: '24px',
-                      color: '#718096',
-                      fontFamily: 'HeliosCondC',
-                      fontSize: '14px',
-                    }}
-                  >
-                    Добавьте первую точку отбора пробы, нажав на кнопку &quot;Добавить место отбора
-                    пробы&quot;
-                  </p>
-                </div>
-              ) : (
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '8px',
-                  }}
-                >
-                  {samplingLocations.map(location => (
-                    <div
-                      key={location.id}
+                  <Tooltip title="Добавить место отбора пробы">
+                    <button
+                      aria-label="добавить место отбора пробы"
+                      onClick={() => setIsCreateLocationModalOpen(true)}
                       style={{
-                        padding: '16px',
-                        borderRadius: '8px',
-                        backgroundColor: '#f8faff',
-                        border: '1px solid rgba(44, 82, 130, 0.1)',
+                        backgroundColor: 'rgba(0, 102, 204, 0.1)',
+                        border: 'none',
+                        borderRadius: '4px',
+                        padding: '4px 8px',
+                        cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'space-between',
-                        transition: 'all 0.2s ease-in-out',
-                        fontFamily: 'HeliosCondC',
+                        justifyContent: 'center',
                       }}
                       onMouseEnter={e => {
-                        e.currentTarget.style.backgroundColor = '#f0f5ff';
-                        e.currentTarget.style.boxShadow = '0 2px 8px rgba(44, 82, 130, 0.1)';
+                        e.currentTarget.style.backgroundColor = 'rgba(0, 102, 204, 0.2)';
                       }}
                       onMouseLeave={e => {
-                        e.currentTarget.style.backgroundColor = '#f8faff';
-                        e.currentTarget.style.boxShadow = 'none';
+                        e.currentTarget.style.backgroundColor = 'rgba(0, 102, 204, 0.1)';
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-                        <ExperimentOutlined style={{ fontSize: '20px', color: '#2c5282' }} />
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          <span
-                            style={{
-                              fontSize: '16px',
-                              fontWeight: 600,
-                              color: '#2c5282',
-                              fontFamily: 'HeliosCondC',
-                            }}
-                          >
-                            {location.name}
-                          </span>
+                      <PlusOutlined style={{ fontSize: '16px', color: '#0066cc' }} />
+                    </button>
+                  </Tooltip>
+                </div>
+
+                {isLoadingSamplingLocations ? (
+                  <LoadingCard loading={isLoadingSamplingLocations} />
+                ) : samplingLocations.length === 0 ? (
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      height: 'calc(100% - 100px)',
+                      color: '#4a5568',
+                      textAlign: 'center',
+                      padding: '20px',
+                    }}
+                  >
+                    <h3
+                      style={{
+                        marginBottom: '16px',
+                        color: '#2d3748',
+                        fontFamily: 'HeliosCondC',
+                        fontSize: '18px',
+                      }}
+                    >
+                      Нет точек отбора проб
+                    </h3>
+                    <p
+                      style={{
+                        marginBottom: '24px',
+                        color: '#718096',
+                        fontFamily: 'HeliosCondC',
+                        fontSize: '14px',
+                      }}
+                    >
+                      Добавьте первую точку отбора пробы, нажав на кнопку &quot;Добавить место
+                      отбора пробы&quot;
+                    </p>
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px',
+                    }}
+                  >
+                    {samplingLocations.map(location => (
+                      <div
+                        key={location.id}
+                        style={{
+                          padding: '16px',
+                          borderRadius: '8px',
+                          backgroundColor: '#f8faff',
+                          border: '1px solid rgba(44, 82, 130, 0.1)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          transition: 'all 0.2s ease-in-out',
+                          fontFamily: 'HeliosCondC',
+                        }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.backgroundColor = '#f0f5ff';
+                          e.currentTarget.style.boxShadow = '0 2px 8px rgba(44, 82, 130, 0.1)';
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.backgroundColor = '#f8faff';
+                          e.currentTarget.style.boxShadow = 'none';
+                        }}
+                      >
+                        <div
+                          style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}
+                        >
+                          <ExperimentOutlined style={{ fontSize: '20px', color: '#2c5282' }} />
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <span
+                              style={{
+                                fontSize: '16px',
+                                fontWeight: 600,
+                                color: '#2c5282',
+                                fontFamily: 'HeliosCondC',
+                              }}
+                            >
+                              {location.name}
+                            </span>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <Tooltip title="Редактировать">
+                            <button
+                              onClick={e => {
+                                e.stopPropagation();
+                                handleLocationEdit(location, e);
+                              }}
+                              style={{
+                                padding: '4px 8px',
+                                border: 'none',
+                                background: 'transparent',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                              }}
+                              onMouseEnter={e => {
+                                e.currentTarget.style.backgroundColor = 'rgba(44, 82, 130, 0.1)';
+                              }}
+                              onMouseLeave={e => {
+                                e.currentTarget.style.backgroundColor = 'transparent';
+                              }}
+                            >
+                              <EditOutlined style={{ fontSize: '16px', color: '#2c5282' }} />
+                            </button>
+                          </Tooltip>
+                          <Tooltip title="Удалить">
+                            <button
+                              onClick={e => {
+                                e.stopPropagation();
+                                handleLocationDeleteClick(location, e);
+                              }}
+                              style={{
+                                padding: '4px 8px',
+                                border: 'none',
+                                background: 'transparent',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                              }}
+                              onMouseEnter={e => {
+                                e.currentTarget.style.backgroundColor = 'rgba(255, 77, 79, 0.1)';
+                              }}
+                              onMouseLeave={e => {
+                                e.currentTarget.style.backgroundColor = 'transparent';
+                              }}
+                            >
+                              <DeleteOutlined style={{ fontSize: '16px', color: '#ff4d4f' }} />
+                            </button>
+                          </Tooltip>
                         </div>
                       </div>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <Tooltip title="Редактировать">
-                          <button
-                            onClick={e => {
-                              e.stopPropagation();
-                              handleLocationEdit(location, e);
-                            }}
-                            style={{
-                              padding: '4px 8px',
-                              border: 'none',
-                              background: 'transparent',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                            }}
-                            onMouseEnter={e => {
-                              e.currentTarget.style.backgroundColor = 'rgba(44, 82, 130, 0.1)';
-                            }}
-                            onMouseLeave={e => {
-                              e.currentTarget.style.backgroundColor = 'transparent';
-                            }}
-                          >
-                            <EditOutlined style={{ fontSize: '16px', color: '#2c5282' }} />
-                          </button>
-                        </Tooltip>
-                        <Tooltip title="Удалить">
-                          <button
-                            onClick={e => {
-                              e.stopPropagation();
-                              handleLocationDeleteClick(location, e);
-                            }}
-                            style={{
-                              padding: '4px 8px',
-                              border: 'none',
-                              background: 'transparent',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                            }}
-                            onMouseEnter={e => {
-                              e.currentTarget.style.backgroundColor = 'rgba(255, 77, 79, 0.1)';
-                            }}
-                            onMouseLeave={e => {
-                              e.currentTarget.style.backgroundColor = 'transparent';
-                            }}
-                          >
-                            <DeleteOutlined style={{ fontSize: '16px', color: '#ff4d4f' }} />
-                          </button>
-                        </Tooltip>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
-      </div>
-
+      </Layout>
       <CreateBranchModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
@@ -789,7 +1009,7 @@ function SamplingLocationsPage() {
           />
         </>
       )}
-    </Layout>
+    </>
   );
 }
 

@@ -149,45 +149,53 @@ const SaveSampleCalculationModal: React.FC<SaveSampleCalculationModalProps> = ({
 
   return (
     <>
-      <div className="modal-overlay" onClick={handleModalClose} />
-      <div className="modal-wrapper-custom">
-        <Modal
-          header="Подтверждение сохранения"
-          onClose={handleModalClose}
-          onCancel={handleModalClose}
-          onSave={handleSave}
-          saveButtonText="Сохранить"
-          showEditButton={false}
-          editable={false}
-        >
-          <div className="save-sample-calculation-form">
-            <Form layout="vertical">
-              <Form.Item
-                label="Исполнитель"
-                required
-                validateStatus={executorError ? 'error' : ''}
-                help={executorError}
-              >
-                <UserPicker
-                  value={selectedExecutor}
-                  onChange={employee => {
-                    setSelectedExecutor(employee);
-                    setExecutorError('');
-                  }}
-                  placeholder="Введите ФИО исполнителя"
-                  error={executorError}
-                />
-              </Form.Item>
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          zIndex: 999,
+        }}
+      />
+      <Modal
+        header="Подтверждение сохранения"
+        onClose={handleModalClose}
+        onCancel={handleModalClose}
+        onSave={handleSave}
+        saveButtonText="Сохранить"
+        showEditButton={false}
+        editable={false}
+      >
+        <div className="save-sample-calculation-form">
+          <Form layout="vertical">
+            <Form.Item
+              label="Исполнитель"
+              required
+              validateStatus={executorError ? 'error' : ''}
+              help={executorError}
+            >
+              <UserPicker
+                value={selectedExecutor}
+                onChange={employee => {
+                  setSelectedExecutor(employee);
+                  setExecutorError('');
+                }}
+                placeholder="Введите ФИО исполнителя"
+                error={executorError}
+              />
+            </Form.Item>
 
-              {error && (
-                <p className="error-message" style={{ color: '#ff4d4f', marginTop: '8px' }}>
-                  {error}
-                </p>
-              )}
-            </Form>
-          </div>
-        </Modal>
-      </div>
+            {error && (
+              <p className="error-message" style={{ color: '#ff4d4f', marginTop: '8px' }}>
+                {error}
+              </p>
+            )}
+          </Form>
+        </div>
+      </Modal>
     </>
   );
 };

@@ -79,36 +79,44 @@ const CreateSamplingLocationModal: React.FC<CreateSamplingLocationModalProps> = 
 
   return (
     <>
-      <div className="modal-overlay" onClick={handleClose} />
-      <div className="modal-wrapper-custom">
-        <Modal
-          header="Создание места отбора пробы"
-          onClose={handleClose}
-          onCancel={handleClose}
-          onSave={handleSave}
-          saveButtonText="Создать"
-          showEditButton={false}
-          editable={false}
-        >
-          <div className="create-sampling-location-form">
-            <div className="form-group">
-              <label>
-                Название места отбора пробы <span style={{ color: 'red' }}>*</span>
-              </label>
-              <Input
-                value={name}
-                onChange={e => setName(e.target.value)}
-                placeholder="Введите название места отбора пробы"
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    handleSave();
-                  }
-                }}
-              />
-            </div>
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          zIndex: 999,
+        }}
+      />
+      <Modal
+        header="Создание места отбора пробы"
+        onClose={handleClose}
+        onCancel={handleClose}
+        onSave={handleSave}
+        saveButtonText="Создать"
+        showEditButton={false}
+        editable={false}
+      >
+        <div className="create-sampling-location-form">
+          <div className="form-group">
+            <label>
+              Название места отбора пробы <span style={{ color: 'red' }}>*</span>
+            </label>
+            <Input
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="Введите название места отбора пробы"
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  handleSave();
+                }
+              }}
+            />
           </div>
-        </Modal>
-      </div>
+        </div>
+      </Modal>
     </>
   );
 };

@@ -55,26 +55,34 @@ const DeleteSamplingLocationModal: React.FC<DeleteSamplingLocationModalProps> = 
 
   return (
     <>
-      <div className="modal-overlay" onClick={handleClose} />
-      <div className="modal-wrapper-custom">
-        <Modal
-          header="Удаление места отбора пробы"
-          onClose={handleClose}
-          onCancel={handleClose}
-          onDelete={handleDelete}
-          deleteTitle="Удалить"
-          showEditButton={false}
-          editable={false}
-        >
-          <div className="delete-sampling-location-confirmation">
-            <div className="confirmation-content">
-              <p className="confirmation-text">
-                Вы действительно хотите удалить место отбора пробы &quot;{location.name}&quot;?
-              </p>
-            </div>
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          zIndex: 999,
+        }}
+      />
+      <Modal
+        header="Удаление места отбора пробы"
+        onClose={handleClose}
+        onCancel={handleClose}
+        onDelete={handleDelete}
+        deleteTitle="Удалить"
+        showEditButton={false}
+        editable={false}
+      >
+        <div className="delete-sampling-location-confirmation">
+          <div className="confirmation-content">
+            <p className="confirmation-text">
+              Вы действительно хотите удалить место отбора пробы &quot;{location.name}&quot;?
+            </p>
           </div>
-        </Modal>
-      </div>
+        </div>
+      </Modal>
     </>
   );
 };

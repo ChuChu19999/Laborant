@@ -4,6 +4,8 @@ import type { PaginatedResponse } from './types';
 export interface LaboratoryResponse {
   id: number;
   name: string;
+  full_name?: string;
+  laboratory_location?: string;
   departments_count?: number;
   created_at?: string;
   updated_at?: string;
@@ -13,6 +15,7 @@ export interface DepartmentResponse {
   id: number;
   name: string;
   laboratory_id: number;
+  laboratory_location: string;
   laboratory_name?: string;
   created_at?: string;
   updated_at?: string;
@@ -40,20 +43,26 @@ export interface SamplingLocationResponse {
 
 export interface LaboratoryCreate {
   name: string;
+  full_name?: string;
+  laboratory_location?: string;
 }
 
 export interface LaboratoryUpdate {
   name?: string;
+  full_name?: string;
+  laboratory_location?: string;
 }
 
 export interface DepartmentCreate {
   name: string;
   laboratory_id: number;
+  laboratory_location: string;
 }
 
 export interface DepartmentUpdate {
   name?: string;
   laboratory_id?: number;
+  laboratory_location?: string;
 }
 
 export interface BranchCreate {

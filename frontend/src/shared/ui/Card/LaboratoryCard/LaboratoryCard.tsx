@@ -1,21 +1,15 @@
 import React from 'react';
 import { ExperimentOutlined } from '@ant-design/icons';
+import type { LaboratoryResponse } from '../../../shared/api/laboratory';
 import Button from '../../Button/Button';
 import './LaboratoryCard.css';
 
-interface Laboratory {
-  name: string;
-  description?: string;
-  full_name?: string;
-  laboratory_location?: string;
-}
-
 interface LaboratoryCardProps {
-  laboratory: Laboratory;
-  onClick?: (laboratory: Laboratory) => void;
+  laboratory: LaboratoryResponse;
+  onClick?: (laboratory: LaboratoryResponse) => void;
   showActions?: boolean;
-  onEdit?: (laboratory: Laboratory, e: React.MouseEvent) => void;
-  onDelete?: (laboratory: Laboratory, e: React.MouseEvent) => void;
+  onEdit?: (laboratory: LaboratoryResponse, e: React.MouseEvent) => void;
+  onDelete?: (laboratory: LaboratoryResponse, e: React.MouseEvent) => void;
 }
 
 const LaboratoryCard = ({
