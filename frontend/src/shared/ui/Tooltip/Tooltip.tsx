@@ -1,6 +1,7 @@
 import React from 'react';
 import { Tooltip as AntTooltip } from 'antd';
-import { BiQuestionMark } from 'react-icons/bi';
+import { BiHelpCircle } from 'react-icons/bi';
+import './Tooltip.css';
 
 interface TooltipLocalProps extends Omit<
   React.ComponentProps<typeof AntTooltip>,
@@ -20,7 +21,11 @@ const TooltipLocal = ({
 }: TooltipLocalProps) => {
   return (
     <AntTooltip placement={placement} trigger={trigger} {...props}>
-      {children || <BiQuestionMark size={20} />}
+      {children || (
+        <span className="tooltip-icon-wrapper">
+          <BiHelpCircle size={22} />
+        </span>
+      )}
     </AntTooltip>
   );
 };

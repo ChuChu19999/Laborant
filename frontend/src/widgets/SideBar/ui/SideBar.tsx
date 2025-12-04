@@ -174,7 +174,7 @@ const SideBar = ({ username, isAdmin, onMinimizeChange }: SideBarProps) => {
         <div className="logo-container">
           <img
             src={logoImage}
-            alt="Лаборант ФХИ"
+            alt="Laborant"
             className={`sidebar-logo ${minimize ? 'collapsed' : ''}`}
             onClick={() => {
               shouldResetRef.current = true;

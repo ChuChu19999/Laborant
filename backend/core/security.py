@@ -4,11 +4,15 @@ import time
 from typing import Callable, Optional
 import jwt
 import requests
-from fastapi import Depends, Header, HTTPException, Security, status
+from fastapi import Depends, HTTPException, Security, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from starlette.concurrency import run_in_threadpool
 from core.config import settings
 from core.logger import logger
+from utils.current_user import set_current_user
 
+security = HTTPBearer()
+security_optional = HTTPBearer(auto_error=False)
 _PUBLIC_KEY_CACHE_TTL = 3600
 _public_key_cache: Optional[str] = None
 _public_key_cache_expires_at: Optional[float] = None
@@ -68,24 +72,19 @@ async def get_public_key() -> str:
 
 
 async def verify_token(
-    x_api_key: Optional[str] = Header(
-        None, alias="X-API-KEY", description="JWT токен Keycloak для авторизации"
-    ),
+    credentials: Optional[HTTPAuthorizationCredentials] = Security(security_optional),
 ) -> dict:
-    """
-    Проверка и расшифровка JWT токена из заголовка X-API-KEY.
-    """
-    # ВРЕМЕННО: моковые данные пользователя
+    """Проверка и расшифровка JWT токена из заголовка Authorization."""
     mock_token = {
         "hashSnils": "e1cee128188b77f382eec32ca80494e6",
+        "fullName": "Тестовый Пользователь",
     }
 
-    # ВРЕМЕННО: если токен отсутствует, возвращаем моковые данные
-    if not x_api_key:
+    if not credentials or not credentials.credentials:
         logger.warning("Authorization header is missing, using mock data")
         return mock_token
 
-    token = x_api_key
+    token = credentials.credentials
 
     try:
         public_key = await get_public_key()
@@ -97,8 +96,10 @@ async def verify_token(
         )
         logger.info(f"Decoded token: {decoded_token}")
 
-        # ВРЕМЕННО: подстановка данных пользователя в токен
         decoded_token["hashSnils"] = mock_token["hashSnils"]
+
+        if not decoded_token.get("fullName"):
+            decoded_token["fullName"] = mock_token["fullName"]
 
         username = decoded_token.get("preferred_username")
         if not username:
@@ -109,16 +110,18 @@ async def verify_token(
 
     except jwt.InvalidTokenError as e:
         logger.warning(f"Invalid token: {e}, using mock data")
-        # ВРЕМЕННО: если токен невалидный, возвращаем моковые данные
         return mock_token
     except Exception as e:
         logger.warning(f"Error decoding token: {e}, using mock data")
-        # ВРЕМЕННО: при любой ошибке возвращаем моковые данные
         return mock_token
 
 
 async def get_current_user(decoded_token: dict = Security(verify_token)) -> dict:
     """Получение информации о текущем пользователе из токена."""
+    full_name = decoded_token.get("fullName") or ""
+    hsnils = decoded_token.get("hashSnils") or ""
+    if full_name and hsnils:
+        set_current_user(full_name, hsnils)
     return decoded_token
 
 
@@ -144,8 +147,19 @@ def IsAuthenticated(func: Callable) -> Callable:
 
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
-        if not has_decoded_token and "decoded_token" in kwargs:
-            kwargs.pop("decoded_token")
+        decoded_token = None
+        if has_decoded_token and "decoded_token" in kwargs:
+            decoded_token = kwargs.get("decoded_token")
+        elif not has_decoded_token and "decoded_token" in kwargs:
+            decoded_token = kwargs.get("decoded_token")
+            kwargs.pop("decoded_token", None)
+
+        if decoded_token:
+            full_name = decoded_token.get("fullName") or ""
+            hsnils = decoded_token.get("hashSnils") or ""
+            if full_name and hsnils:
+                set_current_user(full_name, hsnils)
+
         return await func(*args, **kwargs)
 
     wrapper.__signature__ = new_sig

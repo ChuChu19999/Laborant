@@ -1,7 +1,7 @@
 {
-  "name": "Лаборант ФХИ",
-  "short_name": "Лаборант ФХИ",
-  "description": "Система управления физико-химическими испытаниями и лабораторной документацией",
+  "name": "Laborant",
+  "short_name": "Laborant",
+  "description": "Система управления физико-химиечскими испытаниями и лабораторной документацией",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

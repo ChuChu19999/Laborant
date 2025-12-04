@@ -1,0 +1,13 @@
+.tooltip-icon-wrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: rgba(0, 0, 0, 0.54);
+  transition: color 0.2s ease;
+  vertical-align: middle;
+}
+
+.tooltip-icon-wrapper:hover {
+  color: rgba(0, 0, 0, 0.87);
+}

@@ -5,7 +5,6 @@ import { App as AntApp, ConfigProvider, message } from 'antd';
 import ruRU from 'antd/locale/ru_RU';
 import '../shared/assets/fonts/fonts.css';
 import './App.css';
-import AdminPage from '../pages/AdminPage/AdminPage';
 import Page404 from '../pages/ErrorPages/Page404/Page404';
 import LoadingPage from '../pages/LoadingPage/LoadingPage';
 import { useAxiosInterceptors } from '../shared/model/auth/useAxiosInterceptors';
@@ -127,14 +126,6 @@ export default function App() {
                         element={item.element}
                       />
                     ))}
-                    <Route
-                      path="/admin"
-                      element={
-                        <ProtectedRoute isAdmin={isAdmin} path="/admin">
-                          <AdminPage />
-                        </ProtectedRoute>
-                      }
-                    />
                     <Route path="*" element={<Page404 />} />
                   </>
                 </Route>

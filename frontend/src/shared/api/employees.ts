@@ -23,21 +23,4 @@ export const employeesApi = {
     });
     return response.data;
   },
-
-  searchByFioAndLaboratory: async (searchFio: string, laboratoryName: string) => {
-    if (!searchFio || searchFio.length < 3) {
-      return [];
-    }
-
-    const response = await axiosInstance.get('/api/employees/search/', {
-      params: { searchFio, laboratoryName, includePhoto: true },
-    });
-
-    return response.data;
-  },
-
-  getLaboratoryById: async (id: number) => {
-    const response = await axiosInstance.get(`/api/laboratories/${id}/`);
-    return response.data;
-  },
 };

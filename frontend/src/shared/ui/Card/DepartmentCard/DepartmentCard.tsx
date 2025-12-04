@@ -1,17 +1,21 @@
 import React from 'react';
 import { DeploymentUnitOutlined, ClusterOutlined, BranchesOutlined } from '@ant-design/icons';
-import type { DepartmentResponse } from '../../../shared/api/laboratory';
 import Button from '../../Button/Button';
 import './DepartmentCard.css';
 
 const deptIcons = [DeploymentUnitOutlined, ClusterOutlined, BranchesOutlined];
 
+interface Department {
+  name: string;
+  laboratory_location?: string;
+}
+
 interface DepartmentCardProps {
-  department: DepartmentResponse;
-  onClick?: (department: DepartmentResponse) => void;
+  department: Department;
+  onClick?: (department: Department) => void;
   showActions?: boolean;
-  onEdit?: (department: DepartmentResponse, e: React.MouseEvent) => void;
-  onDelete?: (department: DepartmentResponse, e: React.MouseEvent) => void;
+  onEdit?: (department: Department, e: React.MouseEvent) => void;
+  onDelete?: (department: Department, e: React.MouseEvent) => void;
   iconIndex?: number;
 }
 
