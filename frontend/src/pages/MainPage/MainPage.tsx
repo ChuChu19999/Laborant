@@ -1,11 +1,14 @@
-import { useOutletContext } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { useOutletContext, useSearchParams, useLocation } from 'react-router-dom';
 import { Player } from '@lottiefiles/react-lottie-player';
 import { FaFlask } from 'react-icons/fa';
 import packageJson from '../../../package.json';
 import ChemistryLabAnimation from '../../shared/assets/animations/chemistry-lab.json';
+import { updateUrlParams } from '../../shared/lib/urlParams';
 import Bubble from '../../shared/ui/Bubble/Bubble';
 import Button from '../../shared/ui/Button/Button';
 import Layout from '../../shared/ui/Layout/Layout';
+import { LaboratoryManagement } from '../../widgets/LaboratoryManagement';
 import './MainPage.css';
 
 interface MainPageContext {
@@ -15,6 +18,65 @@ interface MainPageContext {
 
 function MainPage() {
   const { minimize, isAdmin } = (useOutletContext() as MainPageContext) || {};
+  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const [showLaboratoryManagement, setShowLaboratoryManagement] = useState(false);
+  const previousSearchRef = useRef<string>(location.search);
+  const isClearingRef = useRef<boolean>(false);
+
+  // Инициализация из URL при первой загрузке
+  useEffect(() => {
+    const pageParam = searchParams.get('page');
+    const currentSearch = location.search;
+    const wasCleared = previousSearchRef.current !== '' && currentSearch === '';
+
+    if (wasCleared) {
+      isClearingRef.current = true;
+      setShowLaboratoryManagement(false);
+      setTimeout(() => {
+        isClearingRef.current = false;
+      }, 100);
+    } else if (pageParam === 'laboratory-management') {
+      setShowLaboratoryManagement(true);
+    }
+
+    previousSearchRef.current = currentSearch;
+  }, [searchParams, location.search]);
+
+  // Синхронизация состояния с URL
+  useEffect(() => {
+    // Пропускаем синхронизацию, если происходит намеренная очистка параметров
+    if (isClearingRef.current) {
+      return;
+    }
+
+    const updates: Record<string, string | undefined | null> = {
+      page: showLaboratoryManagement ? 'laboratory-management' : undefined,
+    };
+
+    const newParams = updateUrlParams(searchParams, updates);
+    if (newParams.toString() !== searchParams.toString()) {
+      setSearchParams(newParams, { replace: true });
+    }
+  }, [showLaboratoryManagement, searchParams, setSearchParams]);
+
+  const handleShowManagement = () => {
+    setShowLaboratoryManagement(true);
+  };
+
+  const handleBackToHome = () => {
+    setShowLaboratoryManagement(false);
+  };
+
+  if (showLaboratoryManagement) {
+    return (
+      <div className="main-page-wrapper">
+        <Layout title="Управление лабораториями">
+          <LaboratoryManagement onBack={handleBackToHome} />
+        </Layout>
+      </div>
+    );
+  }
 
   return (
     <div className="main-page-wrapper">
@@ -33,7 +95,7 @@ function MainPage() {
                 Система управления физико-химическими испытаниями и лабораторной документацией
               </p>
               <div className="welcome-actions">
-                <Button type="primary" onClick={() => {}} icon={<FaFlask size={18} />}>
+                <Button type="primary" onClick={handleShowManagement} icon={<FaFlask size={18} />}>
                   Управление лабораториями
                 </Button>
               </div>

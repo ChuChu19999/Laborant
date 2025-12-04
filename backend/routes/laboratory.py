@@ -86,10 +86,9 @@ async def list_laboratories(
     items = []
     for lab in laboratories:
         lab_dict = LaboratoryResponse.model_validate(lab).model_dump()
-        if hasattr(lab, "departments"):
-            lab_dict["departments_count"] = len(
-                [d for d in lab.departments if d.deleted_at is None]
-            )
+        lab_dict["departments_count"] = len(
+            [d for d in lab.departments if d.deleted_at is None]
+        )
         items.append(LaboratoryResponse(**lab_dict))
 
     return PaginatedResponse(
@@ -176,6 +175,7 @@ async def update_laboratory(
     """
     laboratory = await update_laboratory_service(db, laboratory_id, laboratory_data)
     await db.commit()
+    await db.refresh(laboratory)
     return LaboratoryResponse.model_validate(laboratory)
 
 
@@ -331,6 +331,7 @@ async def update_department(
     """
     department = await update_department_service(db, department_id, department_data)
     await db.commit()
+    await db.refresh(department)
     return DepartmentResponse.model_validate(department)
 
 

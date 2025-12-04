@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { HomeOutlined, ArrowLeftOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined } from '@ant-design/icons';
 import { Tooltip } from 'antd';
 import './NavigationBar.css';
 
@@ -12,8 +12,6 @@ interface Breadcrumb {
 interface NavigationBarProps {
   breadcrumbs?: Breadcrumb[];
   onBack?: () => void;
-  onHomeClick?: () => void;
-  showHome?: boolean;
   showBack?: boolean;
   disabledBack?: boolean;
 }
@@ -21,20 +19,10 @@ interface NavigationBarProps {
 const NavigationBar = ({
   breadcrumbs = [],
   onBack,
-  onHomeClick,
-  showHome = true,
   showBack = true,
   disabledBack = false,
 }: NavigationBarProps) => {
   const navigate = useNavigate();
-
-  const handleHomeClick = () => {
-    if (onHomeClick) {
-      onHomeClick();
-    } else {
-      navigate('/');
-    }
-  };
 
   const handleBackClick = () => {
     if (onBack) {
@@ -76,13 +64,6 @@ const NavigationBar = ({
           </div>
         )}
       </div>
-      {showHome && (
-        <Tooltip title="На главную">
-          <button type="button" className="nav-button nav-button-home" onClick={handleHomeClick}>
-            <HomeOutlined />
-          </button>
-        </Tooltip>
-      )}
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { BiChevronsRight, BiUser } from 'react-icons/bi';
 import { routersData } from '../../../app/data';
 import logoImage from '../../../shared/assets/logo/logo.png';
@@ -27,6 +27,7 @@ const SideBar = ({ username, isAdmin, onMinimizeChange }: SideBarProps) => {
   const buttonRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const [, setSearchParams] = useSearchParams();
   const resetAllQueries = useQueryStore(state => state.resetAllQueries);
   const previousPathRef = useRef<string>(location.pathname);
   const shouldResetRef = useRef<boolean>(false);
@@ -133,9 +134,27 @@ const SideBar = ({ username, isAdmin, onMinimizeChange }: SideBarProps) => {
 
       const navigateOnClick = () => {
         const targetPath = currentPath || '/';
+        const isCurrentPage = location.pathname === targetPath;
+        const hasSearchParams = location.search.length > 0;
+
+        // Если уже на текущей странице и есть параметры URL - очищаем их
+        if (isCurrentPage && hasSearchParams) {
+          shouldResetRef.current = true;
+          // Используем navigate для гарантированной очистки параметров
+          navigate({ pathname: targetPath, search: '' }, { replace: true });
+          setOpenSubmenus([]);
+          return;
+        }
+
+        // Если уже на текущей странице без параметров - ничего не делаем
+        if (isCurrentPage && !hasSearchParams) {
+          setOpenSubmenus([]);
+          return;
+        }
+
         // Устанавливаем флаг для сброса после навигации
         shouldResetRef.current = true;
-        // Делаем навигацию
+        // Делаем навигацию с очисткой параметров
         navigate({ pathname: targetPath, search: '' }, { replace: true });
         setOpenSubmenus([]);
       };
@@ -178,6 +197,7 @@ const SideBar = ({ username, isAdmin, onMinimizeChange }: SideBarProps) => {
             className={`sidebar-logo ${minimize ? 'collapsed' : ''}`}
             onClick={() => {
               shouldResetRef.current = true;
+              setSearchParams({}, { replace: true });
               navigate({ pathname: '/', search: '' }, { replace: true });
             }}
             onMouseEnter={e => {

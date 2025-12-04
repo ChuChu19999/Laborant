@@ -1,14 +1,12 @@
 import React from 'react';
 import { DeploymentUnitOutlined, ClusterOutlined, BranchesOutlined } from '@ant-design/icons';
 import Button from '../../Button/Button';
+import type { Department as DepartmentType } from '../../../api/laboratories';
 import './DepartmentCard.css';
 
 const deptIcons = [DeploymentUnitOutlined, ClusterOutlined, BranchesOutlined];
 
-interface Department {
-  name: string;
-  laboratory_location?: string;
-}
+type Department = DepartmentType;
 
 interface DepartmentCardProps {
   department: Department;

@@ -1,14 +1,12 @@
 import React from 'react';
 import { ExperimentOutlined } from '@ant-design/icons';
 import Button from '../../Button/Button';
+import type { Laboratory as LaboratoryType } from '../../../api/laboratories';
 import './LaboratoryCard.css';
 
-interface Laboratory {
-  name: string;
+type Laboratory = LaboratoryType & {
   description?: string;
-  full_name?: string;
-  laboratory_location?: string;
-}
+};
 
 interface LaboratoryCardProps {
   laboratory: Laboratory;

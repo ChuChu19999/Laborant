@@ -39,7 +39,11 @@ async def get_laboratories(
     sort_order: Optional[str] = None,
 ) -> tuple[list[Laboratory], int, int]:
     """Получить список лабораторий с пагинацией."""
-    query = select(Laboratory).where(Laboratory.deleted_at.is_(None))
+    query = (
+        select(Laboratory)
+        .where(Laboratory.deleted_at.is_(None))
+        .options(selectinload(Laboratory.departments))
+    )
 
     if search:
         query = query.where(
@@ -139,10 +143,23 @@ async def update_laboratory(
 
 async def delete_laboratory(db: AsyncSession, laboratory_id: int) -> None:
     """Удалить лабораторию (мягкое удаление)."""
-    laboratory = await get_laboratory_by_id(db, laboratory_id)
+    query = (
+        select(Laboratory)
+        .where(Laboratory.id == laboratory_id)
+        .options(selectinload(Laboratory.departments))
+    )
+    result = await db.execute(query)
+    laboratory = result.scalar_one_or_none()
+
     if not laboratory:
         raise NotFoundError("Лаборатория не найдена")
 
+    # Помечаем все подразделения как удаленные
+    for department in laboratory.departments:
+        if department.deleted_at is None:
+            department.soft_delete()
+
+    # Помечаем саму лабораторию как удаленную
     laboratory.soft_delete()
     await db.flush()
 

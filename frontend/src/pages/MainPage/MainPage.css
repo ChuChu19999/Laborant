@@ -1,5 +1,9 @@
 .main-page-wrapper {
   flex: 1;
+  background-color: #d3ebf8;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .main-page-container {

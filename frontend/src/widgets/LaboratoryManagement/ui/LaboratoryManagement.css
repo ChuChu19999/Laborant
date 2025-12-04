@@ -1,0 +1,44 @@
+.laboratory-management {
+  padding: 0;
+}
+
+.laboratory-management .laboratories-grid,
+.laboratory-management .departments-grid {
+  padding: 20px;
+}
+
+.laboratories-grid,
+.departments-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.no-items {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 40px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  color: #666;
+}
+
+.no-items p {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.add-laboratory-form {
+  padding: 10px 0;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #333;
+}
