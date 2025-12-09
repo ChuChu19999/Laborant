@@ -43,6 +43,28 @@ async def get_fixtures(
 
 
 @router.get(
+    "/fixtures/{fixture_path:path}/files/",
+    summary="Получение списка файлов в директории фикстуры",
+    description=(
+        "Возвращает список файлов в указанной директории фикстуры. "
+        "Путь к директории указывается в формате, например: 'ilninm/26th'."
+    ),
+    responses={200: {"description": "Список файлов успешно получен"}},
+)
+# @IsAuthenticated
+async def list_fixture_files_endpoint(
+    fixture_path: str,
+):
+    """
+    Получить список файлов в директории фикстуры.
+
+    Возвращает список файлов в указанной директории фикстуры.
+    """
+    files = list_fixture_files(fixture_path)
+    return {"files": files}
+
+
+@router.get(
     "/fixtures/{fixture_path:path}",
     summary="Получение данных конкретной фикстуры",
     description=(
@@ -67,25 +89,3 @@ async def get_fixture(
     if data is None:
         raise NotFoundError("Фикстура не найдена")
     return data
-
-
-@router.get(
-    "/fixtures/{fixture_path:path}/files/",
-    summary="Получение списка файлов в директории фикстуры",
-    description=(
-        "Возвращает список файлов в указанной директории фикстуры. "
-        "Путь к директории указывается в формате, например: 'ilninm/26th'."
-    ),
-    responses={200: {"description": "Список файлов успешно получен"}},
-)
-# @IsAuthenticated
-async def list_fixture_files_endpoint(
-    fixture_path: str,
-):
-    """
-    Получить список файлов в директории фикстуры.
-
-    Возвращает список файлов в указанной директории фикстуры.
-    """
-    files = list_fixture_files(fixture_path)
-    return {"files": files}

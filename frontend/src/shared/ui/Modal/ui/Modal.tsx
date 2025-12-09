@@ -110,67 +110,86 @@ const Modal = ({
   };
 
   return (
-    <div
-      className={`modal-wrapper ${isClosing ? 'modal-closing' : 'modal-opening'}`}
-      style={style}
-      onClick={handleModalClick}
-    >
-      <div className="modal-header">
-        <p>{header}</p>
-        <BiX size={25} className="modal-close" onClick={() => handleClick('close')} />
-      </div>
+    <>
+      <div
+        className="modal-overlay"
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          zIndex: 999,
+          animation: isClosing ? 'fadeOut 0.2s ease-in' : 'fadeIn 0.2s ease-out',
+        }}
+      />
+      <div
+        className={`modal-wrapper ${isClosing ? 'modal-closing' : 'modal-opening'}`}
+        style={style}
+        onClick={handleModalClick}
+      >
+        <div className="modal-header">
+          <p>{header}</p>
+          <BiX size={25} className="modal-close" onClick={() => handleClick('close')} />
+        </div>
 
-      <div className="body">
-        <div className="body-content">{children}</div>
+        <div className="body">
+          <div className="body-content">{children}</div>
 
-        <div className="body-buttons">
-          {extraButtons && <div className="body-buttons-extra">{extraButtons}</div>}
-          <div className="body-buttons-main">
-            {onCancel && (
-              <Button title={cancelText} onClick={() => handleClick('cancel')}>
-                {cancelText}
-              </Button>
-            )}
-            {onDelete && (
-              <Button danger title={deleteTitle || 'Удалить'} onClick={() => handleClick('delete')}>
-                {deleteTitle || 'Удалить'}
-              </Button>
-            )}
-            {showEditButton && editable && onEdit && (
-              <Button
-                loading={isLoading.loading && isLoading.type === 'edit'}
-                title="Изменить"
-                type="primary"
-                onClick={() => handleClick('edit')}
-              >
-                Изменить
-              </Button>
-            )}
-            {onSave && (
-              <Button
-                loading={isLoading.loading && isLoading.type === 'save'}
-                title={saveButtonText}
-                type="primary"
-                buttonColor={saveButtonColor}
-                onClick={() => handleClick('save')}
-              >
-                {saveButtonText}
-              </Button>
-            )}
-            {onGenerate && (
-              <Button
-                loading={generateLoading}
-                title={generateButtonText}
-                type="primary"
-                onClick={onGenerate}
-              >
-                {generateButtonText}
-              </Button>
-            )}
+          <div className="body-buttons">
+            {extraButtons && <div className="body-buttons-extra">{extraButtons}</div>}
+            <div className="body-buttons-main">
+              {onCancel && (
+                <Button title={cancelText} onClick={() => handleClick('cancel')}>
+                  {cancelText}
+                </Button>
+              )}
+              {onDelete && (
+                <Button
+                  danger
+                  title={deleteTitle || 'Удалить'}
+                  onClick={() => handleClick('delete')}
+                >
+                  {deleteTitle || 'Удалить'}
+                </Button>
+              )}
+              {showEditButton && editable && onEdit && (
+                <Button
+                  loading={isLoading.loading && isLoading.type === 'edit'}
+                  title="Изменить"
+                  type="primary"
+                  onClick={() => handleClick('edit')}
+                >
+                  Изменить
+                </Button>
+              )}
+              {onSave && (
+                <Button
+                  loading={isLoading.loading && isLoading.type === 'save'}
+                  title={saveButtonText}
+                  type="primary"
+                  buttonColor={saveButtonColor}
+                  onClick={() => handleClick('save')}
+                >
+                  {saveButtonText}
+                </Button>
+              )}
+              {onGenerate && (
+                <Button
+                  loading={generateLoading}
+                  title={generateButtonText}
+                  type="primary"
+                  onClick={onGenerate}
+                >
+                  {generateButtonText}
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 

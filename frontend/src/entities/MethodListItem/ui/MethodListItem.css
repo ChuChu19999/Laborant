@@ -61,6 +61,33 @@
   gap: 8px;
   position: relative;
   z-index: 1;
+  flex: 1;
+}
+
+.method-list-item-drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  padding: 4px;
+  margin-right: 4px;
+  color: #718096;
+  transition: color 0.2s ease;
+  flex-shrink: 0;
+}
+
+.method-list-item-drag-handle:active {
+  cursor: grabbing;
+}
+
+.method-list-item-drag-handle:hover {
+  color: #2c5282;
+}
+
+.drag-indicator-icon {
+  font-size: 18px !important;
+  width: 18px !important;
+  height: 18px !important;
 }
 
 .method-list-item-name {

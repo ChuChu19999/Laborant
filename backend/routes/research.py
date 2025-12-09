@@ -75,14 +75,7 @@ async def list_research_methods(
         sort_order=sort_order,
     )
 
-    items = []
-    for method in methods:
-        method_dict = ResearchMethodResponse.model_validate(method).model_dump()
-        if hasattr(method, "groups"):
-            method_dict["groups"] = [
-                {"id": g.id, "name": g.name} for g in method.groups
-            ]
-        items.append(ResearchMethodResponse(**method_dict))
+    items = [ResearchMethodResponse.model_validate(method) for method in methods]
 
     return PaginatedResponse(
         items=items,
@@ -116,10 +109,21 @@ async def create_research_method_endpoint(
     """
     method = await create_research_method(db, method_data)
     await db.commit()
-    method_dict = ResearchMethodResponse.model_validate(method).model_dump()
-    if hasattr(method, "groups"):
-        method_dict["groups"] = [{"id": g.id, "name": g.name} for g in method.groups]
-    return ResearchMethodResponse(**method_dict)
+    await db.refresh(method)
+
+    query = (
+        select(ResearchMethod)
+        .where(ResearchMethod.id == method.id)
+        .options(
+            selectinload(ResearchMethod.groups),
+            selectinload(ResearchMethod.laboratory),
+            selectinload(ResearchMethod.department),
+        )
+    )
+    result = await db.execute(query)
+    method = result.scalar_one()
+
+    return ResearchMethodResponse.model_validate(method)
 
 
 @router.get(
@@ -145,10 +149,7 @@ async def get_research_method(
     method = await get_research_method_by_id(db, method_id)
     if not method:
         raise NotFoundError("Метод исследования не найден")
-    method_dict = ResearchMethodResponse.model_validate(method).model_dump()
-    if hasattr(method, "groups"):
-        method_dict["groups"] = [{"id": g.id, "name": g.name} for g in method.groups]
-    return ResearchMethodResponse(**method_dict)
+    return ResearchMethodResponse.model_validate(method)
 
 
 @router.patch(
@@ -174,10 +175,21 @@ async def update_research_method_endpoint(
     """
     method = await update_research_method(db, method_id, method_data)
     await db.commit()
-    method_dict = ResearchMethodResponse.model_validate(method).model_dump()
-    if hasattr(method, "groups"):
-        method_dict["groups"] = [{"id": g.id, "name": g.name} for g in method.groups]
-    return ResearchMethodResponse(**method_dict)
+    await db.refresh(method)
+
+    query = (
+        select(ResearchMethod)
+        .where(ResearchMethod.id == method.id)
+        .options(
+            selectinload(ResearchMethod.groups),
+            selectinload(ResearchMethod.laboratory),
+            selectinload(ResearchMethod.department),
+        )
+    )
+    result = await db.execute(query)
+    method = result.scalar_one()
+
+    return ResearchMethodResponse.model_validate(method)
 
 
 @router.delete(
@@ -227,10 +239,21 @@ async def update_research_method_sort_order_endpoint(
     """
     method = await update_research_method_sort_order(db, method_id, sort_data)
     await db.commit()
-    method_dict = ResearchMethodResponse.model_validate(method).model_dump()
-    if hasattr(method, "groups"):
-        method_dict["groups"] = [{"id": g.id, "name": g.name} for g in method.groups]
-    return ResearchMethodResponse(**method_dict)
+    await db.refresh(method)
+
+    query = (
+        select(ResearchMethod)
+        .where(ResearchMethod.id == method.id)
+        .options(
+            selectinload(ResearchMethod.groups),
+            selectinload(ResearchMethod.laboratory),
+            selectinload(ResearchMethod.department),
+        )
+    )
+    result = await db.execute(query)
+    method = result.scalar_one()
+
+    return ResearchMethodResponse.model_validate(method)
 
 
 @router.get(

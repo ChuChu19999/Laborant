@@ -52,6 +52,7 @@
   gap: 5px;
   height: calc(100% - 60px);
   overflow-y: auto;
+  overflow-x: hidden;
   padding-right: 4px;
   padding-top: 6px;
 }
@@ -68,6 +69,25 @@
   display: flex;
   flex-direction: column;
   gap: 5px;
+}
+
+.sortable-item-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.sortable-item-wrapper[style*='opacity: 0.4'] {
+  pointer-events: none;
+}
+
+.drag-overlay-item {
+  opacity: 0.95;
+  transform: rotate(2deg);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .admin-right-panel {

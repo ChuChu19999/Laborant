@@ -265,6 +265,21 @@ class ResearchMethodResponse(ResearchMethodBase):
     updated_at: datetime
     deleted_at: Optional[datetime] = None
 
+    @field_validator("groups", mode="before")
+    @classmethod
+    def convert_groups_to_dict(cls, v: Any) -> List[Dict[str, Any]]:
+        if not v:
+            return []
+        if isinstance(v, list):
+            result = []
+            for item in v:
+                if isinstance(item, dict):
+                    result.append(item)
+                else:
+                    result.append({"id": item.id, "name": item.name})
+            return result
+        return []
+
     class Config:
         from_attributes = True
 
