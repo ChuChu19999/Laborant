@@ -1,0 +1,105 @@
+.admin-left-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.admin-left-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0px;
+  position: sticky;
+  top: 0;
+  background: linear-gradient(180deg, #f8faff 0%, #f0f5ff 100%);
+  z-index: 1;
+  padding-top: 1px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(44, 82, 130, 0.1);
+}
+
+.admin-left-panel-add-button {
+  background-color: rgba(44, 82, 130, 0.1) !important;
+  padding: 4px !important;
+}
+
+.admin-left-panel-add-button:hover {
+  background-color: rgba(44, 82, 130, 0.2) !important;
+}
+
+.admin-left-panel-add-icon {
+  color: #718096 !important;
+}
+
+.admin-left-panel-title {
+  font-size: 16px;
+  background: linear-gradient(135deg, #2c5282 0%, #1a365d 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  line-height: 1;
+  font-weight: 600;
+  font-family: 'HeliosCondC';
+}
+
+.admin-left-panel-content {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  height: calc(100% - 60px);
+  overflow-y: auto;
+  padding-right: 4px;
+  padding-top: 6px;
+}
+
+.admin-left-panel-empty {
+  padding: 20px;
+  text-align: center;
+  color: #718096;
+  font-size: 14px;
+  font-family: 'HeliosCondC';
+}
+
+.admin-left-panel-methods {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.admin-right-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 100%;
+}
+
+.admin-right-panel-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #4a5568;
+  text-align: center;
+  padding: 0 10px 10px 10px;
+}
+
+.admin-right-panel-empty-title {
+  margin-bottom: 16px;
+  color: #2d3748;
+  font-family: 'HeliosCondC';
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.admin-right-panel-empty-description {
+  margin-bottom: 24px;
+  color: #718096;
+  font-family: 'HeliosCondC';
+  font-size: 14px;
+}

@@ -20,11 +20,13 @@ function MainPage() {
   const { minimize, isAdmin } = (useOutletContext() as MainPageContext) || {};
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
-  const [showLaboratoryManagement, setShowLaboratoryManagement] = useState(false);
+  const [showLaboratoryManagement, setShowLaboratoryManagement] = useState(
+    () => searchParams.get('page') === 'laboratory-management'
+  );
   const previousSearchRef = useRef<string>(location.search);
   const isClearingRef = useRef<boolean>(false);
 
-  // Инициализация из URL при первой загрузке
+  // Инициализация из URL при изменении параметров
   useEffect(() => {
     const pageParam = searchParams.get('page');
     const currentSearch = location.search;
@@ -38,6 +40,8 @@ function MainPage() {
       }, 100);
     } else if (pageParam === 'laboratory-management') {
       setShowLaboratoryManagement(true);
+    } else if (!pageParam) {
+      setShowLaboratoryManagement(false);
     }
 
     previousSearchRef.current = currentSearch;
@@ -66,6 +70,10 @@ function MainPage() {
 
   const handleBackToHome = () => {
     setShowLaboratoryManagement(false);
+    const newParams = updateUrlParams(searchParams, {
+      page: undefined,
+    });
+    setSearchParams(newParams, { replace: true });
   };
 
   if (showLaboratoryManagement) {

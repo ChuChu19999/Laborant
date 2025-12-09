@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useSearchParams, useLocation } from 'react-router-dom';
+import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
+import { BarChartOutlined } from '@ant-design/icons';
 import { message } from 'antd';
 import LoadingCard from '../../../features/Cards/ui/LoadingCard/LoadingCard';
 import {
@@ -31,6 +32,7 @@ type ViewMode = 'laboratories' | 'departments';
 const LaboratoryManagement: React.FC<LaboratoryManagementProps> = ({ onBack }) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const isInitialMountRef = useRef(true);
   const previousSearchRef = useRef<string>(location.search);
   const isClearingRef = useRef<boolean>(false);
@@ -169,7 +171,9 @@ const LaboratoryManagement: React.FC<LaboratoryManagementProps> = ({ onBack }) =
   };
 
   const handleDepartmentClick = (department: Department) => {
-    console.log('Department clicked:', department);
+    if (selectedLaboratory && department.id) {
+      navigate(`/admin/laboratory/${selectedLaboratory.id}/department/${department.id}`);
+    }
   };
 
   const handleBack = () => {
@@ -274,11 +278,15 @@ const LaboratoryManagement: React.FC<LaboratoryManagementProps> = ({ onBack }) =
               <button
                 className="empty-departments-button calculation-button"
                 onClick={() => {
-                  // TODO: Добавить обработку метода расчета
+                  if (selectedLaboratory && selectedLaboratory.id) {
+                    navigate(`/admin/laboratory/${selectedLaboratory.id}`);
+                  }
                 }}
               >
-                <span className="empty-departments-button-icon">📊</span>
-                <span className="empty-departments-button-text">Добавить метод расчета</span>
+                <div className="empty-departments-button-content">
+                  <BarChartOutlined className="empty-departments-button-icon" />
+                  <h3 className="empty-departments-button-text">Добавить метод расчета</h3>
+                </div>
               </button>
               <AddDepartmentCard
                 text="Создать первое подразделение"
