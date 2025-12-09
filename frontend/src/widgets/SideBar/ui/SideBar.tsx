@@ -1,9 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { BiChevronsRight, BiUser } from 'react-icons/bi';
 import { routersData } from '../../../app/data';
 import logoImage from '../../../shared/assets/logo/logo.png';
-import { useQueryStore } from '../../../shared/model/stores';
 import './SideBar.css';
 
 interface SideBarProps {
@@ -27,10 +26,15 @@ const SideBar = ({ username, isAdmin, onMinimizeChange }: SideBarProps) => {
   const buttonRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const [, setSearchParams] = useSearchParams();
-  const resetAllQueries = useQueryStore(state => state.resetAllQueries);
-  const previousPathRef = useRef<string>(location.pathname);
-  const shouldResetRef = useRef<boolean>(false);
+
+  // Получение базового пути страницы (первый сегмент пути)
+  const getBasePath = useCallback((pathname: string): string => {
+    if (pathname === '/') {
+      return '/';
+    }
+    const segments = pathname.split('/').filter(segment => segment.length > 0);
+    return segments.length > 0 ? `/${segments[0]}` : '/';
+  }, []);
 
   // Фильтруем роуты в зависимости от роли
   // Для не-админов доступны только: главная и помощь
@@ -90,19 +94,6 @@ const SideBar = ({ username, isAdmin, onMinimizeChange }: SideBarProps) => {
     };
   }, [openSubmenus.length]);
 
-  // Сброс query состояний после навигации через SideBar
-  useEffect(() => {
-    if (shouldResetRef.current) {
-      previousPathRef.current = location.pathname;
-      shouldResetRef.current = false;
-      // Сбрасываем все query состояния после завершения навигации
-      // Используем небольшую задержку, чтобы убедиться, что навигация завершена
-      setTimeout(() => {
-        resetAllQueries();
-      }, 10);
-    }
-  }, [location.pathname, resetAllQueries]);
-
   const toggleMenu = () => {
     const newMinimize = !minimize;
     setMinimize(newMinimize);
@@ -134,28 +125,13 @@ const SideBar = ({ username, isAdmin, onMinimizeChange }: SideBarProps) => {
 
       const navigateOnClick = () => {
         const targetPath = currentPath || '/';
-        const isCurrentPage = location.pathname === targetPath;
-        const hasSearchParams = location.search.length > 0;
-
-        // Если уже на текущей странице и есть параметры URL - очищаем их
-        if (isCurrentPage && hasSearchParams) {
-          shouldResetRef.current = true;
-          // Используем navigate для гарантированной очистки параметров
-          navigate({ pathname: targetPath, search: '' }, { replace: true });
-          setOpenSubmenus([]);
-          return;
-        }
-
-        // Если уже на текущей странице без параметров - ничего не делаем
-        if (isCurrentPage && !hasSearchParams) {
-          setOpenSubmenus([]);
-          return;
-        }
-
-        // Устанавливаем флаг для сброса после навигации
-        shouldResetRef.current = true;
-        // Делаем навигацию с очисткой параметров
-        navigate({ pathname: targetPath, search: '' }, { replace: true });
+        // Определяем базовые пути текущей и целевой страниц
+        const currentBasePath = getBasePath(location.pathname);
+        const targetBasePath = getBasePath(targetPath);
+        // Сохраняем query параметры только если остаемся на той же странице
+        const search = currentBasePath === targetBasePath ? location.search : '';
+        // Делаем навигацию
+        navigate({ pathname: targetPath, search }, { replace: true });
         setOpenSubmenus([]);
       };
 
@@ -196,9 +172,9 @@ const SideBar = ({ username, isAdmin, onMinimizeChange }: SideBarProps) => {
             alt="Laborant"
             className={`sidebar-logo ${minimize ? 'collapsed' : ''}`}
             onClick={() => {
-              shouldResetRef.current = true;
-              setSearchParams({}, { replace: true });
-              navigate({ pathname: '/', search: '' }, { replace: true });
+              const currentBasePath = getBasePath(location.pathname);
+              const search = currentBasePath === '/' ? location.search : '';
+              navigate({ pathname: '/', search }, { replace: true });
             }}
             onMouseEnter={e => {
               e.currentTarget.style.opacity = '0.8';
