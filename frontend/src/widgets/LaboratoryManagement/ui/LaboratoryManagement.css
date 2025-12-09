@@ -42,3 +42,105 @@
   font-weight: 500;
   color: #333;
 }
+
+.empty-departments-choice {
+  padding: 40px 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+}
+
+.empty-departments-content {
+  text-align: center;
+  max-width: 600px;
+  width: 100%;
+}
+
+.empty-departments-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: #282828;
+  margin: 0 0 12px 0;
+  font-family: 'HeliosCondC', sans-serif;
+}
+
+.empty-departments-description {
+  font-size: 16px;
+  color: #666;
+  margin: 0 0 40px 0;
+  font-family: 'HeliosCondC', sans-serif;
+}
+
+.empty-departments-actions {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.empty-departments-button {
+  position: relative;
+  border-radius: 12px;
+  padding: 30px 40px;
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  min-width: 250px;
+  border: none;
+  font-family: 'HeliosCondC', sans-serif;
+}
+
+.calculation-button {
+  background: linear-gradient(135deg, #f0f0f0 0%, #ffffff 100%);
+  border: 2px solid #1890ff;
+  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.1);
+}
+
+.calculation-button:hover {
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: 0 8px 18px rgba(24, 144, 255, 0.2);
+  background: linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%);
+}
+
+.department-button {
+  background: linear-gradient(135deg, #f0f0f0 0%, #ffffff 100%);
+  border: 2px dashed #ff4d07;
+  box-shadow: 0 4px 12px rgba(255, 77, 7, 0.1);
+}
+
+.department-button:hover {
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: 0 8px 18px rgba(255, 77, 7, 0.2);
+  background: linear-gradient(135deg, #fff4f0 0%, #fff8f5 100%);
+}
+
+.empty-departments-button-icon {
+  font-size: 48px;
+  transition: transform 0.25s ease;
+}
+
+.empty-departments-button:hover .empty-departments-button-icon {
+  transform: scale(1.1);
+}
+
+.empty-departments-button-text {
+  font-size: 18px;
+  font-weight: 600;
+  color: #282828;
+  text-align: center;
+}
+
+.calculation-button .empty-departments-button-text {
+  color: #1890ff;
+}
+
+.department-button .empty-departments-button-text {
+  color: #ff4d07;
+}

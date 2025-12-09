@@ -263,6 +263,30 @@ const LaboratoryManagement: React.FC<LaboratoryManagementProps> = ({ onBack }) =
           ))}
           <AddLaboratoryCard onClick={() => setIsCreateModalOpen(true)} />
         </div>
+      ) : isLoading && viewMode === 'departments' ? (
+        <LoadingCard loading={isLoading} />
+      ) : departments.length === 0 ? (
+        <div className="empty-departments-choice">
+          <div className="empty-departments-content">
+            <h2 className="empty-departments-title">В лаборатории нет подразделений</h2>
+            <p className="empty-departments-description">Выберите действие для начала работы</p>
+            <div className="empty-departments-actions">
+              <button
+                className="empty-departments-button calculation-button"
+                onClick={() => {
+                  // TODO: Добавить обработку метода расчета
+                }}
+              >
+                <span className="empty-departments-button-icon">📊</span>
+                <span className="empty-departments-button-text">Добавить метод расчета</span>
+              </button>
+              <AddDepartmentCard
+                text="Создать первое подразделение"
+                onClick={() => setIsCreateDeptModalOpen(true)}
+              />
+            </div>
+          </div>
+        </div>
       ) : (
         <div className="departments-grid">
           {departments.map((department, index) => (
