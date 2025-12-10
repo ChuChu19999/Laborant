@@ -52,6 +52,7 @@ export interface ResearchMethod {
   rounding_type: 'decimal' | 'significant';
   rounding_decimal: number;
   is_group_member: boolean;
+  groups?: Array<{ id: number; name: string }>;
   equipment_data_default?: number[];
   sort_order?: number;
   laboratory_id?: number;

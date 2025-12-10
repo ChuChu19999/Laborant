@@ -20,6 +20,18 @@
   animation: modalFadeIn 0.2s ease-out;
 }
 
+.modal-wrapper.modal-width-450 {
+  width: 450px;
+}
+
+.modal-wrapper.modal-width-550 {
+  width: 550px;
+}
+
+.modal-wrapper.modal-width-1000 {
+  width: 1000px;
+}
+
 .modal-wrapper.modal-opening {
   animation: modalFadeIn 0.2s ease-out;
 }
@@ -221,6 +233,14 @@
   bottom: 0;
   background-color: rgba(0, 0, 0, 0.5);
   z-index: 999;
+}
+
+.modal-overlay.fade-in {
+  animation: fadeIn 0.2s ease-out;
+}
+
+.modal-overlay.fade-out {
+  animation: fadeOut 0.2s ease-in;
 }
 
 @media (max-width: 1024px) {

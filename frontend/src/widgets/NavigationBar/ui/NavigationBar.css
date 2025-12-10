@@ -101,6 +101,11 @@
   transition: all 0.2s ease;
   padding: 4px 8px;
   border-radius: 6px;
+  cursor: default;
+}
+
+.breadcrumb-item.clickable {
+  cursor: pointer;
 }
 
 .breadcrumb-item:hover {

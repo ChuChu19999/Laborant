@@ -4,10 +4,12 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  background-color: var(--bubble-bg-color, #007dfe);
 }
 
 .bubble-wrapper p {
   margin: 0;
   font-family: 'HeliosCondC';
   font-size: 14px;
+  color: var(--bubble-text-color, #fff);
 }

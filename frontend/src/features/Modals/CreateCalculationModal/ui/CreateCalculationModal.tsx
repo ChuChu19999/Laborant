@@ -179,7 +179,9 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
         department_id: departmentId,
         page_size: 100,
       });
-      const individual_methods = response.items.filter(method => !method.is_group_member);
+      const individual_methods = response.items.filter(
+        method => !method.is_group_member && (!method.groups || method.groups.length === 0)
+      );
       setAvailableMethods({ individual_methods, groups: [] });
     } catch (err) {
       console.error('Ошибка при загрузке доступных методов:', err);
@@ -1136,7 +1138,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
       onClose={onClose}
       onCancel={onClose}
       onSave={handleSubmit}
-      style={{ width: '1000px' }}
+      modalWidth="1000"
       saveButtonText="Сохранить"
     >
       <div className="add-calculation-form">
@@ -1174,7 +1176,6 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                       }
                     }}
                     placeholder="Выберите метод из списка"
-                    style={{ width: '100%' }}
                     allowClear
                     listHeight={350}
                   >
@@ -1341,7 +1342,6 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                           value={field.card_index}
                           onChange={value => handleInputDataChange(index, 'card_index', value)}
                           placeholder="Выберите номер карточки"
-                          style={{ width: '100%' }}
                           listHeight={100}
                         >
                           <Option value={1}>Карточка 1</Option>
@@ -1606,7 +1606,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                           <span>Округлять до ближайшего кратного</span>
                         </label>
                         {field.use_multiple_rounding && (
-                          <div style={{ marginTop: '8px' }}>
+                          <div className="form-group-spacing">
                             <input
                               type="number"
                               value={field.multiple_value || ''}
@@ -1619,7 +1619,6 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                               }
                               placeholder="Введите число для округления (например: 10)"
                               min="0"
-                              style={{ width: '100%' }}
                             />
                           </div>
                         )}
@@ -1649,7 +1648,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                           <span>Использовать метод ближайших табличных значений</span>
                         </label>
                         {field.use_threshold_table && (
-                          <div style={{ marginTop: '8px' }}>
+                          <div className="form-group-spacing">
                             <div className="form-group">
                               <label>Переменная для определения направления округления</label>
                               <div className="formula-input-container">
@@ -1688,7 +1687,6 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                                     formulaRefs.threshold[index].target = el;
                                   }}
                                   placeholder="Введите название переменной (например: p)"
-                                  style={{ width: '100%' }}
                                 />
                                 {activeFormulaField === `threshold-target-${index}` && (
                                   <div onMouseDown={e => e.preventDefault()}>
@@ -1798,7 +1796,6 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                                     formulaRefs.threshold[index].higher = el;
                                   }}
                                   placeholder="Введите название переменной (например: pтабл_при_tнаиб)"
-                                  style={{ width: '100%' }}
                                 />
                                 {activeFormulaField === `threshold-higher-${index}` && (
                                   <div onMouseDown={e => e.preventDefault()}>
@@ -1908,7 +1905,6 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                                     formulaRefs.threshold[index].lower = el;
                                   }}
                                   placeholder="Введите название переменной (например: pтабл_при_tнаим)"
-                                  style={{ width: '100%' }}
                                 />
                                 {activeFormulaField === `threshold-lower-${index}` && (
                                   <div onMouseDown={e => e.preventDefault()}>
@@ -2094,7 +2090,6 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                             handleConvergenceChange(index, 'convergence_value', value)
                           }
                           placeholder="Выберите значение повторяемости"
-                          style={{ width: '100%' }}
                           listHeight={100}
                         >
                           {CONVERGENCE_OPTIONS.map(option => (
@@ -2131,7 +2126,6 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                     value={formData.measurement_error.type}
                     onChange={value => handleMeasurementErrorTypeChange(value)}
                     placeholder="Выберите тип погрешности"
-                    style={{ width: '100%' }}
                     listHeight={100}
                   >
                     <Option value="fixed">Фиксированное значение</Option>
@@ -2177,7 +2171,6 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                       handleInputChange(e);
                     }}
                     placeholder="Выберите тип округления"
-                    style={{ width: '100%' }}
                     listHeight={100}
                   >
                     <Option value="decimal">До десятичного знака</Option>

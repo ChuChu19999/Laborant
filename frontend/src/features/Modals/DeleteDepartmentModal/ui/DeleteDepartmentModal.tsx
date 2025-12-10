@@ -64,25 +64,22 @@ const DeleteDepartmentModal: React.FC<DeleteDepartmentModalProps> = ({
   if (!open || !department) return null;
 
   return (
-    <>
-      <div className="delete-department-modal-overlay" />
-      <div className="delete-department-modal-wrapper">
-        <Modal
-          header="Удаление подразделения"
-          onClose={handleClose}
-          onCancel={handleClose}
-          onSave={handleDelete}
-          saveButtonText="Сохранить"
-          showEditButton={false}
-          editable={false}
-          style={{ width: '450px', zIndex: 1000 }}
-        >
-          <div className="delete-department-modal-content">
-            <p>Вы действительно хотите удалить подразделение &quot;{department.name}&quot;?</p>
-          </div>
-        </Modal>
-      </div>
-    </>
+    <div className="delete-department-modal-wrapper">
+      <Modal
+        header="Удаление подразделения"
+        onClose={handleClose}
+        onCancel={handleClose}
+        onSave={handleDelete}
+        saveButtonText="Сохранить"
+        showEditButton={false}
+        editable={false}
+        modalWidth="450"
+      >
+        <div className="delete-department-modal-content">
+          <p>Вы действительно хотите удалить подразделение &quot;{department.name}&quot;?</p>
+        </div>
+      </Modal>
+    </div>
   );
 };
 

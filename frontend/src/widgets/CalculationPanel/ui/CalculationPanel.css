@@ -1,0 +1,33 @@
+.calculation-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 100%;
+}
+
+.calculation-panel-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #4a5568;
+  text-align: center;
+  padding: 0 10px 10px 10px;
+}
+
+.calculation-panel-empty-title {
+  margin-bottom: 16px;
+  color: #2d3748;
+  font-family: 'HeliosCondC';
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.calculation-panel-empty-description {
+  margin-bottom: 24px;
+  color: #718096;
+  font-family: 'HeliosCondC';
+  font-size: 14px;
+}

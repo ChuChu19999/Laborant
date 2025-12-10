@@ -22,6 +22,7 @@ interface ModalProps {
   generateButtonText?: string;
   generateLoading?: boolean;
   extraButtons?: React.ReactNode;
+  modalWidth?: '450' | '550' | '1000';
 }
 
 const Modal = ({
@@ -43,6 +44,7 @@ const Modal = ({
   generateButtonText = 'Сформировать протокол',
   generateLoading = false,
   extraButtons,
+  modalWidth,
 }: ModalProps) => {
   const [isLoading, setLoading] = useState<{ loading: boolean; type: string }>({
     loading: false,
@@ -111,21 +113,9 @@ const Modal = ({
 
   return (
     <>
+      <div className={`modal-overlay ${isClosing ? 'fade-out' : 'fade-in'}`} />
       <div
-        className="modal-overlay"
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          zIndex: 999,
-          animation: isClosing ? 'fadeOut 0.2s ease-in' : 'fadeIn 0.2s ease-out',
-        }}
-      />
-      <div
-        className={`modal-wrapper ${isClosing ? 'modal-closing' : 'modal-opening'}`}
+        className={`modal-wrapper ${isClosing ? 'modal-closing' : 'modal-opening'} ${modalWidth ? `modal-width-${modalWidth}` : ''}`}
         style={style}
         onClick={handleModalClick}
       >

@@ -29,6 +29,9 @@
   z-index: 1001;
   animation: userPickerDropdownFadeIn 0.2s ease;
   transform-origin: top;
+  top: var(--dropdown-top, 0);
+  left: var(--dropdown-left, 0);
+  width: var(--dropdown-width, auto);
 }
 
 .user-picker-option {

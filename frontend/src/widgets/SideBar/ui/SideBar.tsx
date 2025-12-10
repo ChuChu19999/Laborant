@@ -20,21 +20,14 @@ type RouterItem = {
   doNotShowChildrenInSideBar?: boolean;
 };
 
+const ADMIN_PAGE_STORAGE_KEY = 'lastAdminPagePath';
+
 const SideBar = ({ username, isAdmin, onMinimizeChange }: SideBarProps) => {
   const [minimize, setMinimize] = useState(false);
   const [openSubmenus, setOpenSubmenus] = useState<string[]>([]);
   const buttonRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
-
-  // Получение базового пути страницы (первый сегмент пути)
-  const getBasePath = useCallback((pathname: string): string => {
-    if (pathname === '/') {
-      return '/';
-    }
-    const segments = pathname.split('/').filter(segment => segment.length > 0);
-    return segments.length > 0 ? `/${segments[0]}` : '/';
-  }, []);
 
   // Фильтруем роуты в зависимости от роли
   // Для не-админов доступны только: главная и помощь
@@ -101,6 +94,14 @@ const SideBar = ({ username, isAdmin, onMinimizeChange }: SideBarProps) => {
     setOpenSubmenus([]);
   };
 
+  useEffect(() => {
+    if (location.pathname.startsWith('/admin/laboratory/')) {
+      sessionStorage.setItem(ADMIN_PAGE_STORAGE_KEY, location.pathname + location.search);
+    } else if (location.pathname === '/' && !location.pathname.startsWith('/admin/laboratory/')) {
+      sessionStorage.removeItem(ADMIN_PAGE_STORAGE_KEY);
+    }
+  }, [location.pathname, location.search]);
+
   const renderItems = (items: RouterItem[], level = 0, parentPath = '') =>
     items.map(item => {
       const currentPath = `${parentPath}${item.path}`;
@@ -108,6 +109,9 @@ const SideBar = ({ username, isAdmin, onMinimizeChange }: SideBarProps) => {
       const isCurrentPath =
         ((!openSubmenus.length || level !== 0) &&
           (location.pathname === currentPath ||
+            (currentPath === '/' &&
+              (location.pathname.startsWith('/admin/laboratory/') ||
+                location.pathname.startsWith('/?page=laboratory-management'))) ||
             (currentPath === '/users' && location.pathname.startsWith('/user-cabinet/')))) ||
         isOpen;
 
@@ -125,11 +129,25 @@ const SideBar = ({ username, isAdmin, onMinimizeChange }: SideBarProps) => {
 
       const navigateOnClick = () => {
         const targetPath = currentPath || '/';
-        // Определяем базовые пути текущей и целевой страниц
-        const currentBasePath = getBasePath(location.pathname);
-        const targetBasePath = getBasePath(targetPath);
-        // Сохраняем query параметры только если остаемся на той же странице
-        const search = currentBasePath === targetBasePath ? location.search : '';
+        // Если мы находимся на AdminPage и кликаем на "Главная", не делаем навигацию
+        if (targetPath === '/' && location.pathname.startsWith('/admin/laboratory/')) {
+          return;
+        }
+
+        // Если переходим на главную, проверяем сохраненный путь AdminPage
+        if (targetPath === '/') {
+          const savedAdminPath = sessionStorage.getItem(ADMIN_PAGE_STORAGE_KEY);
+          if (savedAdminPath) {
+            const [savedPath, savedSearch] = savedAdminPath.split('?');
+            const search = savedSearch ? `?${savedSearch}` : location.search;
+            navigate({ pathname: savedPath, search }, { replace: true });
+            setOpenSubmenus([]);
+            return;
+          }
+        }
+
+        // Сохраняем query параметры при переключении страниц
+        const search = location.search;
         // Делаем навигацию
         navigate({ pathname: targetPath, search }, { replace: true });
         setOpenSubmenus([]);
@@ -172,8 +190,21 @@ const SideBar = ({ username, isAdmin, onMinimizeChange }: SideBarProps) => {
             alt="Laborant"
             className={`sidebar-logo ${minimize ? 'collapsed' : ''}`}
             onClick={() => {
-              const currentBasePath = getBasePath(location.pathname);
-              const search = currentBasePath === '/' ? location.search : '';
+              // Если мы находимся на AdminPage, не делаем навигацию
+              if (location.pathname.startsWith('/admin/laboratory/')) {
+                return;
+              }
+
+              // Проверяем сохраненный путь AdminPage
+              const savedAdminPath = sessionStorage.getItem(ADMIN_PAGE_STORAGE_KEY);
+              if (savedAdminPath) {
+                const [savedPath, savedSearch] = savedAdminPath.split('?');
+                const search = savedSearch ? `?${savedSearch}` : location.search;
+                navigate({ pathname: savedPath, search }, { replace: true });
+                return;
+              }
+
+              const search = location.search;
               navigate({ pathname: '/', search }, { replace: true });
             }}
             onMouseEnter={e => {

@@ -140,60 +140,57 @@ const EditLaboratoryModal: React.FC<EditLaboratoryModalProps> = ({
   if (!open || !laboratory) return null;
 
   return (
-    <>
-      <div className="edit-laboratory-modal-overlay" />
-      <div className="edit-laboratory-modal-wrapper">
-        <Modal
-          header="Редактирование лаборатории"
-          onClose={handleClose}
-          onCancel={handleClose}
-          onSave={handleSave}
-          saveButtonText="Сохранить"
-          showEditButton={false}
-          editable={false}
-          style={{ width: '550px', zIndex: 1000 }}
-        >
-          <div className="edit-laboratory-modal-content">
-            <div className="edit-laboratory-form-item">
-              <label className="edit-laboratory-label">
-                Аббревиатура <span className="edit-laboratory-required">*</span>
-              </label>
-              <Input
-                value={formData.name}
-                onChange={handleInputChange('name')}
-                placeholder="Введите аббревиатуру"
-                status={errors.name ? 'error' : ''}
-                required
-              />
-              {errors.name && <div className="error-message">{errors.name}</div>}
-            </div>
-            <div className="edit-laboratory-form-item">
-              <label className="edit-laboratory-label">
-                Полное название <span className="edit-laboratory-required">*</span>
-              </label>
-              <Input
-                value={formData.full_name}
-                onChange={handleInputChange('full_name')}
-                placeholder="Введите полное название"
-                status={errors.full_name ? 'error' : ''}
-                required
-              />
-              {errors.full_name && <div className="error-message">{errors.full_name}</div>}
-            </div>
-            <div className="edit-laboratory-form-item">
-              <label className="edit-laboratory-label">
-                Место осуществления лабораторной деятельности
-              </label>
-              <Input
-                value={formData.laboratory_location}
-                onChange={handleInputChange('laboratory_location')}
-                placeholder="Введите место осуществления (необязательно)"
-              />
-            </div>
+    <div className="edit-laboratory-modal-wrapper">
+      <Modal
+        header="Редактирование лаборатории"
+        onClose={handleClose}
+        onCancel={handleClose}
+        onSave={handleSave}
+        saveButtonText="Сохранить"
+        showEditButton={false}
+        editable={false}
+        modalWidth="550"
+      >
+        <div className="edit-laboratory-modal-content">
+          <div className="edit-laboratory-form-item">
+            <label className="edit-laboratory-label">
+              Аббревиатура <span className="edit-laboratory-required">*</span>
+            </label>
+            <Input
+              value={formData.name}
+              onChange={handleInputChange('name')}
+              placeholder="Введите аббревиатуру"
+              status={errors.name ? 'error' : ''}
+              required
+            />
+            {errors.name && <div className="error-message">{errors.name}</div>}
           </div>
-        </Modal>
-      </div>
-    </>
+          <div className="edit-laboratory-form-item">
+            <label className="edit-laboratory-label">
+              Полное название <span className="edit-laboratory-required">*</span>
+            </label>
+            <Input
+              value={formData.full_name}
+              onChange={handleInputChange('full_name')}
+              placeholder="Введите полное название"
+              status={errors.full_name ? 'error' : ''}
+              required
+            />
+            {errors.full_name && <div className="error-message">{errors.full_name}</div>}
+          </div>
+          <div className="edit-laboratory-form-item">
+            <label className="edit-laboratory-label">
+              Место осуществления лабораторной деятельности
+            </label>
+            <Input
+              value={formData.laboratory_location}
+              onChange={handleInputChange('laboratory_location')}
+              placeholder="Введите место осуществления (необязательно)"
+            />
+          </div>
+        </div>
+      </Modal>
+    </div>
   );
 };
 

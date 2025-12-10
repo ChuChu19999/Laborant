@@ -53,9 +53,8 @@ const NavigationBar = ({
               <React.Fragment key={index}>
                 {index > 0 && <span className="breadcrumb-separator">/</span>}
                 <span
-                  className={`breadcrumb-item ${index === breadcrumbs.length - 1 ? 'active' : ''}`}
+                  className={`breadcrumb-item ${index === breadcrumbs.length - 1 ? 'active' : ''} ${crumb.onClick ? 'clickable' : ''}`}
                   onClick={crumb.onClick}
-                  style={{ cursor: crumb.onClick ? 'pointer' : 'default' }}
                 >
                   {crumb.label}
                 </span>

@@ -107,14 +107,16 @@ const LoadingCard = ({ loading = true, minDuration = 500 }: LoadingCardProps) =>
     <div
       ref={wrapperRef}
       className="loading-card-wrapper"
-      style={{
-        top: `${position.top}px`,
-        left: `${position.left}px`,
-        width: `${position.width}px`,
-        height: `${position.height}px`,
-      }}
+      style={
+        {
+          '--loading-top': `${position.top}px`,
+          '--loading-left': `${position.left}px`,
+          '--loading-width': `${position.width}px`,
+          '--loading-height': `${position.height}px`,
+        } as React.CSSProperties
+      }
     >
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+      <div className="loading-card-content">
         <Spin size="large" spinning={true} />
       </div>
     </div>

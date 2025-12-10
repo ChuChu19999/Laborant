@@ -134,54 +134,51 @@ const EditDepartmentModal: React.FC<EditDepartmentModalProps> = ({
   if (!open || !department) return null;
 
   return (
-    <>
-      <div className="edit-department-modal-overlay" />
-      <div className="edit-department-modal-wrapper">
-        <Modal
-          header="Редактирование подразделения"
-          onClose={handleClose}
-          onCancel={handleClose}
-          onSave={handleSave}
-          saveButtonText="Сохранить"
-          showEditButton={false}
-          editable={false}
-          style={{ width: '550px', zIndex: 1000 }}
-        >
-          <div className="edit-department-modal-content">
-            <div className="edit-department-form-item">
-              <label className="edit-department-label">
-                Название подразделения <span className="edit-department-required">*</span>
-              </label>
-              <Input
-                value={formData.name}
-                onChange={handleInputChange('name')}
-                placeholder="Введите название подразделения"
-                status={errors.name ? 'error' : ''}
-                required
-              />
-              {errors.name && <div className="error-message">{errors.name}</div>}
-            </div>
-            <div className="edit-department-form-item">
-              <label className="edit-department-label">
-                Место осуществления лабораторной деятельности{' '}
-                <span className="edit-department-required">*</span>
-              </label>
-              <Input
-                value={formData.laboratory_location}
-                onChange={handleInputChange('laboratory_location')}
-                placeholder="Введите место осуществления лабораторной деятельности"
-                status={errors.laboratory_location ? 'error' : ''}
-                required
-              />
-              {errors.laboratory_location && (
-                <div className="error-message">{errors.laboratory_location}</div>
-              )}
-            </div>
-            {errors.general && <div className="error-message general-error">{errors.general}</div>}
+    <div className="edit-department-modal-wrapper">
+      <Modal
+        header="Редактирование подразделения"
+        onClose={handleClose}
+        onCancel={handleClose}
+        onSave={handleSave}
+        saveButtonText="Сохранить"
+        showEditButton={false}
+        editable={false}
+        modalWidth="550"
+      >
+        <div className="edit-department-modal-content">
+          <div className="edit-department-form-item">
+            <label className="edit-department-label">
+              Название подразделения <span className="edit-department-required">*</span>
+            </label>
+            <Input
+              value={formData.name}
+              onChange={handleInputChange('name')}
+              placeholder="Введите название подразделения"
+              status={errors.name ? 'error' : ''}
+              required
+            />
+            {errors.name && <div className="error-message">{errors.name}</div>}
           </div>
-        </Modal>
-      </div>
-    </>
+          <div className="edit-department-form-item">
+            <label className="edit-department-label">
+              Место осуществления лабораторной деятельности{' '}
+              <span className="edit-department-required">*</span>
+            </label>
+            <Input
+              value={formData.laboratory_location}
+              onChange={handleInputChange('laboratory_location')}
+              placeholder="Введите место осуществления лабораторной деятельности"
+              status={errors.laboratory_location ? 'error' : ''}
+              required
+            />
+            {errors.laboratory_location && (
+              <div className="error-message">{errors.laboratory_location}</div>
+            )}
+          </div>
+          {errors.general && <div className="error-message general-error">{errors.general}</div>}
+        </div>
+      </Modal>
+    </div>
   );
 };
 

@@ -8,8 +8,16 @@ interface BubbleProps {
 
 const Bubble = ({ text, color = '#007DFE', textColor = '#fff' }: BubbleProps) => {
   return (
-    <div className="bubble-wrapper" style={{ backgroundColor: color }}>
-      <p style={{ color: textColor }}>{text}</p>
+    <div
+      className="bubble-wrapper"
+      style={
+        {
+          '--bubble-bg-color': color,
+          '--bubble-text-color': textColor,
+        } as React.CSSProperties
+      }
+    >
+      <p>{text}</p>
     </div>
   );
 };

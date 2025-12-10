@@ -64,25 +64,22 @@ const DeleteLaboratoryModal: React.FC<DeleteLaboratoryModalProps> = ({
   if (!open || !laboratory) return null;
 
   return (
-    <>
-      <div className="delete-laboratory-modal-overlay" />
-      <div className="delete-laboratory-modal-wrapper">
-        <Modal
-          header="Удаление лаборатории"
-          onClose={handleClose}
-          onCancel={handleClose}
-          onSave={handleDelete}
-          saveButtonText="Сохранить"
-          showEditButton={false}
-          editable={false}
-          style={{ width: '450px', zIndex: 1000 }}
-        >
-          <div className="delete-laboratory-modal-content">
-            <p>Вы действительно хотите удалить лабораторию &quot;{laboratory.name}&quot;?</p>
-          </div>
-        </Modal>
-      </div>
-    </>
+    <div className="delete-laboratory-modal-wrapper">
+      <Modal
+        header="Удаление лаборатории"
+        onClose={handleClose}
+        onCancel={handleClose}
+        onSave={handleDelete}
+        saveButtonText="Сохранить"
+        showEditButton={false}
+        editable={false}
+        modalWidth="450"
+      >
+        <div className="delete-laboratory-modal-content">
+          <p>Вы действительно хотите удалить лабораторию &quot;{laboratory.name}&quot;?</p>
+        </div>
+      </Modal>
+    </div>
   );
 };
 

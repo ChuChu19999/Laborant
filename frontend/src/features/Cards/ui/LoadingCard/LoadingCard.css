@@ -7,4 +7,15 @@
   background-color: #fcfcfc;
   border-radius: 16px;
   overflow: hidden;
+  top: var(--loading-top, 0);
+  left: var(--loading-left, 0);
+  width: var(--loading-width, auto);
+  height: var(--loading-height, auto);
+}
+
+.loading-card-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
 }

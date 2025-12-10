@@ -1,5 +1,6 @@
 import React from 'react';
 import { Modal } from '../../../shared/ui/Modal';
+import './ConfirmationModal.css';
 
 interface ConfirmationModalProps {
   open: boolean;
@@ -11,6 +12,7 @@ interface ConfirmationModalProps {
   onCancel: () => void;
   confirmButtonColor?: string;
   style?: React.CSSProperties;
+  modalWidth?: '450' | '550' | '1000';
 }
 
 const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
@@ -23,37 +25,26 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   onCancel,
   confirmButtonColor,
   style,
+  modalWidth,
 }) => {
   if (!open) return null;
 
   return (
-    <>
-      <div
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          zIndex: 999,
-        }}
-      />
-      <Modal
-        header={title}
-        onClose={onCancel}
-        onCancel={onCancel}
-        cancelText={cancelText}
-        onSave={onConfirm}
-        saveButtonText={confirmText}
-        saveButtonColor={confirmButtonColor}
-        showEditButton={false}
-        editable={false}
-        style={style}
-      >
-        <p style={{ margin: 0 }}>{message}</p>
-      </Modal>
-    </>
+    <Modal
+      header={title}
+      onClose={onCancel}
+      onCancel={onCancel}
+      cancelText={cancelText}
+      onSave={onConfirm}
+      saveButtonText={confirmText}
+      saveButtonColor={confirmButtonColor}
+      showEditButton={false}
+      editable={false}
+      style={style}
+      modalWidth={modalWidth}
+    >
+      <p className="confirmation-modal-message">{message}</p>
+    </Modal>
   );
 };
 

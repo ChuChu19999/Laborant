@@ -260,12 +260,13 @@ const UserPicker: React.FC<UserPickerProps> = ({
       <div
         ref={dropdownRef}
         className="user-picker-dropdown"
-        style={{
-          position: 'absolute',
-          top: `${dropdownPosition.top}px`,
-          left: `${dropdownPosition.left}px`,
-          width: `${dropdownPosition.width}px`,
-        }}
+        style={
+          {
+            '--dropdown-top': `${dropdownPosition.top}px`,
+            '--dropdown-left': `${dropdownPosition.left}px`,
+            '--dropdown-width': `${dropdownPosition.width}px`,
+          } as React.CSSProperties
+        }
       >
         <LoadingCard loading={loading} />
         {!loading &&

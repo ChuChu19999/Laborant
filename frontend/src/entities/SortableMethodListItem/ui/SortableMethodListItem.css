@@ -1,0 +1,12 @@
+.sortable-item-wrapper {
+  position: relative;
+  width: 100%;
+  transform: var(--sortable-transform, none);
+  transition: var(--sortable-transition, none);
+  opacity: var(--sortable-opacity, 1);
+}
+
+.sortable-item-wrapper.dragging {
+  pointer-events: none;
+  opacity: 0.4;
+}
