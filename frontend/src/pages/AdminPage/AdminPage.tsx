@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { message } from 'antd';
+import { message, Select } from 'antd';
 import { ConfirmationModal } from '../../entities/ConfirmationModal';
 import { CreateCalculationModal } from '../../features/Modals';
 import { laboratoriesApi } from '../../shared/api/laboratories';
@@ -21,6 +21,8 @@ import type { Laboratory, Department } from '../../shared/api/laboratories';
 import type { ResearchMethod, ResearchMethodGroup } from '../../shared/api/research';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import './AdminPage.css';
+
+const { Option } = Select;
 
 type ListItem =
   | { type: 'method'; id: number; data: ResearchMethod }
@@ -148,6 +150,20 @@ const AdminPage: React.FC = () => {
 
     return items;
   }, [methods, groups]);
+
+  useEffect(() => {
+    if (selectedMethodId === null && displayItems.length > 0) {
+      const firstItem = displayItems[0];
+      if (firstItem.type === 'method') {
+        setSelectedMethodId(firstItem.id);
+      } else {
+        const group = groups.find(g => g.id === firstItem.id);
+        if (group && group.methods.length > 0) {
+          setSelectedMethodId(group.methods[0].id);
+        }
+      }
+    }
+  }, [displayItems, groups, selectedMethodId]);
 
   const handleBack = () => {
     if (laboratoryId) {
@@ -348,6 +364,25 @@ const AdminPage: React.FC = () => {
 
   const hasNoMethods = displayItems.length === 0;
 
+  const currentMethod = useMemo(() => {
+    return methods.find(method => method.id === selectedMethodId) || null;
+  }, [selectedMethodId, methods]);
+
+  const currentMethodGroup = useMemo(() => {
+    if (!currentMethod) return null;
+    return groups.find(group => group.methods.some(gm => gm.id === currentMethod.id));
+  }, [groups, currentMethod]);
+
+  const groupMethods = useMemo(() => {
+    if (!currentMethodGroup) return [];
+    return methods.filter(m => currentMethodGroup.methods.some(gm => gm.id === m.id));
+  }, [currentMethodGroup, methods]);
+
+  const shouldShowGroupSelector = useMemo(() => {
+    if (!currentMethodGroup || groupMethods.length <= 1) return false;
+    return true;
+  }, [currentMethodGroup, groupMethods]);
+
   const leftPanel = (
     <MethodsPanel
       methods={methods}
@@ -365,7 +400,36 @@ const AdminPage: React.FC = () => {
     />
   );
 
-  const rightPanel = <CalculationPanel hasNoMethods={hasNoMethods} />;
+  const rightPanel = (
+    <CalculationPanel
+      hasNoMethods={hasNoMethods}
+      selectedMethodId={selectedMethodId}
+      methods={methods}
+      groups={groups}
+      groupSelector={
+        shouldShowGroupSelector ? (
+          <Select
+            value={selectedMethodId}
+            onChange={value => {
+              setSelectedMethodId(value);
+            }}
+            style={{ width: '470px', marginBottom: '12px' }}
+            className="research-method-select"
+          >
+            {groupMethods.map(method => (
+              <Option key={method.id} value={method.id}>
+                {method.name === 'Фракционный состав (конденсат)'
+                  ? 'Конденсат'
+                  : method.name === 'Фракционный состав (нефть)'
+                    ? 'Нефть'
+                    : method.name}
+              </Option>
+            ))}
+          </Select>
+        ) : undefined
+      }
+    />
+  );
 
   return (
     <Layout title="Администрирование">

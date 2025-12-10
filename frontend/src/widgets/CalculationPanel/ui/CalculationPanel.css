@@ -31,3 +31,96 @@
   font-family: 'HeliosCondC';
   font-size: 14px;
 }
+
+.calculation-panel-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  overflow-y: auto;
+  height: 100%;
+}
+
+.calculation-panel-date-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.calculation-panel-date-label {
+  font-family: HeliosCondC;
+  color: #2c5282;
+  font-weight: 600;
+  font-size: 20px;
+}
+
+.calculation-panel-date-wrapper {
+  position: relative;
+  width: 470px;
+}
+
+.calculation-panel-date-wrapper .date-picker {
+  width: 100%;
+}
+
+.calculation-panel-date-wrapper .date-picker .ant-picker {
+  width: 100%;
+}
+
+.calculation-panel-date-wrapper .date-picker .ant-picker-input {
+  flex: 1;
+  width: 100%;
+}
+
+.calculation-panel-date-wrapper .date-picker .ant-picker-input input {
+  flex: 1;
+  width: 100%;
+}
+
+.calculation-panel-date-error {
+  color: #ff4d4f;
+  font-size: 12px;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  white-space: nowrap;
+}
+
+.date-picker-error {
+  border-color: #ff4d4f;
+}
+
+.calculation-panel-method-title {
+  color: #2c5282;
+  font-size: 20px;
+  font-weight: 600;
+  text-align: left;
+  font-family: HeliosCondC;
+}
+
+.calculation-panel-cards-wrapper {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  gap: 16px;
+  margin-bottom: 10px;
+  justify-content: left;
+  flex-wrap: wrap;
+}
+
+.calculation-panel-results-wrapper {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  gap: 5px;
+  margin-bottom: 5px;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.calculation-panel-actions {
+  display: flex;
+  justify-content: left;
+  width: 100%;
+  gap: 16px;
+}

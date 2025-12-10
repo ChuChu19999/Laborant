@@ -1,6 +1,6 @@
 .split-panel {
   display: flex;
-  height: calc(100% - 92px);
+  height: calc(100% - 64px);
   margin-top: 64px;
   box-sizing: border-box;
   font-family: 'HeliosCondC';
@@ -13,7 +13,6 @@
   padding: 12px;
   padding-bottom: 0px;
   background: linear-gradient(180deg, #f8faff 0%, #f0f5ff 100%);
-  height: calc(100% + 16px);
   position: sticky;
   top: 0;
   border-bottom-left-radius: 16px;
@@ -27,5 +26,5 @@
   position: relative;
   width: 100%;
   max-width: 100%;
-  height: calc(100% - 10px);
+  height: 100%;
 }

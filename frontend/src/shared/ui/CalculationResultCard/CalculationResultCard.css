@@ -1,0 +1,110 @@
+.calculation-result-card {
+  border: 1px solid rgba(64, 150, 255, 0.3);
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: linear-gradient(to right, #f8f9ff, #f0f7ff);
+  box-shadow: 0 4px 12px rgba(64, 150, 255, 0.08);
+  margin-top: 4px;
+  margin-bottom: 4px;
+  min-width: 440px;
+  max-width: 440px;
+}
+
+.calculation-result-main {
+  margin-bottom: 6px;
+}
+
+.calculation-result-title {
+  color: #2c5282;
+  font-size: 16px;
+  font-weight: 600;
+  font-family: HeliosCondC;
+}
+
+.calculation-result-value {
+  color: #2c5282;
+  font-size: 16px;
+  font-weight: 600;
+  font-family: HeliosCondC;
+}
+
+.calculation-result-section {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(64, 150, 255, 0.15);
+}
+
+.calculation-result-section-title {
+  color: #2c5282;
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  font-family: HeliosCondC;
+}
+
+.calculation-condition {
+  margin: 8px 0;
+  color: #2c5282;
+  font-size: 14px;
+  background: rgba(255, 255, 255, 0.5);
+  padding: 8px;
+  border-radius: 8px;
+  font-family: HeliosCondC;
+}
+
+.calculation-condition:not(:last-child) {
+  border-bottom: 1px dashed rgba(64, 150, 255, 0.3);
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+}
+
+.calculation-condition-formula {
+  font-family: HeliosCondC;
+  margin-bottom: 6px;
+  font-size: 14px;
+  color: #1a365d;
+}
+
+.calculation-condition-steps {
+  font-family: HeliosCondC;
+  font-size: 14px;
+  color: #4a5568;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(64, 150, 255, 0.15);
+}
+
+.calculation-condition-result {
+  color: #0066cc;
+  margin-top: 6px;
+  font-weight: 500;
+}
+
+.calculation-intermediate-item {
+  color: #4a5568;
+  margin: 3px 0;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 1px;
+}
+
+.calculation-intermediate-name {
+  display: flex;
+  align-items: center;
+}
+
+.calculation-intermediate-value {
+  color: #2d3748;
+  font-weight: 500;
+}
+
+.calculation-intermediate-unit {
+  color: #666;
+  font-weight: normal;
+}
+
+.calculation-intermediate-icon {
+  margin-left: 1px;
+  cursor: pointer;
+}

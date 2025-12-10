@@ -1,0 +1,77 @@
+.parallel-card {
+  padding: 20px;
+  padding-bottom: 12px;
+  background: #f5f8ff;
+  border-radius: 16px;
+  box-shadow: rgba(17, 12, 46, 0.05) 0px 48px 100px 0px;
+  flex: 1;
+  min-width: 430px;
+  max-width: 430px;
+  border: 1px solid rgba(22, 119, 255, 0.3);
+  transition: all 0.3s ease;
+  transform: translateY(0);
+  backdrop-filter: blur(8px);
+  background-color: rgba(245, 248, 255, 0.95);
+}
+
+.parallel-card-label {
+  font-size: 18px;
+  font-weight: 600;
+  color: #2c5282;
+  margin-bottom: 12px;
+  font-family: HeliosCondC;
+}
+
+.input-field-container {
+  margin-bottom: 12px;
+}
+
+.input-field-container:last-child {
+  margin-bottom: 0;
+}
+
+.hover-input:hover {
+  border-color: rgba(22, 119, 255, 0.5);
+}
+
+.hover-input:focus {
+  border-color: rgba(22, 119, 255, 0.8);
+  box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.1);
+}
+
+.parallel-card-title-wrapper {
+  display: flex;
+  align-items: center;
+}
+
+.parallel-card-title-text {
+  font-size: 14px;
+}
+
+.parallel-card-title-icon {
+  margin-left: 4px;
+  cursor: pointer;
+}
+
+.parallel-card-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.parallel-card-input {
+  font-size: 14px;
+  flex: 1;
+}
+
+.parallel-card-unit {
+  color: #666;
+  font-size: 14px;
+  font-family: HeliosCondC;
+  white-space: nowrap;
+}
+
+.parallel-card-select {
+  width: 100%;
+}
