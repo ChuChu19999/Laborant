@@ -16,9 +16,11 @@ from schemas.research import (
     ResearchMethodResponse,
     ResearchMethodSortOrderUpdate,
     ResearchMethodUpdate,
+    SortOrderBatchUpdate,
 )
 from services.calculation import get_calculations
 from services.research import (
+    batch_update_sort_order,
     create_research_method,
     create_research_method_group,
     delete_research_method,
@@ -254,6 +256,31 @@ async def update_research_method_sort_order_endpoint(
     method = result.scalar_one()
 
     return ResearchMethodResponse.model_validate(method)
+
+
+@router.patch(
+    "/sort-order/batch/",
+    status_code=200,
+    summary="Массовое обновление порядка сортировки",
+    description="Массовое обновление sort_order для методов и групп исследования.",
+    responses={
+        200: {"description": "Порядок сортировки успешно обновлен"},
+        400: {"description": "Некорректные данные для обновления"},
+    },
+)
+# @IsAuthenticated
+async def batch_update_sort_order_endpoint(
+    batch_data: SortOrderBatchUpdate,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Массовое обновление sort_order для методов и групп.
+
+    Позволяет обновить sort_order для нескольких элементов одновременно.
+    """
+    await batch_update_sort_order(db, batch_data)
+    await db.commit()
+    return {"message": "Порядок сортировки успешно обновлен"}
 
 
 @router.get(

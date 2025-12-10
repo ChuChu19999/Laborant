@@ -3,6 +3,7 @@ from sqlalchemy import delete, func, insert, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from core.exceptions import ConflictError, NotFoundError, ValidationError
+from core.logger import logger
 from models.laboratory import Department, Laboratory
 from models.research import (
     ResearchMethod,
@@ -15,6 +16,8 @@ from schemas.research import (
     ResearchMethodGroupUpdate,
     ResearchMethodSortOrderUpdate,
     ResearchMethodUpdate,
+    SortOrderBatchUpdate,
+    SortOrderBatchUpdateItem,
 )
 from utils.filters import add_list_filter, add_text_search_filter
 from utils.pagination import apply_pagination, calculate_total_pages, get_total_count
@@ -122,6 +125,24 @@ async def get_research_methods(
     return methods, total, total_pages
 
 
+async def _get_max_sort_order(db: AsyncSession) -> int:
+    """Получить максимальный sort_order среди методов и групп."""
+    max_method_sort_order = await db.execute(
+        select(func.max(ResearchMethod.sort_order)).where(
+            ResearchMethod.deleted_at.is_(None),
+            ResearchMethod.is_group_member == False,
+        )
+    )
+    max_group_sort_order = await db.execute(
+        select(func.max(ResearchMethodGroup.sort_order)).where(
+            ResearchMethodGroup.deleted_at.is_(None)
+        )
+    )
+    max_method = max_method_sort_order.scalar() or 0
+    max_group = max_group_sort_order.scalar() or 0
+    return max(max_method, max_group)
+
+
 async def create_research_method(
     db: AsyncSession, method_data: ResearchMethodCreate
 ) -> ResearchMethod:
@@ -148,8 +169,12 @@ async def create_research_method(
                 "Подразделение должно принадлежать выбранной лаборатории"
             )
 
-    if method_data.sort_order is not None and not method_data.is_group_member:
-        await _resolve_sort_order_conflict(db, method_data.sort_order)
+    sort_order = method_data.sort_order
+    if sort_order is None and not method_data.is_group_member:
+        sort_order = await _get_max_sort_order(db) + 1
+
+    if sort_order is not None and not method_data.is_group_member:
+        await _resolve_sort_order_conflict(db, sort_order)
 
     method = ResearchMethod(
         name=method_data.name,
@@ -167,7 +192,7 @@ async def create_research_method(
         rounding_decimal=method_data.rounding_decimal,
         is_group_member=method_data.is_group_member,
         equipment_data_default=method_data.equipment_data_default or [],
-        sort_order=method_data.sort_order,
+        sort_order=sort_order,
         laboratory_id=method_data.laboratory_id,
         department_id=method_data.department_id,
     )
@@ -236,6 +261,7 @@ async def _resolve_sort_order_conflict(
     """Решение конфликта sort_order между методами и группами.
 
     Если новый sort_order занят другим элементом, меняет их местами.
+    Использует SELECT FOR UPDATE для защиты от гонок.
     """
     if old_sort_order == new_sort_order:
         return
@@ -249,7 +275,7 @@ async def _resolve_sort_order_conflict(
         method_conditions.append(ResearchMethod.id != exclude_method_id)
 
     conflicting_method = await db.execute(
-        select(ResearchMethod).where(*method_conditions)
+        select(ResearchMethod).where(*method_conditions).with_for_update()
     )
     conflicting_method_obj = conflicting_method.scalar_one_or_none()
 
@@ -261,49 +287,58 @@ async def _resolve_sort_order_conflict(
         group_conditions.append(ResearchMethodGroup.id != exclude_group_id)
 
     conflicting_group = await db.execute(
-        select(ResearchMethodGroup).where(*group_conditions)
+        select(ResearchMethodGroup).where(*group_conditions).with_for_update()
     )
     conflicting_group_obj = conflicting_group.scalar_one_or_none()
 
+    has_conflict = (
+        conflicting_method_obj is not None or conflicting_group_obj is not None
+    )
+    if has_conflict:
+        logger.info(
+            f"Обнаружен конфликт sort_order: new={new_sort_order}, old={old_sort_order}, "
+            f"conflicting_method_id={conflicting_method_obj.id if conflicting_method_obj else None}, "
+            f"conflicting_group_id={conflicting_group_obj.id if conflicting_group_obj else None}"
+        )
+
     if conflicting_method_obj:
         if old_sort_order is not None:
+            logger.info(
+                f"Меняем местами метод: method_id={conflicting_method_obj.id}, "
+                f"old_sort_order={conflicting_method_obj.sort_order} -> {old_sort_order}"
+            )
             conflicting_method_obj.sort_order = old_sort_order
         else:
-            max_sort_order = await db.execute(
-                select(func.max(ResearchMethod.sort_order)).where(
-                    ResearchMethod.deleted_at.is_(None),
-                    ResearchMethod.is_group_member == False,
-                )
+            new_max_sort_order = await _get_max_sort_order(db)
+            conflicting_method_obj.sort_order = new_max_sort_order + 1
+            logger.info(
+                f"Перемещаем метод в конец: method_id={conflicting_method_obj.id}, "
+                f"new_sort_order={conflicting_method_obj.sort_order}"
             )
-            max_group_sort_order = await db.execute(
-                select(func.max(ResearchMethodGroup.sort_order)).where(
-                    ResearchMethodGroup.deleted_at.is_(None)
-                )
-            )
-            max_method = max_sort_order.scalar() or 0
-            max_group = max_group_sort_order.scalar() or 0
-            conflicting_method_obj.sort_order = max(max_method, max_group) + 1
         await db.flush()
 
     if conflicting_group_obj:
         if old_sort_order is not None:
+            logger.info(
+                f"Меняем местами группу: group_id={conflicting_group_obj.id}, "
+                f"old_sort_order={conflicting_group_obj.sort_order} -> {old_sort_order}"
+            )
             conflicting_group_obj.sort_order = old_sort_order
         else:
-            max_sort_order = await db.execute(
-                select(func.max(ResearchMethod.sort_order)).where(
-                    ResearchMethod.deleted_at.is_(None),
-                    ResearchMethod.is_group_member == False,
-                )
+            new_max_sort_order = await _get_max_sort_order(db)
+            conflicting_group_obj.sort_order = new_max_sort_order + 1
+            logger.info(
+                f"Перемещаем группу в конец: group_id={conflicting_group_obj.id}, "
+                f"new_sort_order={conflicting_group_obj.sort_order}"
             )
-            max_group_sort_order = await db.execute(
-                select(func.max(ResearchMethodGroup.sort_order)).where(
-                    ResearchMethodGroup.deleted_at.is_(None)
-                )
-            )
-            max_method = max_sort_order.scalar() or 0
-            max_group = max_group_sort_order.scalar() or 0
-            conflicting_group_obj.sort_order = max(max_method, max_group) + 1
         await db.flush()
+
+    if conflicting_method_obj and conflicting_group_obj:
+        logger.warning(
+            f"Одновременный конфликт метода и группы: method_id={conflicting_method_obj.id}, "
+            f"group_id={conflicting_group_obj.id}, sort_order={new_sort_order}. "
+            f"Оба элемента обработаны."
+        )
 
 
 async def update_research_method_sort_order(
@@ -414,12 +449,16 @@ async def create_research_method_group(
         if method.is_group_member:
             raise ConflictError(f"Метод '{method.name}' уже входит в другую группу")
 
-    if group_data.sort_order is not None:
-        await _resolve_sort_order_conflict(db, group_data.sort_order)
+    sort_order = group_data.sort_order
+    if sort_order is None:
+        sort_order = await _get_max_sort_order(db) + 1
+
+    if sort_order is not None:
+        await _resolve_sort_order_conflict(db, sort_order)
 
     group = ResearchMethodGroup(
         name=group_data.name.strip(),
-        sort_order=group_data.sort_order,
+        sort_order=sort_order,
     )
     db.add(group)
     await db.flush()
@@ -470,6 +509,8 @@ async def update_research_method_group(
             exclude_group_id=group_id,
         )
         group.sort_order = group_data.sort_order
+    elif group.sort_order is None:
+        group.sort_order = await _get_max_sort_order(db) + 1
 
     if group_data.method_ids is not None:
         if not group_data.method_ids:
@@ -553,4 +594,56 @@ async def delete_research_method_group(db: AsyncSession, group_id: int) -> None:
             method.soft_delete()
 
     group.soft_delete()
+    await db.flush()
+
+
+async def batch_update_sort_order(
+    db: AsyncSession, batch_data: SortOrderBatchUpdate
+) -> None:
+    """Массовое обновление sort_order для методов и групп."""
+    methods_to_update: List[tuple[int, int]] = []
+    groups_to_update: List[tuple[int, int]] = []
+
+    for item in batch_data.items:
+        if item.type == "method":
+            methods_to_update.append((item.id, item.sort_order))
+        elif item.type == "group":
+            groups_to_update.append((item.id, item.sort_order))
+        else:
+            raise ValidationError(f"Неизвестный тип элемента: {item.type}")
+
+    for method_id, new_sort_order in methods_to_update:
+        method = await get_research_method_by_id(db, method_id)
+        if not method:
+            raise NotFoundError(f"Метод исследования с ID {method_id} не найден")
+        if method.is_group_member:
+            raise ValidationError(
+                f"Нельзя изменить sort_order для метода {method_id}, входящего в группу"
+            )
+
+        old_sort_order = method.sort_order
+        await _resolve_sort_order_conflict(
+            db,
+            new_sort_order,
+            old_sort_order=old_sort_order,
+            exclude_method_id=method_id,
+        )
+        method.sort_order = new_sort_order
+
+    for group_id, new_sort_order in groups_to_update:
+        group = await get_research_method_group_by_id(db, group_id)
+        if not group:
+            raise NotFoundError(
+                f"Группа методов исследования с ID {group_id} не найдена"
+            )
+
+        old_sort_order = group.sort_order
+        await _resolve_sort_order_conflict(
+            db,
+            new_sort_order,
+            old_sort_order=old_sort_order,
+            exclude_group_id=group_id,
+        )
+        group.sort_order = new_sort_order
+
     await db.flush()

@@ -214,4 +214,10 @@ export const researchApi = {
   deleteResearchMethodGroup: async (id: number): Promise<void> => {
     await axiosInstance.delete(`/api/research-method-groups/${id}/`);
   },
+
+  batchUpdateSortOrder: async (
+    items: Array<{ id: number; type: 'method' | 'group'; sort_order: number }>
+  ): Promise<void> => {
+    await axiosInstance.patch('/api/sort-order/batch/', { items });
+  },
 };

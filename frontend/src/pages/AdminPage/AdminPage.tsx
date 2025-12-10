@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { message } from 'antd';
 import { ConfirmationModal } from '../../entities/ConfirmationModal';
 import { CreateCalculationModal } from '../../features/Modals';
 import { laboratoriesApi } from '../../shared/api/laboratories';
+import { researchApi } from '../../shared/api/research';
 import {
   useResearchMethods,
   useDeleteResearchMethod,
   useDeleteResearchMethodGroup,
-  useUpdateResearchMethodSortOrder,
-  useUpdateResearchMethodGroup,
 } from '../../shared/model/hooks';
 import { useAutoRefetchQuery } from '../../shared/model/lib/useQuery';
 import { useQueryStore } from '../../shared/model/stores';
@@ -61,8 +61,6 @@ const AdminPage: React.FC = () => {
   const researchMethods = useResearchMethods(labId, deptId);
   const deleteMethodMutation = useDeleteResearchMethod();
   const deleteGroupMutation = useDeleteResearchMethodGroup();
-  const updateSortOrderMutation = useUpdateResearchMethodSortOrder();
-  const updateGroupMutation = useUpdateResearchMethodGroup();
 
   const { data: laboratory } = useAutoRefetchQuery<Laboratory>(
     ['laboratory', labId],
@@ -134,8 +132,17 @@ const AdminPage: React.FC = () => {
     });
 
     items.sort((a, b) => {
-      const aOrder = a.type === 'method' ? a.data.sort_order || 0 : a.data.sort_order || 0;
-      const bOrder = b.type === 'method' ? b.data.sort_order || 0 : b.data.sort_order || 0;
+      const aOrder = a.data.sort_order ?? null;
+      const bOrder = b.data.sort_order ?? null;
+      if (aOrder === null && bOrder === null) {
+        return 0;
+      }
+      if (aOrder === null) {
+        return 1;
+      }
+      if (bOrder === null) {
+        return -1;
+      }
       return aOrder - bOrder;
     });
 
@@ -248,22 +255,74 @@ const AdminPage: React.FC = () => {
     const oldIndex = displayItems.findIndex(item => item.id === active.id);
     const newIndex = displayItems.findIndex(item => item.id === over.id);
 
-    if (oldIndex === -1 || newIndex === -1) {
+    if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) {
       return;
     }
 
     try {
       const item = displayItems[oldIndex];
-      const targetItem = displayItems[newIndex];
-      const targetSortOrder = targetItem.data.sort_order ?? 0;
+      const itemsToUpdate: Array<{ type: 'method' | 'group'; id: number; sort_order: number }> = [];
 
-      if (item.type === 'method') {
-        await updateSortOrderMutation.mutateAsync({ id: item.data.id, sortOrder: targetSortOrder });
-      } else {
-        await updateGroupMutation.mutateAsync({
+      if (oldIndex < newIndex) {
+        const targetSortOrder = displayItems[newIndex].data.sort_order;
+        if (targetSortOrder === null || targetSortOrder === undefined) {
+          return;
+        }
+
+        for (let i = oldIndex + 1; i <= newIndex; i++) {
+          const currentItem = displayItems[i];
+          const prevItem = displayItems[i - 1];
+          const prevSortOrder = prevItem.data.sort_order;
+          if (prevSortOrder !== null && prevSortOrder !== undefined) {
+            itemsToUpdate.push({
+              type: currentItem.type,
+              id: currentItem.data.id,
+              sort_order: prevSortOrder,
+            });
+          }
+        }
+
+        itemsToUpdate.push({
+          type: item.type,
           id: item.data.id,
-          data: { sort_order: targetSortOrder },
+          sort_order: targetSortOrder,
         });
+      } else {
+        const targetSortOrder = displayItems[newIndex].data.sort_order;
+        if (targetSortOrder === null || targetSortOrder === undefined) {
+          return;
+        }
+
+        for (let i = oldIndex - 1; i >= newIndex; i--) {
+          const currentItem = displayItems[i];
+          const nextItem = displayItems[i + 1];
+          const nextSortOrder = nextItem.data.sort_order;
+          if (nextSortOrder !== null && nextSortOrder !== undefined) {
+            itemsToUpdate.push({
+              type: currentItem.type,
+              id: currentItem.data.id,
+              sort_order: nextSortOrder,
+            });
+          }
+        }
+
+        itemsToUpdate.push({
+          type: item.type,
+          id: item.data.id,
+          sort_order: targetSortOrder,
+        });
+      }
+
+      if (itemsToUpdate.length > 0) {
+        await researchApi.batchUpdateSortOrder(
+          itemsToUpdate.map(update => ({
+            id: update.id,
+            type: update.type,
+            sort_order: update.sort_order,
+          }))
+        );
+        message.success('Порядок сортировки успешно обновлен');
+        researchMethods.refetch();
       }
     } catch (error) {
       console.error('Ошибка при обновлении порядка сортировки:', error);

@@ -77,6 +77,8 @@ class ResearchMethodBase(BaseModel):
     def validate_measurement_error(cls, v: Dict[str, Any]) -> Dict[str, Any]:
         if not isinstance(v, dict):
             raise ValueError("Погрешность должна быть объектом")
+        if not v:
+            return {"type": "fixed", "value": "0"}
         if "type" not in v:
             raise ValueError("Не указан тип погрешности")
         if v["type"] not in ["fixed", "formula"]:
@@ -286,3 +288,15 @@ class ResearchMethodResponse(ResearchMethodBase):
 
 class ResearchMethodSortOrderUpdate(BaseModel):
     sort_order: int = Field(..., description="Новый порядок сортировки")
+
+
+class SortOrderBatchUpdateItem(BaseModel):
+    id: int = Field(..., description="ID элемента")
+    type: str = Field(..., description="Тип элемента: 'method' или 'group'")
+    sort_order: int = Field(..., description="Новый порядок сортировки")
+
+
+class SortOrderBatchUpdate(BaseModel):
+    items: List[SortOrderBatchUpdateItem] = Field(
+        ..., min_length=1, description="Список элементов для обновления"
+    )
