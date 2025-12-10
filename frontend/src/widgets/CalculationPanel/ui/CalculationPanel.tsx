@@ -3,7 +3,7 @@ import { Form, Button, message } from 'antd';
 import { BiHelpCircle } from 'react-icons/bi';
 import { CalculationResultCard, ParallelCard } from '../../../entities/Cards';
 import { FormItem } from '../../../features/FormItems';
-import { calculationApi } from '../../../shared/api/calculation';
+import { useCalculate } from '../../../shared/model/hooks';
 import { DatePicker } from '../../../shared/ui/DatePicker';
 import { Select } from '../../../shared/ui/FormItems';
 import Tooltip from '../../../shared/ui/Tooltip/Tooltip';
@@ -37,8 +37,9 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
   const [calculationResults, setCalculationResults] = useState<Record<number, CalculationResult[]>>(
     {}
   );
-  const [isCalculating, setIsCalculating] = useState(false);
   const inputRefs = useRef<Record<string, InputRef | null>>({});
+  const calculateMutation = useCalculate();
+  const isCalculating = calculateMutation.isPending;
 
   const currentMethod = useMemo(() => {
     return methods.find(method => method.id === selectedMethodId) || null;
@@ -146,11 +147,9 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
     setDateError('');
 
     try {
-      setIsCalculating(true);
-
       const inputData = prepareInputData(currentMethod);
 
-      const response = await calculationApi.calculate({
+      const response = await calculateMutation.mutateAsync({
         input_data: inputData,
         research_method_id: currentMethod.id,
       });
@@ -211,15 +210,6 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
       }));
     } catch (error: unknown) {
       console.error('Ошибка при расчете:', error);
-      const errorMessage =
-        (error as { response?: { data?: { detail?: string; error?: string } } })?.response?.data
-          ?.detail ||
-        (error as { response?: { data?: { error?: string } } })?.response?.data?.error ||
-        (error as { message?: string })?.message ||
-        'Ошибка при расчете';
-      message.error(errorMessage);
-    } finally {
-      setIsCalculating(false);
     }
   };
 

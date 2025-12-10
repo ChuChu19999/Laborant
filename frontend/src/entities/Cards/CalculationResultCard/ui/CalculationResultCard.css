@@ -19,6 +19,7 @@
   font-size: 16px;
   font-weight: 600;
   font-family: HeliosCondC;
+  margin: 0;
 }
 
 .calculation-result-value {
@@ -26,6 +27,7 @@
   font-size: 16px;
   font-weight: 600;
   font-family: HeliosCondC;
+  margin: 0;
 }
 
 .calculation-result-section {
@@ -38,7 +40,7 @@
   color: #2c5282;
   font-size: 15px;
   font-weight: 600;
-  margin-bottom: 6px;
+  margin: 0;
   font-family: HeliosCondC;
 }
 

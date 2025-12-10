@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { message } from 'antd';
 import { ConfirmationModal } from '../../entities/ConfirmationModal';
 import { CreateCalculationModal } from '../../features/Modals';
 import { laboratoriesApi } from '../../shared/api/laboratories';
-import { researchApi } from '../../shared/api/research';
 import {
   useResearchMethods,
   useDeleteResearchMethod,
   useDeleteResearchMethodGroup,
+  useBatchUpdateSortOrder,
 } from '../../shared/model/hooks';
 import { useAutoRefetchQuery } from '../../shared/model/lib/useQuery';
 import { useQueryStore } from '../../shared/model/stores';
@@ -64,6 +63,7 @@ const AdminPage: React.FC = () => {
   const researchMethods = useResearchMethods(labId, deptId);
   const deleteMethodMutation = useDeleteResearchMethod();
   const deleteGroupMutation = useDeleteResearchMethodGroup();
+  const batchUpdateSortOrderMutation = useBatchUpdateSortOrder();
 
   const { data: laboratory } = useAutoRefetchQuery<Laboratory>(
     ['laboratory', labId],
@@ -331,14 +331,13 @@ const AdminPage: React.FC = () => {
       }
 
       if (itemsToUpdate.length > 0) {
-        await researchApi.batchUpdateSortOrder(
+        await batchUpdateSortOrderMutation.mutateAsync(
           itemsToUpdate.map(update => ({
             id: update.id,
             type: update.type,
             sort_order: update.sort_order,
           }))
         );
-        message.success('Порядок сортировки успешно обновлен');
         researchMethods.refetch();
       }
     } catch (error) {

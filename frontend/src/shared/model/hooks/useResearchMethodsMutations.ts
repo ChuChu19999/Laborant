@@ -116,3 +116,22 @@ export const useDeleteResearchMethodGroup = () => {
     }
   );
 };
+
+/**
+ * Хук для пакетного обновления порядка сортировки методов и групп
+ */
+export const useBatchUpdateSortOrder = () => {
+  return useAutoInvalidateMutation<
+    void,
+    unknown,
+    Array<{ id: number; type: 'method' | 'group'; sort_order: number }>
+  >(
+    items => researchApi.batchUpdateSortOrder(items),
+    [['research-methods'], ['research-method-groups']],
+    {
+      onSuccess: () => {
+        message.success('Порядок сортировки успешно обновлен');
+      },
+    }
+  );
+};
