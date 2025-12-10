@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Form, Button, message, Select } from 'antd';
+import { Form, Button, message } from 'antd';
 import { BiHelpCircle } from 'react-icons/bi';
+import { CalculationResultCard, ParallelCard } from '../../../entities/Cards';
 import { FormItem } from '../../../features/FormItems';
 import { calculationApi } from '../../../shared/api/calculation';
-import { CalculationResultCard } from '../../../shared/ui/CalculationResultCard';
 import { DatePicker } from '../../../shared/ui/DatePicker';
-import { ParallelCard } from '../../../shared/ui/ParallelCard';
+import { Select } from '../../../shared/ui/FormItems';
 import Tooltip from '../../../shared/ui/Tooltip/Tooltip';
 import type { CalculationResult } from '../../../shared/api/calculation';
 import type { ResearchMethod, ResearchMethodGroup } from '../../../shared/api/research';
@@ -346,7 +346,12 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
                         : ''
                     }
                     onChange={value => {
-                      const normalizedValue = value !== undefined && value !== null ? value : '';
+                      const normalizedValue: string | number | undefined =
+                        value !== undefined && value !== null && typeof value !== 'object'
+                          ? typeof value === 'string' || typeof value === 'number'
+                            ? value
+                            : String(value)
+                          : '';
                       form.setFieldValue(`${currentMethod.id}_${colorField.name}`, normalizedValue);
                       setFormValues(prev => ({
                         ...prev,

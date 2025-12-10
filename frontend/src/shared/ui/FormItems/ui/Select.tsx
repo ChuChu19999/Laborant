@@ -9,4 +9,6 @@ const SelectLocal = (props: SelectLocalProps) => {
   return <AntSelect className={props.className || 'select'} {...props} />;
 };
 
+SelectLocal.Option = AntSelect.Option;
+
 export default SelectLocal;

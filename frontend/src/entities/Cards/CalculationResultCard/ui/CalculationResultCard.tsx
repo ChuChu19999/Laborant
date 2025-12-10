@@ -1,13 +1,13 @@
 import React from 'react';
 import { BiHelpCircle } from 'react-icons/bi';
+import Tooltip from '../../../../shared/ui/Tooltip/Tooltip';
 import {
   CONVERGENCE_LABELS,
   processAbs,
   roundValue,
   roundValueForOilFractional,
   roundValueForCondensateFractional,
-} from '../../utils/calculationUtils';
-import Tooltip from '../Tooltip/Tooltip';
+} from '../../../../shared/utils/calculationUtils';
 import './CalculationResultCard.css';
 
 interface ConditionInfo {

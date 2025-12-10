@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Input, message } from 'antd';
+import { message } from 'antd';
 import { laboratoriesApi } from '../../../../shared/api/laboratories';
+import { Input } from '../../../../shared/ui/FormItems';
 import { Modal } from '../../../../shared/ui/Modal';
 import './CreateDepartmentModal.css';
 

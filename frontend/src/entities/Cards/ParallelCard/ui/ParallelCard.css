@@ -30,15 +30,6 @@
   margin-bottom: 0;
 }
 
-.hover-input:hover {
-  border-color: rgba(22, 119, 255, 0.5);
-}
-
-.hover-input:focus {
-  border-color: rgba(22, 119, 255, 0.8);
-  box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.1);
-}
-
 .parallel-card-title-wrapper {
   display: flex;
   align-items: center;

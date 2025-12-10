@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { message, Select } from 'antd';
+import { message } from 'antd';
 import { ConfirmationModal } from '../../entities/ConfirmationModal';
 import { CreateCalculationModal } from '../../features/Modals';
 import { laboratoriesApi } from '../../shared/api/laboratories';
@@ -12,6 +12,7 @@ import {
 } from '../../shared/model/hooks';
 import { useAutoRefetchQuery } from '../../shared/model/lib/useQuery';
 import { useQueryStore } from '../../shared/model/stores';
+import { Select } from '../../shared/ui/FormItems';
 import Layout from '../../shared/ui/Layout/Layout';
 import { CalculationPanel } from '../../widgets/CalculationPanel';
 import { MethodsPanel } from '../../widgets/MethodsPanel';
@@ -411,7 +412,8 @@ const AdminPage: React.FC = () => {
           <Select
             value={selectedMethodId}
             onChange={value => {
-              setSelectedMethodId(value);
+              const methodId = typeof value === 'number' ? value : null;
+              setSelectedMethodId(methodId);
             }}
             style={{ width: '470px', marginBottom: '12px' }}
             className="research-method-select"

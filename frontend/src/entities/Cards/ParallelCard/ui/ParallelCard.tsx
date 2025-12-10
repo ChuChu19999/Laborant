@@ -1,11 +1,14 @@
 import React from 'react';
 import type { RefObject } from 'react';
-import { Input } from 'antd';
 import { BiHelpCircle } from 'react-icons/bi';
-import { FormItem } from '../../../features/FormItems';
-import { getCardParallelLabel as getCardParallelLabelUtil } from '../../utils/calculationUtils';
-import { validateNumericInputWithComma, preserveCursorPosition } from '../../utils/inputValidation';
-import Tooltip from '../Tooltip/Tooltip';
+import { FormItem } from '../../../../features/FormItems';
+import { Input } from '../../../../shared/ui/FormItems';
+import Tooltip from '../../../../shared/ui/Tooltip/Tooltip';
+import { getCardParallelLabel as getCardParallelLabelUtil } from '../../../../shared/utils/calculationUtils';
+import {
+  validateNumericInputWithComma,
+  preserveCursorPosition,
+} from '../../../../shared/utils/inputValidation';
 import type { FormInstance, InputRef } from 'antd';
 import './ParallelCard.css';
 

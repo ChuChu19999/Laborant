@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Select, message } from 'antd';
+import { Checkbox, message } from 'antd';
 import { FormulaKeyboard } from '../../../../entities/FormulaKeyboard';
 import { fixturesApi, type FixtureData } from '../../../../shared/api/fixtures';
 import { researchApi } from '../../../../shared/api/research';
+import { Input, Select } from '../../../../shared/ui/FormItems';
 import { Modal } from '../../../../shared/ui/Modal';
 import type { ResearchMethodCreate } from '../../../../shared/api/research';
+import type { InputRef } from 'antd';
 import './CreateCalculationModal.css';
 
 const { Option } = Select;
@@ -161,14 +163,12 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
 
   const [activeFormulaField, setActiveFormulaField] = useState<string | null>(null);
   const formulaRefs = {
-    main: useRef<HTMLInputElement>(null),
-    convergence: useRef<(HTMLInputElement | null)[]>([]),
-    intermediate: useRef<Record<number, Record<number, Record<string, HTMLInputElement | null>>>>(
-      {}
-    ),
-    error: useRef<HTMLInputElement>(null),
-    range: useRef<(HTMLInputElement | null)[]>([]),
-    threshold: {} as Record<number, Record<string, HTMLInputElement | null>>,
+    main: useRef<InputRef>(null),
+    convergence: useRef<(InputRef | null)[]>([]),
+    intermediate: useRef<Record<number, Record<number, Record<string, InputRef | null>>>>({}),
+    error: useRef<InputRef>(null),
+    range: useRef<(InputRef | null)[]>([]),
+    threshold: {} as Record<number, Record<string, InputRef | null>>,
   };
 
   const loadAvailableMethods = useCallback(async () => {
@@ -595,11 +595,12 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
       const rangeIdx = rangeIndex;
       const refObj = formulaRefs.intermediate.current[fieldIndex] as Record<
         number,
-        Record<string, HTMLInputElement | null>
+        Record<string, InputRef | null>
       > | null;
       if (!refObj || !refObj[rangeIdx] || !refObj[rangeIdx][field]) return;
-      const input = refObj[rangeIdx][field];
-      if (!input) return;
+      const inputRef = refObj[rangeIdx][field];
+      if (!inputRef || !inputRef.input) return;
+      const input = inputRef.input;
 
       const start = input.selectionStart || 0;
       const end = input.selectionEnd || 0;
@@ -631,8 +632,8 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
       return;
     }
 
-    if (type === 'main' && formulaRefs.main.current) {
-      const input = formulaRefs.main.current;
+    if (type === 'main' && formulaRefs.main.current?.input) {
+      const input = formulaRefs.main.current.input;
       const start = input.selectionStart || 0;
       const end = input.selectionEnd || 0;
 
@@ -660,8 +661,8 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
           input.focus();
         }, 0);
       }
-    } else if (type === 'error' && formulaRefs.error.current) {
-      const input = formulaRefs.error.current;
+    } else if (type === 'error' && formulaRefs.error.current?.input) {
+      const input = formulaRefs.error.current.input;
       const start = input.selectionStart || 0;
       const end = input.selectionEnd || 0;
 
@@ -714,9 +715,11 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
       formulaRefs.convergence.current[index]
     ) {
       const formulas = [...formData.convergence_conditions.formulas];
-      const input = formulaRefs.convergence.current[index];
-      const start = input?.selectionStart || 0;
-      const end = input?.selectionEnd || 0;
+      const inputRef = formulaRefs.convergence.current[index];
+      const input = inputRef?.input;
+      if (!input) return;
+      const start = input.selectionStart || 0;
+      const end = input.selectionEnd || 0;
 
       if (value === 'backspace') {
         if (start !== end) {
@@ -727,10 +730,8 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
             convergence_conditions: { formulas },
           }));
           setTimeout(() => {
-            if (input) {
-              input.selectionStart = input.selectionEnd = start;
-              input.focus();
-            }
+            input.selectionStart = input.selectionEnd = start;
+            input.focus();
           }, 0);
         } else if (start > 0) {
           const newValue = input.value.substring(0, start - 1) + input.value.substring(end);
@@ -740,10 +741,8 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
             convergence_conditions: { formulas },
           }));
           setTimeout(() => {
-            if (input) {
-              input.selectionStart = input.selectionEnd = start - 1;
-              input.focus();
-            }
+            input.selectionStart = input.selectionEnd = start - 1;
+            input.focus();
           }, 0);
         }
       } else {
@@ -754,10 +753,8 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
           convergence_conditions: { formulas },
         }));
         setTimeout(() => {
-          if (input) {
-            input.selectionStart = input.selectionEnd = start + value.length;
-            input.focus();
-          }
+          input.selectionStart = input.selectionEnd = start + value.length;
+          input.focus();
         }, 0);
       }
     } else if (
@@ -768,8 +765,9 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
       formulaRefs.intermediate.current[index][-1]?.formula
     ) {
       const fields = [...formData.intermediate_data.fields];
-      const input = formulaRefs.intermediate.current[index][-1]?.formula;
-      if (!input) return;
+      const inputRef = formulaRefs.intermediate.current[index][-1]?.formula;
+      if (!inputRef?.input) return;
+      const input = inputRef.input;
       const start = input.selectionStart || 0;
       const end = input.selectionEnd || 0;
 
@@ -782,10 +780,8 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
             intermediate_data: { fields },
           }));
           setTimeout(() => {
-            if (input) {
-              input.selectionStart = input.selectionEnd = start;
-              input.focus();
-            }
+            input.selectionStart = input.selectionEnd = start;
+            input.focus();
           }, 0);
         } else if (start > 0) {
           const newValue = input.value.substring(0, start - 1) + input.value.substring(end);
@@ -795,10 +791,8 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
             intermediate_data: { fields },
           }));
           setTimeout(() => {
-            if (input) {
-              input.selectionStart = input.selectionEnd = start - 1;
-              input.focus();
-            }
+            input.selectionStart = input.selectionEnd = start - 1;
+            input.focus();
           }, 0);
         }
       } else {
@@ -809,10 +803,8 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
           intermediate_data: { fields },
         }));
         setTimeout(() => {
-          if (input) {
-            input.selectionStart = input.selectionEnd = start + value.length;
-            input.focus();
-          }
+          input.selectionStart = input.selectionEnd = start + value.length;
+          input.focus();
         }, 0);
       }
     } else if (
@@ -821,38 +813,34 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
       index !== undefined &&
       formulaRefs.range.current[index]
     ) {
-      const input = formulaRefs.range.current[index];
-      const start = input?.selectionStart || 0;
-      const end = input?.selectionEnd || 0;
+      const inputRef = formulaRefs.range.current[index];
+      const input = inputRef?.input;
+      if (!input) return;
+      const start = input.selectionStart || 0;
+      const end = input.selectionEnd || 0;
 
       if (value === 'backspace') {
         if (start !== end) {
           const newValue = input.value.substring(0, start) + input.value.substring(end);
           handleMeasurementErrorRangeChange(index, 'formula', newValue);
           setTimeout(() => {
-            if (input) {
-              input.selectionStart = input.selectionEnd = start;
-              input.focus();
-            }
+            input.selectionStart = input.selectionEnd = start;
+            input.focus();
           }, 0);
         } else if (start > 0) {
           const newValue = input.value.substring(0, start - 1) + input.value.substring(end);
           handleMeasurementErrorRangeChange(index, 'formula', newValue);
           setTimeout(() => {
-            if (input) {
-              input.selectionStart = input.selectionEnd = start - 1;
-              input.focus();
-            }
+            input.selectionStart = input.selectionEnd = start - 1;
+            input.focus();
           }, 0);
         }
       } else {
         const newValue = input.value.substring(0, start) + value + input.value.substring(end);
         handleMeasurementErrorRangeChange(index, 'formula', newValue);
         setTimeout(() => {
-          if (input) {
-            input.selectionStart = input.selectionEnd = start + value.length;
-            input.focus();
-          }
+          input.selectionStart = input.selectionEnd = start + value.length;
+          input.focus();
         }, 0);
       }
     }
@@ -887,8 +875,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
     placeholder = ''
   ) => (
     <div className="formula-input-container">
-      <input
-        type="text"
+      <Input
         value={value}
         onChange={onChange}
         onFocus={() => setActiveFormulaField(`${type}-${index ?? 'main'}`)}
@@ -914,7 +901,6 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
           else if (type === 'convergence' && index !== null)
             formulaRefs.convergence.current[index] = el;
           else if (type === 'intermediate' && index !== null) {
-            // Для промежуточных вычислений без диапазонов используем специальный ключ
             if (!formulaRefs.intermediate.current[index]) {
               formulaRefs.intermediate.current[index] = {};
             }
@@ -1170,9 +1156,10 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                   <Select
                     value={selectedFixture || undefined}
                     onChange={value => {
-                      setSelectedFixture(value || '');
-                      if (value) {
-                        applyFixture(value);
+                      const fixtureValue = typeof value === 'string' ? value : '';
+                      setSelectedFixture(fixtureValue);
+                      if (fixtureValue) {
+                        applyFixture(fixtureValue);
                       }
                     }}
                     placeholder="Выберите метод из списка"
@@ -1208,8 +1195,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
               <>
                 <div className="form-group">
                   <label>Название группы</label>
-                  <input
-                    type="text"
+                  <Input
                     value={groupData.name}
                     onChange={e => setGroupData(prev => ({ ...prev, name: e.target.value }))}
                     placeholder="Введите название группы"
@@ -1223,19 +1209,18 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                   ) : (
                     <div className="methods-list">
                       {availableMethods.individual_methods.map(method => (
-                        <label key={method.id} className="checkbox-label">
-                          <input
-                            type="checkbox"
-                            checked={groupData.selectedMethods.includes(method.id)}
-                            onChange={e => {
-                              const newSelectedMethods = e.target.checked
-                                ? [...groupData.selectedMethods, method.id]
-                                : groupData.selectedMethods.filter(id => id !== method.id);
-                              handleGroupDataChange('selectedMethods', newSelectedMethods);
-                            }}
-                          />
-                          <span>{method.name}</span>
-                        </label>
+                        <Checkbox
+                          key={method.id}
+                          checked={groupData.selectedMethods.includes(method.id)}
+                          onChange={e => {
+                            const newSelectedMethods = e.target.checked
+                              ? [...groupData.selectedMethods, method.id]
+                              : groupData.selectedMethods.filter(id => id !== method.id);
+                            handleGroupDataChange('selectedMethods', newSelectedMethods);
+                          }}
+                        >
+                          {method.name}
+                        </Checkbox>
                       ))}
                     </div>
                   )}
@@ -1245,8 +1230,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
               <>
                 <div className="form-group">
                   <label>Название формулы</label>
-                  <input
-                    type="text"
+                  <Input
                     name="name"
                     value={formData.name}
                     onChange={handleInputChange}
@@ -1276,22 +1260,21 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                   </div>
                   <div className="sample-types-container">
                     {SAMPLE_TYPE_OPTIONS.map(option => (
-                      <label key={option.value} className="checkbox-label">
-                        <input
-                          type="checkbox"
-                          checked={formData.sample_type.includes(option.value)}
-                          onChange={e => {
-                            if (e.target.checked) {
-                              handleSampleTypeChange([...formData.sample_type, option.value]);
-                            } else {
-                              handleSampleTypeChange(
-                                formData.sample_type.filter(type => type !== option.value)
-                              );
-                            }
-                          }}
-                        />
-                        <span>{option.label}</span>
-                      </label>
+                      <Checkbox
+                        key={option.value}
+                        checked={formData.sample_type.includes(option.value)}
+                        onChange={e => {
+                          if (e.target.checked) {
+                            handleSampleTypeChange([...formData.sample_type, option.value]);
+                          } else {
+                            handleSampleTypeChange(
+                              formData.sample_type.filter(type => type !== option.value)
+                            );
+                          }
+                        }}
+                      >
+                        {option.label}
+                      </Checkbox>
                     ))}
                   </div>
                 </div>
@@ -1309,8 +1292,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                       </button>
                       <div className="form-group">
                         <label>Название переменной</label>
-                        <input
-                          type="text"
+                        <Input
                           value={field.name}
                           onChange={e => handleInputDataChange(index, 'name', e.target.value)}
                           placeholder="Введите название переменной"
@@ -1318,8 +1300,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                       </div>
                       <div className="form-group">
                         <label>Описание</label>
-                        <input
-                          type="text"
+                        <Input
                           value={field.description}
                           onChange={e =>
                             handleInputDataChange(index, 'description', e.target.value)
@@ -1329,8 +1310,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                       </div>
                       <div className="form-group">
                         <label>Единица измерения</label>
-                        <input
-                          type="text"
+                        <Input
                           value={field.unit || ''}
                           onChange={e => handleInputDataChange(index, 'unit', e.target.value)}
                           placeholder="Введите единицу измерения"
@@ -1374,8 +1354,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                       </button>
                       <div className="form-group">
                         <label>Название переменной</label>
-                        <input
-                          type="text"
+                        <Input
                           value={field.name}
                           onChange={e =>
                             handleIntermediateDataChange(index, 'name', e.target.value)
@@ -1386,24 +1365,22 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
 
                       <div className="range-calculation-section">
                         <div className="range-header">
-                          <label className="checkbox-label">
-                            <input
-                              type="checkbox"
-                              checked={!!field.range_calculation}
-                              onChange={e => {
-                                if (e.target.checked) {
-                                  handleIntermediateDataChange(index, 'range_calculation', {
-                                    ranges: [{ condition: '', formula: '' }],
-                                  });
-                                  handleIntermediateDataChange(index, 'formula', '');
-                                  handleIntermediateDataChange(index, 'use_threshold_table', false);
-                                } else {
-                                  handleIntermediateDataChange(index, 'range_calculation', null);
-                                }
-                              }}
-                            />
-                            <span>Использовать диапазонный расчет</span>
-                          </label>
+                          <Checkbox
+                            checked={!!field.range_calculation}
+                            onChange={e => {
+                              if (e.target.checked) {
+                                handleIntermediateDataChange(index, 'range_calculation', {
+                                  ranges: [{ condition: '', formula: '' }],
+                                });
+                                handleIntermediateDataChange(index, 'formula', '');
+                                handleIntermediateDataChange(index, 'use_threshold_table', false);
+                              } else {
+                                handleIntermediateDataChange(index, 'range_calculation', null);
+                              }
+                            }}
+                          >
+                            Использовать диапазонный расчет
+                          </Checkbox>
                         </div>
 
                         {!field.range_calculation && !field.use_threshold_table && (
@@ -1432,8 +1409,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                                 <div className="form-group">
                                   <label>Условие диапазона</label>
                                   <div className="formula-input-container">
-                                    <input
-                                      type="text"
+                                    <Input
                                       value={range.condition}
                                       onChange={e =>
                                         handleIntermediateRangeChange(
@@ -1495,8 +1471,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                                 <div className="form-group">
                                   <label>Формула расчета</label>
                                   <div className="formula-input-container">
-                                    <input
-                                      type="text"
+                                    <Input
                                       value={range.formula}
                                       onChange={e =>
                                         handleIntermediateRangeChange(
@@ -1570,8 +1545,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
 
                       <div className="form-group">
                         <label>Описание</label>
-                        <input
-                          type="text"
+                        <Input
                           value={field.description}
                           onChange={e =>
                             handleIntermediateDataChange(index, 'description', e.target.value)
@@ -1581,8 +1555,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                       </div>
                       <div className="form-group">
                         <label>Единица измерения</label>
-                        <input
-                          type="text"
+                        <Input
                           value={field.unit || ''}
                           onChange={e =>
                             handleIntermediateDataChange(index, 'unit', e.target.value)
@@ -1590,24 +1563,22 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                           placeholder="Введите единицу измерения"
                         />
                       </div>
-                      <div className="form-group">
-                        <label className="checkbox-label">
-                          <input
-                            type="checkbox"
-                            checked={field.use_multiple_rounding || false}
-                            onChange={e =>
-                              handleIntermediateDataChange(
-                                index,
-                                'use_multiple_rounding',
-                                e.target.checked
-                              )
-                            }
-                          />
-                          <span>Округлять до ближайшего кратного</span>
-                        </label>
+                      <div>
+                        <Checkbox
+                          checked={field.use_multiple_rounding || false}
+                          onChange={e =>
+                            handleIntermediateDataChange(
+                              index,
+                              'use_multiple_rounding',
+                              e.target.checked
+                            )
+                          }
+                        >
+                          Округлять до ближайшего кратного
+                        </Checkbox>
                         {field.use_multiple_rounding && (
                           <div className="form-group-spacing">
-                            <input
+                            <Input
                               type="number"
                               value={field.multiple_value || ''}
                               onChange={e =>
@@ -1623,37 +1594,34 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                           </div>
                         )}
                       </div>
-                      <div className="form-group">
-                        <label className="checkbox-label">
-                          <input
-                            type="checkbox"
-                            checked={field.use_threshold_table || false}
-                            onChange={e => {
-                              handleIntermediateDataChange(
-                                index,
-                                'use_threshold_table',
-                                e.target.checked
-                              );
-                              if (e.target.checked) {
-                                handleIntermediateDataChange(index, 'formula', '');
-                                handleIntermediateDataChange(index, 'range_calculation', null);
-                                handleIntermediateDataChange(index, 'threshold_table_values', {
-                                  target_variable: '',
-                                  higher_variable: '',
-                                  lower_variable: '',
-                                });
-                              }
-                            }}
-                          />
-                          <span>Использовать метод ближайших табличных значений</span>
-                        </label>
+                      <div>
+                        <Checkbox
+                          checked={field.use_threshold_table || false}
+                          onChange={e => {
+                            handleIntermediateDataChange(
+                              index,
+                              'use_threshold_table',
+                              e.target.checked
+                            );
+                            if (e.target.checked) {
+                              handleIntermediateDataChange(index, 'formula', '');
+                              handleIntermediateDataChange(index, 'range_calculation', null);
+                              handleIntermediateDataChange(index, 'threshold_table_values', {
+                                target_variable: '',
+                                higher_variable: '',
+                                lower_variable: '',
+                              });
+                            }
+                          }}
+                        >
+                          Использовать метод ближайших табличных значений
+                        </Checkbox>
                         {field.use_threshold_table && (
                           <div className="form-group-spacing">
                             <div className="form-group">
                               <label>Переменная для определения направления округления</label>
                               <div className="formula-input-container">
-                                <input
-                                  type="text"
+                                <Input
                                   value={field.threshold_table_values?.target_variable || ''}
                                   onChange={e =>
                                     handleIntermediateDataChange(index, 'threshold_table_values', {
@@ -1692,8 +1660,9 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                                   <div onMouseDown={e => e.preventDefault()}>
                                     <FormulaKeyboard
                                       onKeyPress={value => {
-                                        const input = formulaRefs.threshold[index]?.target;
-                                        if (!input) return;
+                                        const inputRef = formulaRefs.threshold[index]?.target;
+                                        if (!inputRef?.input) return;
+                                        const input = inputRef.input;
 
                                         const start = input.selectionStart || 0;
                                         const end = input.selectionEnd || 0;
@@ -1761,8 +1730,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                             <div className="form-group">
                               <label>Переменная для значения при округлении вверх</label>
                               <div className="formula-input-container">
-                                <input
-                                  type="text"
+                                <Input
                                   value={field.threshold_table_values?.higher_variable || ''}
                                   onChange={e =>
                                     handleIntermediateDataChange(index, 'threshold_table_values', {
@@ -1801,8 +1769,9 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                                   <div onMouseDown={e => e.preventDefault()}>
                                     <FormulaKeyboard
                                       onKeyPress={value => {
-                                        const input = formulaRefs.threshold[index]?.higher;
-                                        if (!input) return;
+                                        const inputRef = formulaRefs.threshold[index]?.higher;
+                                        if (!inputRef?.input) return;
+                                        const input = inputRef.input;
 
                                         const start = input.selectionStart || 0;
                                         const end = input.selectionEnd || 0;
@@ -1870,8 +1839,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                             <div className="form-group">
                               <label>Переменная для значения при округлении вниз</label>
                               <div className="formula-input-container">
-                                <input
-                                  type="text"
+                                <Input
                                   value={field.threshold_table_values?.lower_variable || ''}
                                   onChange={e =>
                                     handleIntermediateDataChange(index, 'threshold_table_values', {
@@ -1910,8 +1878,9 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                                   <div onMouseDown={e => e.preventDefault()}>
                                     <FormulaKeyboard
                                       onKeyPress={value => {
-                                        const input = formulaRefs.threshold[index]?.lower;
-                                        if (!input) return;
+                                        const inputRef = formulaRefs.threshold[index]?.lower;
+                                        if (!inputRef?.input) return;
+                                        const input = inputRef.input;
 
                                         const start = input.selectionStart || 0;
                                         const end = input.selectionEnd || 0;
@@ -1979,20 +1948,14 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                           </div>
                         )}
                       </div>
-                      <label className="checkbox-label">
-                        <input
-                          type="checkbox"
-                          checked={field.show_calculation}
-                          onChange={e =>
-                            handleIntermediateDataChange(
-                              index,
-                              'show_calculation',
-                              e.target.checked
-                            )
-                          }
-                        />
-                        <span>Показывать расчет</span>
-                      </label>
+                      <Checkbox
+                        checked={field.show_calculation}
+                        onChange={e =>
+                          handleIntermediateDataChange(index, 'show_calculation', e.target.checked)
+                        }
+                      >
+                        Показывать расчет
+                      </Checkbox>
                     </div>
                   ))}
                   <button type="button" onClick={addIntermediateField} className="add-field-btn">
@@ -2013,8 +1976,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
 
                 <div className="form-group">
                   <label>Единица измерения</label>
-                  <input
-                    type="text"
+                  <Input
                     name="unit"
                     value={formData.unit}
                     onChange={handleInputChange}
@@ -2025,8 +1987,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
 
                 <div className="form-group">
                   <label>Метод измерения</label>
-                  <input
-                    type="text"
+                  <Input
                     name="measurement_method"
                     value={formData.measurement_method}
                     onChange={handleInputChange}
@@ -2037,8 +1998,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
 
                 <div className="form-group">
                   <label>Шифр НД</label>
-                  <input
-                    type="text"
+                  <Input
                     name="nd_code"
                     value={formData.nd_code}
                     onChange={handleInputChange}
@@ -2049,8 +2009,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
 
                 <div className="form-group">
                   <label>Наименование НД</label>
-                  <input
-                    type="text"
+                  <Input
                     name="nd_name"
                     value={formData.nd_name}
                     onChange={handleInputChange}
@@ -2102,8 +2061,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                       {condition.convergence_value === 'custom' && (
                         <div className="form-group">
                           <label>Текст результата при выполнении условия</label>
-                          <input
-                            type="text"
+                          <Input
                             value={condition.custom_value || ''}
                             onChange={e =>
                               handleConvergenceChange(index, 'custom_value', e.target.value)
@@ -2124,7 +2082,11 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                   <label>Тип погрешности</label>
                   <Select
                     value={formData.measurement_error.type}
-                    onChange={value => handleMeasurementErrorTypeChange(value)}
+                    onChange={value => {
+                      if (value === 'fixed' || value === 'formula' || value === 'range') {
+                        handleMeasurementErrorTypeChange(value);
+                      }
+                    }}
                     placeholder="Выберите тип погрешности"
                     listHeight={100}
                   >
@@ -2149,8 +2111,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                         'Введите формулу для расчета погрешности'
                       )
                     ) : (
-                      <input
-                        type="text"
+                      <Input
                         value={formData.measurement_error.value}
                         onChange={e => handleMeasurementErrorValueChange(e.target.value)}
                         placeholder="Введите числовое значение"
@@ -2180,7 +2141,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
 
                 <div className="form-group">
                   <label>Количество знаков округления</label>
-                  <input
+                  <Input
                     type="number"
                     name="rounding_decimal"
                     value={formData.rounding_decimal}

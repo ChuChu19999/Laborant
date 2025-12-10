@@ -42,7 +42,6 @@
 }
 
 .fixture-file-btn:hover {
-  border-color: #1677ff;
   color: #1677ff;
   background-color: #f0f7ff;
 }
@@ -59,29 +58,6 @@
   color: #333;
   font-weight: 500;
   font-size: 14px;
-}
-
-.form-group input:not([type='checkbox']) {
-  width: 100%;
-  padding: 4px 11px;
-  border: 1px solid #d9d9d9;
-  border-radius: 8px;
-  font-size: 13px;
-  transition: all 0.3s ease;
-  color: rgba(0, 0, 0, 0.85);
-  background-color: #fff;
-  height: 32px;
-  box-sizing: border-box;
-}
-
-.form-group input:not([type='checkbox']):hover {
-  border-color: #1677ff !important;
-}
-
-.form-group input:not([type='checkbox']):focus {
-  border-color: #1677ff !important;
-  box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.2) !important;
-  outline: none;
 }
 
 .form-section {
@@ -170,76 +146,6 @@
   width: 100%;
 }
 
-.formula-input-container input {
-  width: 100%;
-  padding: 4px 11px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 13px;
-  transition: border-color 0.2s ease;
-  height: 32px;
-  box-sizing: border-box;
-}
-
-.formula-input-container input:hover {
-  border-color: #1677ff !important;
-}
-
-.formula-input-container input:focus {
-  border-color: #1677ff !important;
-  box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.2) !important;
-  outline: none;
-}
-
-.checkbox-label {
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  user-select: none;
-  font-size: 12px;
-  color: rgba(0, 0, 0, 0.85);
-}
-
-.checkbox-label input[type='checkbox'] {
-  position: relative;
-  width: 14px;
-  height: 14px;
-  min-width: 14px;
-  min-height: 14px;
-  margin: 0 4px 0 0;
-  padding: 0;
-  cursor: pointer;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
-  border: 2px solid #d9d9d9;
-  border-radius: 4px;
-  background-color: #fff;
-  transition: all 0.2s ease-in-out;
-  flex-shrink: 0;
-}
-
-.checkbox-label input[type='checkbox']:hover {
-  border-color: #1890ff;
-}
-
-.checkbox-label input[type='checkbox']:checked {
-  border-color: #1890ff;
-  background-color: #fff;
-}
-
-.checkbox-label input[type='checkbox']:checked::after {
-  content: '';
-  position: absolute;
-  left: 3px;
-  top: 0px;
-  width: 4px;
-  height: 8px;
-  border: solid #1890ff;
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
-}
-
 .methods-list {
   max-height: 250px;
   overflow-y: auto;
@@ -249,7 +155,7 @@
   background-color: #fff;
 }
 
-.methods-list .checkbox-label {
+.methods-list .ant-checkbox-wrapper {
   display: block;
   padding: 4px;
   margin: 2px 0;
@@ -257,7 +163,7 @@
   transition: background-color 0.2s ease;
 }
 
-.methods-list .checkbox-label:hover {
+.methods-list .ant-checkbox-wrapper:hover {
   background-color: #e6f4ff;
 }
 
@@ -343,7 +249,6 @@
 
 .select-all-btn:hover,
 .clear-all-btn:hover {
-  border-color: #1890ff;
   background-color: #e6f7ff;
 }
 
@@ -359,7 +264,7 @@
   overflow-y: auto;
 }
 
-.sample-types-container .checkbox-label {
+.sample-types-container .ant-checkbox-wrapper {
   display: flex;
   align-items: center;
   padding: 6px 8px;
@@ -369,11 +274,16 @@
   font-size: 13px;
 }
 
-.sample-types-container .checkbox-label:hover {
+.sample-types-container .ant-checkbox-wrapper:hover {
   background-color: #e6f7ff;
 }
 
-.sample-types-container .checkbox-label input[type='checkbox']:checked + span {
+.sample-types-container .ant-checkbox-wrapper.ant-checkbox-wrapper-checked {
+  color: #1890ff;
+  font-weight: 500;
+}
+
+.sample-types-container .ant-checkbox-wrapper.ant-checkbox-wrapper-checked span {
   color: #1890ff;
   font-weight: 500;
 }
@@ -392,6 +302,99 @@
   margin-top: 8px;
 }
 
-.form-group input[type='number'] {
+.field-group > div:has(.ant-checkbox-wrapper) {
+  margin-bottom: 2px;
+}
+
+.add-calculation-form .ant-input-wrapper {
   width: 100%;
+}
+
+.add-calculation-form .ant-input {
+  width: 100%;
+}
+
+.add-calculation-form .ant-input[type='number']::-webkit-inner-spin-button,
+.add-calculation-form .ant-input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+
+.add-calculation-form .ant-input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.add-calculation-form .ant-checkbox-wrapper {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.add-calculation-form .ant-checkbox {
+  font-size: 14px;
+}
+
+.add-calculation-form .ant-checkbox-inner {
+  width: 16px;
+  height: 16px;
+}
+
+.range-item {
+  position: relative;
+  padding: 12px;
+  margin-bottom: 10px;
+  border: 1px solid #e8e8e8;
+  border-radius: 4px;
+  background-color: #fafafa;
+}
+
+.delete-range-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: none;
+  color: #999;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.delete-range-btn:hover {
+  background-color: #ff4d4f;
+  color: white;
+}
+
+.add-range-btn {
+  background: none;
+  border: 1px dashed #1890ff;
+  color: #1890ff;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  width: 100%;
+  margin-top: 8px;
+  height: 34px;
+}
+
+.add-range-btn:hover {
+  background-color: rgba(24, 144, 255, 0.1);
+}
+
+.range-header .ant-checkbox-wrapper {
+  margin-bottom: 8px;
+}
+.form-group .ant-checkbox-wrapper {
+  margin-bottom: 0;
 }

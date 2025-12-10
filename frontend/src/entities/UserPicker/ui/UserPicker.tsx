@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { CloseCircleFilled } from '@ant-design/icons';
-import { Input, message } from 'antd';
+import { message } from 'antd';
 import { LoadingCard } from '../../../features/Cards';
 import { employeesApi } from '../../../shared/api/employees';
+import { Input } from '../../../shared/ui/FormItems';
 import './UserPicker.css';
 
 export interface EmployeePhoto {

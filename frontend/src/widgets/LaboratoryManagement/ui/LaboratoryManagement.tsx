@@ -18,7 +18,7 @@ import {
   DepartmentCard,
   AddLaboratoryCard,
   AddDepartmentCard,
-} from '../../../shared/ui/Card';
+} from '../../../shared/ui/Cards';
 import { NavigationBar } from '../../NavigationBar';
 import type { Laboratory, Department } from '../../../shared/api/laboratories';
 import './LaboratoryManagement.css';
