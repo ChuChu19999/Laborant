@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { BiX } from 'react-icons/bi';
 import Button from '../../Button/Button';
 import './Modal.css';
@@ -111,7 +112,7 @@ const Modal = ({
     e.stopPropagation();
   };
 
-  return (
+  const modalContent = (
     <>
       <div className={`modal-overlay ${isClosing ? 'fade-out' : 'fade-in'}`} />
       <div
@@ -181,6 +182,8 @@ const Modal = ({
       </div>
     </>
   );
+
+  return createPortal(modalContent, document.body);
 };
 
 export default Modal;
