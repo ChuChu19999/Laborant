@@ -1,5 +1,5 @@
 from typing import Optional
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Query
 from core.exceptions import NotFoundError
 from core.security import IsAuthenticated
 from services.fixtures import (

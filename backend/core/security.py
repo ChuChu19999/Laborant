@@ -11,7 +11,6 @@ from core.config import settings
 from core.logger import logger
 from utils.current_user import set_current_user
 
-security = HTTPBearer()
 security_optional = HTTPBearer(auto_error=False)
 _PUBLIC_KEY_CACHE_TTL = 3600
 _public_key_cache: Optional[str] = None

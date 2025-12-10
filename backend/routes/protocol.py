@@ -176,8 +176,6 @@ async def get_protocol(
         for sample_id in protocol.samples:
             sample = await get_sample_by_id(db, sample_id)
             if sample:
-                from schemas.sample import SampleResponse
-
                 sample_dict = SampleResponse.model_validate(sample).model_dump()
                 if hasattr(sample, "laboratory") and sample.laboratory:
                     sample_dict["laboratory_name"] = sample.laboratory.name
