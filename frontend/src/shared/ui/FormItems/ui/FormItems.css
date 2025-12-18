@@ -1,0 +1,127 @@
+/* Базовые стили для Input при фокусе */
+.ant-input:hover {
+  border-color: #1677ff !important;
+}
+
+.ant-input:focus,
+.ant-input-focused {
+  border-color: #1677ff !important;
+  box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.2) !important;
+}
+
+/* Шрифт для Input */
+.ant-input,
+.ant-input::placeholder,
+.ant-input::-webkit-input-placeholder,
+.ant-input::-moz-placeholder,
+.ant-input:-ms-input-placeholder {
+  font-family: 'HeliosCondC' !important;
+  font-size: 14px !important;
+}
+
+/* Базовые стили для Select при фокусе */
+.ant-select:hover .ant-select-selector {
+  border-color: #1677ff !important;
+}
+
+.ant-select-focused .ant-select-selector {
+  border-color: #1677ff !important;
+  box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.2) !important;
+}
+
+/* Шрифт для Select */
+.ant-select,
+.ant-select-selector,
+.ant-select-selection-item,
+.ant-select-selection-placeholder,
+.ant-select-dropdown,
+.ant-select-dropdown *,
+.ant-select-item,
+.ant-select-item-option-content {
+  font-family: 'HeliosCondC' !important;
+  font-size: 14px !important;
+}
+
+/* Цвет плейсхолдера для Select */
+.ant-select-selection-placeholder {
+  color: rgba(0, 0, 0, 0.25) !important;
+}
+
+/* Базовые стили для DatePicker при фокусе */
+.ant-picker:hover {
+  border-color: #1677ff !important;
+}
+
+.ant-picker-focused {
+  border-color: #1677ff !important;
+  box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.2) !important;
+}
+
+/* Шрифт для DatePicker */
+.ant-picker,
+.ant-picker-input,
+.ant-picker-input input,
+.ant-picker-input input::placeholder,
+.ant-picker-input input::-webkit-input-placeholder,
+.ant-picker-input input::-moz-placeholder,
+.ant-picker-input input:-ms-input-placeholder,
+.ant-picker-dropdown,
+.ant-picker-dropdown * {
+  font-family: 'HeliosCondC' !important;
+  font-size: 14px !important;
+}
+
+/* Стили для крестика очистки в селектах - заменяет стрелку */
+.ant-select-clear {
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  right: 11px !important;
+  color: #ff4d07 !important;
+  font-size: 12px !important;
+  z-index: 2 !important;
+  position: absolute !important;
+}
+
+.ant-select-clear:hover {
+  color: #f25c21 !important;
+}
+
+.ant-select:not(.ant-select-disabled):hover .ant-select-clear {
+  opacity: 1 !important;
+}
+
+/* Скрываем стрелку когда показывается крестик */
+.ant-select:not(.ant-select-disabled) .ant-select-clear ~ .ant-select-arrow,
+.ant-select:not(.ant-select-disabled):has(.ant-select-clear) .ant-select-arrow {
+  display: none !important;
+}
+
+/* Стили для крестика очистки в DatePicker - заменяет календарную иконку */
+.ant-picker-clear {
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #ff4d07 !important;
+  font-size: 12px !important;
+  z-index: 2 !important;
+}
+
+.ant-picker-clear:hover {
+  color: #f25c21 !important;
+}
+
+.ant-picker:not(.ant-picker-disabled):hover .ant-picker-clear {
+  opacity: 1 !important;
+}
+
+/* Скрываем календарную иконку когда показывается крестик */
+.ant-picker:not(.ant-picker-disabled) .ant-picker-clear ~ .ant-picker-suffix:not(.ant-picker-clear),
+.ant-picker:not(.ant-picker-disabled):has(.ant-picker-clear)
+  .ant-picker-suffix:not(.ant-picker-clear) {
+  display: none !important;
+}

@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import List, Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.database import get_db
@@ -19,6 +19,7 @@ from services.calculation import (
     delete_calculation,
     get_calculation_by_id,
     get_calculations,
+    get_calculations_by_sample,
     update_calculation,
 )
 from services.calculator import calculate_result
@@ -123,6 +124,72 @@ async def list_calculations(
         page_size=page_size,
         total_pages=total_pages,
     )
+
+
+@router.get(
+    "/calculations/by-sample/{sample_id}/",
+    response_model=List[CalculationResponse],
+    summary="Получение расчетов по пробе",
+    description="Возвращает все расчеты для указанной пробы без пагинации.",
+    responses={
+        200: {"description": "Список расчетов успешно получен"},
+    },
+)
+# @IsAuthenticated
+async def get_calculations_by_sample_endpoint(
+    sample_id: int,
+    include_deleted: bool = Query(False),
+    sort_by: Optional[str] = Query(None),
+    sort_order: Optional[str] = Query("desc"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Получить все расчеты по пробе без пагинации.
+
+    Возвращает полный список расчетов для указанной пробы.
+    """
+    calculations = await get_calculations_by_sample(
+        db,
+        sample_id=sample_id,
+        include_deleted=include_deleted,
+        sort_by=sort_by,
+        sort_order=sort_order,
+    )
+
+    items = []
+    for calc in calculations:
+        calc_dict = CalculationResponse.model_validate(calc).model_dump()
+
+        if calc.equipment_data:
+            equipment_list = []
+            for eq_id in calc.equipment_data:
+                if isinstance(eq_id, dict):
+                    eq_id = eq_id.get("id", eq_id)
+                equipment = await get_equipment_by_id(db, eq_id)
+                if equipment:
+                    equipment_list.append(
+                        EquipmentBrief.model_validate(equipment).model_dump()
+                    )
+            calc_dict["equipment"] = equipment_list
+
+        if hasattr(calc, "sample") and calc.sample:
+            sample_dict = SampleResponse.model_validate(calc.sample).model_dump()
+            if hasattr(calc.sample, "laboratory") and calc.sample.laboratory:
+                sample_dict["laboratory_name"] = calc.sample.laboratory.name
+            if hasattr(calc.sample, "department") and calc.sample.department:
+                sample_dict["department_name"] = calc.sample.department.name
+            calc_dict["sample"] = sample_dict
+
+        if hasattr(calc, "research_method") and calc.research_method:
+            calc_dict["research_method"] = {
+                "id": calc.research_method.id,
+                "name": calc.research_method.name,
+                "unit": calc.research_method.unit,
+            }
+
+        items.append(CalculationResponse(**calc_dict))
+
+    return items
 
 
 @router.post(

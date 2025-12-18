@@ -21,6 +21,8 @@ type RouterItem = {
 };
 
 const ADMIN_PAGE_STORAGE_KEY = 'lastAdminPagePath';
+const SAMPLES_PAGE_STORAGE_KEY = 'lastSamplesPagePath';
+const MAIN_PAGE_STORAGE_KEY = 'lastMainPagePath';
 
 const SideBar = ({ username, isAdmin, onMinimizeChange }: SideBarProps) => {
   const [minimize, setMinimize] = useState(false);
@@ -100,6 +102,27 @@ const SideBar = ({ username, isAdmin, onMinimizeChange }: SideBarProps) => {
     } else if (location.pathname === '/' && !location.pathname.startsWith('/admin/laboratory/')) {
       sessionStorage.removeItem(ADMIN_PAGE_STORAGE_KEY);
     }
+
+    if (location.pathname.startsWith('/samples')) {
+      sessionStorage.setItem(SAMPLES_PAGE_STORAGE_KEY, location.pathname + location.search);
+    }
+    // Не удаляем сохраненный путь samples при переходе на другие страницы,
+    // чтобы сохранить состояние при переключении вкладок
+
+    // Сохраняем состояние главной страницы с управлением лабораториями
+    if (location.pathname === '/') {
+      const searchParams = new URLSearchParams(location.search);
+      const isInLaboratoryManagement =
+        searchParams.get('page') === 'laboratory-management' ||
+        searchParams.get('viewMode') === 'departments' ||
+        searchParams.get('viewMode') === 'laboratories';
+      if (isInLaboratoryManagement) {
+        sessionStorage.setItem(MAIN_PAGE_STORAGE_KEY, location.pathname + location.search);
+      } else {
+        // Удаляем сохраненное состояние, если мы на обычной главной без управления лабораториями
+        sessionStorage.removeItem(MAIN_PAGE_STORAGE_KEY);
+      }
+    }
   }, [location.pathname, location.search]);
 
   const renderItems = (items: RouterItem[], level = 0, parentPath = '') =>
@@ -112,7 +135,7 @@ const SideBar = ({ username, isAdmin, onMinimizeChange }: SideBarProps) => {
             (currentPath === '/' &&
               (location.pathname.startsWith('/admin/laboratory/') ||
                 location.pathname.startsWith('/?page=laboratory-management'))) ||
-            (currentPath === '/users' && location.pathname.startsWith('/user-cabinet/')))) ||
+            (currentPath === '/samples' && location.pathname.startsWith('/samples')))) ||
         isOpen;
 
       const openSubmenu = (e: React.MouseEvent) => {
@@ -134,16 +157,58 @@ const SideBar = ({ username, isAdmin, onMinimizeChange }: SideBarProps) => {
           return;
         }
 
-        // Если переходим на главную, проверяем сохраненный путь AdminPage
+        // Если мы находимся в управлении лабораториями/подразделениями и кликаем на "Главная", не делаем навигацию
+        if (targetPath === '/' && location.pathname === '/') {
+          const searchParams = new URLSearchParams(location.search);
+          const isInLaboratoryManagement =
+            searchParams.get('page') === 'laboratory-management' ||
+            searchParams.get('viewMode') === 'departments' ||
+            searchParams.get('viewMode') === 'laboratories';
+          if (isInLaboratoryManagement) {
+            return;
+          }
+        }
+
+        // Если переходим на главную, проверяем сохраненный путь AdminPage или состояние управления лабораториями
         if (targetPath === '/') {
           const savedAdminPath = sessionStorage.getItem(ADMIN_PAGE_STORAGE_KEY);
           if (savedAdminPath) {
             const [savedPath, savedSearch] = savedAdminPath.split('?');
-            const search = savedSearch ? `?${savedSearch}` : location.search;
+            const search = savedSearch ? `?${savedSearch}` : '';
             navigate({ pathname: savedPath, search }, { replace: true });
             setOpenSubmenus([]);
             return;
           }
+          // Проверяем сохраненное состояние управления лабораториями
+          const savedMainPath = sessionStorage.getItem(MAIN_PAGE_STORAGE_KEY);
+          if (savedMainPath) {
+            const [savedPath, savedSearch] = savedMainPath.split('?');
+            const search = savedSearch ? `?${savedSearch}` : '';
+            navigate({ pathname: savedPath, search }, { replace: true });
+            setOpenSubmenus([]);
+            return;
+          }
+          // Если сохраненного пути нет, сохраняем текущие параметры URL
+          const search = location.search;
+          navigate({ pathname: targetPath, search }, { replace: true });
+          setOpenSubmenus([]);
+          return;
+        }
+
+        // Если переходим на samples, проверяем сохраненный путь samples
+        if (targetPath === '/samples') {
+          const savedSamplesPath = sessionStorage.getItem(SAMPLES_PAGE_STORAGE_KEY);
+          if (savedSamplesPath) {
+            const [savedPath, savedSearch] = savedSamplesPath.split('?');
+            const search = savedSearch ? `?${savedSearch}` : '';
+            navigate({ pathname: savedPath, search }, { replace: true });
+            setOpenSubmenus([]);
+            return;
+          }
+          // Если сохраненного пути нет, переходим на базовый путь без параметров
+          navigate({ pathname: targetPath, search: '' }, { replace: true });
+          setOpenSubmenus([]);
+          return;
         }
 
         // Сохраняем query параметры при переключении страниц
@@ -190,22 +255,8 @@ const SideBar = ({ username, isAdmin, onMinimizeChange }: SideBarProps) => {
             alt="Laborant"
             className={`sidebar-logo ${minimize ? 'collapsed' : ''}`}
             onClick={() => {
-              // Если мы находимся на AdminPage, не делаем навигацию
-              if (location.pathname.startsWith('/admin/laboratory/')) {
-                return;
-              }
-
-              // Проверяем сохраненный путь AdminPage
-              const savedAdminPath = sessionStorage.getItem(ADMIN_PAGE_STORAGE_KEY);
-              if (savedAdminPath) {
-                const [savedPath, savedSearch] = savedAdminPath.split('?');
-                const search = savedSearch ? `?${savedSearch}` : location.search;
-                navigate({ pathname: savedPath, search }, { replace: true });
-                return;
-              }
-
-              const search = location.search;
-              navigate({ pathname: '/', search }, { replace: true });
+              // При клике на логотип всегда сбрасываем URL и переходим на главную без параметров
+              navigate({ pathname: '/', search: '' }, { replace: true });
             }}
             onMouseEnter={e => {
               e.currentTarget.style.opacity = '0.8';

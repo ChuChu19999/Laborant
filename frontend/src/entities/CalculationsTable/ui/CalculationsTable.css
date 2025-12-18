@@ -1,0 +1,128 @@
+.calculations-table-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  background: #fcfcfc;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(40, 40, 40, 0.12);
+  border: 1px solid #babfc7;
+  overflow: hidden;
+  font-family: 'HeliosCondC';
+  box-sizing: border-box;
+}
+
+.calculations-table-wrapper {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: auto;
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.calculations-table {
+  min-width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 14px;
+  font-family: 'HeliosCondC';
+  transition: opacity 0.3s ease;
+  box-sizing: border-box;
+}
+
+.calculations-table-loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.calculations-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #efeff0;
+}
+
+.calculations-table th {
+  padding: 8px 10px;
+  text-align: left;
+  font-weight: 400;
+  color: #282828;
+  background: #efeff0;
+  font-family: 'HeliosCondC';
+  user-select: none;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.calculations-table th.is-resizing,
+.calculations-table td.is-resizing {
+  transition: none;
+}
+
+.calculations-table-header-row th {
+  border-bottom: 1px solid #e4e6e8;
+}
+
+.calculations-table-header-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+}
+
+.calculations-table tbody tr {
+  transition: background-color 0.25s ease;
+  border-bottom: 1px solid #e4e6e8;
+}
+
+.calculations-table tbody tr:hover {
+  background-color: #e9f7ff;
+}
+
+.calculations-table td {
+  padding: 8px 10px;
+  color: #282828;
+  font-family: 'HeliosCondC';
+  overflow: hidden;
+  box-sizing: border-box;
+  word-wrap: break-word;
+}
+
+.calculations-table-empty-cell {
+  text-align: center;
+  padding: 48px 16px;
+  color: #5f6770;
+  font-size: 14px;
+  font-family: 'HeliosCondC';
+}
+
+.calculations-table-resizer {
+  position: absolute;
+  right: 0;
+  top: 0;
+  height: 100%;
+  width: 5px;
+  cursor: col-resize;
+  user-select: none;
+  touch-action: none;
+  z-index: 1;
+}
+
+.calculations-table-resizer:hover {
+  background-color: #282828;
+  opacity: 0.5;
+}
+
+.calculations-table-resizer.isResizing {
+  background-color: #282828;
+  opacity: 1;
+}
+
+.calculations-table th:hover .calculations-table-resizer {
+  background-color: #bdbfc1;
+}

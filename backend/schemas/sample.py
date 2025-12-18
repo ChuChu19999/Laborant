@@ -1,12 +1,20 @@
 from datetime import date, datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field, field_validator
+
+SAMPLE_TYPE_CHOICES = Literal[
+    "Исследования - ОИС",
+    "Исследования - прочие",
+    "Паспортизация",
+    "Внеплановые",
+]
 
 
 class SampleBase(BaseModel):
     registration_number: str = Field(
         ..., max_length=50, description="Регистрационный номер пробы"
     )
+    sample_type: SAMPLE_TYPE_CHOICES = Field(..., description="Тип пробы")
     test_object: str = Field(..., max_length=255, description="Объект испытаний")
     sampling_date: Optional[date] = Field(None, description="Дата отбора пробы")
     receiving_date: Optional[date] = Field(
@@ -42,6 +50,7 @@ class SampleCreate(SampleBase):
 
 class SampleUpdate(BaseModel):
     registration_number: Optional[str] = Field(None, max_length=50)
+    sample_type: Optional[SAMPLE_TYPE_CHOICES] = None
     test_object: Optional[str] = Field(None, max_length=255)
     sampling_date: Optional[date] = None
     receiving_date: Optional[date] = None

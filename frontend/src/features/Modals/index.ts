@@ -5,3 +5,7 @@ export { CreateDepartmentModal } from './CreateDepartmentModal';
 export { EditDepartmentModal } from './EditDepartmentModal';
 export { DeleteDepartmentModal } from './DeleteDepartmentModal';
 export { CreateCalculationModal } from './CreateCalculationModal';
+export { CreateSampleModal } from './CreateSampleModal';
+export { EditSampleModal } from './EditSampleModal';
+export { DeleteSampleModal } from './DeleteSampleModal';
+export { FillCalculationsModal } from './FillCalculationsModal';

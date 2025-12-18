@@ -1,0 +1,23 @@
+.fill-calculations-modal-content {
+  display: flex;
+  flex-direction: column;
+  min-height: 400px;
+  max-height: 70vh;
+  gap: 16px;
+}
+
+.fill-calculations-modal-header {
+  display: flex;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.fill-calculations-modal-add-button {
+  font-family: 'HeliosCondC';
+}
+
+.fill-calculations-modal-content > div:last-child {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}

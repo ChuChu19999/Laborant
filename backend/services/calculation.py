@@ -35,6 +35,46 @@ async def get_calculation_by_id(
     return result.scalar_one_or_none()
 
 
+async def get_calculations_by_sample(
+    db: AsyncSession,
+    sample_id: Optional[int] = None,
+    sample_ids: Optional[List[int]] = None,
+    include_deleted: bool = False,
+    sort_by: Optional[str] = None,
+    sort_order: Optional[str] = None,
+) -> List[Calculation]:
+    """Получить список расчетов по пробе без пагинации."""
+    query = select(Calculation).options(
+        selectinload(Calculation.sample),
+        selectinload(Calculation.laboratory),
+        selectinload(Calculation.department),
+        selectinload(Calculation.research_method),
+    )
+
+    if not include_deleted:
+        query = query.where(Calculation.deleted_at.is_(None))
+
+    conditions = []
+    if sample_id:
+        conditions.append(Calculation.sample_id == sample_id)
+    elif sample_ids:
+        conditions.append(Calculation.sample_id.in_(sample_ids))
+    if conditions:
+        query = query.where(*conditions)
+
+    sort_mapping = {
+        "created_at": Calculation.created_at,
+        "laboratory_activity_date": Calculation.laboratory_activity_date,
+    }
+    order_by = build_order_by(sort_by, sort_order, sort_mapping, Calculation.created_at)
+    query = query.order_by(order_by)
+
+    result = await db.execute(query)
+    calculations = result.scalars().all()
+
+    return calculations
+
+
 async def get_calculations(
     db: AsyncSession,
     sample_id: Optional[int] = None,

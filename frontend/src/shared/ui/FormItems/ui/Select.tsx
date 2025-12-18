@@ -1,5 +1,6 @@
 import React from 'react';
 import { Select as AntSelect } from 'antd';
+import './FormItems.css';
 
 interface SelectLocalProps extends React.ComponentProps<typeof AntSelect> {
   className?: string;

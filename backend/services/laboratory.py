@@ -58,7 +58,9 @@ async def get_laboratories(
         "full_name": Laboratory.full_name,
         "created_at": Laboratory.created_at,
     }
-    order_by = build_order_by(sort_by, sort_order, sort_mapping, Laboratory.created_at)
+    order_by = build_order_by(
+        sort_by, sort_order, sort_mapping, Laboratory.name, default_order="asc"
+    )
     query = query.order_by(order_by)
 
     count_query = (
@@ -208,7 +210,9 @@ async def get_departments(
         "name": Department.name,
         "created_at": Department.created_at,
     }
-    order_by = build_order_by(sort_by, sort_order, sort_mapping, Department.created_at)
+    order_by = build_order_by(
+        sort_by, sort_order, sort_mapping, Department.name, default_order="asc"
+    )
     query = query.order_by(order_by)
 
     count_query = (

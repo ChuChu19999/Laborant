@@ -64,16 +64,31 @@
 
 .user-picker-container .user-picker-clear-icon,
 .user-picker-container .user-picker-clear-icon.anticon {
-  color: #ff4d07;
+  color: #ff4d07 !important;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 12px !important;
   transition: all 0.2s ease;
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 2 !important;
 }
 
 .user-picker-container .user-picker-clear-icon:hover,
 .user-picker-container .user-picker-clear-icon.anticon:hover {
-  color: #f25c21;
+  color: #f25c21 !important;
   transform: scale(1.1);
+}
+
+/* Скрываем стандартные иконки Input когда показывается крестик */
+.user-picker-container:has(.user-picker-clear-icon)
+  .ant-input-suffix:not(:has(.user-picker-clear-icon)),
+.user-picker-container
+  .ant-input-affix-wrapper:has(.user-picker-clear-icon)
+  .ant-input-suffix:not(:has(.user-picker-clear-icon)) {
+  display: none !important;
 }
 
 .user-picker-error {

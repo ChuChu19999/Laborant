@@ -21,6 +21,7 @@ class Sample(BaseModel):
     registration_number = Column(
         String(50), nullable=False, index=True, comment="Регистрационный номер пробы"
     )
+    sample_type = Column(String(50), nullable=False, comment="Тип пробы")
     test_object = Column(String(255), nullable=False, comment="Объект испытаний")
     sampling_date = Column(Date, nullable=True, comment="Дата отбора пробы")
     receiving_date = Column(

@@ -5,6 +5,10 @@
   box-sizing: border-box;
 }
 
+.ant-select {
+  width: 100%;
+}
+
 .modal-wrapper .body-content:has(.add-calculation-form) {
   align-items: stretch;
   padding-right: 15px;
@@ -37,7 +41,7 @@
   border-radius: 4px;
   background-color: #fff;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 14px;
   transition: all 0.2s ease;
 }
 
@@ -156,7 +160,8 @@
 }
 
 .methods-list .ant-checkbox-wrapper {
-  display: block;
+  display: flex;
+  align-items: center;
   padding: 4px;
   margin: 2px 0;
   border-radius: 4px;
@@ -288,42 +293,12 @@
   font-weight: 500;
 }
 
-.add-calculation-form .ant-select {
-  width: 100%;
-}
-
-.add-calculation-form .ant-select .ant-select-selector {
-  height: 32px !important;
-  border-radius: 8px !important;
-  font-size: 13px !important;
-}
-
 .form-group-spacing {
   margin-top: 8px;
 }
 
 .field-group > div:has(.ant-checkbox-wrapper) {
   margin-bottom: 2px;
-}
-
-.add-calculation-form .ant-input-wrapper {
-  width: 100%;
-}
-
-.add-calculation-form .ant-input {
-  width: 100%;
-}
-
-.add-calculation-form .ant-input[type='number']::-webkit-inner-spin-button,
-.add-calculation-form .ant-input[type='number']::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  appearance: none;
-  margin: 0;
-}
-
-.add-calculation-form .ant-input[type='number'] {
-  -moz-appearance: textfield;
-  appearance: textfield;
 }
 
 .add-calculation-form .ant-checkbox-wrapper {

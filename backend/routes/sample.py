@@ -1,11 +1,19 @@
-from typing import Optional
+from typing import List, Optional, get_args
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from core.database import get_db
 from core.exceptions import NotFoundError
 from core.security import IsAuthenticated
+from models.sample import (
+    MassFractionOilRefractionTable,
+    Sample,
+    SelectionConditions,
+)
 from schemas.pagination import PaginatedResponse
 from schemas.sample import (
+    SAMPLE_TYPE_CHOICES,
     MassFractionOilRefractionTableCreate,
     MassFractionOilRefractionTableResponse,
     MassFractionOilRefractionTableUpdate,
@@ -38,6 +46,23 @@ router = APIRouter()
 
 
 @router.get(
+    "/sample-types/",
+    response_model=List[str],
+    summary="Получение списка типов проб",
+    description="Возвращает список доступных типов проб.",
+    responses={200: {"description": "Список типов проб успешно получен"}},
+)
+# @IsAuthenticated
+async def get_sample_types():
+    """
+    Получить список типов проб.
+
+    Возвращает список всех доступных типов проб.
+    """
+    return list(get_args(SAMPLE_TYPE_CHOICES))
+
+
+@router.get(
     "/samples/",
     response_model=PaginatedResponse[SampleResponse],
     summary="Получение списка проб",
@@ -54,6 +79,7 @@ async def list_samples(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     search: Optional[str] = Query(None),
+    search_sampling_location: Optional[str] = Query(None),
     sort_by: Optional[str] = Query(None),
     sort_order: Optional[str] = Query("desc"),
     db: AsyncSession = Depends(get_db),
@@ -70,6 +96,7 @@ async def list_samples(
         page=page,
         page_size=page_size,
         search=search,
+        search_sampling_location=search_sampling_location,
         sort_by=sort_by,
         sort_order=sort_order,
     )
@@ -113,12 +140,25 @@ async def create_sample_endpoint(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Создать пробу.
+    Добавить пробу.
 
     Создает новую пробу на основе переданных данных.
     """
     sample = await create_sample(db, sample_data)
+    await db.flush()
     await db.commit()
+
+    result = await db.execute(
+        select(Sample)
+        .where(Sample.id == sample.id)
+        .options(
+            selectinload(Sample.laboratory),
+            selectinload(Sample.department),
+            selectinload(Sample.branch),
+            selectinload(Sample.sampling_location),
+        )
+    )
+    sample = result.scalar_one()
     sample_dict = SampleResponse.model_validate(sample).model_dump()
     if hasattr(sample, "laboratory") and sample.laboratory:
         sample_dict["laboratory_name"] = sample.laboratory.name
@@ -189,6 +229,18 @@ async def update_sample_endpoint(
     """
     sample = await update_sample(db, sample_id, sample_data)
     await db.commit()
+
+    result = await db.execute(
+        select(Sample)
+        .where(Sample.id == sample.id)
+        .options(
+            selectinload(Sample.laboratory),
+            selectinload(Sample.department),
+            selectinload(Sample.branch),
+            selectinload(Sample.sampling_location),
+        )
+    )
+    sample = result.scalar_one()
     sample_dict = SampleResponse.model_validate(sample).model_dump()
     if hasattr(sample, "laboratory") and sample.laboratory:
         sample_dict["laboratory_name"] = sample.laboratory.name
@@ -332,6 +384,16 @@ async def update_selection_conditions_endpoint(
     """
     conditions = await update_selection_conditions(db, conditions_id, conditions_data)
     await db.commit()
+
+    result = await db.execute(
+        select(SelectionConditions)
+        .where(SelectionConditions.id == conditions.id)
+        .options(
+            selectinload(SelectionConditions.laboratory),
+            selectinload(SelectionConditions.department),
+        )
+    )
+    conditions = result.scalar_one()
     cond_dict = SelectionConditionsResponse.model_validate(conditions).model_dump()
     if hasattr(conditions, "laboratory") and conditions.laboratory:
         cond_dict["laboratory_name"] = conditions.laboratory.name
@@ -469,6 +531,13 @@ async def update_mass_fraction_oil_refraction_table_endpoint(
     """
     table = await update_mass_fraction_oil_refraction_table(db, table_id, table_data)
     await db.commit()
+
+    result = await db.execute(
+        select(MassFractionOilRefractionTable)
+        .where(MassFractionOilRefractionTable.id == table.id)
+        .options(selectinload(MassFractionOilRefractionTable.research_method))
+    )
+    table = result.scalar_one()
     table_dict = MassFractionOilRefractionTableResponse.model_validate(
         table
     ).model_dump()

@@ -1169,13 +1169,16 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                     {Object.entries(fixtures)
                       .map(([key, fixture]) => ({
                         key,
-                        displayName: fixture.name || key,
+                        displayName:
+                          fixture.group_name && fixture.name
+                            ? `${fixture.group_name} ${fixture.name.charAt(0).toLowerCase()}${fixture.name.slice(1)}`
+                            : fixture.name || key,
                         ndCode: fixture.nd_code || '',
                       }))
                       .sort((a, b) => a.key.localeCompare(b.key))
                       .map(({ key, displayName, ndCode }) => (
                         <Option key={key} value={key}>
-                          {displayName} {ndCode ? `(${ndCode})` : ''}
+                          {displayName} ({ndCode})
                         </Option>
                       ))}
                   </Select>

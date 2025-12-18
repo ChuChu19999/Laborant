@@ -2,6 +2,7 @@ import { axiosInstance } from '../config/axios';
 
 export interface FixtureData {
   name?: string;
+  group_name?: string;
   sample_type?: string | string[];
   formula?: string;
   measurement_error?: {

@@ -1,7 +1,7 @@
 from typing import Any, Dict, List, Optional
-from sqlalchemy import func, or_, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload, selectinload
 from core.exceptions import ConflictError, NotFoundError, ValidationError
 from models.calculation import Calculation
 from models.laboratory import Branch, Department, Laboratory, SamplingLocation
@@ -47,6 +47,7 @@ async def get_samples(
     page: int = 1,
     page_size: int = 20,
     search: Optional[str] = None,
+    search_sampling_location: Optional[str] = None,
     sort_by: Optional[str] = None,
     sort_order: Optional[str] = None,
 ) -> tuple[List[Sample], int, int]:
@@ -54,7 +55,11 @@ async def get_samples(
     query = (
         select(Sample)
         .where(Sample.deleted_at.is_(None))
-        .options(selectinload(Sample.laboratory), selectinload(Sample.department))
+        .options(
+            selectinload(Sample.laboratory),
+            selectinload(Sample.department),
+            selectinload(Sample.sampling_location),
+        )
     )
 
     conditions = []
@@ -73,12 +78,55 @@ async def get_samples(
             )
         )
 
+    needs_sampling_location_join = (
+        search_sampling_location or sort_by == "sampling_location"
+    )
+    if needs_sampling_location_join:
+        query = query.join(
+            SamplingLocation,
+            Sample.sampling_location_id == SamplingLocation.id,
+            isouter=True,
+        )
+
+    if search_sampling_location:
+        sampling_location_search = search_sampling_location.lower()
+        well_part = case(
+            (Sample.well.isnot(None), func.concat("скв. ", Sample.well)), else_=""
+        )
+        sampling_location_text = func.concat(
+            func.coalesce(SamplingLocation.name, ""),
+            " ",
+            well_part,
+            " ",
+            func.coalesce(Sample.mode, ""),
+        )
+        query = query.where(
+            func.lower(sampling_location_text).ilike(f"%{sampling_location_search}%")
+        )
+
     sort_mapping = {
         "registration_number": Sample.registration_number,
         "created_at": Sample.created_at,
     }
-    order_by = build_order_by(sort_by, sort_order, sort_mapping, Sample.created_at)
-    query = query.order_by(order_by)
+
+    if sort_by == "sampling_location":
+        well_part = case(
+            (Sample.well.isnot(None), func.concat("скв. ", Sample.well)), else_=""
+        )
+        sampling_location_sort = func.concat(
+            func.coalesce(SamplingLocation.name, ""),
+            " ",
+            well_part,
+            " ",
+            func.coalesce(Sample.mode, ""),
+        )
+        if sort_order == "asc":
+            query = query.order_by(sampling_location_sort.asc())
+        else:
+            query = query.order_by(sampling_location_sort.desc())
+    else:
+        order_by = build_order_by(sort_by, sort_order, sort_mapping, Sample.created_at)
+        query = query.order_by(order_by)
 
     count_query = (
         select(func.count()).select_from(Sample).where(Sample.deleted_at.is_(None))
@@ -98,6 +146,27 @@ async def get_samples(
             )
         )
 
+    if search_sampling_location:
+        sampling_location_search = search_sampling_location.lower()
+        count_query = count_query.join(
+            SamplingLocation,
+            Sample.sampling_location_id == SamplingLocation.id,
+            isouter=True,
+        )
+        well_part = case(
+            (Sample.well.isnot(None), func.concat("скв. ", Sample.well)), else_=""
+        )
+        sampling_location_text = func.concat(
+            func.coalesce(SamplingLocation.name, ""),
+            " ",
+            well_part,
+            " ",
+            func.coalesce(Sample.mode, ""),
+        )
+        count_query = count_query.where(
+            func.lower(sampling_location_text).ilike(f"%{sampling_location_search}%")
+        )
+
     total = await get_total_count(db, count_query)
     total_pages = calculate_total_pages(total, page_size)
 
@@ -109,7 +178,7 @@ async def get_samples(
 
 
 async def create_sample(db: AsyncSession, sample_data: SampleCreate) -> Sample:
-    """Создать пробу."""
+    """Добавить пробу."""
     laboratory = await db.execute(
         select(Laboratory).where(Laboratory.id == sample_data.laboratory_id)
     )
@@ -159,6 +228,7 @@ async def create_sample(db: AsyncSession, sample_data: SampleCreate) -> Sample:
 
     sample = Sample(
         registration_number=sample_data.registration_number,
+        sample_type=sample_data.sample_type,
         test_object=sample_data.test_object,
         sampling_date=sample_data.sampling_date,
         receiving_date=sample_data.receiving_date,

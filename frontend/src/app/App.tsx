@@ -8,6 +8,7 @@ import './App.css';
 import AdminPage from '../pages/AdminPage/AdminPage';
 import Page404 from '../pages/ErrorPages/Page404/Page404';
 import LoadingPage from '../pages/LoadingPage/LoadingPage';
+import SamplesPage from '../pages/SamplesPage/SamplesPage';
 import { useAxiosInterceptors } from '../shared/model/auth/useAxiosInterceptors';
 import { useKeycloak } from '../shared/model/auth/useKeycloak';
 import ProtectedRoute from '../shared/ui/ProtectedRoute/ProtectedRoute';
@@ -145,6 +146,12 @@ export default function App() {
                           <AdminPage />
                         </ProtectedRoute>
                       }
+                    />
+                    <Route path="/samples" element={<SamplesPage />} />
+                    <Route path="/samples/laboratory/:laboratoryId" element={<SamplesPage />} />
+                    <Route
+                      path="/samples/laboratory/:laboratoryId/department/:departmentId"
+                      element={<SamplesPage />}
                     />
                     <Route path="*" element={<Page404 />} />
                   </>

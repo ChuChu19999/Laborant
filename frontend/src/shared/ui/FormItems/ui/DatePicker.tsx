@@ -4,6 +4,7 @@ import ruRU from 'antd/locale/ru_RU';
 import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 import 'dayjs/locale/ru';
+import './FormItems.css';
 
 dayjs.extend(customParseFormat);
 dayjs.locale('ru');
