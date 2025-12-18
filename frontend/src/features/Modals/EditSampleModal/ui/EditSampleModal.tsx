@@ -76,7 +76,7 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({
     items: Branch[];
   }>(
     ['branches', laboratoryId, departmentId],
-    () => samplingLocationsApi.getBranches(laboratoryId, departmentId, { page_size: 100 }),
+    () => samplingLocationsApi.getBranches(laboratoryId, departmentId),
     {
       enabled: !!laboratoryId,
     }
@@ -88,7 +88,7 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({
     items: SamplingLocation[];
   }>(
     ['sampling-locations', formData.branch_id],
-    () => samplingLocationsApi.getSamplingLocations(formData.branch_id, { page_size: 100 }),
+    () => samplingLocationsApi.getSamplingLocations(formData.branch_id),
     {
       enabled: !!formData.branch_id,
     }

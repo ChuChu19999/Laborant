@@ -11,6 +11,7 @@ import Page404 from '../pages/ErrorPages/Page404/Page404';
 import LoadingPage from '../pages/LoadingPage/LoadingPage';
 import ProtocolsPage from '../pages/ProtocolsPage/ProtocolsPage';
 import SamplesPage from '../pages/SamplesPage/SamplesPage';
+import SamplingLocationsPage from '../pages/SamplingLocationsPage/SamplingLocationsPage';
 import { useAxiosInterceptors } from '../shared/model/auth/useAxiosInterceptors';
 import { useKeycloak } from '../shared/model/auth/useKeycloak';
 import ProtectedRoute from '../shared/ui/ProtectedRoute/ProtectedRoute';
@@ -166,6 +167,15 @@ export default function App() {
                     <Route
                       path="/equipment/laboratory/:laboratoryId/department/:departmentId"
                       element={<EquipmentPage />}
+                    />
+                    <Route path="/sampling-locations" element={<SamplingLocationsPage />} />
+                    <Route
+                      path="/sampling-locations/laboratory/:laboratoryId"
+                      element={<SamplingLocationsPage />}
+                    />
+                    <Route
+                      path="/sampling-locations/laboratory/:laboratoryId/department/:departmentId"
+                      element={<SamplingLocationsPage />}
                     />
                     <Route path="*" element={<Page404 />} />
                   </>

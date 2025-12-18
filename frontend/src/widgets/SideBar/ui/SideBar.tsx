@@ -51,6 +51,11 @@ const SideBar = ({ username, isAdmin, onMinimizeChange }: SideBarProps) => {
     shouldSave: pathname => pathname.startsWith('/equipment'),
   });
 
+  const samplingLocationsPageState = usePageState({
+    storageKey: PAGE_STATE_KEYS.SAMPLING_LOCATIONS_PAGE,
+    shouldSave: pathname => pathname.startsWith('/sampling-locations'),
+  });
+
   const mainPageState = usePageState({
     storageKey: PAGE_STATE_KEYS.MAIN_PAGE,
     shouldSave: (pathname, search) => {
@@ -150,7 +155,9 @@ const SideBar = ({ username, isAdmin, onMinimizeChange }: SideBarProps) => {
                 location.pathname.startsWith('/?page=laboratory-management'))) ||
             (currentPath === '/samples' && location.pathname.startsWith('/samples')) ||
             (currentPath === '/protocols' && location.pathname.startsWith('/protocols')) ||
-            (currentPath === '/equipment' && location.pathname.startsWith('/equipment')))) ||
+            (currentPath === '/equipment' && location.pathname.startsWith('/equipment')) ||
+            (currentPath === '/sampling-locations' &&
+              location.pathname.startsWith('/sampling-locations')))) ||
         isOpen;
 
       const openSubmenu = (e: React.MouseEvent) => {
@@ -228,6 +235,18 @@ const SideBar = ({ username, isAdmin, onMinimizeChange }: SideBarProps) => {
         // Если переходим на equipment, проверяем сохраненный путь equipment
         if (targetPath === '/equipment') {
           if (equipmentPageState.restoreState('/equipment', '')) {
+            setOpenSubmenus([]);
+            return;
+          }
+          // Если сохраненного пути нет, переходим на базовый путь без параметров
+          navigate({ pathname: targetPath, search: '' }, { replace: true });
+          setOpenSubmenus([]);
+          return;
+        }
+
+        // Если переходим на sampling-locations, проверяем сохраненный путь sampling-locations
+        if (targetPath === '/sampling-locations') {
+          if (samplingLocationsPageState.restoreState('/sampling-locations', '')) {
             setOpenSubmenus([]);
             return;
           }

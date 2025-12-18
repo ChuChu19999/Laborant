@@ -1,5 +1,4 @@
 import { axiosInstance } from '../config/axios';
-import type { PaginatedResponse } from './laboratories';
 
 export interface Branch {
   id: number;
@@ -50,13 +49,11 @@ export const samplingLocationsApi = {
     laboratoryId?: number,
     departmentId?: number,
     params?: {
-      page?: number;
-      page_size?: number;
       search?: string;
       sort_by?: string;
       sort_order?: string;
     }
-  ): Promise<PaginatedResponse<Branch>> => {
+  ): Promise<{ items: Branch[] }> => {
     const queryParams: Record<string, unknown> = {
       ...params,
     };
@@ -69,10 +66,10 @@ export const samplingLocationsApi = {
       queryParams.department_id = departmentId;
     }
 
-    const response = await axiosInstance.get<PaginatedResponse<Branch>>('/api/branches/', {
+    const response = await axiosInstance.get<Branch[]>('/api/branches/', {
       params: queryParams,
     });
-    return response.data;
+    return { items: response.data };
   },
 
   getBranch: async (id: number): Promise<Branch> => {
@@ -97,13 +94,11 @@ export const samplingLocationsApi = {
   getSamplingLocations: async (
     branchId?: number,
     params?: {
-      page?: number;
-      page_size?: number;
       search?: string;
       sort_by?: string;
       sort_order?: string;
     }
-  ): Promise<PaginatedResponse<SamplingLocation>> => {
+  ): Promise<{ items: SamplingLocation[] }> => {
     const queryParams: Record<string, unknown> = {
       ...params,
     };
@@ -112,13 +107,13 @@ export const samplingLocationsApi = {
       queryParams.branch_id = branchId;
     }
 
-    const response = await axiosInstance.get<PaginatedResponse<SamplingLocation>>(
+    const response = await axiosInstance.get<SamplingLocation[]>(
       '/api/laboratories/sampling-locations/',
       {
         params: queryParams,
       }
     );
-    return response.data;
+    return { items: response.data };
   },
 
   getSamplingLocation: async (id: number): Promise<SamplingLocation> => {

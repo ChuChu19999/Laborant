@@ -11,3 +11,4 @@ export * from './useProtocols';
 export * from './useProtocolsMutations';
 export * from './useEquipment';
 export * from './useEquipmentMutations';
+export * from './useSamplingLocationsMutations';

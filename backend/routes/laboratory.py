@@ -125,6 +125,153 @@ async def create_laboratory(
 
 
 @router.get(
+    "/laboratories/sampling-locations/",
+    response_model=list[SamplingLocationResponse],
+    summary="Получение списка мест отбора проб",
+    description=(
+        "Возвращает список мест отбора проб. "
+        "Поддерживает фильтрацию по филиалам, поиск и сортировку."
+    ),
+    responses={200: {"description": "Список мест отбора проб успешно получен"}},
+)
+# @IsAuthenticated
+async def list_sampling_locations(
+    branch_id: Optional[int] = Query(None),
+    search: Optional[str] = Query(None),
+    sort_by: Optional[str] = Query(None),
+    sort_order: Optional[str] = Query("desc"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Получить список мест отбора проб.
+    """
+    sampling_locations = await get_sampling_locations(
+        db,
+        branch_id=branch_id,
+        search=search,
+        sort_by=sort_by,
+        sort_order=sort_order,
+    )
+    items = []
+    for loc in sampling_locations:
+        loc_dict = SamplingLocationResponse.model_validate(loc).model_dump()
+        if hasattr(loc, "branch") and loc.branch:
+            loc_dict["branch_name"] = loc.branch.name
+            loc_dict["branch_phone"] = loc.branch.phone
+        items.append(SamplingLocationResponse(**loc_dict))
+
+    return items
+
+
+@router.post(
+    "/laboratories/sampling-locations/",
+    response_model=SamplingLocationResponse,
+    status_code=201,
+    summary="Создание нового места отбора проб",
+    description="Создает новое место отбора проб на основе переданных данных.",
+    responses={
+        201: {"description": "Место отбора проб успешно создано"},
+        400: {"description": "Некорректные данные для создания места отбора проб"},
+    },
+)
+# @IsAuthenticated
+async def create_sampling_location(
+    sampling_location_data: SamplingLocationCreate,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Создать место отбора пробы.
+
+    Создает новое место отбора проб на основе переданных данных.
+    """
+    sampling_location = await create_sampling_location_service(
+        db, sampling_location_data
+    )
+    await db.commit()
+    return SamplingLocationResponse.model_validate(sampling_location)
+
+
+@router.get(
+    "/laboratories/sampling-locations/{sampling_location_id}/",
+    response_model=SamplingLocationResponse,
+    summary="Получение места отбора проб по ID",
+    description="Возвращает информацию о месте отбора проб по его идентификатору.",
+    responses={
+        200: {"description": "Место отбора проб успешно получено"},
+        404: {"description": "Место отбора проб не найдено"},
+    },
+)
+# @IsAuthenticated
+async def get_sampling_location(
+    sampling_location_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Получить место отбора проб по ID.
+    """
+    sampling_location = await get_sampling_location_by_id(db, sampling_location_id)
+    if not sampling_location:
+        raise NotFoundError("Место отбора проб не найдено")
+    loc_dict = SamplingLocationResponse.model_validate(sampling_location).model_dump()
+    if hasattr(sampling_location, "branch") and sampling_location.branch:
+        loc_dict["branch_name"] = sampling_location.branch.name
+        loc_dict["branch_phone"] = sampling_location.branch.phone
+    return SamplingLocationResponse(**loc_dict)
+
+
+@router.patch(
+    "/laboratories/sampling-locations/{sampling_location_id}/",
+    response_model=SamplingLocationResponse,
+    summary="Обновление места отбора проб",
+    description="Обновляет существующее место отбора проб. Можно обновить только указанные поля.",
+    responses={
+        200: {"description": "Место отбора проб успешно обновлено"},
+        404: {"description": "Место отбора проб не найдено"},
+    },
+)
+# @IsAuthenticated
+async def update_sampling_location(
+    sampling_location_id: int,
+    sampling_location_data: SamplingLocationUpdate,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Обновить место отбора пробы.
+
+    Обновляет существующее место отбора проб по его идентификатору.
+    """
+    sampling_location = await update_sampling_location_service(
+        db, sampling_location_id, sampling_location_data
+    )
+    await db.commit()
+    return SamplingLocationResponse.model_validate(sampling_location)
+
+
+@router.delete(
+    "/laboratories/sampling-locations/{sampling_location_id}/",
+    status_code=204,
+    summary="Удаление места отбора проб",
+    description="Выполняет мягкое удаление места отбора проб. Место отбора проб помечается как удаленное.",
+    responses={
+        204: {"description": "Место отбора проб успешно удалено"},
+        404: {"description": "Место отбора проб не найдено"},
+    },
+)
+# @IsAuthenticated
+async def delete_sampling_location(
+    sampling_location_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Удалить место отбора пробы (мягкое удаление).
+
+    Выполняет мягкое удаление места отбора проб по его идентификатору.
+    """
+    await delete_sampling_location_service(db, sampling_location_id)
+    await db.commit()
+
+
+@router.get(
     "/laboratories/{laboratory_id}/",
     response_model=LaboratoryResponse,
     summary="Получение лаборатории по ID",
@@ -353,10 +500,10 @@ async def delete_department(
 
 @router.get(
     "/branches/",
-    response_model=PaginatedResponse[BranchResponse],
+    response_model=list[BranchResponse],
     summary="Получение списка филиалов",
     description=(
-        "Возвращает список филиалов с пагинацией. "
+        "Возвращает список филиалов. "
         "Поддерживает фильтрацию по лабораториям и подразделениям, поиск и сортировку."
     ),
     responses={200: {"description": "Список филиалов успешно получен"}},
@@ -365,33 +512,23 @@ async def delete_department(
 async def list_branches(
     laboratory_id: Optional[int] = Query(None),
     department_id: Optional[int] = Query(None),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
     search: Optional[str] = Query(None),
     sort_by: Optional[str] = Query(None),
     sort_order: Optional[str] = Query("desc"),
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Получить список филиалов с пагинацией.
+    Получить список филиалов.
     """
-    branches, total, total_pages = await get_branches(
+    branches = await get_branches(
         db,
         laboratory_id=laboratory_id,
         department_id=department_id,
-        page=page,
-        page_size=page_size,
         search=search,
         sort_by=sort_by,
         sort_order=sort_order,
     )
-    return PaginatedResponse(
-        items=[BranchResponse.model_validate(branch) for branch in branches],
-        total=total,
-        page=page,
-        page_size=page_size,
-        total_pages=total_pages,
-    )
+    return [BranchResponse.model_validate(branch) for branch in branches]
 
 
 @router.post(
@@ -467,133 +604,4 @@ async def delete_branch(
     Выполняет мягкое удаление филиала по его идентификатору.
     """
     await delete_branch_service(db, branch_id)
-    await db.commit()
-
-
-@router.get(
-    "/sampling-locations/",
-    response_model=PaginatedResponse[SamplingLocationResponse],
-    summary="Получение списка мест отбора проб",
-    description=(
-        "Возвращает список мест отбора проб с пагинацией. "
-        "Поддерживает фильтрацию по филиалам, поиск и сортировку."
-    ),
-    responses={200: {"description": "Список мест отбора проб успешно получен"}},
-)
-# @IsAuthenticated
-async def list_sampling_locations(
-    branch_id: Optional[int] = Query(None),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
-    search: Optional[str] = Query(None),
-    sort_by: Optional[str] = Query(None),
-    sort_order: Optional[str] = Query("desc"),
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Получить список мест отбора проб с пагинацией.
-    """
-    sampling_locations, total, total_pages = await get_sampling_locations(
-        db,
-        branch_id=branch_id,
-        page=page,
-        page_size=page_size,
-        search=search,
-        sort_by=sort_by,
-        sort_order=sort_order,
-    )
-    items = []
-    for loc in sampling_locations:
-        loc_dict = SamplingLocationResponse.model_validate(loc).model_dump()
-        if hasattr(loc, "branch") and loc.branch:
-            loc_dict["branch_name"] = loc.branch.name
-            loc_dict["branch_phone"] = loc.branch.phone
-        items.append(SamplingLocationResponse(**loc_dict))
-
-    return PaginatedResponse(
-        items=items,
-        total=total,
-        page=page,
-        page_size=page_size,
-        total_pages=total_pages,
-    )
-
-
-@router.post(
-    "/sampling-locations/",
-    response_model=SamplingLocationResponse,
-    status_code=201,
-    summary="Создание нового места отбора проб",
-    description="Создает новое место отбора проб на основе переданных данных.",
-    responses={
-        201: {"description": "Место отбора проб успешно создано"},
-        400: {"description": "Некорректные данные для создания места отбора проб"},
-    },
-)
-# @IsAuthenticated
-async def create_sampling_location(
-    sampling_location_data: SamplingLocationCreate,
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Создать место отбора пробы.
-
-    Создает новое место отбора проб на основе переданных данных.
-    """
-    sampling_location = await create_sampling_location_service(
-        db, sampling_location_data
-    )
-    await db.commit()
-    return SamplingLocationResponse.model_validate(sampling_location)
-
-
-@router.patch(
-    "/sampling-locations/{sampling_location_id}/",
-    response_model=SamplingLocationResponse,
-    summary="Обновление места отбора проб",
-    description="Обновляет существующее место отбора проб. Можно обновить только указанные поля.",
-    responses={
-        200: {"description": "Место отбора проб успешно обновлено"},
-        404: {"description": "Место отбора проб не найдено"},
-    },
-)
-# @IsAuthenticated
-async def update_sampling_location(
-    sampling_location_id: int,
-    sampling_location_data: SamplingLocationUpdate,
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Обновить место отбора пробы.
-
-    Обновляет существующее место отбора проб по его идентификатору.
-    """
-    sampling_location = await update_sampling_location_service(
-        db, sampling_location_id, sampling_location_data
-    )
-    await db.commit()
-    return SamplingLocationResponse.model_validate(sampling_location)
-
-
-@router.delete(
-    "/sampling-locations/{sampling_location_id}/",
-    status_code=204,
-    summary="Удаление места отбора проб",
-    description="Выполняет мягкое удаление места отбора проб. Место отбора проб помечается как удаленное.",
-    responses={
-        204: {"description": "Место отбора проб успешно удалено"},
-        404: {"description": "Место отбора проб не найдено"},
-    },
-)
-# @IsAuthenticated
-async def delete_sampling_location(
-    sampling_location_id: int,
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Удалить место отбора пробы (мягкое удаление).
-
-    Выполняет мягкое удаление места отбора проб по его идентификатору.
-    """
-    await delete_sampling_location_service(db, sampling_location_id)
     await db.commit()

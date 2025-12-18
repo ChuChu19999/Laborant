@@ -327,13 +327,11 @@ async def get_branches(
     db: AsyncSession,
     laboratory_id: Optional[int] = None,
     department_id: Optional[int] = None,
-    page: int = 1,
-    page_size: int = 20,
     search: Optional[str] = None,
     sort_by: Optional[str] = None,
     sort_order: Optional[str] = None,
-) -> tuple[list[Branch], int, int]:
-    """Получить список филиалов с пагинацией."""
+) -> list[Branch]:
+    """Получить список филиалов."""
     query = (
         select(Branch)
         .where(Branch.deleted_at.is_(None))
@@ -358,27 +356,10 @@ async def get_branches(
     order_by = build_order_by(sort_by, sort_order, sort_mapping, Branch.created_at)
     query = query.order_by(order_by)
 
-    count_query = (
-        select(func.count()).select_from(Branch).where(Branch.deleted_at.is_(None))
-    )
-    count_conditions = []
-    if laboratory_id:
-        count_conditions.append(Branch.laboratory_id == laboratory_id)
-    if department_id:
-        count_conditions.append(Branch.department_id == department_id)
-    if search:
-        add_text_search_filter(count_conditions, search, Branch.name)
-    if count_conditions:
-        count_query = count_query.where(*count_conditions)
-
-    total = await get_total_count(db, count_query)
-    total_pages = calculate_total_pages(total, page_size)
-
-    query = apply_pagination(query, page, page_size)
     result = await db.execute(query)
     branches = result.scalars().all()
 
-    return branches, total, total_pages
+    return list(branches)
 
 
 async def create_branch(db: AsyncSession, branch_data: BranchCreate) -> Branch:
@@ -426,10 +407,23 @@ async def update_branch(
 
 async def delete_branch(db: AsyncSession, branch_id: int) -> None:
     """Удалить филиал (мягкое удаление)."""
-    branch = await get_branch_by_id(db, branch_id)
+    query = (
+        select(Branch)
+        .where(Branch.id == branch_id)
+        .options(selectinload(Branch.sampling_locations))
+    )
+    result = await db.execute(query)
+    branch = result.scalar_one_or_none()
+
     if not branch:
         raise NotFoundError("Филиал не найден")
 
+    # Помечаем все места отбора проб как удаленные
+    for sampling_location in branch.sampling_locations:
+        if sampling_location.deleted_at is None:
+            sampling_location.soft_delete()
+
+    # Помечаем сам филиал как удаленный
     branch.soft_delete()
     await db.flush()
 
@@ -452,13 +446,11 @@ async def get_sampling_location_by_id(
 async def get_sampling_locations(
     db: AsyncSession,
     branch_id: Optional[int] = None,
-    page: int = 1,
-    page_size: int = 20,
     search: Optional[str] = None,
     sort_by: Optional[str] = None,
     sort_order: Optional[str] = None,
-) -> tuple[list[SamplingLocation], int, int]:
-    """Получить список мест отбора проб с пагинацией."""
+) -> list[SamplingLocation]:
+    """Получить список мест отбора проб."""
     query = (
         select(SamplingLocation)
         .where(SamplingLocation.deleted_at.is_(None))
@@ -483,27 +475,10 @@ async def get_sampling_locations(
     )
     query = query.order_by(order_by)
 
-    count_query = (
-        select(func.count())
-        .select_from(SamplingLocation)
-        .where(SamplingLocation.deleted_at.is_(None))
-    )
-    count_conditions = []
-    if branch_id:
-        count_conditions.append(SamplingLocation.branch_id == branch_id)
-    if search:
-        add_text_search_filter(count_conditions, search, SamplingLocation.name)
-    if count_conditions:
-        count_query = count_query.where(*count_conditions)
-
-    total = await get_total_count(db, count_query)
-    total_pages = calculate_total_pages(total, page_size)
-
-    query = apply_pagination(query, page, page_size)
     result = await db.execute(query)
     sampling_locations = result.scalars().all()
 
-    return sampling_locations, total, total_pages
+    return list(sampling_locations)
 
 
 async def create_sampling_location(

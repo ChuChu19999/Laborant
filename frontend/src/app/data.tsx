@@ -1,9 +1,10 @@
-import { BiHelpCircle, BiHomeAlt2, BiTestTube, BiFile, BiCog } from 'react-icons/bi';
+import { BiHelpCircle, BiHomeAlt2, BiTestTube, BiFile, BiCog, BiMap } from 'react-icons/bi';
 import EquipmentPage from '../pages/EquipmentPage/EquipmentPage';
 import HelpPage from '../pages/HelpPage/HelpPage';
 import MainPage from '../pages/MainPage/MainPage';
 import ProtocolsPage from '../pages/ProtocolsPage/ProtocolsPage';
 import SamplesPage from '../pages/SamplesPage/SamplesPage';
+import SamplingLocationsPage from '../pages/SamplingLocationsPage/SamplingLocationsPage';
 
 export const routersData = [
   {
@@ -29,6 +30,12 @@ export const routersData = [
     path: '/equipment',
     icon: <BiCog size={20} />,
     element: <EquipmentPage />,
+  },
+  {
+    label: 'Места отбора проб',
+    path: '/sampling-locations',
+    icon: <BiMap size={20} />,
+    element: <SamplingLocationsPage />,
   },
   {
     label: 'Помощь',

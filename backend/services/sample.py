@@ -69,6 +69,7 @@ async def get_samples(
         .options(
             selectinload(Sample.laboratory),
             selectinload(Sample.department),
+            selectinload(Sample.branch),
             selectinload(Sample.sampling_location),
         )
     )

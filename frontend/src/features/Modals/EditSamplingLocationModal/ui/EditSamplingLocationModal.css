@@ -1,0 +1,42 @@
+.edit-sampling-location-modal-wrapper .modal-wrapper {
+  width: 550px !important;
+  max-width: 90vw !important;
+}
+
+.edit-sampling-location-modal-content {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.edit-sampling-location-form-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.edit-sampling-location-label {
+  font-family: 'HeliosCondC';
+  font-size: 14px;
+  color: #282828;
+  font-weight: 500;
+}
+
+.edit-sampling-location-label .edit-sampling-location-required {
+  color: #ff4d4f !important;
+}
+
+.error-message {
+  color: #ff4d4f;
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.general-error {
+  margin: 8px 0;
+  padding: 8px;
+  background-color: #fff1f0;
+  border: 1px solid #ffccc7;
+  border-radius: 4px;
+}
