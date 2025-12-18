@@ -62,8 +62,6 @@ async def list_research_methods(
 ):
     """
     Получить список методов исследования с пагинацией.
-
-    Возвращает список методов исследования с возможностью фильтрации и сортировки.
     """
     methods, total, total_pages = await get_research_methods(
         db,
@@ -145,8 +143,6 @@ async def get_research_method(
 ):
     """
     Получить метод исследования по ID.
-
-    Возвращает полную информацию о методе исследования по его идентификатору.
     """
     method = await get_research_method_by_id(db, method_id)
     if not method:
@@ -306,8 +302,6 @@ async def list_research_method_groups(
 ):
     """
     Получить список групп методов исследования с пагинацией.
-
-    Возвращает список групп методов исследования с возможностью фильтрации и сортировки.
     """
     groups, total, total_pages = await get_research_method_groups(
         db,
@@ -371,8 +365,6 @@ async def get_research_method_group(
 ):
     """
     Получить группу методов исследования по ID.
-
-    Возвращает полную информацию о группе методов исследования по ее идентификатору.
     """
     group = await get_research_method_group_by_id(db, group_id)
     if not group:

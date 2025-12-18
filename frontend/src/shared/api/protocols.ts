@@ -57,8 +57,10 @@ export interface ProtocolUpdate {
 export interface ProtocolFilters {
   test_protocol_number?: string;
   sampling_act_number?: string;
+  is_accredited?: boolean;
   test_protocol_date_from?: string;
   test_protocol_date_to?: string;
+  test_protocol_date_search?: string;
   created_at_from?: string;
   created_at_to?: string;
   [key: string]: unknown;
@@ -92,6 +94,30 @@ export const protocolsApi = {
 
     if (filters?.sampling_act_number) {
       params.search_sampling_act = filters.sampling_act_number;
+    }
+
+    if (filters?.search_samples) {
+      params.search_samples = filters.search_samples;
+    }
+
+    if (filters?.is_accredited !== undefined && filters?.is_accredited !== null) {
+      params.is_accredited = filters.is_accredited;
+    }
+
+    if (filters?.test_protocol_date_from) {
+      params.test_protocol_date_from = filters.test_protocol_date_from;
+    }
+    if (filters?.test_protocol_date_to) {
+      params.test_protocol_date_to = filters.test_protocol_date_to;
+    }
+    if (filters?.test_protocol_date_search) {
+      params.search_date = filters.test_protocol_date_search;
+    }
+    if (filters?.created_at_from) {
+      params.created_at_from = filters.created_at_from;
+    }
+    if (filters?.created_at_to) {
+      params.created_at_to = filters.created_at_to;
     }
 
     if (sorting?.sort_by) {

@@ -32,6 +32,7 @@ from services.protocol import (
 )
 from services.protocol_generator import generate_protocol_excel
 from services.sample import get_sample_by_id
+from utils.query_params import parse_date_range_params
 
 router = APIRouter()
 
@@ -55,13 +56,27 @@ async def list_protocols(
     page_size: int = Query(20, ge=1, le=100),
     sort_by: Optional[str] = Query(None),
     sort_order: Optional[str] = Query("desc"),
+    is_accredited: Optional[bool] = Query(None),
+    search: Optional[str] = Query(None),
+    search_date: Optional[str] = Query(None),
+    search_sampling_act: Optional[str] = Query(None),
+    search_samples: Optional[str] = Query(None),
+    test_protocol_date_from: Optional[str] = Query(None),
+    test_protocol_date_to: Optional[str] = Query(None),
+    created_at_from: Optional[str] = Query(None),
+    created_at_to: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     """
     Получить список протоколов с пагинацией.
-
-    Возвращает список протоколов с возможностью фильтрации и сортировки.
     """
+    test_protocol_date_from_parsed, test_protocol_date_to_parsed = (
+        parse_date_range_params(test_protocol_date_from, test_protocol_date_to)
+    )
+    created_at_from_parsed, created_at_to_parsed = parse_date_range_params(
+        created_at_from, created_at_to
+    )
+
     protocols, total, total_pages = await get_protocols(
         db,
         laboratory_id=laboratory_id,
@@ -71,6 +86,15 @@ async def list_protocols(
         page_size=page_size,
         sort_by=sort_by,
         sort_order=sort_order,
+        is_accredited=is_accredited,
+        search=search,
+        search_date=search_date,
+        search_sampling_act=search_sampling_act,
+        search_samples=search_samples,
+        test_protocol_date_from=test_protocol_date_from_parsed,
+        test_protocol_date_to=test_protocol_date_to_parsed,
+        created_at_from=created_at_from_parsed,
+        created_at_to=created_at_to_parsed,
     )
 
     items = []
@@ -169,8 +193,6 @@ async def get_protocol(
 ):
     """
     Получить протокол по ID.
-
-    Возвращает полную информацию о протоколе по его идентификатору.
     """
     protocol = await get_protocol_by_id(db, protocol_id)
     if not protocol:
@@ -322,8 +344,6 @@ async def list_protocol_templates(
 ):
     """
     Получить список шаблонов протоколов с пагинацией.
-
-    Возвращает список шаблонов протоколов с возможностью фильтрации и сортировки.
     """
     templates, total, total_pages = await get_protocol_templates(
         db,
@@ -371,8 +391,6 @@ async def get_available_protocol_templates(
 ):
     """
     Получить доступные шаблоны для лаборатории/подразделения.
-
-    Возвращает список доступных шаблонов протоколов для указанной лаборатории и подразделения.
     """
     templates, _, _ = await get_protocol_templates(
         db,
@@ -453,8 +471,6 @@ async def get_protocol_template(
 ):
     """
     Получить шаблон протокола по ID.
-
-    Возвращает полную информацию о шаблоне протокола по его идентификатору.
     """
     template = await get_protocol_template_by_id(db, template_id)
     if not template:

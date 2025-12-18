@@ -13,6 +13,7 @@ from services.equipment import (
     get_equipment_list,
     update_equipment,
 )
+from utils.query_params import parse_date_range_params
 
 router = APIRouter()
 
@@ -32,28 +33,55 @@ async def list_equipment(
     laboratory_id: Optional[int] = Query(None),
     department_id: Optional[int] = Query(None),
     equipment_type: Optional[str] = Query(None),
+    equipment_types: Optional[list[str]] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     search: Optional[str] = Query(None),
     sort_by: Optional[str] = Query(None),
     sort_order: Optional[str] = Query("desc"),
+    verification_date_from: Optional[str] = Query(None),
+    verification_date_to: Optional[str] = Query(None),
+    verification_end_date_from: Optional[str] = Query(None),
+    verification_end_date_to: Optional[str] = Query(None),
+    created_at_from: Optional[str] = Query(None),
+    created_at_to: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     """
     Получить список оборудования с пагинацией.
-
-    Возвращает список оборудования с возможностью фильтрации и сортировки.
     """
+    verification_date_from_parsed, verification_date_to_parsed = (
+        parse_date_range_params(verification_date_from, verification_date_to)
+    )
+    verification_end_date_from_parsed, verification_end_date_to_parsed = (
+        parse_date_range_params(verification_end_date_from, verification_end_date_to)
+    )
+    created_at_from_parsed, created_at_to_parsed = parse_date_range_params(
+        created_at_from, created_at_to
+    )
+
+    equipment_types_list = (
+        equipment_types
+        if equipment_types
+        else ([equipment_type] if equipment_type else None)
+    )
+
     equipment_list, total, total_pages = await get_equipment_list(
         db,
         laboratory_id=laboratory_id,
         department_id=department_id,
-        equipment_type=equipment_type,
+        equipment_types=equipment_types_list,
         page=page,
         page_size=page_size,
         search=search,
         sort_by=sort_by,
         sort_order=sort_order,
+        verification_date_from=verification_date_from_parsed,
+        verification_date_to=verification_date_to_parsed,
+        verification_end_date_from=verification_end_date_from_parsed,
+        verification_end_date_to=verification_end_date_to_parsed,
+        created_at_from=created_at_from_parsed,
+        created_at_to=created_at_to_parsed,
     )
 
     items = []
@@ -96,12 +124,14 @@ async def create_equipment_endpoint(
     Создает новое оборудование на основе переданных данных.
     """
     equipment = await create_equipment(db, equipment_data)
-    await db.commit()
+
     eq_dict = EquipmentResponse.model_validate(equipment).model_dump()
     if hasattr(equipment, "laboratory") and equipment.laboratory:
         eq_dict["laboratory_name"] = equipment.laboratory.name
     if hasattr(equipment, "department") and equipment.department:
         eq_dict["department_name"] = equipment.department.name
+
+    await db.commit()
     return EquipmentResponse(**eq_dict)
 
 
@@ -122,8 +152,6 @@ async def get_equipment(
 ):
     """
     Получить оборудование по ID.
-
-    Возвращает полную информацию об оборудовании по его идентификатору.
     """
     equipment = await get_equipment_by_id(db, equipment_id)
     if not equipment:
@@ -158,12 +186,14 @@ async def update_equipment_endpoint(
     Обновляет существующее оборудование по его идентификатору.
     """
     equipment = await update_equipment(db, equipment_id, equipment_data)
-    await db.commit()
+
     eq_dict = EquipmentResponse.model_validate(equipment).model_dump()
     if hasattr(equipment, "laboratory") and equipment.laboratory:
         eq_dict["laboratory_name"] = equipment.laboratory.name
     if hasattr(equipment, "department") and equipment.department:
         eq_dict["department_name"] = equipment.department.name
+
+    await db.commit()
     return EquipmentResponse(**eq_dict)
 
 

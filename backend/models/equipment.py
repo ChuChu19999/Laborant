@@ -11,7 +11,7 @@ class EquipmentType(PyEnum):
 
 
 class Equipment(BaseModel):
-    __tablename__ = "equipment"
+    __tablename__ = "equipments"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
 

@@ -1,4 +1,5 @@
 from typing import Any, Dict, List, Optional
+import pendulum
 from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
@@ -15,7 +16,7 @@ from schemas.sample import (
     SelectionConditionsCreate,
     SelectionConditionsUpdate,
 )
-from utils.filters import add_text_search_filter
+from utils.filters import add_date_range_filter, add_text_search_filter
 from utils.pagination import apply_pagination, calculate_total_pages, get_total_count
 from utils.sorting import build_order_by
 
@@ -48,8 +49,18 @@ async def get_samples(
     page_size: int = 20,
     search: Optional[str] = None,
     search_sampling_location: Optional[str] = None,
+    sample_type: Optional[str] = None,
+    sample_types: Optional[List[str]] = None,
+    test_object: Optional[str] = None,
+    test_objects: Optional[List[str]] = None,
     sort_by: Optional[str] = None,
     sort_order: Optional[str] = None,
+    sampling_date_from: Optional[pendulum.DateTime] = None,
+    sampling_date_to: Optional[pendulum.DateTime] = None,
+    receiving_date_from: Optional[pendulum.DateTime] = None,
+    receiving_date_to: Optional[pendulum.DateTime] = None,
+    created_at_from: Optional[pendulum.DateTime] = None,
+    created_at_to: Optional[pendulum.DateTime] = None,
 ) -> tuple[List[Sample], int, int]:
     """Получить список проб с пагинацией."""
     query = (
@@ -67,16 +78,16 @@ async def get_samples(
         conditions.append(Sample.laboratory_id == laboratory_id)
     if department_id:
         conditions.append(Sample.department_id == department_id)
-    if conditions:
-        query = query.where(*conditions)
-
     if search:
-        query = query.where(
-            or_(
-                Sample.registration_number.ilike(f"%{search}%"),
-                Sample.test_object.ilike(f"%{search}%"),
-            )
-        )
+        conditions.append(Sample.registration_number.ilike(f"%{search}%"))
+    if sample_types:
+        conditions.append(Sample.sample_type.in_(sample_types))
+    elif sample_type:
+        conditions.append(Sample.sample_type == sample_type)
+    if test_objects:
+        conditions.append(Sample.test_object.in_(test_objects))
+    elif test_object:
+        conditions.append(Sample.test_object == test_object)
 
     needs_sampling_location_join = (
         search_sampling_location or sort_by == "sampling_location"
@@ -100,12 +111,27 @@ async def get_samples(
             " ",
             func.coalesce(Sample.mode, ""),
         )
-        query = query.where(
+        conditions.append(
             func.lower(sampling_location_text).ilike(f"%{sampling_location_search}%")
         )
 
+    add_date_range_filter(
+        conditions, sampling_date_from, sampling_date_to, Sample.sampling_date
+    )
+    add_date_range_filter(
+        conditions, receiving_date_from, receiving_date_to, Sample.receiving_date
+    )
+    add_date_range_filter(conditions, created_at_from, created_at_to, Sample.created_at)
+
+    if conditions:
+        query = query.where(*conditions)
+
     sort_mapping = {
         "registration_number": Sample.registration_number,
+        "sample_type": Sample.sample_type,
+        "test_object": Sample.test_object,
+        "sampling_date": Sample.sampling_date,
+        "receiving_date": Sample.receiving_date,
         "created_at": Sample.created_at,
     }
 
@@ -136,15 +162,16 @@ async def get_samples(
         count_conditions.append(Sample.laboratory_id == laboratory_id)
     if department_id:
         count_conditions.append(Sample.department_id == department_id)
-    if count_conditions:
-        count_query = count_query.where(*count_conditions)
     if search:
-        count_query = count_query.where(
-            or_(
-                Sample.registration_number.ilike(f"%{search}%"),
-                Sample.test_object.ilike(f"%{search}%"),
-            )
-        )
+        count_conditions.append(Sample.registration_number.ilike(f"%{search}%"))
+    if sample_types:
+        count_conditions.append(Sample.sample_type.in_(sample_types))
+    elif sample_type:
+        count_conditions.append(Sample.sample_type == sample_type)
+    if test_objects:
+        count_conditions.append(Sample.test_object.in_(test_objects))
+    elif test_object:
+        count_conditions.append(Sample.test_object == test_object)
 
     if search_sampling_location:
         sampling_location_search = search_sampling_location.lower()
@@ -163,9 +190,22 @@ async def get_samples(
             " ",
             func.coalesce(Sample.mode, ""),
         )
-        count_query = count_query.where(
+        count_conditions.append(
             func.lower(sampling_location_text).ilike(f"%{sampling_location_search}%")
         )
+
+    add_date_range_filter(
+        count_conditions, sampling_date_from, sampling_date_to, Sample.sampling_date
+    )
+    add_date_range_filter(
+        count_conditions, receiving_date_from, receiving_date_to, Sample.receiving_date
+    )
+    add_date_range_filter(
+        count_conditions, created_at_from, created_at_to, Sample.created_at
+    )
+
+    if count_conditions:
+        count_query = count_query.where(*count_conditions)
 
     total = await get_total_count(db, count_query)
     total_pages = calculate_total_pages(total, page_size)

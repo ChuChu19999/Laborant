@@ -46,6 +46,11 @@ const SideBar = ({ username, isAdmin, onMinimizeChange }: SideBarProps) => {
     shouldSave: pathname => pathname.startsWith('/protocols'),
   });
 
+  const equipmentPageState = usePageState({
+    storageKey: PAGE_STATE_KEYS.EQUIPMENT_PAGE,
+    shouldSave: pathname => pathname.startsWith('/equipment'),
+  });
+
   const mainPageState = usePageState({
     storageKey: PAGE_STATE_KEYS.MAIN_PAGE,
     shouldSave: (pathname, search) => {
@@ -144,7 +149,8 @@ const SideBar = ({ username, isAdmin, onMinimizeChange }: SideBarProps) => {
               (location.pathname.startsWith('/admin/laboratory/') ||
                 location.pathname.startsWith('/?page=laboratory-management'))) ||
             (currentPath === '/samples' && location.pathname.startsWith('/samples')) ||
-            (currentPath === '/protocols' && location.pathname.startsWith('/protocols')))) ||
+            (currentPath === '/protocols' && location.pathname.startsWith('/protocols')) ||
+            (currentPath === '/equipment' && location.pathname.startsWith('/equipment')))) ||
         isOpen;
 
       const openSubmenu = (e: React.MouseEvent) => {
@@ -210,6 +216,18 @@ const SideBar = ({ username, isAdmin, onMinimizeChange }: SideBarProps) => {
         // Если переходим на protocols, проверяем сохраненный путь protocols
         if (targetPath === '/protocols') {
           if (protocolsPageState.restoreState('/protocols', '')) {
+            setOpenSubmenus([]);
+            return;
+          }
+          // Если сохраненного пути нет, переходим на базовый путь без параметров
+          navigate({ pathname: targetPath, search: '' }, { replace: true });
+          setOpenSubmenus([]);
+          return;
+        }
+
+        // Если переходим на equipment, проверяем сохраненный путь equipment
+        if (targetPath === '/equipment') {
+          if (equipmentPageState.restoreState('/equipment', '')) {
             setOpenSubmenus([]);
             return;
           }

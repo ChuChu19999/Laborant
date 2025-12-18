@@ -39,9 +39,40 @@ class EquipmentBase(BaseModel):
         return v.strip()
 
 
-class EquipmentCreate(EquipmentBase):
+class EquipmentCreate(BaseModel):
+    type: str = Field(..., description="Тип прибора или оборудования")
+    name: str = Field(
+        ..., max_length=255, description="Наименование прибора или оборудования"
+    )
+    serial_number: str = Field(
+        ..., max_length=100, description="Заводской номер прибора или оборудования"
+    )
+    verification_info: str = Field(
+        ..., max_length=255, description="Сведения о результатах поверки"
+    )
+    verification_date: date = Field(..., description="Дата поверки")
+    verification_end_date: date = Field(
+        ..., description="Дата окончания срока действия поверки"
+    )
     laboratory_id: int = Field(..., description="ID лаборатории")
     department_id: Optional[int] = Field(None, description="ID подразделения")
+
+    @field_validator("type")
+    @classmethod
+    def validate_type(cls, v: str) -> str:
+        valid_types = [e.value for e in EquipmentType]
+        if v not in valid_types:
+            raise ValueError(
+                f"Тип прибора должен быть одним из: {', '.join(valid_types)}"
+            )
+        return v
+
+    @field_validator("name", "serial_number")
+    @classmethod
+    def strip_strings(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("Поле не может быть пустым")
+        return v.strip()
 
 
 class EquipmentUpdate(BaseModel):

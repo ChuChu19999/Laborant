@@ -13,15 +13,16 @@ import {
   type OnChangeFn,
   type ColumnSizingState,
 } from '@tanstack/react-table';
-import { Button, Input } from 'antd';
+import { Button, Checkbox, Input } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 import { BiChevronLeft, BiChevronRight, BiChevronsLeft, BiChevronsRight } from 'react-icons/bi';
 import { FaSortUp, FaSortDown, FaSort } from 'react-icons/fa';
 import { LoadingCard } from '../../../features/Cards';
-import { type Sample } from '../../../shared/api/samples';
+import { type Sample, samplesApi } from '../../../shared/api/samples';
 import { getDateRangePresets } from '../../../shared/lib/datePresets';
 import { urlParamsToFilters } from '../../../shared/lib/urlParams';
+import { useAutoRefetchQuery } from '../../../shared/model/lib';
 import { Select, RangePicker } from '../../../shared/ui/FormItems';
 import './SamplesTable.css';
 
@@ -84,7 +85,10 @@ const SamplesTable: React.FC<SamplesTableProps> = ({
   const filterKeys = React.useMemo(
     () => [
       'registration_number',
+      'sample_type',
+      'sample_types',
       'test_object',
+      'test_objects',
       'sampling_location',
       'sampling_date_from',
       'sampling_date_to',
@@ -103,8 +107,29 @@ const SamplesTable: React.FC<SamplesTableProps> = ({
     if (urlFilters.registration_number && typeof urlFilters.registration_number === 'string') {
       columnFilters.push({ id: 'registration_number', value: urlFilters.registration_number });
     }
-    if (urlFilters.test_object && typeof urlFilters.test_object === 'string') {
-      columnFilters.push({ id: 'test_object', value: urlFilters.test_object });
+    if (urlFilters.sample_type || urlFilters.sample_types) {
+      const sampleTypeArray = Array.isArray(urlFilters.sample_types)
+        ? urlFilters.sample_types
+        : Array.isArray(urlFilters.sample_type)
+          ? urlFilters.sample_type
+          : urlFilters.sample_type
+            ? [urlFilters.sample_type]
+            : [];
+      if (sampleTypeArray.length > 0) {
+        columnFilters.push({ id: 'sample_type', value: sampleTypeArray });
+      }
+    }
+    if (urlFilters.test_object || urlFilters.test_objects) {
+      const testObjectArray = Array.isArray(urlFilters.test_objects)
+        ? urlFilters.test_objects
+        : Array.isArray(urlFilters.test_object)
+          ? urlFilters.test_object
+          : urlFilters.test_object
+            ? [urlFilters.test_object]
+            : [];
+      if (testObjectArray.length > 0) {
+        columnFilters.push({ id: 'test_object', value: testObjectArray });
+      }
     }
     if (urlFilters.sampling_location && typeof urlFilters.sampling_location === 'string') {
       columnFilters.push({ id: 'sampling_location', value: urlFilters.sampling_location });
@@ -149,10 +174,55 @@ const SamplesTable: React.FC<SamplesTableProps> = ({
     urlFiltersToColumnFilters()
   );
 
+  const initialFilters = React.useMemo(() => {
+    const filters = urlFiltersToColumnFilters();
+    const sampleTypeFilter = filters.find(f => f.id === 'sample_type');
+    const testObjectFilter = filters.find(f => f.id === 'test_object');
+    return {
+      sampleTypeFilter:
+        sampleTypeFilter && Array.isArray(sampleTypeFilter.value)
+          ? (sampleTypeFilter.value as string[])
+          : [],
+      testObjectFilter:
+        testObjectFilter && Array.isArray(testObjectFilter.value)
+          ? (testObjectFilter.value as string[])
+          : [],
+    };
+  }, [urlFiltersToColumnFilters]);
+
+  const [tempSampleTypeFilter, setTempSampleTypeFilter] = React.useState<string[]>(
+    initialFilters.sampleTypeFilter
+  );
+  const [tempTestObjectFilter, setTempTestObjectFilter] = React.useState<string[]>(
+    initialFilters.testObjectFilter
+  );
+  const tempSampleTypeFilterRef = React.useRef<string[]>(initialFilters.sampleTypeFilter);
+  const tempTestObjectFilterRef = React.useRef<string[]>(initialFilters.testObjectFilter);
+
+  const previousFiltersRef = React.useRef<string>('');
   const searchParamsStr = searchParams.toString();
   React.useEffect(() => {
     const newFilters = urlFiltersToColumnFilters();
-    setColumnFilters(newFilters);
+    const newStr = JSON.stringify(newFilters);
+    if (previousFiltersRef.current !== newStr) {
+      previousFiltersRef.current = newStr;
+      setColumnFilters(newFilters);
+
+      const sampleTypeFilter = newFilters.find(f => f.id === 'sample_type');
+      const testObjectFilter = newFilters.find(f => f.id === 'test_object');
+      const newSampleTypeFilter =
+        sampleTypeFilter && Array.isArray(sampleTypeFilter.value)
+          ? (sampleTypeFilter.value as string[])
+          : [];
+      const newTestObjectFilter =
+        testObjectFilter && Array.isArray(testObjectFilter.value)
+          ? (testObjectFilter.value as string[])
+          : [];
+      setTempSampleTypeFilter(newSampleTypeFilter);
+      setTempTestObjectFilter(newTestObjectFilter);
+      tempSampleTypeFilterRef.current = newSampleTypeFilter;
+      tempTestObjectFilterRef.current = newTestObjectFilter;
+    }
   }, [searchParamsStr, urlFiltersToColumnFilters]);
 
   const [columnSizing, setColumnSizing] = React.useState<ColumnSizingState>({});
@@ -167,6 +237,14 @@ const SamplesTable: React.FC<SamplesTableProps> = ({
         enableSorting: true,
         enableColumnFilter: true,
         size: 120,
+      },
+      {
+        accessorKey: 'sample_type',
+        header: 'Тип пробы',
+        cell: ({ row }) => row.original.sample_type || '-',
+        enableSorting: true,
+        enableColumnFilter: true,
+        size: 160,
       },
       {
         accessorKey: 'test_object',
@@ -264,6 +342,37 @@ const SamplesTable: React.FC<SamplesTableProps> = ({
 
           return true;
         },
+      },
+      {
+        id: 'protocols',
+        header: 'Протоколы',
+        accessorFn: row => {
+          if (!row.protocols || !Array.isArray(row.protocols) || row.protocols.length === 0) {
+            return '';
+          }
+          return row.protocols
+            .map((p: { test_protocol_number?: string }) => p.test_protocol_number || '')
+            .filter(Boolean)
+            .join(', ');
+        },
+        cell: ({ row }) => {
+          if (
+            !row.original.protocols ||
+            !Array.isArray(row.original.protocols) ||
+            row.original.protocols.length === 0
+          ) {
+            return '-';
+          }
+          return (
+            row.original.protocols
+              .map((p: { test_protocol_number?: string }) => p.test_protocol_number || '')
+              .filter(Boolean)
+              .join(', ') || '-'
+          );
+        },
+        enableSorting: true,
+        enableColumnFilter: true,
+        size: 200,
       },
       {
         accessorKey: 'created_at',
@@ -381,7 +490,36 @@ const SamplesTable: React.FC<SamplesTableProps> = ({
     }
   }, [onFiltersChange]);
 
+  const applyFiltersWithNewValue = React.useCallback(
+    (columnId: string, newValue: string[]) => {
+      if (onFiltersChange && tableRef.current) {
+        const currentFilters = tableRef.current.getState().columnFilters;
+        const updatedFilters = currentFilters.filter(f => f.id !== columnId);
+        if (newValue.length > 0) {
+          updatedFilters.push({ id: columnId, value: newValue });
+        }
+        tableRef.current.setColumnFilters(updatedFilters);
+        onFiltersChange(updatedFilters);
+      }
+    },
+    [onFiltersChange]
+  );
+
   const pageSizeOptions = React.useMemo(() => [10, 20, 50, 100], []);
+
+  const { data: sampleTypes = [] } = useAutoRefetchQuery<string[]>(['sample-types'], () =>
+    samplesApi.getSampleTypes()
+  );
+
+  const uniqueTestObjects = React.useMemo(() => {
+    const objects = new Set<string>();
+    data.forEach(sample => {
+      if (sample.test_object) {
+        objects.add(sample.test_object);
+      }
+    });
+    return Array.from(objects).sort();
+  }, [data]);
 
   return (
     <div className="samples-table-container">
@@ -467,6 +605,146 @@ const SamplesTable: React.FC<SamplesTableProps> = ({
                               onClick={(e: React.MouseEvent) => e.stopPropagation()}
                               allowClear
                               presets={getDateRangePresets()}
+                            />
+                          ) : header.column.getCanFilter() && header.column.id === 'sample_type' ? (
+                            <Select
+                              mode="multiple"
+                              value={tempSampleTypeFilter}
+                              onChange={(value: unknown) => {
+                                const newValue = value as string[];
+                                setTempSampleTypeFilter(newValue);
+                                tempSampleTypeFilterRef.current = newValue;
+                              }}
+                              onDeselect={(value: unknown) => {
+                                const newValue = tempSampleTypeFilter.filter(v => v !== value);
+                                setTempSampleTypeFilter(newValue);
+                                tempSampleTypeFilterRef.current = newValue;
+                                applyFiltersWithNewValue(header.column.id, newValue);
+                              }}
+                              onDropdownVisibleChange={(open: boolean) => {
+                                if (!open) {
+                                  applyFiltersWithNewValue(
+                                    header.column.id,
+                                    tempSampleTypeFilterRef.current
+                                  );
+                                }
+                              }}
+                              placeholder="Выберите типы"
+                              className="samples-table-filter-select"
+                              classNames={{
+                                popup: { root: 'samples-table-filter-select-dropdown' },
+                              }}
+                              onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                              allowClear
+                              onClear={() => {
+                                setTempSampleTypeFilter([]);
+                                tempSampleTypeFilterRef.current = [];
+                                applyFiltersWithNewValue(header.column.id, []);
+                              }}
+                              options={sampleTypes.map(type => ({
+                                label: type,
+                                value: type,
+                              }))}
+                              optionRender={option => {
+                                const isSelected = tempSampleTypeFilter.includes(
+                                  option.value as string
+                                );
+                                return (
+                                  <div
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '8px',
+                                    }}
+                                  >
+                                    <Checkbox
+                                      checked={isSelected}
+                                      onClick={e => {
+                                        e.stopPropagation();
+                                        const newValue = isSelected
+                                          ? tempSampleTypeFilter.filter(v => v !== option.value)
+                                          : [...tempSampleTypeFilter, option.value as string];
+                                        setTempSampleTypeFilter(newValue);
+                                        tempSampleTypeFilterRef.current = newValue;
+                                      }}
+                                    />
+                                    <span>{option.label}</span>
+                                  </div>
+                                );
+                              }}
+                              style={{ width: '100%' }}
+                            />
+                          ) : header.column.getCanFilter() && header.column.id === 'test_object' ? (
+                            <Select
+                              mode="multiple"
+                              value={tempTestObjectFilter}
+                              onChange={(value: unknown) => {
+                                const newValue = value as string[];
+                                setTempTestObjectFilter(newValue);
+                                tempTestObjectFilterRef.current = newValue;
+                              }}
+                              onDeselect={(value: unknown) => {
+                                const newValue = tempTestObjectFilter.filter(v => v !== value);
+                                setTempTestObjectFilter(newValue);
+                                tempTestObjectFilterRef.current = newValue;
+                                applyFiltersWithNewValue(header.column.id, newValue);
+                              }}
+                              onDropdownVisibleChange={(open: boolean) => {
+                                if (!open) {
+                                  applyFiltersWithNewValue(
+                                    header.column.id,
+                                    tempTestObjectFilterRef.current
+                                  );
+                                }
+                              }}
+                              placeholder="Выберите объекты"
+                              className="samples-table-filter-select"
+                              classNames={{
+                                popup: { root: 'samples-table-filter-select-dropdown' },
+                              }}
+                              onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                              allowClear
+                              showSearch
+                              filterOption={(input, option) =>
+                                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                              }
+                              onClear={() => {
+                                setTempTestObjectFilter([]);
+                                tempTestObjectFilterRef.current = [];
+                                applyFiltersWithNewValue(header.column.id, []);
+                              }}
+                              options={uniqueTestObjects.map(obj => ({
+                                label: obj,
+                                value: obj,
+                              }))}
+                              optionRender={option => {
+                                const isSelected = tempTestObjectFilter.includes(
+                                  option.value as string
+                                );
+                                return (
+                                  <div
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '8px',
+                                    }}
+                                  >
+                                    <Checkbox
+                                      checked={isSelected}
+                                      onClick={e => {
+                                        e.stopPropagation();
+                                        const newValue = isSelected
+                                          ? tempTestObjectFilter.filter(v => v !== option.value)
+                                          : [...tempTestObjectFilter, option.value as string];
+                                        setTempTestObjectFilter(newValue);
+                                        tempTestObjectFilterRef.current = newValue;
+                                      }}
+                                    />
+                                    <span>{option.label}</span>
+                                  </div>
+                                );
+                              }}
+                              style={{ width: '100%' }}
                             />
                           ) : header.column.getCanFilter() ? (
                             <Input

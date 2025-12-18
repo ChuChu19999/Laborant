@@ -24,6 +24,8 @@ export const useProtocols = (laboratoryId?: number, departmentId?: number) => {
       filterKeys: [
         'test_protocol_number',
         'sampling_act_number',
+        'is_accredited',
+        'search_samples',
         'test_protocol_date_from',
         'test_protocol_date_to',
         'created_at_from',

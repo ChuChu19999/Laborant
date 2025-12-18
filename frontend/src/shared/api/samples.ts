@@ -1,6 +1,12 @@
 import { axiosInstance } from '../config/axios';
 import type { PaginatedResponse } from './research';
 
+export interface SampleProtocol {
+  id: number;
+  test_protocol_number?: string;
+  test_protocol_date?: string;
+}
+
 export interface Sample {
   id: number;
   registration_number: string;
@@ -20,6 +26,7 @@ export interface Sample {
   department_name?: string;
   branch_name?: string;
   sampling_location_name?: string;
+  protocols?: SampleProtocol[];
   created_at: string;
   updated_at: string;
   deleted_at?: string;
@@ -59,7 +66,10 @@ export interface SampleUpdate {
 
 export interface SampleFilters {
   registration_number?: string;
+  sample_type?: string;
+  sample_types?: string[];
   test_object?: string;
+  test_objects?: string[];
   sampling_location?: string;
   sampling_date_from?: string;
   sampling_date_to?: string;
@@ -106,12 +116,39 @@ export const samplesApi = {
       params.search = filters.registration_number;
     }
 
-    if (filters?.test_object) {
-      params.search = filters.test_object;
+    if (filters?.sample_types && filters.sample_types.length > 0) {
+      params.sample_types = filters.sample_types;
+    } else if (filters?.sample_type) {
+      params.sample_type = filters.sample_type;
+    }
+
+    if (filters?.test_objects && filters.test_objects.length > 0) {
+      params.test_objects = filters.test_objects;
+    } else if (filters?.test_object) {
+      params.test_object = filters.test_object;
     }
 
     if (filters?.sampling_location) {
       params.search_sampling_location = filters.sampling_location;
+    }
+
+    if (filters?.sampling_date_from) {
+      params.sampling_date_from = filters.sampling_date_from;
+    }
+    if (filters?.sampling_date_to) {
+      params.sampling_date_to = filters.sampling_date_to;
+    }
+    if (filters?.receiving_date_from) {
+      params.receiving_date_from = filters.receiving_date_from;
+    }
+    if (filters?.receiving_date_to) {
+      params.receiving_date_to = filters.receiving_date_to;
+    }
+    if (filters?.created_at_from) {
+      params.created_at_from = filters.created_at_from;
+    }
+    if (filters?.created_at_to) {
+      params.created_at_to = filters.created_at_to;
     }
 
     if (sorting?.sort_by) {

@@ -81,6 +81,9 @@ class SampleResponse(SampleBase):
     department_name: Optional[str] = None
     branch_name: Optional[str] = None
     sampling_location_name: Optional[str] = None
+    protocols: Optional[List[Dict[str, Any]]] = Field(
+        None, description="Список протоколов, к которым привязана проба"
+    )
     created_at: datetime
     updated_at: datetime
     deleted_at: Optional[datetime] = None

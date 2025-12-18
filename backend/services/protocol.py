@@ -1,7 +1,9 @@
 from typing import Any, Dict, List, Optional
-from sqlalchemy import func, or_, select
+import pendulum
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from sqlalchemy.sql import bindparam
 from core.exceptions import ConflictError, NotFoundError, ValidationError
 from models.laboratory import Department, Laboratory
 from models.protocol import Protocol, ProtocolTemplate
@@ -12,6 +14,7 @@ from schemas.protocol import (
     ProtocolTemplateUpdate,
     ProtocolUpdate,
 )
+from utils.filters import add_date_range_filter
 from utils.pagination import apply_pagination, calculate_total_pages, get_total_count
 from utils.sorting import build_order_by
 
@@ -44,6 +47,15 @@ async def get_protocols(
     page_size: int = 20,
     sort_by: Optional[str] = None,
     sort_order: Optional[str] = None,
+    is_accredited: Optional[bool] = None,
+    search: Optional[str] = None,
+    search_date: Optional[str] = None,
+    search_sampling_act: Optional[str] = None,
+    search_samples: Optional[str] = None,
+    test_protocol_date_from: Optional[pendulum.DateTime] = None,
+    test_protocol_date_to: Optional[pendulum.DateTime] = None,
+    created_at_from: Optional[pendulum.DateTime] = None,
+    created_at_to: Optional[pendulum.DateTime] = None,
 ) -> tuple[List[Protocol], int, int]:
     """Получить список протоколов с пагинацией."""
     query = select(Protocol).options(
@@ -58,11 +70,80 @@ async def get_protocols(
         conditions.append(Protocol.laboratory_id == laboratory_id)
     if department_id:
         conditions.append(Protocol.department_id == department_id)
+    if is_accredited is not None:
+        conditions.append(Protocol.is_accredited == is_accredited)
+
+    # Поиск по номеру и дате протокола
+    if search and search_date:
+        # Если указаны и номер, и дата - ищем по обоим одновременно (AND)
+        conditions.append(Protocol.test_protocol_number.ilike(f"%{search}%"))
+        try:
+            search_date_parsed = pendulum.parse(search_date)
+            if search_date_parsed:
+                conditions.append(
+                    func.date(Protocol.test_protocol_date) == search_date_parsed.date()
+                )
+        except Exception:
+            pass
+    elif search:
+        # Если указан только номер - ищем по номеру ИЛИ дате (OR)
+        search_conditions = [Protocol.test_protocol_number.ilike(f"%{search}%")]
+        search_conditions.append(
+            func.to_char(Protocol.test_protocol_date, "DD.MM.YYYY").ilike(f"%{search}%")
+        )
+        conditions.append(or_(*search_conditions))
+    elif search_date:
+        # Если указана только дата - ищем по дате
+        try:
+            search_date_parsed = pendulum.parse(search_date)
+            if search_date_parsed:
+                conditions.append(
+                    func.date(Protocol.test_protocol_date) == search_date_parsed.date()
+                )
+        except Exception:
+            pass
+
+    if search_sampling_act:
+        conditions.append(
+            Protocol.sampling_act_number.ilike(f"%{search_sampling_act}%")
+        )
+    if search_samples:
+        matching_samples = await db.execute(
+            select(Sample.id).where(
+                Sample.registration_number.ilike(f"%{search_samples}%"),
+                Sample.deleted_at.is_(None),
+            )
+        )
+        sample_ids = [row[0] for row in matching_samples.fetchall()]
+        if sample_ids:
+            sample_conditions = []
+            for sample_id in sample_ids:
+                sample_conditions.append(
+                    func.cast(Protocol.samples, func.JSONB).contains([sample_id])
+                )
+            if sample_conditions:
+                conditions.append(or_(*sample_conditions))
+        else:
+            conditions.append(text("1 = 0"))
+
+    add_date_range_filter(
+        conditions,
+        test_protocol_date_from,
+        test_protocol_date_to,
+        Protocol.test_protocol_date,
+    )
+    add_date_range_filter(
+        conditions, created_at_from, created_at_to, Protocol.created_at
+    )
+
     if conditions:
         query = query.where(*conditions)
 
     sort_mapping = {
         "test_protocol_number": Protocol.test_protocol_number,
+        "test_protocol_date": Protocol.test_protocol_date,
+        "sampling_act_number": Protocol.sampling_act_number,
+        "is_accredited": Protocol.is_accredited,
         "created_at": Protocol.created_at,
     }
     order_by = build_order_by(sort_by, sort_order, sort_mapping, Protocol.created_at)
@@ -76,6 +157,70 @@ async def get_protocols(
         count_conditions.append(Protocol.laboratory_id == laboratory_id)
     if department_id:
         count_conditions.append(Protocol.department_id == department_id)
+    if is_accredited is not None:
+        count_conditions.append(Protocol.is_accredited == is_accredited)
+
+    # Поиск по номеру и дате протокола (та же логика, что и в основном запросе)
+    if search and search_date:
+        # Если указаны и номер, и дата - ищем по обоим одновременно (AND)
+        count_conditions.append(Protocol.test_protocol_number.ilike(f"%{search}%"))
+        try:
+            search_date_parsed = pendulum.parse(search_date)
+            if search_date_parsed:
+                count_conditions.append(
+                    func.date(Protocol.test_protocol_date) == search_date_parsed.date()
+                )
+        except Exception:
+            pass
+    elif search:
+        # Если указан только номер - ищем по номеру ИЛИ дате (OR)
+        search_conditions = [Protocol.test_protocol_number.ilike(f"%{search}%")]
+        search_conditions.append(
+            func.to_char(Protocol.test_protocol_date, "DD.MM.YYYY").ilike(f"%{search}%")
+        )
+        count_conditions.append(or_(*search_conditions))
+    elif search_date:
+        # Если указана только дата - ищем по дате
+        try:
+            search_date_parsed = pendulum.parse(search_date)
+            if search_date_parsed:
+                count_conditions.append(
+                    func.date(Protocol.test_protocol_date) == search_date_parsed.date()
+                )
+        except Exception:
+            pass
+
+    if search_sampling_act:
+        count_conditions.append(
+            Protocol.sampling_act_number.ilike(f"%{search_sampling_act}%")
+        )
+    if search_samples:
+        matching_samples = await db.execute(
+            select(Sample.id).where(
+                Sample.registration_number.ilike(f"%{search_samples}%"),
+                Sample.deleted_at.is_(None),
+            )
+        )
+        sample_ids = [row[0] for row in matching_samples.fetchall()]
+        if sample_ids:
+            sample_conditions = []
+            for sample_id in sample_ids:
+                sample_conditions.append(
+                    func.cast(Protocol.samples, func.JSONB).contains([sample_id])
+                )
+            if sample_conditions:
+                count_conditions.append(or_(*sample_conditions))
+        else:
+            count_conditions.append(text("1 = 0"))
+    add_date_range_filter(
+        count_conditions,
+        test_protocol_date_from,
+        test_protocol_date_to,
+        Protocol.test_protocol_date,
+    )
+    add_date_range_filter(
+        count_conditions, created_at_from, created_at_to, Protocol.created_at
+    )
     if count_conditions:
         count_query = count_query.where(*count_conditions)
 
@@ -415,3 +560,43 @@ async def delete_protocol_template(db: AsyncSession, template_id: int) -> None:
 
     template.soft_delete()
     await db.flush()
+
+
+async def get_protocols_by_sample_ids(
+    db: AsyncSession, sample_ids: List[int]
+) -> Dict[int, List[Dict[str, Any]]]:
+    """Получить протоколы для списка проб."""
+    if not sample_ids:
+        return {}
+
+    protocols_result = await db.execute(
+        select(Protocol).where(
+            Protocol.deleted_at.is_(None),
+            text(
+                "EXISTS (SELECT 1 FROM jsonb_array_elements_text(samples::jsonb) AS elem WHERE elem::int = ANY(:sample_ids))"
+            ).bindparams(bindparam("sample_ids")),
+        ),
+        {"sample_ids": sample_ids},
+    )
+    all_protocols = protocols_result.scalars().all()
+
+    result: Dict[int, List[Dict[str, Any]]] = {
+        sample_id: [] for sample_id in sample_ids
+    }
+
+    for protocol in all_protocols:
+        if protocol.samples:
+            for sample_id in protocol.samples:
+                if sample_id in result:
+                    protocol_dict = {
+                        "id": protocol.id,
+                        "test_protocol_number": protocol.test_protocol_number,
+                        "test_protocol_date": (
+                            protocol.test_protocol_date.isoformat()
+                            if protocol.test_protocol_date
+                            else None
+                        ),
+                    }
+                    result[sample_id].append(protocol_dict)
+
+    return result

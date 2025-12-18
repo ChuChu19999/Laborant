@@ -72,8 +72,6 @@ async def list_laboratories(
 ):
     """
     Получить список лабораторий с пагинацией.
-
-    Возвращает список лабораторий с возможностью фильтрации и сортировки.
     """
     laboratories, total, total_pages = await get_laboratories(
         db,
@@ -143,8 +141,6 @@ async def get_laboratory(
 ):
     """
     Получить лабораторию по ID.
-
-    Возвращает полную информацию о лаборатории по ее идентификатору.
     """
     laboratory = await get_laboratory_by_id(db, laboratory_id)
     if not laboratory:
@@ -225,8 +221,6 @@ async def list_departments(
 ):
     """
     Получить список подразделений с пагинацией.
-
-    Возвращает список подразделений с возможностью фильтрации и сортировки.
     """
     departments, total, total_pages = await get_departments(
         db,
@@ -267,8 +261,6 @@ async def get_departments_by_laboratory(
 ):
     """
     Получить список подразделений для конкретной лаборатории.
-
-    Возвращает список подразделений для указанной лаборатории.
     """
     departments, _, _ = await get_departments(
         db, laboratory_id=laboratory_id, page=1, page_size=1000
@@ -382,8 +374,6 @@ async def list_branches(
 ):
     """
     Получить список филиалов с пагинацией.
-
-    Возвращает список филиалов с возможностью фильтрации и сортировки.
     """
     branches, total, total_pages = await get_branches(
         db,
@@ -502,8 +492,6 @@ async def list_sampling_locations(
 ):
     """
     Получить список мест отбора проб с пагинацией.
-
-    Возвращает список мест отбора проб с возможностью фильтрации и сортировки.
     """
     sampling_locations, total, total_pages = await get_sampling_locations(
         db,

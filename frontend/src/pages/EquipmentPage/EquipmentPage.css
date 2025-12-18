@@ -1,0 +1,42 @@
+.equipment-page-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 80px 20px 20px 20px;
+  height: calc(100vh - 187px);
+}
+
+.equipment-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.equipment-page-header-left {
+  display: flex;
+  align-items: center;
+}
+
+.equipment-page-header-right {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+
+.equipment-page-table {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.equipment-page-laboratories,
+.equipment-page-departments {
+  padding: 84px 20px 20px 20px;
+}
+
+.equipment-page-laboratories-grid,
+.equipment-page-departments-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}

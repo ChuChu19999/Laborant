@@ -24,6 +24,7 @@ from schemas.sample import (
     SelectionConditionsResponse,
     SelectionConditionsUpdate,
 )
+from services.protocol import get_protocols_by_sample_ids
 from services.sample import (
     create_mass_fraction_oil_refraction_table,
     create_sample,
@@ -41,6 +42,7 @@ from services.sample import (
     update_sample,
     update_selection_conditions,
 )
+from utils.query_params import parse_date_range_params
 
 router = APIRouter()
 
@@ -56,8 +58,6 @@ router = APIRouter()
 async def get_sample_types():
     """
     Получить список типов проб.
-
-    Возвращает список всех доступных типов проб.
     """
     return list(get_args(SAMPLE_TYPE_CHOICES))
 
@@ -80,15 +80,33 @@ async def list_samples(
     page_size: int = Query(20, ge=1, le=100),
     search: Optional[str] = Query(None),
     search_sampling_location: Optional[str] = Query(None),
+    sample_type: Optional[str] = Query(None),
+    sample_types: Optional[List[str]] = Query(None),
+    test_object: Optional[str] = Query(None),
+    test_objects: Optional[List[str]] = Query(None),
     sort_by: Optional[str] = Query(None),
     sort_order: Optional[str] = Query("desc"),
+    sampling_date_from: Optional[str] = Query(None),
+    sampling_date_to: Optional[str] = Query(None),
+    receiving_date_from: Optional[str] = Query(None),
+    receiving_date_to: Optional[str] = Query(None),
+    created_at_from: Optional[str] = Query(None),
+    created_at_to: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     """
     Получить список проб с пагинацией.
-
-    Возвращает список проб с возможностью фильтрации и сортировки.
     """
+    sampling_date_from_parsed, sampling_date_to_parsed = parse_date_range_params(
+        sampling_date_from, sampling_date_to
+    )
+    receiving_date_from_parsed, receiving_date_to_parsed = parse_date_range_params(
+        receiving_date_from, receiving_date_to
+    )
+    created_at_from_parsed, created_at_to_parsed = parse_date_range_params(
+        created_at_from, created_at_to
+    )
+
     samples, total, total_pages = await get_samples(
         db,
         laboratory_id=laboratory_id,
@@ -97,9 +115,22 @@ async def list_samples(
         page_size=page_size,
         search=search,
         search_sampling_location=search_sampling_location,
+        sample_type=sample_type,
+        sample_types=sample_types,
+        test_object=test_object,
+        test_objects=test_objects,
         sort_by=sort_by,
         sort_order=sort_order,
+        sampling_date_from=sampling_date_from_parsed,
+        sampling_date_to=sampling_date_to_parsed,
+        receiving_date_from=receiving_date_from_parsed,
+        receiving_date_to=receiving_date_to_parsed,
+        created_at_from=created_at_from_parsed,
+        created_at_to=created_at_to_parsed,
     )
+
+    sample_ids = [sample.id for sample in samples]
+    protocols_by_sample = await get_protocols_by_sample_ids(db, sample_ids)
 
     items = []
     for sample in samples:
@@ -112,6 +143,7 @@ async def list_samples(
             sample_dict["branch_name"] = sample.branch.name
         if hasattr(sample, "sampling_location") and sample.sampling_location:
             sample_dict["sampling_location_name"] = sample.sampling_location.name
+        sample_dict["protocols"] = protocols_by_sample.get(sample.id, [])
         items.append(SampleResponse(**sample_dict))
 
     return PaginatedResponse(
@@ -188,8 +220,6 @@ async def get_sample(
 ):
     """
     Получить пробу по ID.
-
-    Возвращает полную информацию о пробе по ее идентификатору.
     """
     sample = await get_sample_by_id(db, sample_id)
     if not sample:
@@ -299,8 +329,6 @@ async def list_selection_conditions(
 ):
     """
     Получить список условий отбора с пагинацией.
-
-    Возвращает список условий отбора с возможностью фильтрации и сортировки.
     """
     conditions, total, total_pages = await get_selection_conditions(
         db,
@@ -447,8 +475,6 @@ async def list_mass_fraction_oil_refraction_tables(
 ):
     """
     Получить список таблиц соотношения C к n с пагинацией.
-
-    Возвращает список таблиц соотношения массовой доли нефти к показателю преломления.
     """
     tables, total, total_pages = await get_mass_fraction_oil_refraction_tables(
         db,

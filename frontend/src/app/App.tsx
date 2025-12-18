@@ -6,6 +6,7 @@ import ruRU from 'antd/locale/ru_RU';
 import '../shared/assets/fonts/fonts.css';
 import './App.css';
 import AdminPage from '../pages/AdminPage/AdminPage';
+import EquipmentPage from '../pages/EquipmentPage/EquipmentPage';
 import Page404 from '../pages/ErrorPages/Page404/Page404';
 import LoadingPage from '../pages/LoadingPage/LoadingPage';
 import ProtocolsPage from '../pages/ProtocolsPage/ProtocolsPage';
@@ -159,6 +160,12 @@ export default function App() {
                     <Route
                       path="/protocols/laboratory/:laboratoryId/department/:departmentId"
                       element={<ProtocolsPage />}
+                    />
+                    <Route path="/equipment" element={<EquipmentPage />} />
+                    <Route path="/equipment/laboratory/:laboratoryId" element={<EquipmentPage />} />
+                    <Route
+                      path="/equipment/laboratory/:laboratoryId/department/:departmentId"
+                      element={<EquipmentPage />}
                     />
                     <Route path="*" element={<Page404 />} />
                   </>

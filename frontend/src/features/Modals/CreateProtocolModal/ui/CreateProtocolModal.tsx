@@ -241,7 +241,7 @@ const CreateProtocolModal: React.FC<CreateProtocolModalProps> = ({
 
   return (
     <Modal
-      header="Создание протокола"
+      header="Добавление протокола"
       onClose={onClose}
       onCancel={handleCancel}
       onSave={handleSave}

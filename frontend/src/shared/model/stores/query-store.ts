@@ -48,6 +48,23 @@ export interface ProtocolsQueryState extends QueryState {
   };
 }
 
+/**
+ * Интерфейс для параметров запросов оборудования
+ */
+export interface EquipmentQueryState extends QueryState {
+  laboratoryId?: number;
+  departmentId?: number;
+  filters?: {
+    name?: string;
+    serial_number?: string;
+    type?: string;
+    verification_end_date_from?: string;
+    verification_end_date_to?: string;
+    created_at_from?: string;
+    created_at_to?: string;
+  };
+}
+
 interface QueryStore {
   researchMethodsQuery: ResearchMethodsQueryState;
   setResearchMethodsPage: (page: number) => void;
@@ -73,6 +90,14 @@ interface QueryStore {
   setProtocolsLaboratoryId: (laboratoryId: number | undefined) => void;
   setProtocolsDepartmentId: (departmentId: number | undefined) => void;
   resetProtocolsQuery: () => void;
+  equipmentQuery: EquipmentQueryState;
+  setEquipmentPage: (page: number) => void;
+  setEquipmentPageSize: (pageSize: number) => void;
+  setEquipmentFilters: (filters: EquipmentQueryState['filters']) => void;
+  setEquipmentSorting: (sorting: EquipmentQueryState['sorting']) => void;
+  setEquipmentLaboratoryId: (laboratoryId: number | undefined) => void;
+  setEquipmentDepartmentId: (departmentId: number | undefined) => void;
+  resetEquipmentQuery: () => void;
   resetAllQueries: () => void;
 }
 
@@ -177,11 +202,41 @@ export const useQueryStore = create<QueryStore>()(
       set({
         protocolsQuery: { ...defaultQueryState },
       }),
+    equipmentQuery: { ...defaultQueryState },
+    setEquipmentPage: page =>
+      set(state => ({
+        equipmentQuery: { ...state.equipmentQuery, page },
+      })),
+    setEquipmentPageSize: pageSize =>
+      set(state => ({
+        equipmentQuery: { ...state.equipmentQuery, pageSize, page: 1 },
+      })),
+    setEquipmentFilters: filters =>
+      set(state => ({
+        equipmentQuery: { ...state.equipmentQuery, filters, page: 1 },
+      })),
+    setEquipmentSorting: sorting =>
+      set(state => ({
+        equipmentQuery: { ...state.equipmentQuery, sorting, page: 1 },
+      })),
+    setEquipmentLaboratoryId: laboratoryId =>
+      set(state => ({
+        equipmentQuery: { ...state.equipmentQuery, laboratoryId, page: 1 },
+      })),
+    setEquipmentDepartmentId: departmentId =>
+      set(state => ({
+        equipmentQuery: { ...state.equipmentQuery, departmentId, page: 1 },
+      })),
+    resetEquipmentQuery: () =>
+      set({
+        equipmentQuery: { ...defaultQueryState },
+      }),
     resetAllQueries: () =>
       set({
         researchMethodsQuery: { ...defaultQueryState },
         samplesQuery: { ...defaultQueryState },
         protocolsQuery: { ...defaultQueryState },
+        equipmentQuery: { ...defaultQueryState },
       }),
   }))
 );

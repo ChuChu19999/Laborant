@@ -58,8 +58,6 @@ async def list_calculations(
 ):
     """
     Получить список расчетов с пагинацией.
-
-    Возвращает список расчетов с возможностью фильтрации и сортировки.
     """
     sample_ids_list = None
     if sample_ids:
@@ -145,8 +143,6 @@ async def get_calculations_by_sample_endpoint(
 ):
     """
     Получить все расчеты по пробе без пагинации.
-
-    Возвращает полный список расчетов для указанной пробы.
     """
     calculations = await get_calculations_by_sample(
         db,
@@ -252,8 +248,6 @@ async def get_calculation(
 ):
     """
     Получить расчет по ID.
-
-    Возвращает полную информацию о расчете по его идентификатору.
     """
     calculation = await get_calculation_by_id(db, calculation_id)
     if not calculation:

@@ -217,8 +217,18 @@ const SamplesPage: React.FC = () => {
 
         if (filter.id === 'registration_number' && filterValue) {
           newFilters.registration_number = String(filterValue);
+        } else if (filter.id === 'sample_type' && filterValue) {
+          if (Array.isArray(filterValue) && filterValue.length > 0) {
+            newFilters.sample_types = filterValue as string[];
+          } else if (typeof filterValue === 'string') {
+            newFilters.sample_type = filterValue;
+          }
         } else if (filter.id === 'test_object' && filterValue) {
-          newFilters.test_object = String(filterValue);
+          if (Array.isArray(filterValue) && filterValue.length > 0) {
+            newFilters.test_objects = filterValue as string[];
+          } else if (typeof filterValue === 'string') {
+            newFilters.test_object = filterValue;
+          }
         } else if (filter.id === 'sampling_location' && filterValue) {
           newFilters.sampling_location = String(filterValue);
         } else if (filter.id === 'sampling_date' && filterValue) {

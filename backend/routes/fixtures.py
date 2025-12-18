@@ -57,8 +57,6 @@ async def list_fixture_files_endpoint(
 ):
     """
     Получить список файлов в директории фикстуры.
-
-    Возвращает список файлов в указанной директории фикстуры.
     """
     files = list_fixture_files(fixture_path)
     return {"files": files}
@@ -82,8 +80,6 @@ async def get_fixture(
 ):
     """
     Получить данные конкретной фикстуры.
-
-    Возвращает данные фикстуры по указанному пути.
     """
     data = get_fixture_data(fixture_path)
     if data is None:

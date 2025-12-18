@@ -12,3 +12,6 @@ export { FillCalculationsModal } from './FillCalculationsModal';
 export { CreateProtocolModal } from './CreateProtocolModal';
 export { EditProtocolModal } from './EditProtocolModal';
 export { DeleteProtocolModal } from './DeleteProtocolModal';
+export { CreateEquipmentModal } from './CreateEquipmentModal';
+export { EditEquipmentModal } from './EditEquipmentModal';
+export { DeleteEquipmentModal } from './DeleteEquipmentModal';

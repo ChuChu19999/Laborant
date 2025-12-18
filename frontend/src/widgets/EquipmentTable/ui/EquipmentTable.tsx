@@ -1,6 +1,6 @@
 import React from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { DeleteOutlined, EditOutlined, FileExcelOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import {
   useReactTable,
   getCoreRowModel,
@@ -13,22 +13,27 @@ import {
   type OnChangeFn,
   type ColumnSizingState,
 } from '@tanstack/react-table';
-import { Button, Input } from 'antd';
+import { Button, Checkbox, Input } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 import { BiChevronLeft, BiChevronRight, BiChevronsLeft, BiChevronsRight } from 'react-icons/bi';
 import { FaSortUp, FaSortDown, FaSort } from 'react-icons/fa';
 import { LoadingCard } from '../../../features/Cards';
-import { type Protocol } from '../../../shared/api/protocols';
+import { type Equipment } from '../../../shared/api/equipment';
 import { getDateRangePresets } from '../../../shared/lib/datePresets';
 import { urlParamsToFilters } from '../../../shared/lib/urlParams';
 import { Select, RangePicker } from '../../../shared/ui/FormItems';
-import './ProtocolsTable.css';
+import './EquipmentTable.css';
+
+const EQUIPMENT_TYPES = [
+  { value: 'measuring_instrument', label: 'Средство измерения' },
+  { value: 'test_equipment', label: 'Испытательное оборудование' },
+];
 
 dayjs.extend(customParseFormat);
 
-interface ProtocolsTableProps {
-  data: Protocol[];
+interface EquipmentTableProps {
+  data: Equipment[];
   loading?: boolean;
   pagination: PaginationState;
   totalPages: number;
@@ -37,9 +42,8 @@ interface ProtocolsTableProps {
   onFiltersChange?: (filters: ColumnFiltersState) => void;
   onSortingChange?: (sorting: SortingState) => void;
   sorting?: SortingState;
-  onEdit: (protocolId: number) => void;
-  onDelete: (protocolId: number) => void;
-  onGenerateExcel?: (protocolId: number) => void;
+  onEdit: (equipmentId: number) => void;
+  onDelete: (equipmentId: number) => void;
 }
 
 const formatDate = (dateString?: string): string => {
@@ -47,45 +51,15 @@ const formatDate = (dateString?: string): string => {
   return dayjs(dateString).format('DD.MM.YYYY');
 };
 
-const formatProtocolNumber = (
-  number?: string,
-  date?: string,
-  isAccredited?: boolean,
-  samples?: Array<{ test_object?: string }>
-): string => {
-  if (!number && !date) return '-';
-  if (!isAccredited) return number || '-';
-
-  const getObjectSuffix = (): string => {
-    if (!samples || !samples.length) return '';
-    const firstSample = samples.find(sample => sample.test_object);
-    if (!firstSample || !firstSample.test_object) return '';
-
-    const testObjectLower = firstSample.test_object.toLowerCase();
-    if (testObjectLower.includes('дегазированный конденсат')) return 'дк';
-    if (testObjectLower.includes('нефть') || testObjectLower.includes('нефть калибровочная'))
-      return 'н';
-    if (testObjectLower.includes('нефтеконденсатная смесь')) return 'нкс';
-    if (testObjectLower.includes('дизельное топливо')) return 'дт';
-    if (testObjectLower.includes('отработанные нефтепродукты')) return 'он';
-    if (testObjectLower.includes('масло турбинное')) return 'м';
-    if (testObjectLower.includes('масло авиационное')) return 'м';
-    if (testObjectLower.includes('смесь жидких углеводородов')) return 'с';
-    if (testObjectLower.includes('ингибитор коррозии')) return 'ик';
-    return '';
+const formatEquipmentType = (type: string): string => {
+  const types: Record<string, string> = {
+    measuring_instrument: 'Средство измерения',
+    test_equipment: 'Испытательное оборудование',
   };
-
-  const suffix = getObjectSuffix();
-  const formattedDate = formatDate(date);
-
-  if (!number) return `от ${formattedDate}`;
-  if (!date) return number;
-
-  const protocolNumber = suffix ? `${number}/07/${suffix}` : `${number}/07`;
-  return `${protocolNumber} от ${formattedDate}`;
+  return types[type] || type;
 };
 
-const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
+const EquipmentTable: React.FC<EquipmentTableProps> = ({
   data,
   loading = false,
   pagination,
@@ -97,7 +71,6 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
   sorting: externalSorting,
   onEdit,
   onDelete,
-  onGenerateExcel,
 }) => {
   const [internalSorting, setInternalSorting] = React.useState<SortingState>(externalSorting || []);
 
@@ -121,12 +94,14 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
   const [searchParams] = useSearchParams();
   const filterKeys = React.useMemo(
     () => [
-      'test_protocol_number',
-      'sampling_act_number',
-      'is_accredited',
-      'search_samples',
-      'test_protocol_date_from',
-      'test_protocol_date_to',
+      'name',
+      'serial_number',
+      'type',
+      'types',
+      'verification_date_from',
+      'verification_date_to',
+      'verification_end_date_from',
+      'verification_end_date_to',
       'created_at_from',
       'created_at_to',
     ],
@@ -137,34 +112,50 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
     const urlFilters = urlParamsToFilters(searchParams, filterKeys);
     const columnFilters: ColumnFiltersState = [];
 
-    if (urlFilters.test_protocol_number && typeof urlFilters.test_protocol_number === 'string') {
-      columnFilters.push({ id: 'test_protocol_number', value: urlFilters.test_protocol_number });
+    if (urlFilters.name && typeof urlFilters.name === 'string') {
+      columnFilters.push({ id: 'name', value: urlFilters.name });
     }
-    if (urlFilters.sampling_act_number && typeof urlFilters.sampling_act_number === 'string') {
-      columnFilters.push({ id: 'sampling_act_number', value: urlFilters.sampling_act_number });
+    if (urlFilters.serial_number && typeof urlFilters.serial_number === 'string') {
+      columnFilters.push({ id: 'serial_number', value: urlFilters.serial_number });
     }
-    if (urlFilters.search_samples && typeof urlFilters.search_samples === 'string') {
-      columnFilters.push({ id: 'samples_data', value: urlFilters.search_samples });
-    }
-    if (urlFilters.is_accredited !== undefined && urlFilters.is_accredited !== null) {
-      const isAccreditedValue =
-        (typeof urlFilters.is_accredited === 'string' &&
-          (urlFilters.is_accredited === 'true' || urlFilters.is_accredited === '1')) ||
-        (Array.isArray(urlFilters.is_accredited) &&
-          urlFilters.is_accredited.length > 0 &&
-          (urlFilters.is_accredited[0] === 'true' || urlFilters.is_accredited[0] === '1'));
-      columnFilters.push({ id: 'is_accredited', value: isAccreditedValue });
+    if (urlFilters.type || urlFilters.types) {
+      const typeArray = Array.isArray(urlFilters.types)
+        ? urlFilters.types
+        : Array.isArray(urlFilters.type)
+          ? urlFilters.type
+          : urlFilters.type
+            ? [urlFilters.type]
+            : [];
+      if (typeArray.length > 0) {
+        columnFilters.push({ id: 'type', value: typeArray });
+      }
     }
 
-    const testProtocolFrom = urlFilters.test_protocol_date_from;
-    const testProtocolTo = urlFilters.test_protocol_date_to;
-    if (testProtocolFrom || testProtocolTo) {
+    const verificationFrom = urlFilters.verification_date_from;
+    const verificationTo = urlFilters.verification_date_to;
+    if (verificationFrom || verificationTo) {
       const startDate =
-        testProtocolFrom && typeof testProtocolFrom === 'string' ? dayjs(testProtocolFrom) : null;
+        verificationFrom && typeof verificationFrom === 'string' ? dayjs(verificationFrom) : null;
       const endDate =
-        testProtocolTo && typeof testProtocolTo === 'string' ? dayjs(testProtocolTo) : null;
+        verificationTo && typeof verificationTo === 'string' ? dayjs(verificationTo) : null;
       if (startDate || endDate) {
-        columnFilters.push({ id: 'test_protocol_date', value: [startDate, endDate] });
+        columnFilters.push({ id: 'verification_date', value: [startDate, endDate] });
+      }
+    }
+
+    const verificationEndFrom = urlFilters.verification_end_date_from;
+    const verificationEndTo = urlFilters.verification_end_date_to;
+    if (verificationEndFrom || verificationEndTo) {
+      const startDate =
+        verificationEndFrom && typeof verificationEndFrom === 'string'
+          ? dayjs(verificationEndFrom)
+          : null;
+      const endDate =
+        verificationEndTo && typeof verificationEndTo === 'string'
+          ? dayjs(verificationEndTo)
+          : null;
+      if (startDate || endDate) {
+        columnFilters.push({ id: 'verification_end_date', value: [startDate, endDate] });
       }
     }
 
@@ -185,81 +176,119 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
     urlFiltersToColumnFilters()
   );
 
+  const initialFilters = React.useMemo(() => {
+    const filters = urlFiltersToColumnFilters();
+    const typeFilter = filters.find(f => f.id === 'type');
+    return {
+      typeFilter:
+        typeFilter && Array.isArray(typeFilter.value) ? (typeFilter.value as string[]) : [],
+    };
+  }, [urlFiltersToColumnFilters]);
+
+  const [tempTypeFilter, setTempTypeFilter] = React.useState<string[]>(initialFilters.typeFilter);
+  const tempTypeFilterRef = React.useRef<string[]>(initialFilters.typeFilter);
+
+  const previousFiltersRef = React.useRef<string>('');
   const searchParamsStr = searchParams.toString();
   React.useEffect(() => {
     const newFilters = urlFiltersToColumnFilters();
-    setColumnFilters(newFilters);
+    const newStr = JSON.stringify(newFilters);
+    if (previousFiltersRef.current !== newStr) {
+      previousFiltersRef.current = newStr;
+      setColumnFilters(newFilters);
+
+      const typeFilter = newFilters.find(f => f.id === 'type');
+      const newTypeFilter =
+        typeFilter && Array.isArray(typeFilter.value) ? (typeFilter.value as string[]) : [];
+      setTempTypeFilter(newTypeFilter);
+      tempTypeFilterRef.current = newTypeFilter;
+    }
   }, [searchParamsStr, urlFiltersToColumnFilters]);
 
   const [columnSizing, setColumnSizing] = React.useState<ColumnSizingState>({});
-  const tableRef = React.useRef<ReturnType<typeof useReactTable<Protocol>> | null>(null);
+  const tableRef = React.useRef<ReturnType<typeof useReactTable<Equipment>> | null>(null);
 
-  const columns = React.useMemo<ColumnDef<Protocol>[]>(
+  const columns = React.useMemo<ColumnDef<Equipment>[]>(
     () => [
       {
-        accessorKey: 'test_protocol_number',
-        header: '№ протокола',
-        cell: ({ row }) =>
-          formatProtocolNumber(
-            row.original.test_protocol_number,
-            row.original.test_protocol_date,
-            row.original.is_accredited,
-            row.original.samples_data
-          ),
+        accessorKey: 'type',
+        header: 'Тип',
+        cell: ({ row }) => formatEquipmentType(row.original.type),
         enableSorting: true,
         enableColumnFilter: true,
         size: 200,
       },
       {
-        accessorKey: 'sampling_act_number',
-        header: 'Номер акта отбора',
-        cell: ({ row }) => row.original.sampling_act_number || '-',
+        accessorKey: 'name',
+        header: 'Наименование',
+        cell: ({ row }) => row.original.name || '-',
         enableSorting: true,
         enableColumnFilter: true,
-        size: 160,
+        size: 250,
       },
       {
-        id: 'samples_data',
-        header: 'Пробы',
-        accessorFn: row => {
-          if (
-            !row.samples_data ||
-            !Array.isArray(row.samples_data) ||
-            row.samples_data.length === 0
-          )
-            return '';
-          return row.samples_data.map(sample => sample.registration_number).join(', ');
+        accessorKey: 'serial_number',
+        header: 'Заводской номер',
+        cell: ({ row }) => row.original.serial_number || '-',
+        enableSorting: true,
+        enableColumnFilter: true,
+        size: 180,
+      },
+      {
+        accessorKey: 'verification_date',
+        header: 'Дата поверки',
+        cell: ({ row }) => formatDate(row.original.verification_date),
+        enableSorting: true,
+        enableColumnFilter: true,
+        size: 150,
+        filterFn: (row, _id, filterValue) => {
+          if (!filterValue) return true;
+          if (!row.original.verification_date) return false;
+
+          const rowDate = dayjs(row.original.verification_date);
+
+          if (Array.isArray(filterValue) && filterValue.length === 2) {
+            const [startDate, endDate] = filterValue as [Dayjs | null, Dayjs | null];
+            if (!startDate || !endDate) return true;
+
+            const start = startDate.startOf('day');
+            const end = endDate.endOf('day');
+            return (
+              (rowDate.isSame(start, 'day') || rowDate.isAfter(start)) &&
+              (rowDate.isSame(end, 'day') || rowDate.isBefore(end))
+            );
+          }
+
+          return true;
         },
-        cell: ({ row }) => {
-          if (
-            !row.original.samples_data ||
-            !Array.isArray(row.original.samples_data) ||
-            row.original.samples_data.length === 0
-          )
-            return '-';
-          return row.original.samples_data.map(sample => sample.registration_number).join(', ');
-        },
+      },
+      {
+        accessorKey: 'verification_end_date',
+        header: 'Дата окончания поверки',
+        cell: ({ row }) => formatDate(row.original.verification_end_date),
         enableSorting: true,
         enableColumnFilter: true,
         size: 200,
-      },
-      {
-        accessorKey: 'is_accredited',
-        header: 'Аккредитован',
-        cell: ({ row }) => (
-          <span
-            className={
-              row.original.is_accredited
-                ? 'protocols-table-accredited-check'
-                : 'protocols-table-accredited-cross'
-            }
-          >
-            {row.original.is_accredited ? '✓' : '✗'}
-          </span>
-        ),
-        enableSorting: true,
-        enableColumnFilter: true,
-        size: 120,
+        filterFn: (row, _id, filterValue) => {
+          if (!filterValue) return true;
+          if (!row.original.verification_end_date) return false;
+
+          const rowDate = dayjs(row.original.verification_end_date);
+
+          if (Array.isArray(filterValue) && filterValue.length === 2) {
+            const [startDate, endDate] = filterValue as [Dayjs | null, Dayjs | null];
+            if (!startDate || !endDate) return true;
+
+            const start = startDate.startOf('day');
+            const end = endDate.endOf('day');
+            return (
+              (rowDate.isSame(start, 'day') || rowDate.isAfter(start)) &&
+              (rowDate.isSame(end, 'day') || rowDate.isBefore(end))
+            );
+          }
+
+          return true;
+        },
       },
       {
         accessorKey: 'created_at',
@@ -293,24 +322,13 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
         id: 'actions',
         header: 'Действия',
         cell: ({ row }) => (
-          <div className="protocols-table-actions">
-            {onGenerateExcel && row.original.protocol_template_id && (
-              <Button
-                type="text"
-                size="small"
-                icon={<FileExcelOutlined />}
-                onClick={() => onGenerateExcel(row.original.id)}
-                className="protocols-table-edit-button"
-              >
-                Сформировать
-              </Button>
-            )}
+          <div className="equipment-table-actions">
             <Button
               type="text"
               size="small"
               icon={<EditOutlined />}
               onClick={() => onEdit(row.original.id)}
-              className="protocols-table-edit-button"
+              className="equipment-table-edit-button"
             >
               Редактировать
             </Button>
@@ -320,7 +338,7 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
               size="small"
               icon={<DeleteOutlined />}
               onClick={() => onDelete(row.original.id)}
-              className="protocols-table-delete-button"
+              className="equipment-table-delete-button"
             >
               Удалить
             </Button>
@@ -332,7 +350,7 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
         enableResizing: false,
       },
     ],
-    [onEdit, onDelete, onGenerateExcel]
+    [onEdit, onDelete]
   );
 
   const handleColumnFiltersChange = React.useCallback(
@@ -345,7 +363,7 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
     []
   );
 
-  const table = useReactTable<Protocol>({
+  const table = useReactTable<Equipment>({
     data,
     columns,
     pageCount: totalPages,
@@ -377,19 +395,34 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
     }
   }, [onFiltersChange]);
 
+  const applyFiltersWithNewValue = React.useCallback(
+    (columnId: string, newValue: string[]) => {
+      if (onFiltersChange && tableRef.current) {
+        const currentFilters = tableRef.current.getState().columnFilters;
+        const updatedFilters = currentFilters.filter(f => f.id !== columnId);
+        if (newValue.length > 0) {
+          updatedFilters.push({ id: columnId, value: newValue });
+        }
+        tableRef.current.setColumnFilters(updatedFilters);
+        onFiltersChange(updatedFilters);
+      }
+    },
+    [onFiltersChange]
+  );
+
   const pageSizeOptions = React.useMemo(() => [10, 20, 50, 100], []);
 
   return (
-    <div className="protocols-table-container">
+    <div className="equipment-table-container">
       <LoadingCard loading={loading} />
       {!loading && (
         <>
-          <div className="protocols-table-wrapper">
-            <table className="protocols-table">
+          <div className="equipment-table-wrapper">
+            <table className="equipment-table">
               <thead>
                 {table.getHeaderGroups().map(headerGroup => (
                   <React.Fragment key={headerGroup.id}>
-                    <tr className="protocols-table-header-row">
+                    <tr className="equipment-table-header-row">
                       {headerGroup.headers.map(header => (
                         <th
                           key={header.id}
@@ -397,14 +430,14 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
                           className={header.column.getIsResizing() ? 'is-resizing' : ''}
                         >
                           <div
-                            className={`protocols-table-header-content ${
+                            className={`equipment-table-header-content ${
                               header.column.getCanSort() ? 'sortable' : ''
                             }`}
                             onClick={header.column.getToggleSortingHandler()}
                           >
                             {flexRender(header.column.columnDef.header, header.getContext())}
                             {header.column.getCanSort() && (
-                              <span className="protocols-table-sort-icon">
+                              <span className="equipment-table-sort-icon">
                                 {header.column.getIsSorted() === 'asc' ? (
                                   <FaSortUp />
                                 ) : header.column.getIsSorted() === 'desc' ? (
@@ -419,7 +452,7 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
                             <div
                               onMouseDown={header.getResizeHandler()}
                               onTouchStart={header.getResizeHandler()}
-                              className={`protocols-table-resizer ${
+                              className={`equipment-table-resizer ${
                                 header.column.getIsResizing() ? 'isResizing' : ''
                               }`}
                             />
@@ -427,11 +460,12 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
                         </th>
                       ))}
                     </tr>
-                    <tr className="protocols-table-filter-row">
+                    <tr className="equipment-table-filter-row">
                       {headerGroup.headers.map(header => (
-                        <th key={`filter-${header.id}`} className="protocols-table-filter-cell">
+                        <th key={`filter-${header.id}`} className="equipment-table-filter-cell">
                           {header.column.getCanFilter() &&
-                          (header.column.id === 'test_protocol_date' ||
+                          (header.column.id === 'verification_date' ||
+                            header.column.id === 'verification_end_date' ||
                             header.column.id === 'created_at') ? (
                             <RangePicker
                               value={(() => {
@@ -458,33 +492,73 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
                                 }, 0);
                               }}
                               placeholder={['С', 'По']}
-                              className="protocols-table-filter-datepicker"
+                              className="equipment-table-filter-datepicker"
                               onClick={(e: React.MouseEvent) => e.stopPropagation()}
                               allowClear
                               presets={getDateRangePresets()}
                             />
-                          ) : header.column.getCanFilter() &&
-                            header.column.id === 'is_accredited' ? (
+                          ) : header.column.getCanFilter() && header.column.id === 'type' ? (
                             <Select
-                              value={
-                                (header.column.getFilterValue() as boolean | undefined) ?? undefined
-                              }
+                              mode="multiple"
+                              value={tempTypeFilter}
                               onChange={(value: unknown) => {
-                                header.column.setFilterValue(
-                                  value === undefined || value === null ? null : value
-                                );
-                                setTimeout(() => {
-                                  applyFilters();
-                                }, 0);
+                                const newValue = value as string[];
+                                setTempTypeFilter(newValue);
+                                tempTypeFilterRef.current = newValue;
                               }}
-                              placeholder="Выберите"
-                              className="protocols-table-filter-select"
+                              onDeselect={(value: unknown) => {
+                                const newValue = tempTypeFilter.filter(v => v !== value);
+                                setTempTypeFilter(newValue);
+                                tempTypeFilterRef.current = newValue;
+                                applyFiltersWithNewValue(header.column.id, newValue);
+                              }}
+                              onDropdownVisibleChange={(open: boolean) => {
+                                if (!open) {
+                                  applyFiltersWithNewValue(
+                                    header.column.id,
+                                    tempTypeFilterRef.current
+                                  );
+                                }
+                              }}
+                              placeholder="Выберите типы"
+                              className="equipment-table-filter-select"
+                              classNames={{
+                                popup: { root: 'equipment-table-filter-select-dropdown' },
+                              }}
                               onClick={(e: React.MouseEvent) => e.stopPropagation()}
                               allowClear
-                              options={[
-                                { label: 'Да', value: true },
-                                { label: 'Нет', value: false },
-                              ]}
+                              onClear={() => {
+                                setTempTypeFilter([]);
+                                tempTypeFilterRef.current = [];
+                                applyFiltersWithNewValue(header.column.id, []);
+                              }}
+                              options={EQUIPMENT_TYPES}
+                              optionRender={option => {
+                                const isSelected = tempTypeFilter.includes(option.value as string);
+                                return (
+                                  <div
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '8px',
+                                    }}
+                                  >
+                                    <Checkbox
+                                      checked={isSelected}
+                                      onClick={e => {
+                                        e.stopPropagation();
+                                        const newValue = isSelected
+                                          ? tempTypeFilter.filter(v => v !== option.value)
+                                          : [...tempTypeFilter, option.value as string];
+                                        setTempTypeFilter(newValue);
+                                        tempTypeFilterRef.current = newValue;
+                                      }}
+                                    />
+                                    <span>{option.label}</span>
+                                  </div>
+                                );
+                              }}
+                              style={{ width: '100%' }}
                             />
                           ) : header.column.getCanFilter() ? (
                             <Input
@@ -496,7 +570,7 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
                                 applyFilters();
                               }}
                               placeholder="Поиск..."
-                              className="protocols-table-filter-input"
+                              className="equipment-table-filter-input"
                               onClick={(e: React.MouseEvent<HTMLInputElement>) =>
                                 e.stopPropagation()
                               }
@@ -512,8 +586,8 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
               <tbody>
                 {table.getRowModel().rows.length === 0 ? (
                   <tr>
-                    <td colSpan={columns.length} className="protocols-table-empty-cell">
-                      Протоколы не найдены
+                    <td colSpan={columns.length} className="equipment-table-empty-cell">
+                      Приборы не найдены
                     </td>
                   </tr>
                 ) : (
@@ -535,16 +609,16 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
             </table>
           </div>
 
-          <div className="protocols-table-pagination">
-            <div className="protocols-table-pagination-info">
+          <div className="equipment-table-pagination">
+            <div className="equipment-table-pagination-info">
               Показано {table.getRowModel().rows.length} из {totalRecords} записей
             </div>
 
-            <div className="protocols-table-pagination-controls">
+            <div className="equipment-table-pagination-controls">
               <button
                 onClick={() => table.setPageIndex(0)}
                 disabled={!table.getCanPreviousPage()}
-                className="protocols-table-pagination-icon"
+                className="equipment-table-pagination-icon"
                 type="button"
               >
                 <BiChevronsLeft size={20} />
@@ -552,20 +626,20 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
               <button
                 onClick={() => table.previousPage()}
                 disabled={!table.getCanPreviousPage()}
-                className="protocols-table-pagination-icon"
+                className="equipment-table-pagination-icon"
                 type="button"
               >
                 <BiChevronLeft size={20} />
               </button>
 
-              <span className="protocols-table-pagination-page-info">
+              <span className="equipment-table-pagination-page-info">
                 Страница {pagination.pageIndex + 1} из {totalPages}
               </span>
 
               <button
                 onClick={() => table.nextPage()}
                 disabled={!table.getCanNextPage()}
-                className="protocols-table-pagination-icon"
+                className="equipment-table-pagination-icon"
                 type="button"
               >
                 <BiChevronRight size={20} />
@@ -573,7 +647,7 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
               <button
                 onClick={() => table.setPageIndex(totalPages - 1)}
                 disabled={!table.getCanNextPage()}
-                className="protocols-table-pagination-icon"
+                className="equipment-table-pagination-icon"
                 type="button"
               >
                 <BiChevronsRight size={20} />
@@ -584,7 +658,7 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
                 onChange={(value: unknown) => {
                   table.setPageSize(value as number);
                 }}
-                className="protocols-table-page-size-select"
+                className="equipment-table-page-size-select"
                 options={pageSizeOptions.map(pageSize => ({
                   label: `${pageSize} строк`,
                   value: pageSize,
@@ -598,4 +672,4 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
   );
 };
 
-export default ProtocolsTable;
+export default EquipmentTable;
