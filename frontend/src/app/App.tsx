@@ -8,6 +8,7 @@ import './App.css';
 import AdminPage from '../pages/AdminPage/AdminPage';
 import Page404 from '../pages/ErrorPages/Page404/Page404';
 import LoadingPage from '../pages/LoadingPage/LoadingPage';
+import ProtocolsPage from '../pages/ProtocolsPage/ProtocolsPage';
 import SamplesPage from '../pages/SamplesPage/SamplesPage';
 import { useAxiosInterceptors } from '../shared/model/auth/useAxiosInterceptors';
 import { useKeycloak } from '../shared/model/auth/useKeycloak';
@@ -152,6 +153,12 @@ export default function App() {
                     <Route
                       path="/samples/laboratory/:laboratoryId/department/:departmentId"
                       element={<SamplesPage />}
+                    />
+                    <Route path="/protocols" element={<ProtocolsPage />} />
+                    <Route path="/protocols/laboratory/:laboratoryId" element={<ProtocolsPage />} />
+                    <Route
+                      path="/protocols/laboratory/:laboratoryId/department/:departmentId"
+                      element={<ProtocolsPage />}
                     />
                     <Route path="*" element={<Page404 />} />
                   </>

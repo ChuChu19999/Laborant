@@ -1,0 +1,42 @@
+.protocols-page-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 80px 20px 20px 20px;
+  height: calc(100vh - 187px);
+}
+
+.protocols-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.protocols-page-header-left {
+  display: flex;
+  align-items: center;
+}
+
+.protocols-page-header-right {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+
+.protocols-page-table {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.protocols-page-laboratories,
+.protocols-page-departments {
+  padding: 84px 20px 20px 20px;
+}
+
+.protocols-page-laboratories-grid,
+.protocols-page-departments-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}

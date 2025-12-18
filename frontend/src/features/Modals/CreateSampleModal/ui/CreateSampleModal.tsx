@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react';
+import { message } from 'antd';
 import dayjs from 'dayjs';
 import 'dayjs/locale/ru';
 import { SelectionConditionsForm } from '../../../../entities/SelectionConditionsForm';
@@ -56,7 +57,7 @@ const CreateSampleModal: React.FC<CreateSampleModalProps> = ({
     well: '',
     mode: '',
   });
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<Record<string, boolean>>({});
   const [selectionConditions, setSelectionConditions] = useState<Record<string, string>>({});
 
   const { data: sampleTypes = [] } = useAutoRefetchQuery<string[]>(['sample-types'], () =>
@@ -100,17 +101,12 @@ const CreateSampleModal: React.FC<CreateSampleModalProps> = ({
 
   const handleInputChange = useCallback(
     (field: keyof typeof formData) => (e: React.ChangeEvent<HTMLInputElement>) => {
-      setFormData(prev => {
-        const newData = {
-          ...prev,
-          [field]: e.target.value,
-        };
-
-        return newData;
-      });
-
+      setFormData(prev => ({
+        ...prev,
+        [field]: e.target.value,
+      }));
       if (errors[field]) {
-        setErrors(prev => ({ ...prev, [field]: '' }));
+        setErrors(prev => ({ ...prev, [field]: false }));
       }
     },
     [errors]
@@ -132,9 +128,8 @@ const CreateSampleModal: React.FC<CreateSampleModalProps> = ({
 
           return newData;
         });
-
         if (errors[field]) {
-          setErrors(prev => ({ ...prev, [field]: '' }));
+          setErrors(prev => ({ ...prev, [field]: false }));
         }
       },
     [errors]
@@ -146,26 +141,31 @@ const CreateSampleModal: React.FC<CreateSampleModalProps> = ({
         ...prev,
         [field]: (date as dayjs.Dayjs | null) || null,
       }));
-
       if (errors[field]) {
-        setErrors(prev => ({ ...prev, [field]: '' }));
+        setErrors(prev => ({ ...prev, [field]: false }));
       }
     },
     [errors]
   );
 
   const validateForm = useCallback((): boolean => {
-    const newErrors: Record<string, string> = {};
     const requiredFields = ['registration_number', 'sample_type', 'test_object'];
+    const newErrors: Record<string, boolean> = {};
 
     requiredFields.forEach(field => {
       if (!formData[field as keyof typeof formData]) {
-        newErrors[field] = 'Это поле обязательно для заполнения';
+        newErrors[field] = true;
       }
     });
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      message.error('Пожалуйста, заполните все обязательные поля');
+      return false;
+    }
+
+    setErrors({});
+    return true;
   }, [formData]);
 
   const handleSave = useCallback(async () => {
@@ -274,9 +274,6 @@ const CreateSampleModal: React.FC<CreateSampleModalProps> = ({
             placeholder="Введите регистрационный номер"
             status={errors.registration_number ? 'error' : ''}
           />
-          {errors.registration_number && (
-            <div className="error-message">{errors.registration_number}</div>
-          )}
         </div>
 
         <div className="form-group">
@@ -297,7 +294,6 @@ const CreateSampleModal: React.FC<CreateSampleModalProps> = ({
               </Option>
             ))}
           </Select>
-          {errors.sample_type && <div className="error-message">{errors.sample_type}</div>}
         </div>
 
         <div className="form-group">
@@ -318,7 +314,6 @@ const CreateSampleModal: React.FC<CreateSampleModalProps> = ({
               </Option>
             ))}
           </Select>
-          {errors.test_object && <div className="error-message">{errors.test_object}</div>}
         </div>
 
         <div className="form-group">
@@ -328,7 +323,6 @@ const CreateSampleModal: React.FC<CreateSampleModalProps> = ({
             onChange={handleSelectChange('branch_id')}
             placeholder="Выберите филиал"
             loading={branchesLoading}
-            status={errors.branch_id ? 'error' : ''}
             listHeight={100}
             allowClear
           >
@@ -338,7 +332,6 @@ const CreateSampleModal: React.FC<CreateSampleModalProps> = ({
               </Option>
             ))}
           </Select>
-          {errors.branch_id && <div className="error-message">{errors.branch_id}</div>}
         </div>
 
         <div className="form-group">
@@ -348,7 +341,6 @@ const CreateSampleModal: React.FC<CreateSampleModalProps> = ({
             onChange={handleSelectChange('sampling_location_id')}
             placeholder="Выберите место отбора пробы"
             loading={locationsLoading}
-            status={errors.sampling_location_id ? 'error' : ''}
             disabled={!formData.branch_id}
             listHeight={100}
             allowClear
@@ -359,9 +351,6 @@ const CreateSampleModal: React.FC<CreateSampleModalProps> = ({
               </Option>
             ))}
           </Select>
-          {errors.sampling_location_id && (
-            <div className="error-message">{errors.sampling_location_id}</div>
-          )}
         </div>
 
         <div className="form-group">
@@ -370,9 +359,7 @@ const CreateSampleModal: React.FC<CreateSampleModalProps> = ({
             value={formData.well}
             onChange={handleInputChange('well')}
             placeholder="Введите скважину"
-            status={errors.well ? 'error' : ''}
           />
-          {errors.well && <div className="error-message">{errors.well}</div>}
         </div>
 
         <div className="form-group">
@@ -381,9 +368,7 @@ const CreateSampleModal: React.FC<CreateSampleModalProps> = ({
             value={formData.mode}
             onChange={handleInputChange('mode')}
             placeholder="Введите режим"
-            status={errors.mode ? 'error' : ''}
           />
-          {errors.mode && <div className="error-message">{errors.mode}</div>}
         </div>
 
         <div className="form-group">
@@ -393,14 +378,12 @@ const CreateSampleModal: React.FC<CreateSampleModalProps> = ({
             value={formData.sampling_date}
             onChange={handleDateChange('sampling_date')}
             placeholder="ДД.ММ.ГГГГ"
-            status={errors.sampling_date ? 'error' : ''}
             className="custom-date-picker"
             rootClassName="custom-date-picker-root"
             popupClassName="custom-date-picker-popup"
             inputReadOnly={false}
             allowClear={true}
           />
-          {errors.sampling_date && <div className="error-message">{errors.sampling_date}</div>}
         </div>
 
         <div className="form-group">
@@ -410,14 +393,12 @@ const CreateSampleModal: React.FC<CreateSampleModalProps> = ({
             value={formData.receiving_date}
             onChange={handleDateChange('receiving_date')}
             placeholder="ДД.ММ.ГГГГ"
-            status={errors.receiving_date ? 'error' : ''}
             className="custom-date-picker"
             rootClassName="custom-date-picker-root"
             popupClassName="custom-date-picker-popup"
             inputReadOnly={false}
             allowClear={true}
           />
-          {errors.receiving_date && <div className="error-message">{errors.receiving_date}</div>}
         </div>
 
         {selectionConditionsFields.length > 0 && (

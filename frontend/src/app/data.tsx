@@ -1,6 +1,7 @@
-import { BiHelpCircle, BiHomeAlt2, BiTestTube } from 'react-icons/bi';
+import { BiHelpCircle, BiHomeAlt2, BiTestTube, BiFile } from 'react-icons/bi';
 import HelpPage from '../pages/HelpPage/HelpPage';
 import MainPage from '../pages/MainPage/MainPage';
+import ProtocolsPage from '../pages/ProtocolsPage/ProtocolsPage';
 import SamplesPage from '../pages/SamplesPage/SamplesPage';
 
 export const routersData = [
@@ -15,6 +16,12 @@ export const routersData = [
     path: '/samples',
     icon: <BiTestTube size={20} />,
     element: <SamplesPage />,
+  },
+  {
+    label: 'Протоколы',
+    path: '/protocols',
+    icon: <BiFile size={20} />,
+    element: <ProtocolsPage />,
   },
   {
     label: 'Помощь',

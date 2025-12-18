@@ -1,7 +1,11 @@
 export { useUrlSync } from './useUrlSync';
 export type { UseUrlSyncOptions } from './useUrlSync';
+export { usePageState } from './usePageState';
+export type { UsePageStateOptions } from './usePageState';
 export * from './useResearchMethods';
 export * from './useResearchMethodsMutations';
 export * from './useCalculationMutations';
 export * from './useSamples';
 export * from './useSamplesMutations';
+export * from './useProtocols';
+export * from './useProtocolsMutations';

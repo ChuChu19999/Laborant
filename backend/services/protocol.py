@@ -118,6 +118,16 @@ async def create_protocol(db: AsyncSession, protocol_data: ProtocolCreate) -> Pr
         if not template.scalar_one_or_none():
             raise NotFoundError("Шаблон протокола не найден")
 
+    # Валидация уникальности номера акта отбора для неудаленных записей
+    existing_protocol = await db.execute(
+        select(Protocol).where(
+            Protocol.sampling_act_number == protocol_data.sampling_act_number,
+            Protocol.deleted_at.is_(None),
+        )
+    )
+    if existing_protocol.scalars().first():
+        raise ConflictError("Протокол с таким номером акта отбора уже существует")
+
     if protocol_data.samples:
         samples = await db.execute(
             select(Sample).where(
@@ -170,6 +180,18 @@ async def update_protocol(
         raise ValidationError("Невозможно редактировать удаленный протокол")
 
     update_data = protocol_data.model_dump(exclude_unset=True)
+
+    # Валидация уникальности номера акта отбора для неудаленных записей
+    if "sampling_act_number" in update_data:
+        existing_protocol = await db.execute(
+            select(Protocol).where(
+                Protocol.sampling_act_number == update_data["sampling_act_number"],
+                Protocol.deleted_at.is_(None),
+                Protocol.id != protocol_id,
+            )
+        )
+        if existing_protocol.scalars().first():
+            raise ConflictError("Протокол с таким номером акта отбора уже существует")
 
     if "samples" in update_data and update_data["samples"] is not None:
         samples = await db.execute(

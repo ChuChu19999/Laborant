@@ -3,6 +3,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { BiChevronsRight, BiUser } from 'react-icons/bi';
 import { routersData } from '../../../app/data';
 import logoImage from '../../../shared/assets/logo/logo.png';
+import { PAGE_STATE_KEYS } from '../../../shared/lib/pageStateKeys';
+import { usePageState } from '../../../shared/model/hooks';
 import './SideBar.css';
 
 interface SideBarProps {
@@ -20,16 +22,51 @@ type RouterItem = {
   doNotShowChildrenInSideBar?: boolean;
 };
 
-const ADMIN_PAGE_STORAGE_KEY = 'lastAdminPagePath';
-const SAMPLES_PAGE_STORAGE_KEY = 'lastSamplesPagePath';
-const MAIN_PAGE_STORAGE_KEY = 'lastMainPagePath';
-
 const SideBar = ({ username, isAdmin, onMinimizeChange }: SideBarProps) => {
   const [minimize, setMinimize] = useState(false);
   const [openSubmenus, setOpenSubmenus] = useState<string[]>([]);
   const buttonRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Используем хуки для сохранения и восстановления состояний страниц
+  const adminPageState = usePageState({
+    storageKey: PAGE_STATE_KEYS.ADMIN_PAGE,
+    shouldSave: pathname => pathname.startsWith('/admin/laboratory/'),
+    shouldRemove: pathname => pathname === '/' && !pathname.startsWith('/admin/laboratory/'),
+  });
+
+  const samplesPageState = usePageState({
+    storageKey: PAGE_STATE_KEYS.SAMPLES_PAGE,
+    shouldSave: pathname => pathname.startsWith('/samples'),
+  });
+
+  const protocolsPageState = usePageState({
+    storageKey: PAGE_STATE_KEYS.PROTOCOLS_PAGE,
+    shouldSave: pathname => pathname.startsWith('/protocols'),
+  });
+
+  const mainPageState = usePageState({
+    storageKey: PAGE_STATE_KEYS.MAIN_PAGE,
+    shouldSave: (pathname, search) => {
+      if (pathname !== '/') return false;
+      const searchParams = new URLSearchParams(search);
+      return (
+        searchParams.get('page') === 'laboratory-management' ||
+        searchParams.get('viewMode') === 'departments' ||
+        searchParams.get('viewMode') === 'laboratories'
+      );
+    },
+    shouldRemove: (pathname, search) => {
+      if (pathname !== '/') return false;
+      const searchParams = new URLSearchParams(search);
+      return (
+        searchParams.get('page') !== 'laboratory-management' &&
+        searchParams.get('viewMode') !== 'departments' &&
+        searchParams.get('viewMode') !== 'laboratories'
+      );
+    },
+  });
 
   // Фильтруем роуты в зависимости от роли
   // Для не-админов доступны только: главная и помощь
@@ -96,35 +133,6 @@ const SideBar = ({ username, isAdmin, onMinimizeChange }: SideBarProps) => {
     setOpenSubmenus([]);
   };
 
-  useEffect(() => {
-    if (location.pathname.startsWith('/admin/laboratory/')) {
-      sessionStorage.setItem(ADMIN_PAGE_STORAGE_KEY, location.pathname + location.search);
-    } else if (location.pathname === '/' && !location.pathname.startsWith('/admin/laboratory/')) {
-      sessionStorage.removeItem(ADMIN_PAGE_STORAGE_KEY);
-    }
-
-    if (location.pathname.startsWith('/samples')) {
-      sessionStorage.setItem(SAMPLES_PAGE_STORAGE_KEY, location.pathname + location.search);
-    }
-    // Не удаляем сохраненный путь samples при переходе на другие страницы,
-    // чтобы сохранить состояние при переключении вкладок
-
-    // Сохраняем состояние главной страницы с управлением лабораториями
-    if (location.pathname === '/') {
-      const searchParams = new URLSearchParams(location.search);
-      const isInLaboratoryManagement =
-        searchParams.get('page') === 'laboratory-management' ||
-        searchParams.get('viewMode') === 'departments' ||
-        searchParams.get('viewMode') === 'laboratories';
-      if (isInLaboratoryManagement) {
-        sessionStorage.setItem(MAIN_PAGE_STORAGE_KEY, location.pathname + location.search);
-      } else {
-        // Удаляем сохраненное состояние, если мы на обычной главной без управления лабораториями
-        sessionStorage.removeItem(MAIN_PAGE_STORAGE_KEY);
-      }
-    }
-  }, [location.pathname, location.search]);
-
   const renderItems = (items: RouterItem[], level = 0, parentPath = '') =>
     items.map(item => {
       const currentPath = `${parentPath}${item.path}`;
@@ -135,7 +143,8 @@ const SideBar = ({ username, isAdmin, onMinimizeChange }: SideBarProps) => {
             (currentPath === '/' &&
               (location.pathname.startsWith('/admin/laboratory/') ||
                 location.pathname.startsWith('/?page=laboratory-management'))) ||
-            (currentPath === '/samples' && location.pathname.startsWith('/samples')))) ||
+            (currentPath === '/samples' && location.pathname.startsWith('/samples')) ||
+            (currentPath === '/protocols' && location.pathname.startsWith('/protocols')))) ||
         isOpen;
 
       const openSubmenu = (e: React.MouseEvent) => {
@@ -171,20 +180,11 @@ const SideBar = ({ username, isAdmin, onMinimizeChange }: SideBarProps) => {
 
         // Если переходим на главную, проверяем сохраненный путь AdminPage или состояние управления лабораториями
         if (targetPath === '/') {
-          const savedAdminPath = sessionStorage.getItem(ADMIN_PAGE_STORAGE_KEY);
-          if (savedAdminPath) {
-            const [savedPath, savedSearch] = savedAdminPath.split('?');
-            const search = savedSearch ? `?${savedSearch}` : '';
-            navigate({ pathname: savedPath, search }, { replace: true });
+          if (adminPageState.restoreState()) {
             setOpenSubmenus([]);
             return;
           }
-          // Проверяем сохраненное состояние управления лабораториями
-          const savedMainPath = sessionStorage.getItem(MAIN_PAGE_STORAGE_KEY);
-          if (savedMainPath) {
-            const [savedPath, savedSearch] = savedMainPath.split('?');
-            const search = savedSearch ? `?${savedSearch}` : '';
-            navigate({ pathname: savedPath, search }, { replace: true });
+          if (mainPageState.restoreState()) {
             setOpenSubmenus([]);
             return;
           }
@@ -197,11 +197,19 @@ const SideBar = ({ username, isAdmin, onMinimizeChange }: SideBarProps) => {
 
         // Если переходим на samples, проверяем сохраненный путь samples
         if (targetPath === '/samples') {
-          const savedSamplesPath = sessionStorage.getItem(SAMPLES_PAGE_STORAGE_KEY);
-          if (savedSamplesPath) {
-            const [savedPath, savedSearch] = savedSamplesPath.split('?');
-            const search = savedSearch ? `?${savedSearch}` : '';
-            navigate({ pathname: savedPath, search }, { replace: true });
+          if (samplesPageState.restoreState('/samples', '')) {
+            setOpenSubmenus([]);
+            return;
+          }
+          // Если сохраненного пути нет, переходим на базовый путь без параметров
+          navigate({ pathname: targetPath, search: '' }, { replace: true });
+          setOpenSubmenus([]);
+          return;
+        }
+
+        // Если переходим на protocols, проверяем сохраненный путь protocols
+        if (targetPath === '/protocols') {
+          if (protocolsPageState.restoreState('/protocols', '')) {
             setOpenSubmenus([]);
             return;
           }

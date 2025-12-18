@@ -13,6 +13,7 @@ const { RangePicker: AntRangePicker } = AntDatePicker;
 
 interface DatePickerProps extends React.ComponentProps<typeof AntDatePicker> {
   className?: string;
+  disableYearNavigation?: boolean;
 }
 
 interface RangePickerProps extends React.ComponentProps<typeof AntRangePicker> {
@@ -109,7 +110,7 @@ const handleDateInput = (e: React.KeyboardEvent<HTMLInputElement>) => {
 };
 
 const DatePicker = (props: DatePickerProps) => {
-  const { format, inputReadOnly, onChange, ...restProps } = props;
+  const { format, inputReadOnly, onChange, disableYearNavigation = true, ...restProps } = props;
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -177,6 +178,8 @@ const DatePicker = (props: DatePickerProps) => {
           format={format || 'DD.MM.YYYY'}
           inputReadOnly={inputReadOnly ?? false}
           onChange={handleChange}
+          superNextIcon={disableYearNavigation ? null : undefined}
+          superPrevIcon={disableYearNavigation ? null : undefined}
           {...restProps}
         />
       </div>

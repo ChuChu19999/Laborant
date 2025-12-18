@@ -9,3 +9,6 @@ export { CreateSampleModal } from './CreateSampleModal';
 export { EditSampleModal } from './EditSampleModal';
 export { DeleteSampleModal } from './DeleteSampleModal';
 export { FillCalculationsModal } from './FillCalculationsModal';
+export { CreateProtocolModal } from './CreateProtocolModal';
+export { EditProtocolModal } from './EditProtocolModal';
+export { DeleteProtocolModal } from './DeleteProtocolModal';

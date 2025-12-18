@@ -1,10 +1,13 @@
 from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from core.database import get_db
 from core.exceptions import NotFoundError
 from core.security import IsAuthenticated
+from models.protocol import Protocol, ProtocolTemplate
 from schemas.pagination import PaginatedResponse
 from schemas.protocol import (
     ProtocolCreate,
@@ -73,9 +76,9 @@ async def list_protocols(
     items = []
     for protocol in protocols:
         protocol_dict = ProtocolResponse.model_validate(protocol).model_dump()
-        if hasattr(protocol, "laboratory") and protocol.laboratory:
+        if protocol.laboratory:
             protocol_dict["laboratory_name"] = protocol.laboratory.name
-        if hasattr(protocol, "department") and protocol.department:
+        if protocol.department:
             protocol_dict["department_name"] = protocol.department.name
 
         if protocol.samples:
@@ -84,16 +87,13 @@ async def list_protocols(
                 sample = await get_sample_by_id(db, sample_id)
                 if sample:
                     sample_dict = SampleResponse.model_validate(sample).model_dump()
-                    if hasattr(sample, "laboratory") and sample.laboratory:
+                    if sample.laboratory:
                         sample_dict["laboratory_name"] = sample.laboratory.name
-                    if hasattr(sample, "department") and sample.department:
+                    if sample.department:
                         sample_dict["department_name"] = sample.department.name
-                    if hasattr(sample, "branch") and sample.branch:
+                    if sample.branch:
                         sample_dict["branch_name"] = sample.branch.name
-                    if (
-                        hasattr(sample, "sampling_location")
-                        and sample.sampling_location
-                    ):
+                    if sample.sampling_location:
                         sample_dict["sampling_location_name"] = (
                             sample.sampling_location.name
                         )
@@ -134,10 +134,20 @@ async def create_protocol_endpoint(
     """
     protocol = await create_protocol(db, protocol_data)
     await db.commit()
+    query = (
+        select(Protocol)
+        .where(Protocol.id == protocol.id)
+        .options(
+            selectinload(Protocol.laboratory),
+            selectinload(Protocol.department),
+        )
+    )
+    result = await db.execute(query)
+    protocol = result.scalar_one()
     protocol_dict = ProtocolResponse.model_validate(protocol).model_dump()
-    if hasattr(protocol, "laboratory") and protocol.laboratory:
+    if protocol.laboratory:
         protocol_dict["laboratory_name"] = protocol.laboratory.name
-    if hasattr(protocol, "department") and protocol.department:
+    if protocol.department:
         protocol_dict["department_name"] = protocol.department.name
     return ProtocolResponse(**protocol_dict)
 
@@ -166,9 +176,9 @@ async def get_protocol(
     if not protocol:
         raise NotFoundError("Протокол не найден")
     protocol_dict = ProtocolResponse.model_validate(protocol).model_dump()
-    if hasattr(protocol, "laboratory") and protocol.laboratory:
+    if protocol.laboratory:
         protocol_dict["laboratory_name"] = protocol.laboratory.name
-    if hasattr(protocol, "department") and protocol.department:
+    if protocol.department:
         protocol_dict["department_name"] = protocol.department.name
 
     if protocol.samples:
@@ -177,13 +187,13 @@ async def get_protocol(
             sample = await get_sample_by_id(db, sample_id)
             if sample:
                 sample_dict = SampleResponse.model_validate(sample).model_dump()
-                if hasattr(sample, "laboratory") and sample.laboratory:
+                if sample.laboratory:
                     sample_dict["laboratory_name"] = sample.laboratory.name
-                if hasattr(sample, "department") and sample.department:
+                if sample.department:
                     sample_dict["department_name"] = sample.department.name
-                if hasattr(sample, "branch") and sample.branch:
+                if sample.branch:
                     sample_dict["branch_name"] = sample.branch.name
-                if hasattr(sample, "sampling_location") and sample.sampling_location:
+                if sample.sampling_location:
                     sample_dict["sampling_location_name"] = (
                         sample.sampling_location.name
                     )
@@ -216,10 +226,20 @@ async def update_protocol_endpoint(
     """
     protocol = await update_protocol(db, protocol_id, protocol_data)
     await db.commit()
+    query = (
+        select(Protocol)
+        .where(Protocol.id == protocol.id)
+        .options(
+            selectinload(Protocol.laboratory),
+            selectinload(Protocol.department),
+        )
+    )
+    result = await db.execute(query)
+    protocol = result.scalar_one()
     protocol_dict = ProtocolResponse.model_validate(protocol).model_dump()
-    if hasattr(protocol, "laboratory") and protocol.laboratory:
+    if protocol.laboratory:
         protocol_dict["laboratory_name"] = protocol.laboratory.name
-    if hasattr(protocol, "department") and protocol.department:
+    if protocol.department:
         protocol_dict["department_name"] = protocol.department.name
     return ProtocolResponse(**protocol_dict)
 
@@ -319,9 +339,9 @@ async def list_protocol_templates(
     items = []
     for template in templates:
         template_dict = ProtocolTemplateResponse.model_validate(template).model_dump()
-        if hasattr(template, "laboratory") and template.laboratory:
+        if template.laboratory:
             template_dict["laboratory_name"] = template.laboratory.name
-        if hasattr(template, "department") and template.department:
+        if template.department:
             template_dict["department_name"] = template.department.name
         items.append(ProtocolTemplateResponse(**template_dict))
 
@@ -366,9 +386,9 @@ async def get_available_protocol_templates(
     items = []
     for template in templates:
         template_dict = ProtocolTemplateResponse.model_validate(template).model_dump()
-        if hasattr(template, "laboratory") and template.laboratory:
+        if template.laboratory:
             template_dict["laboratory_name"] = template.laboratory.name
-        if hasattr(template, "department") and template.department:
+        if template.department:
             template_dict["department_name"] = template.department.name
         items.append(ProtocolTemplateResponse(**template_dict))
 
@@ -398,10 +418,20 @@ async def create_protocol_template_endpoint(
     """
     template = await create_protocol_template(db, template_data)
     await db.commit()
+    query = (
+        select(ProtocolTemplate)
+        .where(ProtocolTemplate.id == template.id)
+        .options(
+            selectinload(ProtocolTemplate.laboratory),
+            selectinload(ProtocolTemplate.department),
+        )
+    )
+    result = await db.execute(query)
+    template = result.scalar_one()
     template_dict = ProtocolTemplateResponse.model_validate(template).model_dump()
-    if hasattr(template, "laboratory") and template.laboratory:
+    if template.laboratory:
         template_dict["laboratory_name"] = template.laboratory.name
-    if hasattr(template, "department") and template.department:
+    if template.department:
         template_dict["department_name"] = template.department.name
     return ProtocolTemplateResponse(**template_dict)
 
@@ -430,9 +460,9 @@ async def get_protocol_template(
     if not template:
         raise NotFoundError("Шаблон протокола не найден")
     template_dict = ProtocolTemplateResponse.model_validate(template).model_dump()
-    if hasattr(template, "laboratory") and template.laboratory:
+    if template.laboratory:
         template_dict["laboratory_name"] = template.laboratory.name
-    if hasattr(template, "department") and template.department:
+    if template.department:
         template_dict["department_name"] = template.department.name
     return ProtocolTemplateResponse(**template_dict)
 
@@ -460,10 +490,20 @@ async def update_protocol_template_endpoint(
     """
     template = await update_protocol_template(db, template_id, template_data)
     await db.commit()
+    query = (
+        select(ProtocolTemplate)
+        .where(ProtocolTemplate.id == template.id)
+        .options(
+            selectinload(ProtocolTemplate.laboratory),
+            selectinload(ProtocolTemplate.department),
+        )
+    )
+    result = await db.execute(query)
+    template = result.scalar_one()
     template_dict = ProtocolTemplateResponse.model_validate(template).model_dump()
-    if hasattr(template, "laboratory") and template.laboratory:
+    if template.laboratory:
         template_dict["laboratory_name"] = template.laboratory.name
-    if hasattr(template, "department") and template.department:
+    if template.department:
         template_dict["department_name"] = template.department.name
     return ProtocolTemplateResponse(**template_dict)
 
