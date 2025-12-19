@@ -1,4 +1,5 @@
-import { BiHelpCircle, BiHomeAlt2, BiTestTube, BiFile, BiCog, BiMap } from 'react-icons/bi';
+import { BiHelpCircle, BiHomeAlt2, BiTestTube, BiFile, BiMap } from 'react-icons/bi';
+import { FaFlask } from 'react-icons/fa';
 import EquipmentPage from '../pages/EquipmentPage/EquipmentPage';
 import HelpPage from '../pages/HelpPage/HelpPage';
 import MainPage from '../pages/MainPage/MainPage';
@@ -28,7 +29,7 @@ export const routersData = [
   {
     label: 'Приборы',
     path: '/equipment',
-    icon: <BiCog size={20} />,
+    icon: <FaFlask size={20} />,
     element: <EquipmentPage />,
   },
   {
