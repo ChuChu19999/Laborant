@@ -67,9 +67,7 @@ async def list_protocols(
     created_at_to: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Получить список протоколов с пагинацией.
-    """
+    """Возвращает список протоколов с пагинацией."""
     test_protocol_date_from_parsed, test_protocol_date_to_parsed = (
         parse_date_range_params(test_protocol_date_from, test_protocol_date_to)
     )
@@ -151,11 +149,7 @@ async def create_protocol_endpoint(
     protocol_data: ProtocolCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Создать протокол.
-
-    Создает новый протокол на основе переданных данных.
-    """
+    """Создает новый протокол на основе переданных данных."""
     protocol = await create_protocol(db, protocol_data)
     await db.commit()
     query = (
@@ -191,9 +185,7 @@ async def get_protocol(
     protocol_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Получить протокол по ID.
-    """
+    """Возвращает информацию о протоколе по его идентификатору."""
     protocol = await get_protocol_by_id(db, protocol_id)
     if not protocol:
         raise NotFoundError("Протокол не найден")
@@ -241,11 +233,7 @@ async def update_protocol_endpoint(
     protocol_data: ProtocolUpdate,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Обновить протокол.
-
-    Обновляет существующий протокол по его идентификатору.
-    """
+    """Обновляет существующий протокол. Можно обновить только указанные поля."""
     protocol = await update_protocol(db, protocol_id, protocol_data)
     await db.commit()
     query = (
@@ -281,11 +269,7 @@ async def delete_protocol_endpoint(
     protocol_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Удалить протокол (мягкое удаление).
-
-    Выполняет мягкое удаление протокола по его идентификатору.
-    """
+    """Выполняет мягкое удаление протокола. Протокол помечается как удаленный."""
     await delete_protocol(db, protocol_id)
     await db.commit()
 
@@ -313,11 +297,7 @@ async def generate_protocol_excel_endpoint(
     protocol_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Сгенерировать Excel файл протокола.
-
-    Генерирует Excel файл протокола на основе данных протокола и шаблона.
-    """
+    """Генерирует Excel файл протокола на основе данных протокола и шаблона."""
     return await generate_protocol_excel(db, protocol_id)
 
 
@@ -342,9 +322,7 @@ async def list_protocol_templates(
     sort_order: Optional[str] = Query("desc"),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Получить список шаблонов протоколов с пагинацией.
-    """
+    """Возвращает список шаблонов протоколов с пагинацией."""
     templates, total, total_pages = await get_protocol_templates(
         db,
         laboratory_id=laboratory_id,
@@ -389,9 +367,7 @@ async def get_available_protocol_templates(
     department_id: Optional[int] = Query(None, description="ID подразделения"),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Получить доступные шаблоны для лаборатории/подразделения.
-    """
+    """Возвращает список доступных шаблонов протоколов для указанной лаборатории и подразделения."""
     templates, _, _ = await get_protocol_templates(
         db,
         laboratory_id=laboratory_id,
@@ -429,11 +405,7 @@ async def create_protocol_template_endpoint(
     template_data: ProtocolTemplateCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Создать шаблон протокола.
-
-    Создает новый шаблон протокола на основе переданных данных.
-    """
+    """Создает новый шаблон протокола на основе переданных данных."""
     template = await create_protocol_template(db, template_data)
     await db.commit()
     query = (
@@ -469,9 +441,7 @@ async def get_protocol_template(
     template_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Получить шаблон протокола по ID.
-    """
+    """Возвращает информацию о шаблоне протокола по его идентификатору."""
     template = await get_protocol_template_by_id(db, template_id)
     if not template:
         raise NotFoundError("Шаблон протокола не найден")
@@ -499,11 +469,7 @@ async def update_protocol_template_endpoint(
     template_data: ProtocolTemplateUpdate,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Обновить шаблон протокола.
-
-    Обновляет существующий шаблон протокола по его идентификатору.
-    """
+    """Обновляет существующий шаблон протокола. Можно обновить только указанные поля."""
     template = await update_protocol_template(db, template_id, template_data)
     await db.commit()
     query = (
@@ -539,10 +505,6 @@ async def delete_protocol_template_endpoint(
     template_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Удалить шаблон протокола (мягкое удаление).
-
-    Выполняет мягкое удаление шаблона протокола по его идентификатору.
-    """
+    """Выполняет мягкое удаление шаблона протокола. Шаблон помечается как удаленный."""
     await delete_protocol_template(db, template_id)
     await db.commit()

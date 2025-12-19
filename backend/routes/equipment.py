@@ -47,9 +47,7 @@ async def list_equipment(
     created_at_to: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Получить список оборудования с пагинацией.
-    """
+    """Возвращает список оборудования с пагинацией."""
     verification_date_from_parsed, verification_date_to_parsed = (
         parse_date_range_params(verification_date_from, verification_date_to)
     )
@@ -118,11 +116,7 @@ async def create_equipment_endpoint(
     equipment_data: EquipmentCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Создать оборудование.
-
-    Создает новое оборудование на основе переданных данных.
-    """
+    """Создает новое оборудование на основе переданных данных."""
     equipment = await create_equipment(db, equipment_data)
 
     eq_dict = EquipmentResponse.model_validate(equipment).model_dump()
@@ -150,9 +144,7 @@ async def get_equipment(
     equipment_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Получить оборудование по ID.
-    """
+    """Возвращает информацию об оборудовании по его идентификатору."""
     equipment = await get_equipment_by_id(db, equipment_id)
     if not equipment:
         raise NotFoundError("Оборудование не найдено")
@@ -180,11 +172,7 @@ async def update_equipment_endpoint(
     equipment_data: EquipmentUpdate,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Обновить оборудование.
-
-    Обновляет существующее оборудование по его идентификатору.
-    """
+    """Обновляет существующее оборудование. Можно обновить только указанные поля."""
     equipment = await update_equipment(db, equipment_id, equipment_data)
 
     eq_dict = EquipmentResponse.model_validate(equipment).model_dump()
@@ -212,10 +200,6 @@ async def delete_equipment_endpoint(
     equipment_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Удалить оборудование (мягкое удаление).
-
-    Выполняет мягкое удаление оборудования по его идентификатору.
-    """
+    """Выполняет мягкое удаление оборудования. Оборудование помечается как удаленное."""
     await delete_equipment(db, equipment_id)
     await db.commit()

@@ -56,9 +56,7 @@ async def list_calculations(
     sort_order: Optional[str] = Query("desc"),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Получить список расчетов с пагинацией.
-    """
+    """Возвращает список расчетов с пагинацией."""
     sample_ids_list = None
     if sample_ids:
         try:
@@ -141,9 +139,7 @@ async def get_calculations_by_sample_endpoint(
     sort_order: Optional[str] = Query("desc"),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Получить все расчеты по пробе без пагинации.
-    """
+    """Возвращает все расчеты для указанной пробы без пагинации."""
     calculations = await get_calculations_by_sample(
         db,
         sample_id=sample_id,
@@ -207,11 +203,7 @@ async def create_calculation_endpoint(
     calculation_data: CalculationCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Создать расчет.
-
-    Создает новый расчет на основе переданных данных.
-    """
+    """Создает новый расчет на основе переданных данных."""
     calculation = await create_calculation(db, calculation_data)
     await db.commit()
     calc_dict = CalculationResponse.model_validate(calculation).model_dump()
@@ -246,9 +238,7 @@ async def get_calculation(
     calculation_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Получить расчет по ID.
-    """
+    """Возвращает информацию о расчете по его идентификатору."""
     calculation = await get_calculation_by_id(db, calculation_id)
     if not calculation:
         raise NotFoundError("Расчет не найден")
@@ -299,11 +289,7 @@ async def update_calculation_endpoint(
     calculation_data: CalculationUpdate,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Обновить расчет.
-
-    Обновляет существующий расчет по его идентификатору.
-    """
+    """Обновляет существующий расчет. Можно обновить только указанные поля."""
     calculation = await update_calculation(db, calculation_id, calculation_data)
     await db.commit()
     calc_dict = CalculationResponse.model_validate(calculation).model_dump()
@@ -341,11 +327,7 @@ async def delete_calculation_endpoint(
     calculation_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Удалить расчет (мягкое удаление).
-
-    Выполняет мягкое удаление расчета по его идентификатору.
-    """
+    """Выполняет мягкое удаление расчета. Расчет не удаляется из базы данных, а помечается как удаленный."""
     await delete_calculation(db, calculation_id)
     await db.commit()
 
@@ -368,12 +350,7 @@ async def calculate_endpoint(
     request: CalculateRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Вычислить результат расчета.
-
-    Принимает входные данные и ID метода исследования, возвращает результат расчета
-    с промежуточными результатами, условиями повторяемости и погрешностью.
-    """
+    """Выполняет расчет результата на основе входных данных и метода исследования."""
     try:
         # Получаем метод исследования
         research_method_obj = await get_research_method_by_id(

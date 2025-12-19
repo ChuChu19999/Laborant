@@ -70,9 +70,7 @@ async def list_laboratories(
     sort_order: Optional[str] = Query("desc"),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Получить список лабораторий с пагинацией.
-    """
+    """Возвращает список лабораторий с пагинацией."""
     laboratories, total, total_pages = await get_laboratories(
         db,
         page=page,
@@ -114,11 +112,7 @@ async def create_laboratory(
     laboratory_data: LaboratoryCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Создать лабораторию.
-
-    Создает новую лабораторию на основе переданных данных.
-    """
+    """Создает новую лабораторию на основе переданных данных."""
     laboratory = await create_laboratory_service(db, laboratory_data)
     await db.commit()
     return LaboratoryResponse.model_validate(laboratory)
@@ -142,9 +136,7 @@ async def list_sampling_locations(
     sort_order: Optional[str] = Query("desc"),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Получить список мест отбора проб.
-    """
+    """Возвращает список мест отбора проб."""
     sampling_locations = await get_sampling_locations(
         db,
         branch_id=branch_id,
@@ -179,11 +171,7 @@ async def create_sampling_location(
     sampling_location_data: SamplingLocationCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Создать место отбора пробы.
-
-    Создает новое место отбора проб на основе переданных данных.
-    """
+    """Создает новое место отбора проб на основе переданных данных."""
     sampling_location = await create_sampling_location_service(
         db, sampling_location_data
     )
@@ -206,9 +194,7 @@ async def get_sampling_location(
     sampling_location_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Получить место отбора проб по ID.
-    """
+    """Возвращает информацию о месте отбора проб по его идентификатору."""
     sampling_location = await get_sampling_location_by_id(db, sampling_location_id)
     if not sampling_location:
         raise NotFoundError("Место отбора проб не найдено")
@@ -235,11 +221,7 @@ async def update_sampling_location(
     sampling_location_data: SamplingLocationUpdate,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Обновить место отбора пробы.
-
-    Обновляет существующее место отбора проб по его идентификатору.
-    """
+    """Обновляет существующее место отбора проб. Можно обновить только указанные поля."""
     sampling_location = await update_sampling_location_service(
         db, sampling_location_id, sampling_location_data
     )
@@ -262,11 +244,7 @@ async def delete_sampling_location(
     sampling_location_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Удалить место отбора пробы (мягкое удаление).
-
-    Выполняет мягкое удаление места отбора проб по его идентификатору.
-    """
+    """Выполняет мягкое удаление места отбора проб. Место отбора проб помечается как удаленное."""
     await delete_sampling_location_service(db, sampling_location_id)
     await db.commit()
 
@@ -286,9 +264,7 @@ async def get_laboratory(
     laboratory_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Получить лабораторию по ID.
-    """
+    """Возвращает информацию о лаборатории по ее идентификатору."""
     laboratory = await get_laboratory_by_id(db, laboratory_id)
     if not laboratory:
         raise NotFoundError("Лаборатория не найдена")
@@ -311,11 +287,7 @@ async def update_laboratory(
     laboratory_data: LaboratoryUpdate,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Обновить лабораторию.
-
-    Обновляет существующую лабораторию по ее идентификатору.
-    """
+    """Обновляет существующую лабораторию. Можно обновить только указанные поля."""
     laboratory = await update_laboratory_service(db, laboratory_id, laboratory_data)
     await db.commit()
     await db.refresh(laboratory)
@@ -337,11 +309,7 @@ async def delete_laboratory(
     laboratory_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Удалить лабораторию (мягкое удаление).
-
-    Выполняет мягкое удаление лаборатории по ее идентификатору.
-    """
+    """Выполняет мягкое удаление лаборатории. Лаборатория помечается как удаленная."""
     await delete_laboratory_service(db, laboratory_id)
     await db.commit()
 
@@ -366,9 +334,7 @@ async def list_departments(
     sort_order: Optional[str] = Query("desc"),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Получить список подразделений с пагинацией.
-    """
+    """Возвращает список подразделений с пагинацией."""
     departments, total, total_pages = await get_departments(
         db,
         laboratory_id=laboratory_id,
@@ -406,9 +372,7 @@ async def get_departments_by_laboratory(
     laboratory_id: int = Query(..., description="ID лаборатории"),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Получить список подразделений для конкретной лаборатории.
-    """
+    """Возвращает список подразделений для указанной лаборатории."""
     departments, _, _ = await get_departments(
         db, laboratory_id=laboratory_id, page=1, page_size=1000
     )
@@ -437,11 +401,7 @@ async def create_department(
     department_data: DepartmentCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Создать подразделение.
-
-    Создает новое подразделение на основе переданных данных.
-    """
+    """Создает новое подразделение на основе переданных данных."""
     department = await create_department_service(db, department_data)
     await db.commit()
     return DepartmentResponse.model_validate(department)
@@ -463,11 +423,7 @@ async def update_department(
     department_data: DepartmentUpdate,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Обновить подразделение.
-
-    Обновляет существующее подразделение по его идентификатору.
-    """
+    """Обновляет существующее подразделение. Можно обновить только указанные поля."""
     department = await update_department_service(db, department_id, department_data)
     await db.commit()
     await db.refresh(department)
@@ -489,11 +445,7 @@ async def delete_department(
     department_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Удалить подразделение (мягкое удаление).
-
-    Выполняет мягкое удаление подразделения по его идентификатору.
-    """
+    """Выполняет мягкое удаление подразделения. Подразделение помечается как удаленное."""
     await delete_department_service(db, department_id)
     await db.commit()
 
@@ -517,9 +469,7 @@ async def list_branches(
     sort_order: Optional[str] = Query("desc"),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Получить список филиалов.
-    """
+    """Возвращает список филиалов."""
     branches = await get_branches(
         db,
         laboratory_id=laboratory_id,
@@ -547,11 +497,7 @@ async def create_branch(
     branch_data: BranchCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Создать филиал.
-
-    Создает новый филиал на основе переданных данных.
-    """
+    """Создает новый филиал на основе переданных данных."""
     branch = await create_branch_service(db, branch_data)
     await db.commit()
     return BranchResponse.model_validate(branch)
@@ -573,11 +519,7 @@ async def update_branch(
     branch_data: BranchUpdate,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Обновить филиал.
-
-    Обновляет существующий филиал по его идентификатору.
-    """
+    """Обновляет существующий филиал. Можно обновить только указанные поля."""
     branch = await update_branch_service(db, branch_id, branch_data)
     await db.commit()
     return BranchResponse.model_validate(branch)
@@ -598,10 +540,6 @@ async def delete_branch(
     branch_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Удалить филиал (мягкое удаление).
-
-    Выполняет мягкое удаление филиала по его идентификатору.
-    """
+    """Выполняет мягкое удаление филиала. Филиал помечается как удаленный."""
     await delete_branch_service(db, branch_id)
     await db.commit()

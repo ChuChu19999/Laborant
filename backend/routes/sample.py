@@ -56,9 +56,7 @@ router = APIRouter()
 )
 # @IsAuthenticated
 async def get_sample_types():
-    """
-    Получить список типов проб.
-    """
+    """Возвращает список доступных типов проб."""
     return list(get_args(SAMPLE_TYPE_CHOICES))
 
 
@@ -94,9 +92,7 @@ async def list_samples(
     created_at_to: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Получить список проб с пагинацией.
-    """
+    """Возвращает список проб с пагинацией."""
     sampling_date_from_parsed, sampling_date_to_parsed = parse_date_range_params(
         sampling_date_from, sampling_date_to
     )
@@ -171,11 +167,7 @@ async def create_sample_endpoint(
     sample_data: SampleCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Добавить пробу.
-
-    Создает новую пробу на основе переданных данных.
-    """
+    """Создает новую пробу на основе переданных данных."""
     sample = await create_sample(db, sample_data)
     await db.flush()
     await db.commit()
@@ -218,9 +210,7 @@ async def get_sample(
     sample_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Получить пробу по ID.
-    """
+    """Возвращает информацию о пробе по ее идентификатору."""
     sample = await get_sample_by_id(db, sample_id)
     if not sample:
         raise NotFoundError("Проба не найдена")
@@ -252,11 +242,7 @@ async def update_sample_endpoint(
     sample_data: SampleUpdate,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Обновить пробу.
-
-    Обновляет существующую пробу по ее идентификатору.
-    """
+    """Обновляет существующую пробу. Можно обновить только указанные поля."""
     sample = await update_sample(db, sample_id, sample_data)
     await db.commit()
 
@@ -298,11 +284,7 @@ async def delete_sample_endpoint(
     sample_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Удалить пробу (мягкое удаление).
-
-    Выполняет мягкое удаление пробы по ее идентификатору.
-    """
+    """Выполняет мягкое удаление пробы. Проба помечается как удаленная."""
     await delete_sample(db, sample_id)
     await db.commit()
 
@@ -327,9 +309,7 @@ async def list_selection_conditions(
     sort_order: Optional[str] = Query("desc"),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Получить список условий отбора с пагинацией.
-    """
+    """Возвращает список условий отбора с пагинацией."""
     conditions, total, total_pages = await get_selection_conditions(
         db,
         laboratory_id=laboratory_id,
@@ -374,11 +354,7 @@ async def create_selection_conditions_endpoint(
     conditions_data: SelectionConditionsCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Создать условия отбора.
-
-    Создает новые условия отбора на основе переданных данных.
-    """
+    """Создает новые условия отбора на основе переданных данных."""
     conditions = await create_selection_conditions(db, conditions_data)
     await db.commit()
     cond_dict = SelectionConditionsResponse.model_validate(conditions).model_dump()
@@ -405,11 +381,7 @@ async def update_selection_conditions_endpoint(
     conditions_data: SelectionConditionsUpdate,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Обновить условия отбора.
-
-    Обновляет существующие условия отбора по их идентификатору.
-    """
+    """Обновляет существующие условия отбора. Можно обновить только указанные поля."""
     conditions = await update_selection_conditions(db, conditions_id, conditions_data)
     await db.commit()
 
@@ -445,11 +417,7 @@ async def delete_selection_conditions_endpoint(
     conditions_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Удалить условия отбора (мягкое удаление).
-
-    Выполняет мягкое удаление условий отбора по их идентификатору.
-    """
+    """Выполняет мягкое удаление условий отбора. Условия помечаются как удаленные."""
     await delete_selection_conditions(db, conditions_id)
     await db.commit()
 
@@ -473,9 +441,7 @@ async def list_mass_fraction_oil_refraction_tables(
     sort_order: Optional[str] = Query("desc"),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Получить список таблиц соотношения C к n с пагинацией.
-    """
+    """Возвращает список таблиц соотношения массовой доли нефти к показателю преломления с пагинацией."""
     tables, total, total_pages = await get_mass_fraction_oil_refraction_tables(
         db,
         research_method_id=research_method_id,
@@ -519,11 +485,7 @@ async def create_mass_fraction_oil_refraction_table_endpoint(
     table_data: MassFractionOilRefractionTableCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Создать таблицу соотношения C к n.
-
-    Создает новую таблицу соотношения массовой доли нефти к показателю преломления.
-    """
+    """Создает новую таблицу соотношения массовой доли нефти к показателю преломления."""
     table = await create_mass_fraction_oil_refraction_table(db, table_data)
     await db.commit()
     table_dict = MassFractionOilRefractionTableResponse.model_validate(
@@ -550,11 +512,7 @@ async def update_mass_fraction_oil_refraction_table_endpoint(
     table_data: MassFractionOilRefractionTableUpdate,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Обновить таблицу соотношения C к n.
-
-    Обновляет существующую таблицу по ее идентификатору.
-    """
+    """Обновляет существующую таблицу. Можно обновить только указанные поля."""
     table = await update_mass_fraction_oil_refraction_table(db, table_id, table_data)
     await db.commit()
 
@@ -587,10 +545,6 @@ async def delete_mass_fraction_oil_refraction_table_endpoint(
     table_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Удалить таблицу соотношения C к n (мягкое удаление).
-
-    Выполняет мягкое удаление таблицы по ее идентификатору.
-    """
+    """Выполняет мягкое удаление таблицы. Таблица помечается как удаленная."""
     await delete_mass_fraction_oil_refraction_table(db, table_id)
     await db.commit()

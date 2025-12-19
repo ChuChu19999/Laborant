@@ -30,12 +30,7 @@ async def get_fixtures(
         None, description="Название подразделения (например, 26 съезда КПСС)"
     ),
 ):
-    """
-    Получить список доступных фикстур методов исследования.
-
-    Фикстуры используются для просмотра на фронтенде (как заполнять поля метода).
-    Не создают методы автоматически, только для справки.
-    """
+    """Возвращает список доступных фикстур методов исследования."""
     fixtures = get_available_fixtures(
         laboratory_name=laboratory_name, department_name=department_name
     )
@@ -55,9 +50,7 @@ async def get_fixtures(
 async def list_fixture_files_endpoint(
     fixture_path: str,
 ):
-    """
-    Получить список файлов в директории фикстуры.
-    """
+    """Возвращает список файлов в указанной директории фикстуры."""
     files = list_fixture_files(fixture_path)
     return {"files": files}
 
@@ -78,9 +71,7 @@ async def list_fixture_files_endpoint(
 async def get_fixture(
     fixture_path: str,
 ):
-    """
-    Получить данные конкретной фикстуры.
-    """
+    """Возвращает данные конкретной фикстуры по указанному пути."""
     data = get_fixture_data(fixture_path)
     if data is None:
         raise NotFoundError("Фикстура не найдена")

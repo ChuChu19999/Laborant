@@ -60,9 +60,7 @@ async def list_research_methods(
     sort_order: Optional[str] = Query("desc"),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Получить список методов исследования с пагинацией.
-    """
+    """Возвращает список методов исследования с пагинацией."""
     methods, total, total_pages = await get_research_methods(
         db,
         laboratory_id=laboratory_id,
@@ -102,11 +100,7 @@ async def create_research_method_endpoint(
     method_data: ResearchMethodCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Создать метод исследования.
-
-    Создает новый метод исследования на основе переданных данных.
-    """
+    """Создает новый метод исследования на основе переданных данных."""
     method = await create_research_method(db, method_data)
     await db.commit()
     await db.refresh(method)
@@ -141,9 +135,7 @@ async def get_research_method(
     method_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Получить метод исследования по ID.
-    """
+    """Возвращает информацию о методе исследования по его идентификатору."""
     method = await get_research_method_by_id(db, method_id)
     if not method:
         raise NotFoundError("Метод исследования не найден")
@@ -166,11 +158,7 @@ async def update_research_method_endpoint(
     method_data: ResearchMethodUpdate,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Обновить метод исследования.
-
-    Обновляет существующий метод исследования по его идентификатору.
-    """
+    """Обновляет существующий метод исследования. Можно обновить только указанные поля."""
     method = await update_research_method(db, method_id, method_data)
     await db.commit()
     await db.refresh(method)
@@ -205,11 +193,7 @@ async def delete_research_method_endpoint(
     method_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Удалить метод исследования (мягкое удаление).
-
-    Выполняет мягкое удаление метода исследования по его идентификатору.
-    """
+    """Выполняет мягкое удаление метода исследования. Метод помечается как удаленный."""
     await delete_research_method(db, method_id)
     await db.commit()
 
@@ -230,11 +214,7 @@ async def update_research_method_sort_order_endpoint(
     sort_data: ResearchMethodSortOrderUpdate,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Изменить порядок сортировки метода исследования.
-
-    Изменяет порядок сортировки метода исследования по его идентификатору.
-    """
+    """Изменяет порядок сортировки метода исследования."""
     method = await update_research_method_sort_order(db, method_id, sort_data)
     await db.commit()
     await db.refresh(method)
@@ -269,11 +249,7 @@ async def batch_update_sort_order_endpoint(
     batch_data: SortOrderBatchUpdate,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Массовое обновление sort_order для методов и групп.
-
-    Позволяет обновить sort_order для нескольких элементов одновременно.
-    """
+    """Массовое обновление sort_order для методов и групп исследования."""
     await batch_update_sort_order(db, batch_data)
     await db.commit()
     return {"message": "Порядок сортировки успешно обновлен"}
@@ -300,9 +276,7 @@ async def list_research_method_groups(
     sort_order: Optional[str] = Query("desc"),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Получить список групп методов исследования с пагинацией.
-    """
+    """Возвращает список групп методов исследования с пагинацией."""
     groups, total, total_pages = await get_research_method_groups(
         db,
         page=page,
@@ -338,11 +312,7 @@ async def create_research_method_group_endpoint(
     group_data: ResearchMethodGroupCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Создать группу методов исследования.
-
-    Создает новую группу методов исследования на основе переданных данных.
-    """
+    """Создает новую группу методов исследования на основе переданных данных."""
     group = await create_research_method_group(db, group_data)
     await db.commit()
     return ResearchMethodGroupResponse.model_validate(group)
@@ -363,9 +333,7 @@ async def get_research_method_group(
     group_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Получить группу методов исследования по ID.
-    """
+    """Возвращает информацию о группе методов исследования по ее идентификатору."""
     group = await get_research_method_group_by_id(db, group_id)
     if not group:
         raise NotFoundError("Группа методов исследования не найдена")
@@ -388,11 +356,7 @@ async def update_research_method_group_endpoint(
     group_data: ResearchMethodGroupUpdate,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Обновить группу методов исследования.
-
-    Обновляет существующую группу методов исследования по ее идентификатору.
-    """
+    """Обновляет существующую группу методов исследования. Можно обновить только указанные поля."""
     group = await update_research_method_group(db, group_id, group_data)
     await db.commit()
     return ResearchMethodGroupResponse.model_validate(group)
@@ -413,11 +377,7 @@ async def delete_research_method_group_endpoint(
     group_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Удалить группу методов исследования (мягкое удаление).
-
-    Выполняет мягкое удаление группы методов исследования по ее идентификатору.
-    """
+    """Выполняет мягкое удаление группы методов исследования. Группа помечается как удаленная."""
     await delete_research_method_group(db, group_id)
     await db.commit()
 
@@ -443,12 +403,7 @@ async def get_available_research_methods(
     ),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Получить список доступных методов исследования для лаборатории/подразделения.
-
-    Методы возвращаются сгруппированными по группам, если они принадлежат группе.
-    Если указан sample_id, исключаются методы, уже привязанные к этой пробе.
-    """
+    """Возвращает список доступных методов исследования для указанной лаборатории и подразделения."""
     sample = None
     if sample_id:
         sample = await get_sample_by_id(db, sample_id)

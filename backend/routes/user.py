@@ -31,9 +31,5 @@ router = APIRouter()
 )
 # @IsAuthenticated
 async def get_current_user_info(decoded_token: dict = Depends(get_current_user)):
-    """
-    Получение информации о текущем пользователе из JWT токена.
-
-    Требует валидный JWT токен в заголовке X-API-KEY.
-    """
+    """Возвращает информацию о текущем авторизованном пользователе на основе JWT токена."""
     return get_user_from_token(decoded_token)
