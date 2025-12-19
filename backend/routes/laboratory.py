@@ -56,21 +56,22 @@ router = APIRouter()
     response_model=PaginatedResponse[LaboratoryResponse],
     summary="Получение списка лабораторий",
     description=(
-        "Возвращает список лабораторий с пагинацией. "
+        "Возвращает список лабораторий с пагинацией или без. "
+        "Если page и page_size не указаны, возвращает все записи. "
         "Поддерживает поиск и сортировку."
     ),
     responses={200: {"description": "Список лабораторий успешно получен"}},
 )
 # @IsAuthenticated
 async def list_laboratories(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page: Optional[int] = Query(None, ge=1),
+    page_size: Optional[int] = Query(None, ge=1, le=100),
     search: Optional[str] = Query(None),
     sort_by: Optional[str] = Query(None),
     sort_order: Optional[str] = Query("desc"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Возвращает список лабораторий с пагинацией."""
+    """Возвращает список лабораторий с пагинацией или без."""
     laboratories, total, total_pages = await get_laboratories(
         db,
         page=page,
@@ -90,8 +91,8 @@ async def list_laboratories(
     return PaginatedResponse(
         items=items,
         total=total,
-        page=page,
-        page_size=page_size,
+        page=page if page is not None else 1,
+        page_size=page_size if page_size is not None else total,
         total_pages=total_pages,
     )
 
@@ -319,7 +320,8 @@ async def delete_laboratory(
     response_model=PaginatedResponse[DepartmentResponse],
     summary="Получение списка подразделений",
     description=(
-        "Возвращает список подразделений с пагинацией. "
+        "Возвращает список подразделений с пагинацией или без. "
+        "Если page и page_size не указаны, возвращает все записи. "
         "Поддерживает фильтрацию по лабораториям, поиск и сортировку."
     ),
     responses={200: {"description": "Список подразделений успешно получен"}},
@@ -327,14 +329,14 @@ async def delete_laboratory(
 # @IsAuthenticated
 async def list_departments(
     laboratory_id: Optional[int] = Query(None),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page: Optional[int] = Query(None, ge=1),
+    page_size: Optional[int] = Query(None, ge=1, le=100),
     search: Optional[str] = Query(None),
     sort_by: Optional[str] = Query(None),
     sort_order: Optional[str] = Query("desc"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Возвращает список подразделений с пагинацией."""
+    """Возвращает список подразделений с пагинацией или без."""
     departments, total, total_pages = await get_departments(
         db,
         laboratory_id=laboratory_id,
@@ -354,8 +356,8 @@ async def list_departments(
     return PaginatedResponse(
         items=items,
         total=total,
-        page=page,
-        page_size=page_size,
+        page=page if page is not None else 1,
+        page_size=page_size if page_size is not None else total,
         total_pages=total_pages,
     )
 
@@ -373,9 +375,7 @@ async def get_departments_by_laboratory(
     db: AsyncSession = Depends(get_db),
 ):
     """Возвращает список подразделений для указанной лаборатории."""
-    departments, _, _ = await get_departments(
-        db, laboratory_id=laboratory_id, page=1, page_size=1000
-    )
+    departments, _, _ = await get_departments(db, laboratory_id=laboratory_id)
     items = []
     for dept in departments:
         dept_dict = DepartmentResponse.model_validate(dept).model_dump()

@@ -1,7 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { SettingOutlined } from '@ant-design/icons';
+import { Dropdown } from 'antd';
 import { ConfirmationModal } from '../../entities/ConfirmationModal';
-import { CreateCalculationModal } from '../../features/Modals';
+import {
+  CreateCalculationModal,
+  SelectionConditionsModal,
+  MassFractionOilRefractionDirectoryModal,
+  EquipmentDefaultModal,
+} from '../../features/Modals';
 import { laboratoriesApi } from '../../shared/api/laboratories';
 import {
   useResearchMethods,
@@ -11,6 +18,7 @@ import {
 } from '../../shared/model/hooks';
 import { useAutoRefetchQuery } from '../../shared/model/lib/useQuery';
 import { useQueryStore } from '../../shared/model/stores';
+import Button from '../../shared/ui/Button/Button';
 import { Select } from '../../shared/ui/FormItems';
 import Layout from '../../shared/ui/Layout/Layout';
 import { CalculationPanel } from '../../widgets/CalculationPanel';
@@ -37,6 +45,9 @@ const AdminPage: React.FC = () => {
   const [selectedMethodId, setSelectedMethodId] = useState<number | null>(null);
   const [showAddButton] = useState(true);
   const [isCreateCalculationModalOpen, setIsCreateCalculationModalOpen] = useState(false);
+  const [isSelectionConditionsModalOpen, setIsSelectionConditionsModalOpen] = useState(false);
+  const [isRefractionTableModalOpen, setIsRefractionTableModalOpen] = useState(false);
+  const [isEquipmentModalOpen, setIsEquipmentModalOpen] = useState(false);
   const [activeId, setActiveId] = useState<number | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
     isOpen: boolean;
@@ -383,6 +394,30 @@ const AdminPage: React.FC = () => {
     return true;
   }, [currentMethodGroup, groupMethods]);
 
+  const handleOpenSelectionConditionsModal = () => {
+    setIsSelectionConditionsModalOpen(true);
+  };
+
+  const handleCloseSelectionConditionsModal = () => {
+    setIsSelectionConditionsModalOpen(false);
+  };
+
+  const handleOpenRefractionTableModal = () => {
+    setIsRefractionTableModalOpen(true);
+  };
+
+  const handleCloseRefractionTableModal = () => {
+    setIsRefractionTableModalOpen(false);
+  };
+
+  const handleOpenEquipmentModal = () => {
+    setIsEquipmentModalOpen(true);
+  };
+
+  const handleCloseEquipmentModal = () => {
+    setIsEquipmentModalOpen(false);
+  };
+
   const leftPanel = (
     <MethodsPanel
       methods={methods}
@@ -401,35 +436,67 @@ const AdminPage: React.FC = () => {
   );
 
   const rightPanel = (
-    <CalculationPanel
-      hasNoMethods={hasNoMethods}
-      selectedMethodId={selectedMethodId}
-      methods={methods}
-      groups={groups}
-      groupSelector={
-        shouldShowGroupSelector ? (
-          <Select
-            value={selectedMethodId}
-            onChange={value => {
-              const methodId = typeof value === 'number' ? value : null;
-              setSelectedMethodId(methodId);
-            }}
-            style={{ width: '470px', marginBottom: '12px' }}
-            className="research-method-select"
-          >
-            {groupMethods.map(method => (
-              <Option key={method.id} value={method.id}>
-                {method.name === 'Фракционный состав (конденсат)'
-                  ? 'Конденсат'
-                  : method.name === 'Фракционный состав (нефть)'
-                    ? 'Нефть'
-                    : method.name}
-              </Option>
-            ))}
-          </Select>
-        ) : undefined
-      }
-    />
+    <div className="admin-page-right-panel">
+      <div className="admin-page-right-panel-header">
+        <Dropdown
+          menu={{
+            items: [
+              {
+                key: 'selection-conditions',
+                label: 'Условия отбора',
+                onClick: handleOpenSelectionConditionsModal,
+              },
+              {
+                key: 'equipment',
+                label: 'Приборы по умолчанию',
+                onClick: handleOpenEquipmentModal,
+                disabled: !currentMethod,
+              },
+              ...(currentMethod && currentMethod.name === 'Массовая доля нефти'
+                ? [
+                    {
+                      key: 'refraction-table',
+                      label: 'Справочник массовой доли нефти',
+                      onClick: handleOpenRefractionTableModal,
+                    },
+                  ]
+                : []),
+            ],
+          }}
+          trigger={['click']}
+        >
+          <Button icon={<SettingOutlined />} className="admin-page-button-settings" />
+        </Dropdown>
+      </div>
+      <CalculationPanel
+        hasNoMethods={hasNoMethods}
+        selectedMethodId={selectedMethodId}
+        methods={methods}
+        groups={groups}
+        groupSelector={
+          shouldShowGroupSelector ? (
+            <Select
+              value={selectedMethodId}
+              onChange={value => {
+                const methodId = typeof value === 'number' ? value : null;
+                setSelectedMethodId(methodId);
+              }}
+              className="admin-page-select research-method-select"
+            >
+              {groupMethods.map(method => (
+                <Option key={method.id} value={method.id}>
+                  {method.name === 'Фракционный состав (конденсат)'
+                    ? 'Конденсат'
+                    : method.name === 'Фракционный состав (нефть)'
+                      ? 'Нефть'
+                      : method.name}
+                </Option>
+              ))}
+            </Select>
+          ) : undefined
+        }
+      />
+    </div>
   );
 
   return (
@@ -463,6 +530,32 @@ const AdminPage: React.FC = () => {
         onCancel={handleDeleteCancel}
         modalWidth="450"
       />
+      {isSelectionConditionsModalOpen && (
+        <SelectionConditionsModal
+          open={isSelectionConditionsModalOpen}
+          onClose={handleCloseSelectionConditionsModal}
+          laboratoryId={labId}
+          departmentId={deptId}
+          entityName={department?.name || laboratory?.name}
+        />
+      )}
+      {isRefractionTableModalOpen && currentMethod && (
+        <MassFractionOilRefractionDirectoryModal
+          open={isRefractionTableModalOpen}
+          onClose={handleCloseRefractionTableModal}
+          researchMethodId={currentMethod.id}
+          methodName={currentMethod.name}
+        />
+      )}
+      {isEquipmentModalOpen && currentMethod && (
+        <EquipmentDefaultModal
+          open={isEquipmentModalOpen}
+          onClose={handleCloseEquipmentModal}
+          currentMethod={currentMethod}
+          laboratoryId={labId}
+          departmentId={deptId}
+        />
+      )}
     </Layout>
   );
 };

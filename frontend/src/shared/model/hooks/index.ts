@@ -12,3 +12,5 @@ export * from './useProtocolsMutations';
 export * from './useEquipment';
 export * from './useEquipmentMutations';
 export * from './useSamplingLocationsMutations';
+export * from './useSelectionConditionsMutations';
+export * from './useMassFractionOilRefractionDirectoryMutations';

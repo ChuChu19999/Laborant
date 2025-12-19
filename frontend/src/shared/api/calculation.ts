@@ -65,8 +65,8 @@ export const calculationApi = {
   },
 
   getCalculations: async (
-    page: number,
-    pageSize: number,
+    page?: number,
+    pageSize?: number,
     filters?: CalculationFilters,
     sorting?: { sort_by?: string; sort_order?: 'asc' | 'desc' }
   ): Promise<{
@@ -76,10 +76,15 @@ export const calculationApi = {
     page_size: number;
     total_pages: number;
   }> => {
-    const params: Record<string, unknown> = {
-      page,
-      page_size: pageSize,
-    };
+    const params: Record<string, unknown> = {};
+
+    if (page !== undefined) {
+      params.page = page;
+    }
+
+    if (pageSize !== undefined) {
+      params.page_size = pageSize;
+    }
 
     if (filters?.sample_id) {
       params.sample_id = filters.sample_id;

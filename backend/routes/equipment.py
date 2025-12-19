@@ -23,7 +23,8 @@ router = APIRouter()
     response_model=PaginatedResponse[EquipmentResponse],
     summary="Получение списка оборудования",
     description=(
-        "Возвращает список оборудования с пагинацией. "
+        "Возвращает список оборудования с пагинацией или без. "
+        "Если page и page_size не указаны, возвращает все записи. "
         "Поддерживает фильтрацию по лабораториям, подразделениям и типу оборудования, поиск и сортировку."
     ),
     responses={200: {"description": "Список оборудования успешно получен"}},
@@ -34,8 +35,8 @@ async def list_equipment(
     department_id: Optional[int] = Query(None),
     equipment_type: Optional[str] = Query(None),
     equipment_types: Optional[list[str]] = Query(None),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page: Optional[int] = Query(None, ge=1),
+    page_size: Optional[int] = Query(None, ge=1, le=100),
     search: Optional[str] = Query(None),
     sort_by: Optional[str] = Query(None),
     sort_order: Optional[str] = Query("desc"),
@@ -47,7 +48,7 @@ async def list_equipment(
     created_at_to: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
-    """Возвращает список оборудования с пагинацией."""
+    """Возвращает список оборудования с пагинацией или без."""
     verification_date_from_parsed, verification_date_to_parsed = (
         parse_date_range_params(verification_date_from, verification_date_to)
     )
@@ -94,8 +95,8 @@ async def list_equipment(
     return PaginatedResponse(
         items=items,
         total=total,
-        page=page,
-        page_size=page_size,
+        page=page if page is not None else 1,
+        page_size=page_size if page_size is not None else total,
         total_pages=total_pages,
     )
 

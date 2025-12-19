@@ -68,17 +68,22 @@ export interface ProtocolFilters {
 
 export const protocolsApi = {
   getProtocols: async (
-    page: number,
-    pageSize: number,
+    page?: number,
+    pageSize?: number,
     filters?: ProtocolFilters,
     sorting?: { sort_by?: string; sort_order?: 'asc' | 'desc' },
     laboratoryId?: number,
     departmentId?: number
   ): Promise<PaginatedResponse<Protocol>> => {
-    const params: Record<string, unknown> = {
-      page,
-      page_size: pageSize,
-    };
+    const params: Record<string, unknown> = {};
+
+    if (page !== undefined) {
+      params.page = page;
+    }
+
+    if (pageSize !== undefined) {
+      params.page_size = pageSize;
+    }
 
     if (laboratoryId) {
       params.laboratory_id = laboratoryId;

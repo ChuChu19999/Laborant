@@ -83,12 +83,12 @@ async def get_calculations(
     department_id: Optional[int] = None,
     research_method_id: Optional[int] = None,
     include_deleted: bool = False,
-    page: int = 1,
-    page_size: int = 20,
+    page: Optional[int] = None,
+    page_size: Optional[int] = None,
     sort_by: Optional[str] = None,
     sort_order: Optional[str] = None,
 ) -> tuple[List[Calculation], int, int]:
-    """Получить список расчетов с пагинацией."""
+    """Получить список расчетов."""
     query = select(Calculation).options(
         selectinload(Calculation.sample),
         selectinload(Calculation.laboratory),
@@ -138,9 +138,13 @@ async def get_calculations(
         count_query = count_query.where(*count_conditions)
 
     total = await get_total_count(db, count_query)
-    total_pages = calculate_total_pages(total, page_size)
 
-    query = apply_pagination(query, page, page_size)
+    if page is not None and page_size is not None:
+        total_pages = calculate_total_pages(total, page_size)
+        query = apply_pagination(query, page, page_size)
+    else:
+        total_pages = 1 if total > 0 else 0
+
     result = await db.execute(query)
     calculations = result.scalars().all()
 

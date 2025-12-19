@@ -57,17 +57,22 @@ export interface EquipmentFilters {
 
 export const equipmentApi = {
   getEquipment: async (
-    page: number,
-    pageSize: number,
+    page?: number,
+    pageSize?: number,
     filters?: EquipmentFilters,
     sorting?: { sort_by?: string; sort_order?: 'asc' | 'desc' },
     laboratoryId?: number,
     departmentId?: number
   ): Promise<PaginatedResponse<Equipment>> => {
-    const params: Record<string, unknown> = {
-      page,
-      page_size: pageSize,
-    };
+    const params: Record<string, unknown> = {};
+
+    if (page !== undefined) {
+      params.page = page;
+    }
+
+    if (pageSize !== undefined) {
+      params.page_size = pageSize;
+    }
 
     if (laboratoryId) {
       params.laboratory_id = laboratoryId;

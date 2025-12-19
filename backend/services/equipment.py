@@ -32,8 +32,8 @@ async def get_equipment_list(
     laboratory_id: Optional[int] = None,
     department_id: Optional[int] = None,
     equipment_types: Optional[List[str]] = None,
-    page: int = 1,
-    page_size: int = 20,
+    page: Optional[int] = None,
+    page_size: Optional[int] = None,
     search: Optional[str] = None,
     sort_by: Optional[str] = None,
     sort_order: Optional[str] = None,
@@ -44,7 +44,7 @@ async def get_equipment_list(
     created_at_from: Optional[pendulum.DateTime] = None,
     created_at_to: Optional[pendulum.DateTime] = None,
 ) -> tuple[List[Equipment], int, int]:
-    """Получить список оборудования с пагинацией."""
+    """Получить список оборудования."""
     query = (
         select(Equipment)
         .where(Equipment.deleted_at.is_(None))
@@ -144,9 +144,13 @@ async def get_equipment_list(
         count_query = count_query.where(*count_conditions)
 
     total = await get_total_count(db, count_query)
-    total_pages = calculate_total_pages(total, page_size)
 
-    query = apply_pagination(query, page, page_size)
+    if page is not None and page_size is not None:
+        total_pages = calculate_total_pages(total, page_size)
+        query = apply_pagination(query, page, page_size)
+    else:
+        total_pages = 1 if total > 0 else 0
+
     result = await db.execute(query)
     equipment_list = result.scalars().all()
 

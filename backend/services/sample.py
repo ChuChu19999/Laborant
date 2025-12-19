@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 import pendulum
-from sqlalchemy import case, func, or_, select
+from sqlalchemy import Float, case, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 from core.exceptions import ConflictError, NotFoundError, ValidationError
@@ -45,8 +45,8 @@ async def get_samples(
     db: AsyncSession,
     laboratory_id: Optional[int] = None,
     department_id: Optional[int] = None,
-    page: int = 1,
-    page_size: int = 20,
+    page: Optional[int] = None,
+    page_size: Optional[int] = None,
     search: Optional[str] = None,
     search_sampling_location: Optional[str] = None,
     sample_type: Optional[str] = None,
@@ -62,7 +62,7 @@ async def get_samples(
     created_at_from: Optional[pendulum.DateTime] = None,
     created_at_to: Optional[pendulum.DateTime] = None,
 ) -> tuple[List[Sample], int, int]:
-    """Получить список проб с пагинацией."""
+    """Получить список проб."""
     query = (
         select(Sample)
         .where(Sample.deleted_at.is_(None))
@@ -209,9 +209,13 @@ async def get_samples(
         count_query = count_query.where(*count_conditions)
 
     total = await get_total_count(db, count_query)
-    total_pages = calculate_total_pages(total, page_size)
 
-    query = apply_pagination(query, page, page_size)
+    if page is not None and page_size is not None:
+        total_pages = calculate_total_pages(total, page_size)
+        query = apply_pagination(query, page, page_size)
+    else:
+        total_pages = 1 if total > 0 else 0
+
     result = await db.execute(query)
     samples = result.scalars().all()
 
@@ -400,12 +404,12 @@ async def get_selection_conditions(
     db: AsyncSession,
     laboratory_id: Optional[int] = None,
     department_id: Optional[int] = None,
-    page: int = 1,
-    page_size: int = 20,
+    page: Optional[int] = None,
+    page_size: Optional[int] = None,
     sort_by: Optional[str] = None,
     sort_order: Optional[str] = None,
 ) -> tuple[List[SelectionConditions], int, int]:
-    """Получить список условий отбора с пагинацией."""
+    """Получить список условий отбора."""
     query = (
         select(SelectionConditions)
         .where(SelectionConditions.deleted_at.is_(None))
@@ -445,9 +449,13 @@ async def get_selection_conditions(
         count_query = count_query.where(*count_conditions)
 
     total = await get_total_count(db, count_query)
-    total_pages = calculate_total_pages(total, page_size)
 
-    query = apply_pagination(query, page, page_size)
+    if page is not None and page_size is not None:
+        total_pages = calculate_total_pages(total, page_size)
+        query = apply_pagination(query, page, page_size)
+    else:
+        total_pages = 1 if total > 0 else 0
+
     result = await db.execute(query)
     selection_conditions = result.scalars().all()
 
@@ -571,12 +579,12 @@ async def get_mass_fraction_oil_refraction_table_by_id(
 async def get_mass_fraction_oil_refraction_tables(
     db: AsyncSession,
     research_method_id: Optional[int] = None,
-    page: int = 1,
-    page_size: int = 20,
+    page: Optional[int] = None,
+    page_size: Optional[int] = None,
     sort_by: Optional[str] = None,
     sort_order: Optional[str] = None,
 ) -> tuple[List[MassFractionOilRefractionTable], int, int]:
-    """Получить список таблиц соотношения C к n с пагинацией."""
+    """Получить список таблиц соотношения C, к, n."""
     query = (
         select(MassFractionOilRefractionTable)
         .where(MassFractionOilRefractionTable.deleted_at.is_(None))
@@ -588,14 +596,24 @@ async def get_mass_fraction_oil_refraction_tables(
             MassFractionOilRefractionTable.research_method_id == research_method_id
         )
 
-    sort_mapping = {
-        "c_value": MassFractionOilRefractionTable.c_value,
-        "created_at": MassFractionOilRefractionTable.created_at,
-    }
-    order_by = build_order_by(
-        sort_by, sort_order, sort_mapping, MassFractionOilRefractionTable.c_value
-    )
-    query = query.order_by(order_by)
+    # Для числовой сортировки c_value используем cast в Float
+    if sort_by == "c_value":
+        c_value_numeric = cast(MassFractionOilRefractionTable.c_value, Float)
+        if sort_order == "desc":
+            query = query.order_by(c_value_numeric.desc())
+        else:
+            query = query.order_by(c_value_numeric.asc())
+    else:
+        sort_mapping = {
+            "created_at": MassFractionOilRefractionTable.created_at,
+        }
+        order_by = build_order_by(
+            sort_by,
+            sort_order,
+            sort_mapping,
+            cast(MassFractionOilRefractionTable.c_value, Float).asc(),
+        )
+        query = query.order_by(order_by)
 
     count_query = (
         select(func.count())
@@ -608,9 +626,13 @@ async def get_mass_fraction_oil_refraction_tables(
         )
 
     total = await get_total_count(db, count_query)
-    total_pages = calculate_total_pages(total, page_size)
 
-    query = apply_pagination(query, page, page_size)
+    if page is not None and page_size is not None:
+        total_pages = calculate_total_pages(total, page_size)
+        query = apply_pagination(query, page, page_size)
+    else:
+        total_pages = 1 if total > 0 else 0
+
     result = await db.execute(query)
     tables = result.scalars().all()
 

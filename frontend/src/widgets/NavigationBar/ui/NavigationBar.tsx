@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeftOutlined } from '@ant-design/icons';
-import { Tooltip } from 'antd';
+import Tooltip from '../../../shared/ui/Tooltip/Tooltip';
 import './NavigationBar.css';
 
 interface Breadcrumb {

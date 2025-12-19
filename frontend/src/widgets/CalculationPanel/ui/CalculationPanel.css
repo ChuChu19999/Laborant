@@ -124,3 +124,11 @@
   width: 100%;
   gap: 16px;
 }
+
+.calculation-panel-form-hidden {
+  display: none;
+}
+
+.calculation-panel-date-picker {
+  width: 100%;
+}

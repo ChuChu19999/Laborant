@@ -158,3 +158,49 @@
   white-space: nowrap;
   font-family: 'HeliosCondC';
 }
+
+.admin-page-right-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.admin-page-right-panel-header {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-top: 5px;
+  width: 100%;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.admin-page-button-settings {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  box-shadow: none;
+  min-width: 40px;
+  width: 40px;
+  min-height: 40px;
+  height: 40px;
+  padding: 0;
+  flex-shrink: 0;
+  margin-left: auto;
+  margin-right: 5px;
+}
+
+.admin-page-button-settings .anticon {
+  font-size: 20px !important;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-page-select {
+  width: 470px;
+  margin-bottom: 12px;
+}

@@ -34,7 +34,8 @@ router = APIRouter()
     response_model=PaginatedResponse[CalculationResponse],
     summary="Получение списка расчетов",
     description=(
-        "Возвращает список расчетов с пагинацией. "
+        "Возвращает список расчетов с пагинацией или без. "
+        "Если page и page_size не указаны, возвращает все записи. "
         "Поддерживает фильтрацию по пробам, лабораториям, подразделениям и методам исследования. "
         "Можно указать несколько ID проб через запятую в параметре sample_ids."
     ),
@@ -50,13 +51,13 @@ async def list_calculations(
     department_id: Optional[int] = Query(None),
     research_method_id: Optional[int] = Query(None),
     include_deleted: bool = Query(False),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page: Optional[int] = Query(None, ge=1),
+    page_size: Optional[int] = Query(None, ge=1, le=100),
     sort_by: Optional[str] = Query(None),
     sort_order: Optional[str] = Query("desc"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Возвращает список расчетов с пагинацией."""
+    """Возвращает список расчетов с пагинацией или без."""
     sample_ids_list = None
     if sample_ids:
         try:
@@ -116,8 +117,8 @@ async def list_calculations(
     return PaginatedResponse(
         items=items,
         total=total,
-        page=page,
-        page_size=page_size,
+        page=page if page is not None else 1,
+        page_size=page_size if page_size is not None else total,
         total_pages=total_pages,
     )
 

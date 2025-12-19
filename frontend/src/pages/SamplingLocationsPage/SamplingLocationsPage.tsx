@@ -10,7 +10,6 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import { IconButton } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button } from 'antd';
 import { LoadingCard } from '../../features/Cards';
 import {
   CreateBranchModal,
@@ -27,6 +26,7 @@ import {
   type SamplingLocation,
 } from '../../shared/api/samplingLocations';
 import { useAutoRefetchQuery } from '../../shared/model/lib/useQuery';
+import Button from '../../shared/ui/Button/Button';
 import { DepartmentCard, LaboratoryCard } from '../../shared/ui/Cards';
 import Layout from '../../shared/ui/Layout/Layout';
 import { NavigationBar } from '../../widgets/NavigationBar';

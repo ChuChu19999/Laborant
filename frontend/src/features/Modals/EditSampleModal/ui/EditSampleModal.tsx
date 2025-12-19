@@ -273,7 +273,7 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({
       saveButtonText="Сохранить"
       showEditButton={false}
       editable={false}
-      style={{ width: '600px' }}
+      modalWidth="550"
     >
       <div className="create-sample-form">
         <div className="form-group">

@@ -81,7 +81,7 @@ const CreateProtocolModal: React.FC<CreateProtocolModalProps> = ({
     ['samples', 'for-protocol', laboratoryId, departmentId],
     () =>
       samplesApi
-        .getSamples(1, 100, undefined, undefined, laboratoryId, departmentId)
+        .getSamples(undefined, undefined, undefined, undefined, laboratoryId, departmentId)
         .then(data => ({
           items: data.items,
           total: data.total,
@@ -245,7 +245,7 @@ const CreateProtocolModal: React.FC<CreateProtocolModalProps> = ({
       onClose={onClose}
       onCancel={handleCancel}
       onSave={handleSave}
-      style={{ width: '600px' }}
+      modalWidth="550"
     >
       <div className="create-protocol-form">
         <div className="form-group">

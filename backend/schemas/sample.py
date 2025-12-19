@@ -192,3 +192,29 @@ class MassFractionOilRefractionTableResponse(MassFractionOilRefractionTableBase)
 
     class Config:
         from_attributes = True
+
+
+class MassFractionOilRefractionTableBulkUpdate(BaseModel):
+    research_method_id: int = Field(..., description="ID метода исследования")
+    entries: List[Dict[str, Any]] = Field(
+        ...,
+        description="Список записей справочника с полями c_value и n_value",
+    )
+
+    @field_validator("entries")
+    @classmethod
+    def validate_entries(cls, v: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        if not isinstance(v, list):
+            raise ValueError("entries должен быть списком")
+        for entry in v:
+            if "c_value" not in entry or "n_value" not in entry:
+                raise ValueError("Каждая запись должна содержать c_value и n_value")
+            try:
+                c_float = float(str(entry["c_value"]))
+                if c_float < 0 or c_float > 100:
+                    raise ValueError(
+                        "Массовая доля нефти должна быть в диапазоне от 0 до 100"
+                    )
+            except (ValueError, TypeError):
+                raise ValueError("c_value должен быть числом")
+        return v

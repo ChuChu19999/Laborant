@@ -21,3 +21,6 @@ export { DeleteBranchModal } from './DeleteBranchModal';
 export { CreateSamplingLocationModal } from './CreateSamplingLocationModal';
 export { EditSamplingLocationModal } from './EditSamplingLocationModal';
 export { DeleteSamplingLocationModal } from './DeleteSamplingLocationModal';
+export { SelectionConditionsModal } from './SelectionConditionsModal';
+export { MassFractionOilRefractionDirectoryModal } from './MassFractionOilRefractionDirectoryModal';
+export { EquipmentDefaultModal } from './EquipmentDefaultModal';

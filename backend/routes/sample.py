@@ -14,6 +14,7 @@ from models.sample import (
 from schemas.pagination import PaginatedResponse
 from schemas.sample import (
     SAMPLE_TYPE_CHOICES,
+    MassFractionOilRefractionTableBulkUpdate,
     MassFractionOilRefractionTableCreate,
     MassFractionOilRefractionTableResponse,
     MassFractionOilRefractionTableUpdate,
@@ -65,7 +66,8 @@ async def get_sample_types():
     response_model=PaginatedResponse[SampleResponse],
     summary="Получение списка проб",
     description=(
-        "Возвращает список проб с пагинацией. "
+        "Возвращает список проб с пагинацией или без. "
+        "Если page и page_size не указаны, возвращает все записи. "
         "Поддерживает фильтрацию по лабораториям и подразделениям, поиск и сортировку."
     ),
     responses={200: {"description": "Список проб успешно получен"}},
@@ -74,8 +76,8 @@ async def get_sample_types():
 async def list_samples(
     laboratory_id: Optional[int] = Query(None),
     department_id: Optional[int] = Query(None),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page: Optional[int] = Query(None, ge=1),
+    page_size: Optional[int] = Query(None, ge=1, le=100),
     search: Optional[str] = Query(None),
     search_sampling_location: Optional[str] = Query(None),
     sample_type: Optional[str] = Query(None),
@@ -92,7 +94,7 @@ async def list_samples(
     created_at_to: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
-    """Возвращает список проб с пагинацией."""
+    """Возвращает список проб с пагинацией или без."""
     sampling_date_from_parsed, sampling_date_to_parsed = parse_date_range_params(
         sampling_date_from, sampling_date_to
     )
@@ -145,8 +147,8 @@ async def list_samples(
     return PaginatedResponse(
         items=items,
         total=total,
-        page=page,
-        page_size=page_size,
+        page=page if page is not None else 1,
+        page_size=page_size if page_size is not None else total,
         total_pages=total_pages,
     )
 
@@ -294,7 +296,8 @@ async def delete_sample_endpoint(
     response_model=PaginatedResponse[SelectionConditionsResponse],
     summary="Получение списка условий отбора",
     description=(
-        "Возвращает список условий отбора с пагинацией. "
+        "Возвращает список условий отбора с пагинацией или без. "
+        "Если page и page_size не указаны, возвращает все записи. "
         "Поддерживает фильтрацию по лабораториям и подразделениям, сортировку."
     ),
     responses={200: {"description": "Список условий отбора успешно получен"}},
@@ -303,13 +306,13 @@ async def delete_sample_endpoint(
 async def list_selection_conditions(
     laboratory_id: Optional[int] = Query(None),
     department_id: Optional[int] = Query(None),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page: Optional[int] = Query(None, ge=1),
+    page_size: Optional[int] = Query(None, ge=1, le=100),
     sort_by: Optional[str] = Query(None),
     sort_order: Optional[str] = Query("desc"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Возвращает список условий отбора с пагинацией."""
+    """Возвращает список условий отбора с пагинацией или без."""
     conditions, total, total_pages = await get_selection_conditions(
         db,
         laboratory_id=laboratory_id,
@@ -332,8 +335,8 @@ async def list_selection_conditions(
     return PaginatedResponse(
         items=items,
         total=total,
-        page=page,
-        page_size=page_size,
+        page=page if page is not None else 1,
+        page_size=page_size if page_size is not None else total,
         total_pages=total_pages,
     )
 
@@ -357,6 +360,17 @@ async def create_selection_conditions_endpoint(
     """Создает новые условия отбора на основе переданных данных."""
     conditions = await create_selection_conditions(db, conditions_data)
     await db.commit()
+
+    result = await db.execute(
+        select(SelectionConditions)
+        .where(SelectionConditions.id == conditions.id)
+        .options(
+            selectinload(SelectionConditions.laboratory),
+            selectinload(SelectionConditions.department),
+        )
+    )
+    conditions = result.scalar_one()
+
     cond_dict = SelectionConditionsResponse.model_validate(conditions).model_dump()
     if hasattr(conditions, "laboratory") and conditions.laboratory:
         cond_dict["laboratory_name"] = conditions.laboratory.name
@@ -427,7 +441,8 @@ async def delete_selection_conditions_endpoint(
     response_model=PaginatedResponse[MassFractionOilRefractionTableResponse],
     summary="Получение списка таблиц соотношения C к n",
     description=(
-        "Возвращает список таблиц соотношения массовой доли нефти к показателю преломления с пагинацией. "
+        "Возвращает список таблиц соотношения массовой доли нефти к показателю преломления с пагинацией или без. "
+        "Если page и page_size не указаны, возвращает все записи. "
         "Поддерживает фильтрацию по методам исследования, сортировку."
     ),
     responses={200: {"description": "Список таблиц успешно получен"}},
@@ -435,13 +450,13 @@ async def delete_selection_conditions_endpoint(
 # @IsAuthenticated
 async def list_mass_fraction_oil_refraction_tables(
     research_method_id: Optional[int] = Query(None),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page: Optional[int] = Query(None, ge=1),
+    page_size: Optional[int] = Query(None, ge=1, le=100),
     sort_by: Optional[str] = Query(None),
     sort_order: Optional[str] = Query("desc"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Возвращает список таблиц соотношения массовой доли нефти к показателю преломления с пагинацией."""
+    """Возвращает список таблиц соотношения массовой доли нефти к показателю преломления с пагинацией или без."""
     tables, total, total_pages = await get_mass_fraction_oil_refraction_tables(
         db,
         research_method_id=research_method_id,
@@ -463,8 +478,8 @@ async def list_mass_fraction_oil_refraction_tables(
     return PaginatedResponse(
         items=items,
         total=total,
-        page=page,
-        page_size=page_size,
+        page=page if page is not None else 1,
+        page_size=page_size if page_size is not None else total,
         total_pages=total_pages,
     )
 
@@ -548,3 +563,93 @@ async def delete_mass_fraction_oil_refraction_table_endpoint(
     """Выполняет мягкое удаление таблицы. Таблица помечается как удаленная."""
     await delete_mass_fraction_oil_refraction_table(db, table_id)
     await db.commit()
+
+
+@router.post(
+    "/mass-fraction-oil-refraction-tables/bulk-update/",
+    response_model=dict,
+    status_code=200,
+    summary="Массовое обновление таблиц соотношения C к n",
+    description=(
+        "Массовое обновление записей справочника. "
+        "Помечает старые записи как неактивные и создает новые."
+    ),
+    responses={
+        200: {"description": "Справочник успешно обновлен"},
+        400: {"description": "Некорректные данные для обновления"},
+    },
+)
+# @IsAuthenticated
+async def bulk_update_mass_fraction_oil_refraction_tables(
+    bulk_data: MassFractionOilRefractionTableBulkUpdate,
+    db: AsyncSession = Depends(get_db),
+):
+    """Массовое обновление записей справочника."""
+    from decimal import Decimal
+    from services.sample import (
+        create_mass_fraction_oil_refraction_table,
+        delete_mass_fraction_oil_refraction_table,
+        get_mass_fraction_oil_refraction_tables,
+    )
+
+    research_method_id = bulk_data.research_method_id
+    new_entries = bulk_data.entries
+
+    # Получаем активные записи
+    active_tables, _, _ = await get_mass_fraction_oil_refraction_tables(
+        db, research_method_id=research_method_id
+    )
+    active_tables = [t for t in active_tables if not t.deleted_at]
+
+    # Создаем карты для сравнения
+    existing_entries_map = {}
+    for entry in active_tables:
+        key = (Decimal(str(entry.c_value)), Decimal(str(entry.n_value)))
+        existing_entries_map[key] = entry
+
+    new_entries_map = {}
+    for entry in new_entries:
+        c_value = Decimal(str(entry.get("c_value", 0)))
+        n_value = Decimal(str(entry.get("n_value", 0)))
+        key = (c_value, n_value)
+        new_entries_map[key] = entry
+
+    # Находим записи для деактивации и создания
+    entries_to_deactivate = []
+    entries_to_create = []
+
+    for key, existing_entry in existing_entries_map.items():
+        if key not in new_entries_map:
+            entries_to_deactivate.append(existing_entry)
+
+    for key, new_entry_data in new_entries_map.items():
+        if key not in existing_entries_map:
+            entries_to_create.append(new_entry_data)
+
+    if not entries_to_deactivate and not entries_to_create:
+        return {"message": "Изменений не обнаружено"}
+
+    # Деактивируем старые записи
+    for entry in entries_to_deactivate:
+        await delete_mass_fraction_oil_refraction_table(db, entry.id)
+
+    # Создаем новые записи
+    created_count = 0
+    for entry_data in entries_to_create:
+        await create_mass_fraction_oil_refraction_table(
+            db,
+            MassFractionOilRefractionTableCreate(
+                research_method_id=research_method_id,
+                c_value=str(entry_data.get("c_value")),
+                n_value=str(entry_data.get("n_value")),
+            ),
+        )
+        created_count += 1
+
+    await db.commit()
+
+    return {
+        "message": "Справочник успешно обновлен",
+        "created": created_count,
+        "deactivated": len(entries_to_deactivate),
+    }

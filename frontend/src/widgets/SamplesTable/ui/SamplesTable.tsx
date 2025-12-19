@@ -13,7 +13,7 @@ import {
   type OnChangeFn,
   type ColumnSizingState,
 } from '@tanstack/react-table';
-import { Button, Checkbox, Input } from 'antd';
+import { Checkbox } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 import { BiChevronLeft, BiChevronRight, BiChevronsLeft, BiChevronsRight } from 'react-icons/bi';
@@ -23,7 +23,8 @@ import { type Sample, samplesApi } from '../../../shared/api/samples';
 import { getDateRangePresets } from '../../../shared/lib/datePresets';
 import { urlParamsToFilters } from '../../../shared/lib/urlParams';
 import { useAutoRefetchQuery } from '../../../shared/model/lib';
-import { Select, RangePicker } from '../../../shared/ui/FormItems';
+import Button from '../../../shared/ui/Button/Button';
+import { Input, Select, RangePicker } from '../../../shared/ui/FormItems';
 import './SamplesTable.css';
 
 dayjs.extend(customParseFormat);

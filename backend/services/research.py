@@ -47,14 +47,14 @@ async def get_research_methods(
     db: AsyncSession,
     laboratory_id: Optional[int] = None,
     department_id: Optional[int] = None,
-    page: int = 1,
-    page_size: int = 20,
+    page: Optional[int] = None,
+    page_size: Optional[int] = None,
     search: Optional[str] = None,
     rounding_type: Optional[str] = None,
     sort_by: Optional[str] = None,
     sort_order: Optional[str] = None,
 ) -> tuple[List[ResearchMethod], int, int]:
-    """Получить список методов исследования с пагинацией."""
+    """Получить список методов исследования."""
     query = (
         select(ResearchMethod)
         .where(ResearchMethod.deleted_at.is_(None))
@@ -116,9 +116,13 @@ async def get_research_methods(
         )
 
     total = await get_total_count(db, count_query)
-    total_pages = calculate_total_pages(total, page_size)
 
-    query = apply_pagination(query, page, page_size)
+    if page is not None and page_size is not None:
+        total_pages = calculate_total_pages(total, page_size)
+        query = apply_pagination(query, page, page_size)
+    else:
+        total_pages = 1 if total > 0 else 0
+
     result = await db.execute(query)
     methods = result.scalars().all()
 
@@ -383,13 +387,13 @@ async def get_research_method_group_by_id(
 
 async def get_research_method_groups(
     db: AsyncSession,
-    page: int = 1,
-    page_size: int = 20,
+    page: Optional[int] = None,
+    page_size: Optional[int] = None,
     search: Optional[str] = None,
     sort_by: Optional[str] = None,
     sort_order: Optional[str] = None,
 ) -> tuple[List[ResearchMethodGroup], int, int]:
-    """Получить список групп методов исследования с пагинацией."""
+    """Получить список групп методов исследования."""
     query = (
         select(ResearchMethodGroup)
         .where(ResearchMethodGroup.deleted_at.is_(None))
@@ -418,9 +422,13 @@ async def get_research_method_groups(
         count_query = count_query.where(ResearchMethodGroup.name.ilike(f"%{search}%"))
 
     total = await get_total_count(db, count_query)
-    total_pages = calculate_total_pages(total, page_size)
 
-    query = apply_pagination(query, page, page_size)
+    if page is not None and page_size is not None:
+        total_pages = calculate_total_pages(total, page_size)
+        query = apply_pagination(query, page, page_size)
+    else:
+        total_pages = 1 if total > 0 else 0
+
     result = await db.execute(query)
     groups = result.scalars().all()
 

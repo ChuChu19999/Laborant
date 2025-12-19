@@ -181,7 +181,7 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({
       onClose={onClose}
       onCancel={handleCancel}
       onSave={handleSave}
-      style={{ width: '600px' }}
+      modalWidth="550"
     >
       <div className="edit-equipment-form">
         <div className="form-group">

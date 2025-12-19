@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { Input } from 'antd';
+import { Input } from '../../../shared/ui/FormItems';
 import type { SelectionConditionsField } from '../../../shared/api/samples';
 import './SelectionConditionsForm.css';
 

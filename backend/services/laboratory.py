@@ -32,13 +32,13 @@ async def get_laboratory_by_id(
 
 async def get_laboratories(
     db: AsyncSession,
-    page: int = 1,
-    page_size: int = 20,
+    page: Optional[int] = None,
+    page_size: Optional[int] = None,
     search: Optional[str] = None,
     sort_by: Optional[str] = None,
     sort_order: Optional[str] = None,
 ) -> tuple[list[Laboratory], int, int]:
-    """Получить список лабораторий с пагинацией."""
+    """Получить список лабораторий."""
     query = (
         select(Laboratory)
         .where(Laboratory.deleted_at.is_(None))
@@ -77,9 +77,13 @@ async def get_laboratories(
         )
 
     total = await get_total_count(db, count_query)
-    total_pages = calculate_total_pages(total, page_size)
 
-    query = apply_pagination(query, page, page_size)
+    if page is not None and page_size is not None:
+        total_pages = calculate_total_pages(total, page_size)
+        query = apply_pagination(query, page, page_size)
+    else:
+        total_pages = 1 if total > 0 else 0
+
     result = await db.execute(query)
     laboratories = result.scalars().all()
 
@@ -184,13 +188,13 @@ async def get_department_by_id(
 async def get_departments(
     db: AsyncSession,
     laboratory_id: Optional[int] = None,
-    page: int = 1,
-    page_size: int = 20,
+    page: Optional[int] = None,
+    page_size: Optional[int] = None,
     search: Optional[str] = None,
     sort_by: Optional[str] = None,
     sort_order: Optional[str] = None,
 ) -> tuple[list[Department], int, int]:
-    """Получить список подразделений с пагинацией."""
+    """Получить список подразделений."""
     query = (
         select(Department)
         .where(Department.deleted_at.is_(None))
@@ -229,9 +233,13 @@ async def get_departments(
         count_query = count_query.where(*count_conditions)
 
     total = await get_total_count(db, count_query)
-    total_pages = calculate_total_pages(total, page_size)
 
-    query = apply_pagination(query, page, page_size)
+    if page is not None and page_size is not None:
+        total_pages = calculate_total_pages(total, page_size)
+        query = apply_pagination(query, page, page_size)
+    else:
+        total_pages = 1 if total > 0 else 0
+
     result = await db.execute(query)
     departments = result.scalars().all()
 

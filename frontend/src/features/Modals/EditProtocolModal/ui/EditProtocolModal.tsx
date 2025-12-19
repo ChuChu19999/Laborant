@@ -109,7 +109,7 @@ const EditProtocolModal: React.FC<EditProtocolModalProps> = ({
     ['samples', 'for-protocol', laboratoryId, departmentId],
     () =>
       samplesApi
-        .getSamples(1, 100, undefined, undefined, laboratoryId, departmentId)
+        .getSamples(undefined, undefined, undefined, undefined, laboratoryId, departmentId)
         .then(data => ({
           items: data.items,
           total: data.total,
@@ -278,7 +278,7 @@ const EditProtocolModal: React.FC<EditProtocolModalProps> = ({
       saveButtonText="Сохранить"
       showEditButton={false}
       editable={false}
-      style={{ width: '600px' }}
+      modalWidth="550"
     >
       <div className="create-protocol-form">
         <div className="form-group">

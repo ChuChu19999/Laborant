@@ -13,7 +13,6 @@ import {
   type OnChangeFn,
   type ColumnSizingState,
 } from '@tanstack/react-table';
-import { Button, Input } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 import { BiChevronLeft, BiChevronRight, BiChevronsLeft, BiChevronsRight } from 'react-icons/bi';
@@ -22,7 +21,8 @@ import { LoadingCard } from '../../../features/Cards';
 import { type Protocol } from '../../../shared/api/protocols';
 import { getDateRangePresets } from '../../../shared/lib/datePresets';
 import { urlParamsToFilters } from '../../../shared/lib/urlParams';
-import { Select, RangePicker } from '../../../shared/ui/FormItems';
+import Button from '../../../shared/ui/Button/Button';
+import { Input, Select, RangePicker } from '../../../shared/ui/FormItems';
 import './ProtocolsTable.css';
 
 dayjs.extend(customParseFormat);

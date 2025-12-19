@@ -1,0 +1,38 @@
+.equipment-default-modal-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.equipment-select-dropdown {
+  font-family: 'HeliosCondC';
+}
+
+.equipment-default-modal-form-item {
+  margin-bottom: 16px;
+}
+
+.equipment-default-modal-spin-container {
+  text-align: center;
+  padding: 20px;
+}
+
+.equipment-default-modal-select {
+  width: 100%;
+}
+
+.equipment-default-modal-text-secondary {
+  font-size: 12px;
+}
+
+.equipment-default-modal-text-block {
+  display: block;
+  margin-top: 8px;
+}
+
+.equipment-default-modal-info-box {
+  padding: 12px;
+  background-color: #f6f8fa;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #586069;
+}

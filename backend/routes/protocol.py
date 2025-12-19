@@ -42,7 +42,8 @@ router = APIRouter()
     response_model=PaginatedResponse[ProtocolResponse],
     summary="Получение списка протоколов",
     description=(
-        "Возвращает список протоколов с пагинацией. "
+        "Возвращает список протоколов с пагинацией или без. "
+        "Если page и page_size не указаны, возвращает все записи. "
         "Поддерживает фильтрацию по лабораториям и подразделениям, сортировку."
     ),
     responses={200: {"description": "Список протоколов успешно получен"}},
@@ -52,8 +53,8 @@ async def list_protocols(
     laboratory_id: Optional[int] = Query(None),
     department_id: Optional[int] = Query(None),
     include_deleted: bool = Query(False),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page: Optional[int] = Query(None, ge=1),
+    page_size: Optional[int] = Query(None, ge=1, le=100),
     sort_by: Optional[str] = Query(None),
     sort_order: Optional[str] = Query("desc"),
     is_accredited: Optional[bool] = Query(None),
@@ -67,7 +68,7 @@ async def list_protocols(
     created_at_to: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
-    """Возвращает список протоколов с пагинацией."""
+    """Возвращает список протоколов с пагинацией или без."""
     test_protocol_date_from_parsed, test_protocol_date_to_parsed = (
         parse_date_range_params(test_protocol_date_from, test_protocol_date_to)
     )
@@ -127,8 +128,8 @@ async def list_protocols(
     return PaginatedResponse(
         items=items,
         total=total,
-        page=page,
-        page_size=page_size,
+        page=page if page is not None else 1,
+        page_size=page_size if page_size is not None else total,
         total_pages=total_pages,
     )
 
@@ -306,7 +307,8 @@ async def generate_protocol_excel_endpoint(
     response_model=PaginatedResponse[ProtocolTemplateResponse],
     summary="Получение списка шаблонов протоколов",
     description=(
-        "Возвращает список шаблонов протоколов с пагинацией. "
+        "Возвращает список шаблонов протоколов с пагинацией или без. "
+        "Если page и page_size не указаны, возвращает все записи. "
         "Поддерживает фильтрацию по лабораториям и подразделениям, сортировку."
     ),
     responses={200: {"description": "Список шаблонов протоколов успешно получен"}},
@@ -316,13 +318,13 @@ async def list_protocol_templates(
     laboratory_id: Optional[int] = Query(None),
     department_id: Optional[int] = Query(None),
     include_deleted: bool = Query(False),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page: Optional[int] = Query(None, ge=1),
+    page_size: Optional[int] = Query(None, ge=1, le=100),
     sort_by: Optional[str] = Query(None),
     sort_order: Optional[str] = Query("desc"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Возвращает список шаблонов протоколов с пагинацией."""
+    """Возвращает список шаблонов протоколов с пагинацией или без."""
     templates, total, total_pages = await get_protocol_templates(
         db,
         laboratory_id=laboratory_id,
@@ -346,8 +348,8 @@ async def list_protocol_templates(
     return PaginatedResponse(
         items=items,
         total=total,
-        page=page,
-        page_size=page_size,
+        page=page if page is not None else 1,
+        page_size=page_size if page_size is not None else total,
         total_pages=total_pages,
     )
 
@@ -373,8 +375,6 @@ async def get_available_protocol_templates(
         laboratory_id=laboratory_id,
         department_id=department_id,
         include_deleted=True,
-        page=1,
-        page_size=1000,
     )
 
     items = []

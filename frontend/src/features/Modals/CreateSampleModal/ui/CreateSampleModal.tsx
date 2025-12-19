@@ -261,7 +261,7 @@ const CreateSampleModal: React.FC<CreateSampleModalProps> = ({
       onClose={onClose}
       onCancel={handleCancel}
       onSave={handleSave}
-      style={{ width: '600px' }}
+      modalWidth="550"
     >
       <div className="create-sample-form">
         <div className="form-group">

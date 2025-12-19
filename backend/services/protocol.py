@@ -43,8 +43,8 @@ async def get_protocols(
     laboratory_id: Optional[int] = None,
     department_id: Optional[int] = None,
     include_deleted: bool = False,
-    page: int = 1,
-    page_size: int = 20,
+    page: Optional[int] = None,
+    page_size: Optional[int] = None,
     sort_by: Optional[str] = None,
     sort_order: Optional[str] = None,
     is_accredited: Optional[bool] = None,
@@ -57,7 +57,7 @@ async def get_protocols(
     created_at_from: Optional[pendulum.DateTime] = None,
     created_at_to: Optional[pendulum.DateTime] = None,
 ) -> tuple[List[Protocol], int, int]:
-    """Получить список протоколов с пагинацией."""
+    """Получить список протоколов."""
     query = select(Protocol).options(
         selectinload(Protocol.laboratory), selectinload(Protocol.department)
     )
@@ -225,9 +225,13 @@ async def get_protocols(
         count_query = count_query.where(*count_conditions)
 
     total = await get_total_count(db, count_query)
-    total_pages = calculate_total_pages(total, page_size)
 
-    query = apply_pagination(query, page, page_size)
+    if page is not None and page_size is not None:
+        total_pages = calculate_total_pages(total, page_size)
+        query = apply_pagination(query, page, page_size)
+    else:
+        total_pages = 1 if total > 0 else 0
+
     result = await db.execute(query)
     protocols = result.scalars().all()
 
@@ -426,12 +430,12 @@ async def get_protocol_templates(
     laboratory_id: Optional[int] = None,
     department_id: Optional[int] = None,
     include_deleted: bool = False,
-    page: int = 1,
-    page_size: int = 20,
+    page: Optional[int] = None,
+    page_size: Optional[int] = None,
     sort_by: Optional[str] = None,
     sort_order: Optional[str] = None,
 ) -> tuple[List[ProtocolTemplate], int, int]:
-    """Получить список шаблонов протоколов с пагинацией."""
+    """Получить список шаблонов протоколов."""
     query = select(ProtocolTemplate).options(
         selectinload(ProtocolTemplate.laboratory),
         selectinload(ProtocolTemplate.department),
@@ -470,9 +474,13 @@ async def get_protocol_templates(
         count_query = count_query.where(*count_conditions)
 
     total = await get_total_count(db, count_query)
-    total_pages = calculate_total_pages(total, page_size)
 
-    query = apply_pagination(query, page, page_size)
+    if page is not None and page_size is not None:
+        total_pages = calculate_total_pages(total, page_size)
+        query = apply_pagination(query, page, page_size)
+    else:
+        total_pages = 1 if total > 0 else 0
+
     result = await db.execute(query)
     templates = result.scalars().all()
 

@@ -216,7 +216,7 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
   if (hasNoMethods) {
     return (
       <div className="calculation-panel">
-        <Form form={form} style={{ display: 'none' }}>
+        <Form form={form} className="calculation-panel-form-hidden">
           <div />
         </Form>
         <div className="calculation-panel-empty">
@@ -232,7 +232,7 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
   if (!selectedMethodId || !currentMethod) {
     return (
       <div className="calculation-panel">
-        <Form form={form} style={{ display: 'none' }}>
+        <Form form={form} className="calculation-panel-form-hidden">
           <div />
         </Form>
         <div className="calculation-panel-empty">
@@ -282,9 +282,8 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
                 placeholder="Введите дату лаб. деятельности"
                 showToday
                 allowClear={true}
-                className={dateError ? 'date-picker-error' : ''}
+                className={`calculation-panel-date-picker ${dateError ? 'date-picker-error' : ''}`}
                 status={dateError ? 'error' : ''}
-                style={{ width: '100%' }}
               />
               {dateError && <div className="calculation-panel-date-error">{dateError}</div>}
             </div>

@@ -1,9 +1,9 @@
 import React, { useCallback } from 'react';
 import { PlusOutlined } from '@ant-design/icons';
-import { Button } from 'antd';
 import { CalculationsTable } from '../../../../entities/CalculationsTable';
 import { calculationApi } from '../../../../shared/api/calculation';
 import { useAutoRefetchQuery } from '../../../../shared/model/lib/useQuery';
+import Button from '../../../../shared/ui/Button/Button';
 import { Modal } from '../../../../shared/ui/Modal';
 import { LoadingCard } from '../../../Cards';
 import type { Calculation } from '../../../../shared/api/calculation';

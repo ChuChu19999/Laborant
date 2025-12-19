@@ -174,7 +174,7 @@ const CreateEquipmentModal: React.FC<CreateEquipmentModalProps> = ({
       onClose={onClose}
       onCancel={handleCancel}
       onSave={handleSave}
-      style={{ width: '600px' }}
+      modalWidth="550"
     >
       <div className="create-equipment-form">
         <div className="form-group">

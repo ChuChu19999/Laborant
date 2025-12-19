@@ -52,15 +52,15 @@ router = APIRouter()
 async def list_research_methods(
     laboratory_id: Optional[int] = Query(None),
     department_id: Optional[int] = Query(None),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page: Optional[int] = Query(None, ge=1),
+    page_size: Optional[int] = Query(None, ge=1, le=100),
     search: Optional[str] = Query(None),
     rounding_type: Optional[str] = Query(None),
     sort_by: Optional[str] = Query(None),
     sort_order: Optional[str] = Query("desc"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Возвращает список методов исследования с пагинацией."""
+    """Возвращает список методов исследования с пагинацией или без."""
     methods, total, total_pages = await get_research_methods(
         db,
         laboratory_id=laboratory_id,
@@ -78,8 +78,8 @@ async def list_research_methods(
     return PaginatedResponse(
         items=items,
         total=total,
-        page=page,
-        page_size=page_size,
+        page=page if page is not None else 1,
+        page_size=page_size if page_size is not None else total,
         total_pages=total_pages,
     )
 
@@ -260,7 +260,8 @@ async def batch_update_sort_order_endpoint(
     response_model=PaginatedResponse[ResearchMethodGroupResponse],
     summary="Получение списка групп методов исследования",
     description=(
-        "Возвращает список групп методов исследования с пагинацией. "
+        "Возвращает список групп методов исследования с пагинацией или без. "
+        "Если page и page_size не указаны, возвращает все записи. "
         "Поддерживает поиск и сортировку."
     ),
     responses={
@@ -269,14 +270,14 @@ async def batch_update_sort_order_endpoint(
 )
 # @IsAuthenticated
 async def list_research_method_groups(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page: Optional[int] = Query(None, ge=1),
+    page_size: Optional[int] = Query(None, ge=1, le=100),
     search: Optional[str] = Query(None),
     sort_by: Optional[str] = Query(None),
     sort_order: Optional[str] = Query("desc"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Возвращает список групп методов исследования с пагинацией."""
+    """Возвращает список групп методов исследования с пагинацией или без."""
     groups, total, total_pages = await get_research_method_groups(
         db,
         page=page,
@@ -288,8 +289,8 @@ async def list_research_method_groups(
     return PaginatedResponse(
         items=[ResearchMethodGroupResponse.model_validate(group) for group in groups],
         total=total,
-        page=page,
-        page_size=page_size,
+        page=page if page is not None else 1,
+        page_size=page_size if page_size is not None else total,
         total_pages=total_pages,
     )
 
@@ -427,7 +428,7 @@ async def get_available_research_methods(
 
     if sample_id and sample:
         calculations, _, _ = await get_calculations(
-            db, sample_id=sample_id, include_deleted=False, page=1, page_size=1000
+            db, sample_id=sample_id, include_deleted=False
         )
         used_method_ids = {calc.research_method_id for calc in calculations}
         methods = [m for m in methods if m.id not in used_method_ids]

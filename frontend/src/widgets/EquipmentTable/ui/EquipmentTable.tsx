@@ -13,7 +13,7 @@ import {
   type OnChangeFn,
   type ColumnSizingState,
 } from '@tanstack/react-table';
-import { Button, Checkbox, Input } from 'antd';
+import { Checkbox } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 import { BiChevronLeft, BiChevronRight, BiChevronsLeft, BiChevronsRight } from 'react-icons/bi';
@@ -22,7 +22,8 @@ import { LoadingCard } from '../../../features/Cards';
 import { type Equipment } from '../../../shared/api/equipment';
 import { getDateRangePresets } from '../../../shared/lib/datePresets';
 import { urlParamsToFilters } from '../../../shared/lib/urlParams';
-import { Select, RangePicker } from '../../../shared/ui/FormItems';
+import Button from '../../../shared/ui/Button/Button';
+import { Input, Select, RangePicker } from '../../../shared/ui/FormItems';
 import './EquipmentTable.css';
 
 const EQUIPMENT_TYPES = [
