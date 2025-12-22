@@ -215,6 +215,15 @@
   padding-top: 2px;
 }
 
+.sampling-locations-add-button-container {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.sampling-locations-add-button-container .button-wrapper .ant-btn {
+  padding: 14px;
+}
+
 .sampling-locations-list-title {
   margin: 0;
   font-size: 18px;

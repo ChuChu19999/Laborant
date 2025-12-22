@@ -406,14 +406,16 @@ const SamplingLocationsPage: React.FC = () => {
                       </p>
                     )}
                   </div>
-                  <Button
-                    type="primary"
-                    icon={<PlusOutlined />}
-                    size="small"
-                    onClick={() => setIsCreateLocationModalOpen(true)}
-                  >
-                    Добавить место отбора пробы
-                  </Button>
+                  <div className="sampling-locations-add-button-container">
+                    <Button
+                      type="primary"
+                      icon={<PlusOutlined />}
+                      size="small"
+                      onClick={() => setIsCreateLocationModalOpen(true)}
+                    >
+                      Добавить место отбора пробы
+                    </Button>
+                  </div>
                 </div>
 
                 {!samplingLocationsData && selectedBranch ? (

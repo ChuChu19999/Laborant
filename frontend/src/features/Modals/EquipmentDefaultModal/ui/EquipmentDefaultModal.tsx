@@ -106,7 +106,9 @@ const EquipmentDefaultModal: React.FC<EquipmentDefaultModalProps> = ({
                   mode="multiple"
                   placeholder="Выберите оборудование"
                   value={selectedEquipment}
-                  onChange={value => setSelectedEquipment(value)}
+                  onChange={(value: unknown) => {
+                    setSelectedEquipment(value as number[]);
+                  }}
                   className="equipment-default-modal-select"
                   optionFilterProp="children"
                   showSearch={false}
