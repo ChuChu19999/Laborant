@@ -220,4 +220,34 @@ export const researchApi = {
   ): Promise<void> => {
     await axiosInstance.patch('/api/sort-order/batch/', { items });
   },
+
+  getAvailableResearchMethods: async (params: {
+    laboratory_id: number;
+    department_id?: number;
+    sample_id?: number;
+  }): Promise<{
+    methods: Array<{
+      id: number | string;
+      name: string;
+      is_group?: boolean;
+      group_id?: number;
+      methods?: Array<{
+        id: number;
+        name: string;
+        input_data?: ResearchMethod['input_data'];
+        intermediate_data?: ResearchMethod['intermediate_data'];
+        unit?: string;
+        equipment_data_default?: number[];
+        sort_order?: number;
+      }>;
+      input_data?: ResearchMethod['input_data'];
+      intermediate_data?: ResearchMethod['intermediate_data'];
+      unit?: string;
+      equipment_data_default?: number[];
+      sort_order?: number;
+    }>;
+  }> => {
+    const response = await axiosInstance.get('/api/research-methods/available/', { params });
+    return response.data;
+  },
 };

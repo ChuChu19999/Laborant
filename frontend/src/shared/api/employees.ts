@@ -23,4 +23,19 @@ export const employeesApi = {
     });
     return response.data;
   },
+
+  // Получение информации о сотрудниках по массиву hashMd5 (батч-запрос)
+  getByHashes: async (hashes: string[], includePhoto: boolean = false) => {
+    if (!hashes || hashes.length === 0) {
+      return {};
+    }
+
+    const response = await axiosInstance.post<
+      Record<string, { hashMd5: string; fullName: string }>
+    >('/api/employees/by-hashes/', {
+      hashesMd5: hashes,
+      includePhoto,
+    });
+    return response.data;
+  },
 };

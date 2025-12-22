@@ -5,6 +5,7 @@ export interface SampleProtocol {
   id: number;
   test_protocol_number?: string;
   test_protocol_date?: string;
+  is_accredited?: boolean;
 }
 
 export interface Sample {

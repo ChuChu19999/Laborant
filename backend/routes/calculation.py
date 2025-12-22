@@ -1,10 +1,14 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from core.database import get_db
 from core.exceptions import NotFoundError, ValidationError
 from core.logger import logger
 from core.security import IsAuthenticated
+from models.calculation import Calculation
+from models.sample import Sample
 from schemas.calculation import (
     CalculateRequest,
     CalculationCreate,
@@ -151,7 +155,23 @@ async def get_calculations_by_sample_endpoint(
 
     items = []
     for calc in calculations:
-        calc_dict = CalculationResponse.model_validate(calc).model_dump()
+        # Создаем базовый словарь из полей Calculation, исключая связанные объекты
+        calc_dict = {
+            "id": calc.id,
+            "sample_id": calc.sample_id,
+            "laboratory_id": calc.laboratory_id,
+            "department_id": calc.department_id,
+            "research_method_id": calc.research_method_id,
+            "input_data": calc.input_data,
+            "result": calc.result,
+            "executor": calc.executor,
+            "measurement_error": calc.measurement_error,
+            "unit": calc.unit,
+            "laboratory_activity_date": calc.laboratory_activity_date,
+            "created_at": calc.created_at,
+            "updated_at": calc.updated_at,
+            "deleted_at": calc.deleted_at,
+        }
 
         if calc.equipment_data:
             equipment_list = []
@@ -207,7 +227,42 @@ async def create_calculation_endpoint(
     """Создает новый расчет на основе переданных данных."""
     calculation = await create_calculation(db, calculation_data)
     await db.commit()
-    calc_dict = CalculationResponse.model_validate(calculation).model_dump()
+
+    # Перезагружаем расчет с связанными объектами
+    reloaded = await db.execute(
+        select(Calculation)
+        .where(Calculation.id == calculation.id)
+        .options(
+            selectinload(Calculation.sample).selectinload(Sample.laboratory),
+            selectinload(Calculation.sample).selectinload(Sample.department),
+            selectinload(Calculation.research_method),
+        )
+    )
+    calculation = reloaded.scalar_one()
+
+    # Создаем словарь, исключая relationship поля (sample, research_method, laboratory, department)
+    # которые будут добавлены позже после преобразования
+    calc_data = {
+        "id": calculation.id,
+        "input_data": calculation.input_data,
+        "equipment_data": calculation.equipment_data,
+        "result": calculation.result,
+        "executor": calculation.executor,
+        "measurement_error": calculation.measurement_error,
+        "unit": calculation.unit,
+        "laboratory_activity_date": calculation.laboratory_activity_date,
+        "sample_id": calculation.sample_id,
+        "laboratory_id": calculation.laboratory_id,
+        "department_id": calculation.department_id,
+        "research_method_id": calculation.research_method_id,
+        "created_at": calculation.created_at,
+        "updated_at": calculation.updated_at,
+        "deleted_at": calculation.deleted_at,
+        "sample": None,
+        "research_method": None,
+        "equipment": None,
+    }
+    calc_dict = CalculationResponse.model_validate(calc_data).model_dump()
 
     if calculation.equipment_data:
         equipment_list = []
@@ -220,6 +275,21 @@ async def create_calculation_endpoint(
                     EquipmentBrief.model_validate(equipment).model_dump()
                 )
         calc_dict["equipment"] = equipment_list
+
+    if hasattr(calculation, "sample") and calculation.sample:
+        sample_dict = SampleResponse.model_validate(calculation.sample).model_dump()
+        if hasattr(calculation.sample, "laboratory") and calculation.sample.laboratory:
+            sample_dict["laboratory_name"] = calculation.sample.laboratory.name
+        if hasattr(calculation.sample, "department") and calculation.sample.department:
+            sample_dict["department_name"] = calculation.sample.department.name
+        calc_dict["sample"] = sample_dict
+
+    if hasattr(calculation, "research_method") and calculation.research_method:
+        calc_dict["research_method"] = {
+            "id": calculation.research_method.id,
+            "name": calculation.research_method.name,
+            "unit": calculation.research_method.unit,
+        }
 
     return CalculationResponse(**calc_dict)
 

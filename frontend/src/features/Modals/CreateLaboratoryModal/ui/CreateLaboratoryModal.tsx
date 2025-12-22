@@ -129,7 +129,7 @@ const CreateLaboratoryModal: React.FC<CreateLaboratoryModalProps> = ({
   return (
     <div className="create-laboratory-modal-wrapper">
       <Modal
-        header="Создание лаборатории"
+        header="Добавление лаборатории"
         onClose={handleClose}
         onCancel={handleClose}
         onSave={handleSave}

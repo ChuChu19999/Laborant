@@ -177,12 +177,41 @@ export const protocolsApi = {
     await axiosInstance.delete(`/api/protocols/${id}/`);
   },
 
-  generateProtocolExcel: async (protocolId: number): Promise<Blob> => {
+  generateProtocolExcel: async (protocolId: number): Promise<{ blob: Blob; filename: string }> => {
     try {
       const response = await axiosInstance.get(`/api/protocols/${protocolId}/generate-excel/`, {
         responseType: 'blob',
       });
-      return response.data;
+
+      // Извлекаем имя файла из заголовка Content-Disposition
+      let filename = `protocol_${protocolId}.xlsx`; // fallback
+      // Для blob-ответов заголовки могут быть в разных форматах
+      const headers = response.headers as Record<string, string> & {
+        get?: (name: string) => string | null;
+      };
+      const contentDisposition =
+        response.headers['content-disposition'] ||
+        response.headers['Content-Disposition'] ||
+        headers.get?.('content-disposition') ||
+        null;
+
+      if (contentDisposition) {
+        // Парсим заголовок: ищем filename*=UTF-8''... или filename="..."
+        const filenameMatch =
+          contentDisposition.match(/filename\*=UTF-8''(.+?)(?:;|$)/i) ||
+          contentDisposition.match(/filename="(.+?)"/i) ||
+          contentDisposition.match(/filename=([^;]+)/i);
+
+        if (filenameMatch) {
+          try {
+            // Декодируем percent-encoded имя файла
+            filename = decodeURIComponent(filenameMatch[1]);
+          } catch {
+            filename = filenameMatch[1].replace(/['"]/g, '');
+          }
+        }
+      }
+      return { blob: response.data, filename };
     } catch (error: unknown) {
       if (error && typeof error === 'object' && 'response' in error) {
         const axiosError = error as { response?: { data?: Blob; status?: number } };

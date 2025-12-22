@@ -132,7 +132,7 @@ const CreateSamplingLocationModal: React.FC<CreateSamplingLocationModalProps> = 
   return (
     <div className="create-sampling-location-modal-wrapper">
       <Modal
-        header="Создание места отбора пробы"
+        header="Добавление места отбора пробы"
         onClose={handleClose}
         onCancel={handleClose}
         onSave={handleSave}

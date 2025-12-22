@@ -330,6 +330,23 @@
 .protocols-table-actions {
   display: flex;
   align-items: center;
+  gap: 8px;
+  justify-content: flex-start;
+  width: fit-content;
+  min-width: 0;
+}
+
+.protocols-table-actions .button-wrapper {
+  flex-shrink: 0;
+  flex-grow: 0;
+  width: auto;
+}
+
+.protocols-table-actions .button-wrapper .ant-btn {
+  width: auto !important;
+  flex-shrink: 0 !important;
+  flex-grow: 0 !important;
+  min-width: auto !important;
 }
 
 .protocols-table-edit-button {

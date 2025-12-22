@@ -49,6 +49,42 @@ const formatDate = (dateString?: string): string => {
   return dayjs(dateString).format('DD.MM.YYYY');
 };
 
+const formatProtocolNumber = (
+  number?: string,
+  date?: string,
+  isAccredited?: boolean,
+  testObject?: string
+): string => {
+  if (!number && !date) return '-';
+  if (!isAccredited) return number || '-';
+
+  const getObjectSuffix = (): string => {
+    if (!testObject) return '';
+
+    const testObjectLower = testObject.toLowerCase();
+    if (testObjectLower.includes('дегазированный конденсат')) return 'дк';
+    if (testObjectLower.includes('нефть') || testObjectLower.includes('нефть калибровочная'))
+      return 'н';
+    if (testObjectLower.includes('нефтеконденсатная смесь')) return 'нкс';
+    if (testObjectLower.includes('дизельное топливо')) return 'дт';
+    if (testObjectLower.includes('отработанные нефтепродукты')) return 'он';
+    if (testObjectLower.includes('масло турбинное')) return 'м';
+    if (testObjectLower.includes('масло авиационное')) return 'м';
+    if (testObjectLower.includes('смесь жидких углеводородов')) return 'с';
+    if (testObjectLower.includes('ингибитор коррозии')) return 'ик';
+    return '';
+  };
+
+  const suffix = getObjectSuffix();
+  const formattedDate = formatDate(date);
+
+  if (!number) return `от ${formattedDate}`;
+  if (!date) return number;
+
+  const protocolNumber = suffix ? `${number}/07/${suffix}` : `${number}/07`;
+  return `${protocolNumber} от ${formattedDate}`;
+};
+
 const SamplesTable: React.FC<SamplesTableProps> = ({
   data,
   loading = false,
@@ -352,8 +388,20 @@ const SamplesTable: React.FC<SamplesTableProps> = ({
             return '';
           }
           return row.protocols
-            .map((p: { test_protocol_number?: string }) => p.test_protocol_number || '')
-            .filter(Boolean)
+            .map(
+              (p: {
+                test_protocol_number?: string;
+                test_protocol_date?: string;
+                is_accredited?: boolean;
+              }) =>
+                formatProtocolNumber(
+                  p.test_protocol_number,
+                  p.test_protocol_date,
+                  p.is_accredited,
+                  row.test_object
+                )
+            )
+            .filter((formatted: string) => formatted !== '-')
             .join(', ');
         },
         cell: ({ row }) => {
@@ -364,12 +412,22 @@ const SamplesTable: React.FC<SamplesTableProps> = ({
           ) {
             return '-';
           }
-          return (
-            row.original.protocols
-              .map((p: { test_protocol_number?: string }) => p.test_protocol_number || '')
-              .filter(Boolean)
-              .join(', ') || '-'
-          );
+          const formatted = row.original.protocols
+            .map(
+              (p: {
+                test_protocol_number?: string;
+                test_protocol_date?: string;
+                is_accredited?: boolean;
+              }) =>
+                formatProtocolNumber(
+                  p.test_protocol_number,
+                  p.test_protocol_date,
+                  p.is_accredited,
+                  row.original.test_object
+                )
+            )
+            .filter((formatted: string) => formatted !== '-');
+          return formatted.length > 0 ? formatted.join(', ') : '-';
         },
         enableSorting: true,
         enableColumnFilter: true,

@@ -170,7 +170,7 @@ const CreateEquipmentModal: React.FC<CreateEquipmentModalProps> = ({
 
   return (
     <Modal
-      header="Создание прибора"
+      header="Добавление прибора"
       onClose={onClose}
       onCancel={handleCancel}
       onSave={handleSave}

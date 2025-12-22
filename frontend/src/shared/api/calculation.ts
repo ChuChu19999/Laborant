@@ -31,6 +31,17 @@ export interface CalculationResult {
   updated_input_data?: Record<string, string | number>;
 }
 
+export interface EquipmentBrief {
+  id: number;
+  name: string;
+  serial_number: string;
+  verification_info: string;
+  verification_date: string;
+  verification_end_date: string;
+  type: string;
+  version: string;
+}
+
 export interface Calculation {
   id: number;
   sample_id: number;
@@ -39,6 +50,7 @@ export interface Calculation {
   research_method_id: number;
   input_data: Record<string, unknown>;
   equipment_data?: number[];
+  equipment?: EquipmentBrief[];
   result: string;
   executor: string;
   measurement_error?: string;
@@ -124,6 +136,23 @@ export const calculationApi = {
       `/api/calculations/by-sample/${sampleId}/`,
       { params }
     );
+    return response.data;
+  },
+
+  createCalculation: async (data: {
+    sample_id: number;
+    laboratory_id: number;
+    department_id?: number;
+    research_method_id: number;
+    input_data: Record<string, unknown>;
+    equipment_data?: number[];
+    result: string;
+    executor: string;
+    measurement_error?: string;
+    unit?: string;
+    laboratory_activity_date: string;
+  }): Promise<Calculation> => {
+    const response = await axiosInstance.post<Calculation>('/api/calculations/', data);
     return response.data;
   },
 };

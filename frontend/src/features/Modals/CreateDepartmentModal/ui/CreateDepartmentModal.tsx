@@ -142,7 +142,7 @@ const CreateDepartmentModal: React.FC<CreateDepartmentModalProps> = ({
   return (
     <div className="create-department-modal-wrapper">
       <Modal
-        header="Создание подразделения"
+        header="Добавление подразделения"
         onClose={handleClose}
         onCancel={handleClose}
         onSave={handleSave}

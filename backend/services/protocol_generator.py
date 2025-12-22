@@ -3,6 +3,7 @@ import re
 from copy import copy
 from io import BytesIO
 from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import quote
 import openpyxl
 import orjson
 import pendulum
@@ -19,7 +20,10 @@ from models.equipment import Equipment
 from models.protocol import Protocol, ProtocolTemplate
 from models.research import ResearchMethod, ResearchMethodGroup
 from models.sample import Sample
-from services.employees import get_employee_position_and_name
+from services.employees import (
+    get_employee_position_and_name,
+    get_employees_by_hashes,
+)
 from utils.protocol_generator_utils import (
     A4_HEIGHT_POINTS,
     DEFAULT_ROW_HEIGHT,
@@ -311,6 +315,12 @@ def process_selection_conditions_row(
             continue
 
         sample_conditions = sample.selection_conditions
+
+        # Поддержка формата, когда условия хранятся в виде
+        # {"conditions": [ ... ]}
+        if isinstance(sample_conditions, dict) and "conditions" in sample_conditions:
+            sample_conditions = sample_conditions.get("conditions") or []
+
         if isinstance(sample_conditions, list):
             for condition_item in sample_conditions:
                 if isinstance(condition_item, dict):
@@ -713,19 +723,37 @@ async def process_between_tables(
     elif isinstance(target_date, str):
         target_date = pendulum.parse(target_date).date()
 
+    # Собираем все уникальные hashMd5 исполнителей
+    unique_executors = set()
     for sample in samples:
         for calc in sample.calculations:
             if calc.executor:
-                position, formatted_name = await get_employee_position_and_name(
-                    calc.executor, target_date
-                )
-                if formatted_name:
-                    executor_info = (
-                        f"{position} {formatted_name}".strip()
-                        if position
-                        else formatted_name
-                    )
-                    executors_cache.add(executor_info)
+                unique_executors.add(calc.executor)
+
+    # Делаем батч-запрос для получения базовой информации о всех исполнителях
+    # Это оптимизирует запросы, но для получения позиции на конкретную дату
+    # все равно нужно вызывать get_employee_position_and_name (который использует кэш)
+    employees_data = {}
+    if unique_executors:
+        try:
+            employees_data = await get_employees_by_hashes(
+                list(unique_executors), include_photo=False
+            )
+        except Exception as e:
+            logger.warning(f"Ошибка при батч-запросе сотрудников: {e}")
+
+    # Для каждого уникального исполнителя получаем позицию и имя
+    # get_employee_position_and_name использует кэш, поэтому повторные вызовы
+    # для одного и того же исполнителя будут быстрыми
+    for executor_hash in unique_executors:
+        position, formatted_name = await get_employee_position_and_name(
+            executor_hash, target_date
+        )
+        if formatted_name:
+            executor_info = (
+                f"{position} {formatted_name}".strip() if position else formatted_name
+            )
+            executors_cache.add(executor_info)
 
     executors = sorted(executors_cache) if executors_cache else []
 
@@ -1918,9 +1946,48 @@ def process_methods_table(
     return current_sheet
 
 
+def _collect_equipment_ids_from_samples(samples: List[Sample]) -> set[int]:
+    """
+    Собирает уникальные ID оборудования из поля calculation.equipment_data для всех проб.
+    """
+    equipment_ids: set[int] = set()
+
+    for sample in samples:
+        for calc in getattr(sample, "calculations", []) or []:
+            data = getattr(calc, "equipment_data", None)
+            if not data:
+                continue
+
+            if isinstance(data, list):
+                for item in data:
+                    if isinstance(item, dict) and "id" in item:
+                        try:
+                            equipment_ids.add(int(item["id"]))
+                        except (TypeError, ValueError):
+                            continue
+                    elif isinstance(item, (int, str)):
+                        try:
+                            equipment_ids.add(int(item))
+                        except (TypeError, ValueError):
+                            continue
+            elif isinstance(data, dict) and "id" in data:
+                try:
+                    equipment_ids.add(int(data["id"]))
+                except (TypeError, ValueError):
+                    continue
+            elif isinstance(data, (int, str)):
+                try:
+                    equipment_ids.add(int(data))
+                except (TypeError, ValueError):
+                    continue
+
+    return equipment_ids
+
+
 def process_equipment_table(
     protocol: Protocol,
     samples: List[Sample],
+    equipment_list: List[Equipment],
     template_sheet,
     current_sheet,
     table_start,
@@ -1929,33 +1996,10 @@ def process_equipment_table(
     sheet_number,
 ):
     """Обрабатывает таблицу с оборудованием."""
-    equipment_ids = set()
-
-    for sample in samples:
-        for calc in sample.calculations:
-            if calc.equipment_data:
-                if isinstance(calc.equipment_data, list):
-                    for item in calc.equipment_data:
-                        if isinstance(item, dict) and "id" in item:
-                            equipment_ids.add(item["id"])
-                        elif isinstance(item, (int, str)):
-                            equipment_ids.add(int(item))
-                elif (
-                    isinstance(calc.equipment_data, dict)
-                    and "id" in calc.equipment_data
-                ):
-                    equipment_ids.add(calc.equipment_data["id"])
-                elif isinstance(calc.equipment_data, (int, str)):
-                    equipment_ids.add(int(calc.equipment_data))
-
-    equipment_list = []
-    for sample in samples:
-        for calc in sample.calculations:
-            if calc.equipment and calc.equipment.id in equipment_ids:
-                if calc.equipment not in equipment_list:
-                    equipment_list.append(calc.equipment)
-
-    equipment_list.sort(key=lambda x: (x.name or "", x.version or ""))
+    # Сортируем список оборудования по наименованию и версии
+    equipment_list = sorted(
+        equipment_list, key=lambda x: (x.name or "", x.version or "")
+    )
 
     if not equipment_list:
         return current_sheet
@@ -2236,8 +2280,10 @@ def process_nd_table(
                 cell.value = value.replace("{id_nd}", str(idx))
             elif "{nd_code}" in value:
                 cell.value = value.replace("{nd_code}", nd_code)
-            elif "{nd_name}" in value:
+            elif "{nd_name}" in value or "{name_nd}" in value:
+                # Поддерживаем оба варианта плейсхолдера: {nd_name} и {name_nd}
                 cell.value = value.replace("{nd_name}", nd_name)
+                cell.value = cell.value.replace("{name_nd}", nd_name)
                 adjust_cell_height_if_needed(current_sheet, current_row, col, nd_name)
 
         current_row += 1
@@ -2281,7 +2327,6 @@ async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> Respons
                 selectinload(Sample.calculations)
                 .selectinload(Calculation.research_method)
                 .selectinload(ResearchMethod.groups),
-                selectinload(Sample.calculations).selectinload(Calculation.equipment),
             )
         )
         samples_result = await db.execute(samples_query)
@@ -2289,6 +2334,18 @@ async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> Respons
 
         if not samples:
             raise ValidationError("У протокола отсутствуют пробы")
+
+        # Собираем список используемого оборудования для всех расчетов по пробам
+        equipment_ids = _collect_equipment_ids_from_samples(samples)
+        equipment_list: List[Equipment] = []
+        if equipment_ids:
+            equipment_query = (
+                select(Equipment)
+                .where(Equipment.id.in_(equipment_ids))
+                .where(Equipment.deleted_at.is_(None))
+            )
+            equipment_result = await db.execute(equipment_query)
+            equipment_list = list(equipment_result.scalars().all())
 
         file_data = protocol.protocol_template.file
         try:
@@ -2393,6 +2450,7 @@ async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> Respons
             current_sheet = process_equipment_table(
                 protocol,
                 samples,
+                equipment_list,
                 template_sheet,
                 current_sheet,
                 table1_end + 1,
@@ -2556,12 +2614,39 @@ async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> Respons
         new_workbook.save(output)
         output.seek(0)
 
+        # Формируем имя файла: "Протокол_<Номер протокола>.xlsx"
+        # Используем базовый номер протокола (без даты и суффиксов)
+        protocol_number = None
+        if protocol.test_protocol_number:
+            protocol_number_str = str(protocol.test_protocol_number).strip()
+            if protocol_number_str:
+                protocol_number = protocol_number_str
+                logger.info(f"Используется номер протокола: {protocol_number}")
+
+        # Если номер протокола отсутствует, используем ID протокола
+        if not protocol_number:
+            protocol_number = str(protocol_id)
+            logger.warning(
+                f"Номер протокола отсутствует для протокола {protocol_id}, используется ID"
+            )
+
+        # Очищаем номер протокола от недопустимых символов для имени файла
+        clean_protocol_number = re.sub(r'[<>:"/\\|?*\x00-\x1F]', "_", protocol_number)
+        clean_protocol_number = clean_protocol_number.replace(" ", "_")
+
+        # Формируем имя файла с русскими символами
+        filename_ru = f"Протокол_{clean_protocol_number}.xlsx"
+
+        # Кодируем русское имя файла для HTTP‑заголовка (RFC 5987)
+        encoded_filename = quote(filename_ru, safe="", encoding="utf-8")
+
+        # Используем только filename* для избежания проблем с latin-1 кодированием в Starlette
+        content_disposition = f"attachment; filename*=UTF-8''{encoded_filename}"
+
         return Response(
             content=output.getvalue(),
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={
-                "Content-Disposition": f'attachment; filename="protocol_{protocol_id}.xlsx"'
-            },
+            headers={"Content-Disposition": content_disposition},
         )
 
     except NotFoundError as e:

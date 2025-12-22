@@ -604,6 +604,7 @@ async def get_protocols_by_sample_ids(
                             if protocol.test_protocol_date
                             else None
                         ),
+                        "is_accredited": protocol.is_accredited,
                     }
                     result[sample_id].append(protocol_dict)
 

@@ -199,11 +199,11 @@ const ProtocolsPage: React.FC = () => {
 
   const handleGenerateExcel = useCallback(async (protocolId: number) => {
     try {
-      const blob = await protocolsApi.generateProtocolExcel(protocolId);
+      const { blob, filename } = await protocolsApi.generateProtocolExcel(protocolId);
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `protocol_${protocolId}.xlsx`;
+      link.download = filename;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

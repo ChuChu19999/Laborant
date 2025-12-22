@@ -1,0 +1,31 @@
+.save-calculation-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  min-width: 500px;
+}
+
+.save-calculation-modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.save-calculation-modal-label {
+  font-family: 'HeliosCondC';
+  font-size: 14px;
+  font-weight: 500;
+  color: #282828;
+}
+
+.save-calculation-modal-label .required {
+  color: #ff4d4f !important;
+}
+
+.save-calculation-modal-error {
+  color: #ff4d4f;
+  font-size: 14px;
+  font-family: 'HeliosCondC';
+  margin-top: 4px;
+}

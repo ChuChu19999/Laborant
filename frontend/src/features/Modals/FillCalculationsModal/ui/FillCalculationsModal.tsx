@@ -1,4 +1,5 @@
 import React, { useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { PlusOutlined } from '@ant-design/icons';
 import { CalculationsTable } from '../../../../entities/CalculationsTable';
 import { calculationApi } from '../../../../shared/api/calculation';
@@ -17,6 +18,7 @@ interface FillCalculationsModalProps {
 }
 
 const FillCalculationsModal: React.FC<FillCalculationsModalProps> = ({ open, onClose, sample }) => {
+  const navigate = useNavigate();
   const { data: calculations, isLoading } = useAutoRefetchQuery<Calculation[]>(
     ['calculations', 'sample', sample.id],
     () => calculationApi.getCalculationsBySample(sample.id),
@@ -30,8 +32,12 @@ const FillCalculationsModal: React.FC<FillCalculationsModalProps> = ({ open, onC
   }, [onClose]);
 
   const handleAddCalculation = useCallback(() => {
-    // Пока ничего не делает
-  }, []);
+    if (sample.laboratory_id && sample.department_id) {
+      const path = `/samples/laboratory/${sample.laboratory_id}/department/${sample.department_id}/calculations?sampleId=${sample.id}`;
+      navigate(path);
+    }
+    onClose();
+  }, [navigate, sample, onClose]);
 
   if (!open) return null;
 

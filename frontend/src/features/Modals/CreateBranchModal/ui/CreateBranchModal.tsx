@@ -140,7 +140,7 @@ const CreateBranchModal: React.FC<CreateBranchModalProps> = ({
   return (
     <div className="create-branch-modal-wrapper">
       <Modal
-        header="Создание филиала"
+        header="Добавление филиала"
         onClose={handleClose}
         onCancel={handleClose}
         onSave={handleSave}

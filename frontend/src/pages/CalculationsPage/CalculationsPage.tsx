@@ -1,0 +1,517 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { message } from 'antd';
+import { LoadingCard } from '../../features/Cards';
+import { SaveCalculationModal } from '../../features/Modals';
+import { laboratoriesApi } from '../../shared/api/laboratories';
+import { researchApi } from '../../shared/api/research';
+import { samplesApi, type Sample } from '../../shared/api/samples';
+import { useAutoRefetchQuery } from '../../shared/model/lib/useQuery';
+import { Select } from '../../shared/ui/FormItems';
+import Layout from '../../shared/ui/Layout/Layout';
+import { CalculationPanel } from '../../widgets/CalculationPanel';
+import { NavigationBar } from '../../widgets/NavigationBar';
+import { SplitPanel } from '../../widgets/SplitPanel';
+import type { CalculationResult } from '../../shared/api/calculation';
+import type { ResearchMethod } from '../../shared/api/research';
+import type { Dayjs } from 'dayjs';
+import './CalculationsPage.css';
+
+const { Option } = Select;
+
+interface AvailableMethod {
+  id: number | string;
+  name: string;
+  is_group?: boolean;
+  group_id?: number;
+  methods?: Array<{
+    id: number;
+    name: string;
+    input_data?: ResearchMethod['input_data'];
+    intermediate_data?: ResearchMethod['intermediate_data'];
+    unit?: string;
+    equipment_data_default?: number[];
+    sort_order?: number;
+  }>;
+  input_data?: ResearchMethod['input_data'];
+  intermediate_data?: ResearchMethod['intermediate_data'];
+  unit?: string;
+  equipment_data_default?: number[];
+  sort_order?: number;
+}
+
+const CalculationsPage: React.FC = () => {
+  const { laboratoryId, departmentId, sampleId } = useParams<{
+    laboratoryId?: string;
+    departmentId?: string;
+    sampleId?: string;
+  }>();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [availableMethods, setAvailableMethods] = useState<AvailableMethod[]>([]);
+  const [selectedMethodId, setSelectedMethodId] = useState<number | null>(null);
+  const [currentMethod, setCurrentMethod] = useState<ResearchMethod | null>(null);
+  const [lastCalculationResult, setLastCalculationResult] = useState<
+    Record<
+      number,
+      {
+        input_data: Record<string, unknown>;
+        result: string;
+        measurement_error?: string;
+        unit?: string;
+        convergence?: string;
+        laboratory_activity_date: Dayjs | null;
+        equipment_data?: number[];
+      }
+    >
+  >({});
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+
+  // Получаем параметры из URL или из query параметров (для обратной совместимости)
+  const labId = laboratoryId
+    ? parseInt(laboratoryId, 10)
+    : searchParams.get('laboratory_id')
+      ? parseInt(searchParams.get('laboratory_id')!, 10)
+      : undefined;
+  const deptId = departmentId
+    ? parseInt(departmentId, 10)
+    : searchParams.get('department_id')
+      ? parseInt(searchParams.get('department_id')!, 10)
+      : undefined;
+  const sampleIdNum = sampleId
+    ? parseInt(sampleId, 10)
+    : searchParams.get('sampleId')
+      ? parseInt(searchParams.get('sampleId')!, 10)
+      : undefined;
+
+  const { data: sample, isLoading: isLoadingSample } = useAutoRefetchQuery<Sample>(
+    ['sample', sampleIdNum],
+    () => samplesApi.getSample(sampleIdNum!),
+    {
+      enabled: !!sampleIdNum,
+    }
+  );
+
+  const { data: laboratories } = useAutoRefetchQuery<
+    Awaited<ReturnType<typeof laboratoriesApi.getLaboratories>>
+  >(['laboratories'], () => laboratoriesApi.getLaboratories(), {
+    enabled: !!labId,
+  });
+
+  const { data: departments } = useAutoRefetchQuery<
+    Awaited<ReturnType<typeof laboratoriesApi.getDepartmentsByLaboratory>>
+  >(
+    ['departments', 'by-laboratory', labId],
+    () => laboratoriesApi.getDepartmentsByLaboratory(labId!),
+    {
+      enabled: !!labId,
+    }
+  );
+
+  useEffect(() => {
+    const fetchAvailableMethods = async () => {
+      if (!labId || !sampleIdNum) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        const response = await researchApi.getAvailableResearchMethods({
+          laboratory_id: labId,
+          department_id: deptId,
+          sample_id: sampleIdNum,
+        });
+
+        setAvailableMethods(response.methods || []);
+
+        // Выбираем первый доступный метод
+        if (response.methods && response.methods.length > 0) {
+          const firstMethod = response.methods[0];
+          if (firstMethod.is_group && firstMethod.methods && firstMethod.methods.length > 0) {
+            const firstGroupMethod = firstMethod.methods[0];
+            setSelectedMethodId(firstGroupMethod.id);
+            // Загружаем полные данные метода
+            const fullMethod = await researchApi.getResearchMethod(firstGroupMethod.id);
+            setCurrentMethod(fullMethod);
+          } else if (!firstMethod.is_group && typeof firstMethod.id === 'number') {
+            setSelectedMethodId(firstMethod.id);
+            // Загружаем полные данные метода
+            const fullMethod = await researchApi.getResearchMethod(firstMethod.id);
+            setCurrentMethod(fullMethod);
+          }
+        }
+      } catch (error) {
+        console.error('Ошибка при загрузке методов:', error);
+        const errorMessage =
+          (error as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+          (error as Error)?.message ||
+          'Не удалось загрузить методы исследования';
+        setError(errorMessage);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAvailableMethods();
+  }, [labId, deptId, sampleIdNum]);
+
+  const handleMethodClick = async (methodId: number) => {
+    try {
+      const fullMethod = await researchApi.getResearchMethod(methodId);
+      setCurrentMethod(fullMethod);
+      setSelectedMethodId(methodId);
+    } catch (error) {
+      console.error('Ошибка при загрузке метода:', error);
+      message.error('Не удалось загрузить метод исследования');
+    }
+  };
+
+  const handleCalculate = async (
+    result: CalculationResult,
+    inputData: Record<string, unknown>,
+    laboratoryActivityDate: Dayjs | null
+  ) => {
+    if (!currentMethod) return;
+
+    setLastCalculationResult(prev => ({
+      ...prev,
+      [currentMethod.id]: {
+        input_data: inputData,
+        result: result.result || '',
+        measurement_error: result.measurement_error,
+        unit: result.unit,
+        convergence: result.convergence,
+        laboratory_activity_date: laboratoryActivityDate,
+        equipment_data: currentMethod.equipment_data_default,
+      },
+    }));
+  };
+
+  const handleOpenSaveModal = () => {
+    if (!currentMethod) {
+      message.warning('Метод не выбран');
+      return;
+    }
+
+    const calculationData = lastCalculationResult[currentMethod.id];
+    if (!calculationData) {
+      message.warning('Нет результатов для сохранения');
+      return;
+    }
+
+    setIsSaveModalOpen(true);
+  };
+
+  const handleSaveSuccess = async () => {
+    setIsSaveModalOpen(false);
+
+    // Очищаем результаты
+    if (currentMethod) {
+      setLastCalculationResult(prev => {
+        const newResult = { ...prev };
+        delete newResult[currentMethod.id];
+        return newResult;
+      });
+    }
+
+    // Обновляем список доступных методов
+    if (labId && sampleIdNum) {
+      try {
+        const response = await researchApi.getAvailableResearchMethods({
+          laboratory_id: labId,
+          department_id: deptId,
+          sample_id: sampleIdNum,
+        });
+        setAvailableMethods(response.methods || []);
+
+        // Если текущий метод больше недоступен, выбираем первый доступный
+        if (currentMethod) {
+          const isCurrentMethodAvailable = response.methods?.some(method =>
+            method.is_group
+              ? method.methods?.some(m => m.id === currentMethod.id)
+              : method.id === currentMethod.id
+          );
+
+          if (!isCurrentMethodAvailable && response.methods && response.methods.length > 0) {
+            const firstMethod = response.methods[0];
+            if (firstMethod.is_group && firstMethod.methods && firstMethod.methods.length > 0) {
+              const firstGroupMethod = firstMethod.methods[0];
+              await handleMethodClick(firstGroupMethod.id);
+            } else if (!firstMethod.is_group && typeof firstMethod.id === 'number') {
+              await handleMethodClick(firstMethod.id);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Ошибка при обновлении списка методов:', error);
+      }
+    }
+  };
+
+  const handleBack = () => {
+    if (labId && deptId) {
+      navigate(`/samples/laboratory/${labId}/department/${deptId}`);
+    } else if (labId) {
+      navigate(`/samples/laboratory/${labId}`);
+    } else {
+      navigate('/samples');
+    }
+  };
+
+  const breadcrumbs = useMemo((): Array<{ label: string; onClick?: () => void }> => {
+    const items: Array<{ label: string; onClick?: () => void }> = [
+      { label: 'Главная', onClick: () => navigate('/') },
+      { label: 'Пробы', onClick: () => navigate('/samples') },
+    ];
+
+    if (labId && laboratories?.items) {
+      const laboratory = laboratories.items.find(l => l.id === labId);
+      if (laboratory) {
+        items.push({
+          label: laboratory.name,
+          onClick: deptId ? () => navigate(`/samples/laboratory/${labId}`) : undefined,
+        });
+      }
+    }
+
+    if (deptId && departments) {
+      const department = departments.find(d => d.id === deptId);
+      if (department) {
+        items.push({
+          label: department.name,
+          onClick: () => navigate(`/samples/laboratory/${labId}/department/${deptId}`),
+        });
+      }
+    }
+
+    items.push({ label: 'Расчеты' });
+
+    return items;
+  }, [labId, deptId, laboratories, departments, navigate]);
+
+  const methods = useMemo(() => {
+    const result: ResearchMethod[] = [];
+    availableMethods.forEach(method => {
+      if (method.is_group && method.methods) {
+        method.methods.forEach(m => {
+          // Создаем объект ResearchMethod из данных группы
+          result.push({
+            id: m.id,
+            name: m.name,
+            sample_type: [],
+            formula: '',
+            measurement_error: { type: 'fixed', value: '' },
+            unit: m.unit || '',
+            measurement_method: '',
+            nd_code: '',
+            nd_name: '',
+            input_data: m.input_data || { fields: [] },
+            intermediate_data: m.intermediate_data || { fields: [] },
+            convergence_conditions: { formulas: [] },
+            rounding_type: 'decimal',
+            rounding_decimal: 0,
+            is_group_member: true,
+            created_at: '',
+            updated_at: '',
+          });
+        });
+      } else if (!method.is_group && typeof method.id === 'number') {
+        result.push({
+          id: method.id,
+          name: method.name,
+          sample_type: [],
+          formula: '',
+          measurement_error: { type: 'fixed', value: '' },
+          unit: method.unit || '',
+          measurement_method: '',
+          nd_code: '',
+          nd_name: '',
+          input_data: method.input_data || { fields: [] },
+          intermediate_data: method.intermediate_data || { fields: [] },
+          convergence_conditions: { formulas: [] },
+          rounding_type: 'decimal',
+          rounding_decimal: 0,
+          is_group_member: false,
+          created_at: '',
+          updated_at: '',
+        });
+      }
+    });
+    return result;
+  }, [availableMethods]);
+
+  const groups = useMemo(() => {
+    return availableMethods
+      .filter(m => m.is_group)
+      .map(m => ({
+        id: typeof m.group_id === 'number' ? m.group_id : 0,
+        name: m.name,
+        methods: (m.methods || []).map(method => ({
+          id: method.id,
+          name: method.name,
+        })),
+        sort_order: m.sort_order || 0,
+        created_at: '',
+        updated_at: '',
+        deleted_at: undefined,
+      }));
+  }, [availableMethods]);
+
+  const leftPanel = (
+    <div className="calculations-page-left-panel">
+      <div className="calculations-page-left-panel-header">
+        <h3 className="calculations-page-left-panel-title">Методы исследования</h3>
+      </div>
+      <div className="calculations-page-left-panel-content">
+        {isLoading ? (
+          <div className="calculations-page-empty">Загрузка методов...</div>
+        ) : availableMethods.length === 0 ? (
+          <div className="calculations-page-empty">Нет доступных методов исследования</div>
+        ) : (
+          <div className="calculations-page-methods-list">
+            {availableMethods.map(method => {
+              const isActive =
+                method.is_group && method.methods
+                  ? method.methods.some(m => m.id === selectedMethodId)
+                  : method.id === selectedMethodId;
+
+              return (
+                <div
+                  key={method.id}
+                  className={`calculations-page-method-item ${isActive ? 'active' : ''}`}
+                  onClick={() => {
+                    if (method.is_group && method.methods && method.methods.length > 0) {
+                      handleMethodClick(method.methods[0].id);
+                    } else if (!method.is_group && typeof method.id === 'number') {
+                      handleMethodClick(method.id);
+                    }
+                  }}
+                >
+                  <span className="calculations-page-method-name">
+                    {method.name === 'Фракционный состав (конденсат)'
+                      ? 'Конденсат'
+                      : method.name === 'Фракционный состав (нефть)'
+                        ? 'Нефть'
+                        : method.name}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const currentMethodGroup = useMemo(() => {
+    if (!currentMethod) return null;
+    return groups.find(group => group.methods.some(gm => gm.id === currentMethod.id));
+  }, [groups, currentMethod]);
+
+  const groupMethods = useMemo(() => {
+    if (!currentMethodGroup) return [];
+    return currentMethodGroup.methods;
+  }, [currentMethodGroup]);
+
+  const shouldShowGroupSelector =
+    currentMethodGroup &&
+    groupMethods.length > 1 &&
+    !groupMethods.some(
+      method =>
+        method.name.toLowerCase().includes('конденсат') ||
+        method.name.toLowerCase().includes('нефть')
+    );
+
+  const rightPanel = (
+    <div className="calculations-page-right-panel">
+      {!selectedMethodId || !currentMethod ? (
+        <div className="calculations-page-placeholder">
+          <h3>Выберите метод исследования</h3>
+          <p>Выберите метод исследования слева, чтобы начать расчет.</p>
+        </div>
+      ) : (
+        <CalculationPanel
+          hasNoMethods={false}
+          selectedMethodId={selectedMethodId}
+          methods={methods}
+          groups={groups}
+          groupSelector={
+            shouldShowGroupSelector ? (
+              <Select
+                value={selectedMethodId}
+                onChange={value => {
+                  const methodId = typeof value === 'number' ? value : null;
+                  if (methodId) {
+                    handleMethodClick(methodId);
+                  }
+                }}
+                className="calculations-page-select research-method-select"
+              >
+                {groupMethods.map(method => (
+                  <Option key={method.id} value={method.id}>
+                    {method.name}
+                  </Option>
+                ))}
+              </Select>
+            ) : undefined
+          }
+          onCalculate={handleCalculate}
+          onSave={handleOpenSaveModal}
+          lastCalculationResult={lastCalculationResult[currentMethod.id]}
+        />
+      )}
+    </div>
+  );
+
+  if (isLoadingSample) {
+    return (
+      <Layout title="Расчеты">
+        <NavigationBar breadcrumbs={breadcrumbs} onBack={handleBack} showBack={true} />
+        <LoadingCard loading />
+      </Layout>
+    );
+  }
+
+  if (error) {
+    return (
+      <Layout title="Ошибка">
+        <NavigationBar breadcrumbs={breadcrumbs} onBack={handleBack} showBack={true} />
+        <div className="calculations-page-error">{error}</div>
+      </Layout>
+    );
+  }
+
+  const title = sample ? `Проба № ${sample.registration_number}` : 'Расчеты';
+
+  return (
+    <Layout title={title}>
+      <NavigationBar breadcrumbs={breadcrumbs} onBack={handleBack} showBack={true} />
+      <SplitPanel leftPanel={leftPanel} rightPanel={rightPanel} />
+
+      {currentMethod && lastCalculationResult[currentMethod.id] && (
+        <SaveCalculationModal
+          open={isSaveModalOpen}
+          onClose={() => setIsSaveModalOpen(false)}
+          onSuccess={handleSaveSuccess}
+          calculationData={{
+            input_data: lastCalculationResult[currentMethod.id].input_data,
+            result: lastCalculationResult[currentMethod.id].result,
+            measurement_error: lastCalculationResult[currentMethod.id].measurement_error,
+            unit: lastCalculationResult[currentMethod.id].unit,
+          }}
+          laboratoryActivityDate={lastCalculationResult[currentMethod.id].laboratory_activity_date}
+          sampleId={sampleIdNum!}
+          laboratoryId={labId!}
+          departmentId={deptId}
+          researchMethodId={currentMethod.id}
+          equipment_data={lastCalculationResult[currentMethod.id].equipment_data}
+        />
+      )}
+    </Layout>
+  );
+};
+
+export default CalculationsPage;

@@ -5,6 +5,7 @@ import { Dropdown } from 'antd';
 import { ConfirmationModal } from '../../entities/ConfirmationModal';
 import {
   CreateCalculationModal,
+  SaveCalculationModal,
   SelectionConditionsModal,
   MassFractionOilRefractionDirectoryModal,
   EquipmentDefaultModal,
@@ -26,9 +27,11 @@ import { CalculationPanel } from '../../widgets/CalculationPanel';
 import { MethodsPanel } from '../../widgets/MethodsPanel';
 import { NavigationBar } from '../../widgets/NavigationBar';
 import { SplitPanel } from '../../widgets/SplitPanel';
+import type { CalculationResult } from '../../shared/api/calculation';
 import type { Laboratory, Department } from '../../shared/api/laboratories';
 import type { ResearchMethod, ResearchMethodGroup } from '../../shared/api/research';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
+import type { Dayjs } from 'dayjs';
 import './AdminPage.css';
 
 const { Option } = Select;
@@ -50,6 +53,20 @@ const AdminPage: React.FC = () => {
   const [isRefractionTableModalOpen, setIsRefractionTableModalOpen] = useState(false);
   const [isEquipmentModalOpen, setIsEquipmentModalOpen] = useState(false);
   const [isProtocolTemplateModalOpen, setIsProtocolTemplateModalOpen] = useState(false);
+  const [isSaveCalculationModalOpen, setIsSaveCalculationModalOpen] = useState(false);
+  const [lastCalculationResult, setLastCalculationResult] = useState<
+    Record<
+      number,
+      {
+        input_data: Record<string, unknown>;
+        result: string;
+        measurement_error?: string;
+        unit?: string;
+        convergence?: string;
+        laboratory_activity_date: Dayjs | null;
+      }
+    >
+  >({});
   const [activeId, setActiveId] = useState<string | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
     isOpen: boolean;
@@ -452,6 +469,52 @@ const AdminPage: React.FC = () => {
     setIsProtocolTemplateModalOpen(false);
   };
 
+  const handleCalculate = async (
+    result: CalculationResult,
+    inputData: Record<string, unknown>,
+    laboratoryActivityDate: Dayjs | null
+  ) => {
+    if (!currentMethod) return;
+
+    setLastCalculationResult(prev => ({
+      ...prev,
+      [currentMethod.id]: {
+        input_data: inputData,
+        result: result.result || '',
+        measurement_error: result.measurement_error,
+        unit: result.unit,
+        convergence: result.convergence,
+        laboratory_activity_date: laboratoryActivityDate,
+      },
+    }));
+  };
+
+  const handleOpenSaveModal = () => {
+    if (!currentMethod) {
+      return;
+    }
+
+    const calculationData = lastCalculationResult[currentMethod.id];
+    if (!calculationData) {
+      return;
+    }
+
+    setIsSaveCalculationModalOpen(true);
+  };
+
+  const handleSaveSuccess = () => {
+    setIsSaveCalculationModalOpen(false);
+
+    // Очищаем результаты
+    if (currentMethod) {
+      setLastCalculationResult(prev => {
+        const newResult = { ...prev };
+        delete newResult[currentMethod.id];
+        return newResult;
+      });
+    }
+  };
+
   const leftPanel = (
     <MethodsPanel
       methods={methods}
@@ -534,6 +597,9 @@ const AdminPage: React.FC = () => {
             </Select>
           ) : undefined
         }
+        onCalculate={handleCalculate}
+        onSave={handleOpenSaveModal}
+        lastCalculationResult={currentMethod ? lastCalculationResult[currentMethod.id] : undefined}
       />
     </div>
   );
@@ -601,6 +667,23 @@ const AdminPage: React.FC = () => {
           onClose={handleCloseProtocolTemplateModal}
           laboratoryId={labId}
           departmentId={deptId}
+        />
+      )}
+      {currentMethod && lastCalculationResult[currentMethod.id] && (
+        <SaveCalculationModal
+          open={isSaveCalculationModalOpen}
+          onClose={() => setIsSaveCalculationModalOpen(false)}
+          onSuccess={handleSaveSuccess}
+          calculationData={{
+            input_data: lastCalculationResult[currentMethod.id].input_data,
+            result: lastCalculationResult[currentMethod.id].result,
+            measurement_error: lastCalculationResult[currentMethod.id].measurement_error,
+            unit: lastCalculationResult[currentMethod.id].unit,
+          }}
+          laboratoryActivityDate={lastCalculationResult[currentMethod.id].laboratory_activity_date}
+          laboratoryId={labId!}
+          departmentId={deptId}
+          researchMethodId={currentMethod.id}
         />
       )}
     </Layout>

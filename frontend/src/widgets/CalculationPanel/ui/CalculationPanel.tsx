@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Form, Button, message } from 'antd';
+import { Form, message } from 'antd';
 import { BiHelpCircle } from 'react-icons/bi';
 import { CalculationResultCard, ParallelCard } from '../../../entities/Cards';
 import { FormItem } from '../../../features/FormItems';
 import { useCalculate } from '../../../shared/model/hooks';
+import Button from '../../../shared/ui/Button/Button';
 import { DatePicker } from '../../../shared/ui/DatePicker';
 import { Select } from '../../../shared/ui/FormItems';
 import Tooltip from '../../../shared/ui/Tooltip/Tooltip';
@@ -21,6 +22,19 @@ interface CalculationPanelProps {
   methods: ResearchMethod[];
   groups: ResearchMethodGroup[];
   groupSelector?: React.ReactNode;
+  onCalculate?: (
+    result: CalculationResult,
+    inputData: Record<string, unknown>,
+    laboratoryActivityDate: Dayjs | null
+  ) => void;
+  onSave?: () => void;
+  lastCalculationResult?: {
+    input_data: Record<string, unknown>;
+    result: string;
+    measurement_error?: string;
+    unit?: string;
+    convergence?: string;
+  };
 }
 
 const CalculationPanel: React.FC<CalculationPanelProps> = ({
@@ -29,6 +43,9 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
   methods,
   groups,
   groupSelector,
+  onCalculate,
+  onSave,
+  lastCalculationResult,
 }) => {
   const [form] = Form.useForm();
   const [formValues, setFormValues] = useState<Record<string, string | number | undefined>>({});
@@ -152,6 +169,7 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
       const response = await calculateMutation.mutateAsync({
         input_data: inputData,
         research_method_id: currentMethod.id,
+        equipment_data: currentMethod.equipment_data_default,
       });
 
       const result: CalculationResult = {
@@ -208,6 +226,11 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
         ...prev,
         [currentMethod.id]: [result],
       }));
+
+      // Вызываем внешний колбэк, если он передан
+      if (onCalculate) {
+        onCalculate(result, inputData, laboratoryActivityDate);
+      }
     } catch (error: unknown) {
       console.error('Ошибка при расчете:', error);
     }
@@ -279,7 +302,7 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
                   setLaboratoryActivityDate(date);
                   setDateError('');
                 }}
-                placeholder="Введите дату лаб. деятельности"
+                placeholder="Введите дату лабораторной деятельности"
                 showToday
                 allowClear={true}
                 className={`calculation-panel-date-picker ${dateError ? 'date-picker-error' : ''}`}
@@ -362,23 +385,36 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
             )}
           </div>
 
-          {calculationResults[currentMethod.id] &&
-            calculationResults[currentMethod.id].length > 0 && (
-              <div className="calculation-panel-results-wrapper">
-                {calculationResults[currentMethod.id].map((result, index) => (
-                  <CalculationResultCard
-                    key={index}
-                    result={result}
-                    currentMethod={currentMethod}
-                  />
-                ))}
-              </div>
-            )}
+          {(calculationResults[currentMethod.id] &&
+            calculationResults[currentMethod.id].length > 0) ||
+          lastCalculationResult ? (
+            <div className="calculation-panel-results-wrapper">
+              {calculationResults[currentMethod.id]?.map((result, index) => (
+                <CalculationResultCard key={index} result={result} currentMethod={currentMethod} />
+              ))}
+              {lastCalculationResult && !calculationResults[currentMethod.id] && (
+                <CalculationResultCard
+                  result={{
+                    result: lastCalculationResult.result,
+                    measurement_error: lastCalculationResult.measurement_error,
+                    unit: lastCalculationResult.unit,
+                    convergence: lastCalculationResult.convergence,
+                  }}
+                  currentMethod={currentMethod}
+                />
+              )}
+            </div>
+          ) : null}
 
           <div className="calculation-panel-actions">
             <Button type="primary" onClick={handleCalculate} loading={isCalculating}>
               Рассчитать
             </Button>
+            {onSave && lastCalculationResult && (
+              <Button type="primary" onClick={onSave}>
+                Сохранить результат
+              </Button>
+            )}
           </div>
         </div>
       </Form>
