@@ -93,6 +93,43 @@ const CreateProtocolModal: React.FC<CreateProtocolModalProps> = ({
 
   const samples = useMemo(() => samplesData?.items || [], [samplesData?.items]);
 
+  // Группируем шаблоны по имени и определяем актуальные
+  const { templatesGrouped, currentTemplateIds } = useMemo(() => {
+    const grouped: Record<string, ProtocolTemplate[]> = {};
+    const currentIds = new Set<number>();
+
+    templates.forEach(template => {
+      if (!grouped[template.name]) {
+        grouped[template.name] = [];
+      }
+      grouped[template.name].push(template);
+    });
+
+    // Для каждой группы находим актуальный шаблон (самая последняя версия без deleted_at)
+    Object.keys(grouped).forEach(name => {
+      const groupTemplates = grouped[name];
+      const activeTemplates = groupTemplates.filter(t => !t.deleted_at);
+
+      if (activeTemplates.length > 0) {
+        // Сортируем по версии (v1, v2, v3...) и берем последнюю
+        const sorted = activeTemplates.sort((a, b) => {
+          const aNum = parseInt(a.version.replace(/^v/i, '') || '0', 10);
+          const bNum = parseInt(b.version.replace(/^v/i, '') || '0', 10);
+          if (aNum !== bNum) {
+            return bNum - aNum;
+          }
+          // Если версии одинаковые, сортируем по дате создания
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        });
+        if (sorted[0]) {
+          currentIds.add(sorted[0].id);
+        }
+      }
+    });
+
+    return { templatesGrouped: grouped, currentTemplateIds: currentIds };
+  }, [templates]);
+
   useEffect(() => {
     if (!open) {
       setFormData({
@@ -347,11 +384,40 @@ const CreateProtocolModal: React.FC<CreateProtocolModalProps> = ({
             loading={templatesLoading}
             allowClear
           >
-            {templates.map(template => (
-              <Option key={template.id} value={template.id}>
-                {template.name}
-              </Option>
-            ))}
+            {Object.entries(templatesGrouped).map(([name, groupTemplates]) => {
+              // Сортируем шаблоны в группе по версии
+              const sorted = [...groupTemplates].sort((a, b) => {
+                const aNum = parseInt(a.version.replace(/^v/i, '') || '0', 10);
+                const bNum = parseInt(b.version.replace(/^v/i, '') || '0', 10);
+                if (aNum !== bNum) {
+                  return bNum - aNum;
+                }
+                // Если версии одинаковые, сортируем по дате создания
+                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+              });
+
+              return sorted.map(template => {
+                const isDeleted = !!template.deleted_at;
+                const isCurrent = currentTemplateIds.has(template.id);
+
+                return (
+                  <Option
+                    key={template.id}
+                    value={template.id}
+                    disabled={isDeleted}
+                    className={isDeleted ? 'template-option-deleted' : ''}
+                  >
+                    <span className={isDeleted ? 'template-name-deleted' : ''}>
+                      {name} - {template.version}
+                    </span>
+                    {isCurrent && !isDeleted && (
+                      <span className="template-current-badge"> (Актуальный)</span>
+                    )}
+                    {isDeleted && <span className="template-deleted-badge"> (Устаревший)</span>}
+                  </Option>
+                );
+              });
+            })}
           </Select>
         </div>
 

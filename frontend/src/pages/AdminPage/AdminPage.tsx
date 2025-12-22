@@ -8,6 +8,7 @@ import {
   SelectionConditionsModal,
   MassFractionOilRefractionDirectoryModal,
   EquipmentDefaultModal,
+  EditProtocolTemplateModal,
 } from '../../features/Modals';
 import { laboratoriesApi } from '../../shared/api/laboratories';
 import {
@@ -48,7 +49,8 @@ const AdminPage: React.FC = () => {
   const [isSelectionConditionsModalOpen, setIsSelectionConditionsModalOpen] = useState(false);
   const [isRefractionTableModalOpen, setIsRefractionTableModalOpen] = useState(false);
   const [isEquipmentModalOpen, setIsEquipmentModalOpen] = useState(false);
-  const [activeId, setActiveId] = useState<number | null>(null);
+  const [isProtocolTemplateModalOpen, setIsProtocolTemplateModalOpen] = useState(false);
+  const [activeId, setActiveId] = useState<string | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
     isOpen: boolean;
     itemId: number | null;
@@ -269,7 +271,7 @@ const AdminPage: React.FC = () => {
   };
 
   const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event.active.id as number);
+    setActiveId(event.active.id as string);
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -280,8 +282,32 @@ const AdminPage: React.FC = () => {
       return;
     }
 
-    const oldIndex = displayItems.findIndex(item => item.id === active.id);
-    const newIndex = displayItems.findIndex(item => item.id === over.id);
+    // Парсим составные ID вида "method-4" или "group-3"
+    const parseId = (id: string | number): { type: 'method' | 'group'; id: number } | null => {
+      const idStr = String(id);
+      if (idStr.includes('-')) {
+        const [type, idPart] = idStr.split('-');
+        const numId = parseInt(idPart, 10);
+        if (!isNaN(numId) && (type === 'method' || type === 'group')) {
+          return { type, id: numId };
+        }
+      }
+      return null;
+    };
+
+    const activeParsed = parseId(active.id as string);
+    const overParsed = parseId(over.id as string);
+
+    if (!activeParsed || !overParsed) {
+      return;
+    }
+
+    const oldIndex = displayItems.findIndex(
+      item => item.id === activeParsed.id && item.type === activeParsed.type
+    );
+    const newIndex = displayItems.findIndex(
+      item => item.id === overParsed.id && item.type === overParsed.type
+    );
 
     if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) {
       return;
@@ -418,6 +444,14 @@ const AdminPage: React.FC = () => {
     setIsEquipmentModalOpen(false);
   };
 
+  const handleOpenProtocolTemplateModal = () => {
+    setIsProtocolTemplateModalOpen(true);
+  };
+
+  const handleCloseProtocolTemplateModal = () => {
+    setIsProtocolTemplateModalOpen(false);
+  };
+
   const leftPanel = (
     <MethodsPanel
       methods={methods}
@@ -441,6 +475,11 @@ const AdminPage: React.FC = () => {
         <Dropdown
           menu={{
             items: [
+              {
+                key: 'protocol-template',
+                label: 'Шаблон протокола',
+                onClick: handleOpenProtocolTemplateModal,
+              },
               {
                 key: 'selection-conditions',
                 label: 'Условия отбора',
@@ -552,6 +591,14 @@ const AdminPage: React.FC = () => {
           open={isEquipmentModalOpen}
           onClose={handleCloseEquipmentModal}
           currentMethod={currentMethod}
+          laboratoryId={labId}
+          departmentId={deptId}
+        />
+      )}
+      {isProtocolTemplateModalOpen && labId && (
+        <EditProtocolTemplateModal
+          open={isProtocolTemplateModalOpen}
+          onClose={handleCloseProtocolTemplateModal}
           laboratoryId={labId}
           departmentId={deptId}
         />

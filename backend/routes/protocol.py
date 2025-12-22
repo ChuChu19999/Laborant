@@ -1,11 +1,14 @@
 from typing import Optional
-from fastapi import APIRouter, Depends, Query
+import orjson
+from urllib.parse import quote
+from fastapi import APIRouter, Depends, Form, Query
 from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from core.database import get_db
-from core.exceptions import NotFoundError
+from core.exceptions import NotFoundError, ValidationError
+from core.logger import logger
 from core.security import IsAuthenticated
 from models.protocol import Protocol, ProtocolTemplate
 from schemas.pagination import PaginatedResponse
@@ -18,6 +21,7 @@ from schemas.protocol import (
     ProtocolUpdate,
 )
 from schemas.sample import SampleResponse
+from services.excel_template import get_excel_styles, save_excel_section
 from services.protocol import (
     create_protocol,
     create_protocol_template,
@@ -428,9 +432,8 @@ async def create_protocol_template_endpoint(
 
 @router.get(
     "/protocol-templates/{template_id}/",
-    response_model=ProtocolTemplateResponse,
     summary="Получение шаблона протокола по ID",
-    description="Возвращает информацию о шаблоне протокола по его идентификатору.",
+    description="Возвращает информацию о шаблоне протокола по его идентификатору или файл при download=true.",
     responses={
         200: {"description": "Шаблон протокола успешно получен"},
         404: {"description": "Шаблон протокола не найден"},
@@ -439,12 +442,29 @@ async def create_protocol_template_endpoint(
 # @IsAuthenticated
 async def get_protocol_template(
     template_id: int,
+    download: bool = Query(False, description="Скачать файл шаблона"),
+    section: Optional[str] = Query(None, description="Секция для скачивания"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Возвращает информацию о шаблоне протокола по его идентификатору."""
+    """Возвращает информацию о шаблоне протокола по его идентификатору или файл при download=true."""
     template = await get_protocol_template_by_id(db, template_id)
     if not template:
         raise NotFoundError("Шаблон протокола не найден")
+
+    if download:
+        from services.excel_template import get_template_file
+
+        file_data = await get_template_file(template, section)
+        # Правильное кодирование имени файла для поддержки не-ASCII символов (RFC 2231)
+        encoded_filename = quote(template.file_name, safe="")
+        # Используем только filename* для избежания проблем с latin-1 кодированием в Starlette
+        content_disposition = f"attachment; filename*=UTF-8''{encoded_filename}"
+        return Response(
+            content=file_data,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": content_disposition},
+        )
+
     template_dict = ProtocolTemplateResponse.model_validate(template).model_dump()
     if template.laboratory:
         template_dict["laboratory_name"] = template.laboratory.name
@@ -508,3 +528,55 @@ async def delete_protocol_template_endpoint(
     """Выполняет мягкое удаление шаблона протокола. Шаблон помечается как удаленный."""
     await delete_protocol_template(db, template_id)
     await db.commit()
+
+
+@router.post(
+    "/save-excel/",
+    summary="Сохранение изменений в секции Excel файла",
+    description="Сохраняет изменения в указанной секции Excel файла шаблона протокола.",
+    responses={
+        200: {"description": "Изменения успешно сохранены"},
+        400: {"description": "Ошибка при сохранении"},
+    },
+)
+# @IsAuthenticated
+async def save_excel_endpoint(
+    data: str = Form(...),
+    styles: str = Form(...),
+    template_id: int = Form(...),
+    section: str = Form(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """Сохраняет изменения в секции Excel файла."""
+    try:
+        data_list = orjson.loads(data)
+        styles_dict = orjson.loads(styles)
+
+        result = await save_excel_section(
+            db, template_id, data_list, styles_dict, section
+        )
+        await db.commit()
+        return result
+    except Exception as e:
+        logger.error(f"Ошибка при сохранении Excel файла: {str(e)}", exc_info=True)
+        await db.rollback()
+        raise ValidationError(f"Ошибка при сохранении: {str(e)}")
+
+
+@router.get(
+    "/get-excel-styles/",
+    summary="Получение стилей для ячеек Excel файла",
+    description="Возвращает стили для ячеек в указанной секции Excel файла шаблона протокола.",
+    responses={
+        200: {"description": "Стили успешно получены"},
+        404: {"description": "Шаблон протокола не найден"},
+    },
+)
+# @IsAuthenticated
+async def get_excel_styles_endpoint(
+    template_id: int = Query(...),
+    section: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """Возвращает стили для ячеек в указанной секции Excel файла."""
+    return await get_excel_styles(db, template_id, section)

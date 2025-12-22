@@ -204,10 +204,10 @@
         ]
     },
     "intermediate_data": {
-        "fields": []
+        "fields": {}
     },
     "convergence_conditions": {
-        "formulas": []
+        "formulas": {}
     },
     "is_deleted": false,
     "rounding_type": "decimal",

@@ -66,6 +66,28 @@ export interface ProtocolFilters {
   [key: string]: unknown;
 }
 
+export interface ProtocolTemplate {
+  id: number;
+  name: string;
+  file_name: string;
+  version: string;
+  accreditation_header_row?: number;
+  laboratory_id: number;
+  department_id?: number;
+  laboratory_name?: string;
+  department_name?: string;
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string;
+}
+
+export interface CellStyle {
+  fontWeight?: string;
+  fontStyle?: string;
+  fontSize?: string;
+  textAlign?: 'left' | 'center' | 'right';
+}
+
 export const protocolsApi = {
   getProtocols: async (
     page?: number,
@@ -201,19 +223,99 @@ export const protocolsApi = {
     );
     return response.data;
   },
-};
 
-export interface ProtocolTemplate {
-  id: number;
-  name: string;
-  file_name: string;
-  version: string;
-  accreditation_header_row?: number;
-  laboratory_id: number;
-  department_id?: number;
-  laboratory_name?: string;
-  department_name?: string;
-  created_at: string;
-  updated_at: string;
-  deleted_at?: string;
-}
+  getProtocolTemplates: async (
+    laboratoryId?: number,
+    departmentId?: number,
+    page?: number,
+    pageSize?: number
+  ): Promise<PaginatedResponse<ProtocolTemplate>> => {
+    const params: Record<string, unknown> = {};
+    if (laboratoryId) {
+      params.laboratory_id = laboratoryId;
+    }
+    if (departmentId) {
+      params.department_id = departmentId;
+    }
+    if (page !== undefined) {
+      params.page = page;
+    }
+    if (pageSize !== undefined) {
+      params.page_size = pageSize;
+    }
+    const response = await axiosInstance.get<PaginatedResponse<ProtocolTemplate>>(
+      '/api/protocol-templates/',
+      { params }
+    );
+    return response.data;
+  },
+
+  getProtocolTemplate: async (id: number): Promise<ProtocolTemplate> => {
+    const response = await axiosInstance.get<ProtocolTemplate>(`/api/protocol-templates/${id}/`);
+    return response.data;
+  },
+
+  createProtocolTemplate: async (data: {
+    name: string;
+    file_name: string;
+    file: string;
+    laboratory_id: number;
+    department_id?: number;
+  }): Promise<ProtocolTemplate> => {
+    const response = await axiosInstance.post<ProtocolTemplate>('/api/protocol-templates/', data);
+    return response.data;
+  },
+
+  updateProtocolTemplate: async (
+    id: number,
+    data: Partial<ProtocolTemplate> & { file?: string }
+  ): Promise<ProtocolTemplate> => {
+    const response = await axiosInstance.patch<ProtocolTemplate>(
+      `/api/protocol-templates/${id}/`,
+      data
+    );
+    return response.data;
+  },
+
+  saveExcelSection: async (
+    formData: FormData
+  ): Promise<{ template_id?: number; error?: string }> => {
+    const response = await axiosInstance.post<{ template_id?: number; error?: string }>(
+      '/api/save-excel/',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    return response.data;
+  },
+
+  getExcelStyles: async (
+    templateId: number,
+    section: string
+  ): Promise<{ styles?: Record<string, CellStyle>; error?: string }> => {
+    const response = await axiosInstance.get<{
+      styles?: Record<string, CellStyle>;
+      error?: string;
+    }>('/api/get-excel-styles/', {
+      params: {
+        template_id: templateId,
+        section: section,
+      },
+    });
+    return response.data;
+  },
+
+  getProtocolTemplateFile: async (templateId: number, section: string): Promise<ArrayBuffer> => {
+    const response = await axiosInstance.get(`/api/protocol-templates/${templateId}/`, {
+      params: {
+        download: true,
+        section: section,
+      },
+      responseType: 'arraybuffer',
+    });
+    return response.data;
+  },
+};

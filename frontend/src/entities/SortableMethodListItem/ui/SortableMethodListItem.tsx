@@ -5,7 +5,7 @@ import { MethodListItem } from '../../MethodListItem';
 import './SortableMethodListItem.css';
 
 interface SortableMethodListItemProps {
-  id: number;
+  id: number | string;
   name: string;
   isActive: boolean;
   isEditable: boolean;

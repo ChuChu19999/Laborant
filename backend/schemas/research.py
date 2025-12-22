@@ -139,11 +139,36 @@ class ResearchMethodBase(BaseModel):
                 )
         return v
 
+    @field_validator("convergence_conditions", mode="before")
+    @classmethod
+    def normalize_convergence_conditions(cls, v: Any) -> Dict[str, Any]:
+        """Нормализует convergence_conditions, разрешая пустые значения для фракционного состава."""
+        # Если это список (пустой или нет), преобразуем в пустой словарь
+        if isinstance(v, list):
+            return {}
+        # Если это None, возвращаем пустой словарь
+        if v is None:
+            return {}
+        # Если это не словарь, возвращаем пустой словарь
+        if not isinstance(v, dict):
+            return {}
+        # Если словарь пустой, разрешаем это (особенность фракционного состава)
+        if not v:
+            return {}
+        # Если словарь не пустой, но не содержит "formulas", возвращаем как есть (пустой словарь)
+        if "formulas" not in v:
+            return {}
+        return v
+
     @field_validator("convergence_conditions")
     @classmethod
     def validate_convergence_conditions(cls, v: Dict[str, Any]) -> Dict[str, Any]:
-        if not isinstance(v, dict):
-            raise ValueError("Условия повторяемости должны быть словарем")
+        """Валидирует структуру convergence_conditions, разрешая пустые значения."""
+        # Пустой словарь разрешен (особенность фракционного состава)
+        if not v:
+            return v
+
+        # Если словарь не пустой, валидируем структуру
         if "formulas" not in v:
             raise ValueError("Условия повторяемости должны содержать ключ 'formulas'")
         if not isinstance(v["formulas"], list):

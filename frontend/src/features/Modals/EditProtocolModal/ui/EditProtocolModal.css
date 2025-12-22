@@ -112,3 +112,30 @@
 .create-protocol-form .form-group .ant-checkbox-wrapper {
   margin-bottom: 0;
 }
+
+.create-protocol-form .template-option-deleted {
+  opacity: 0.5;
+  color: #999;
+}
+
+.create-protocol-form .template-name-deleted {
+  text-decoration: line-through;
+  color: #999;
+}
+
+.create-protocol-form .template-current-badge {
+  color: #52c41a;
+  font-weight: 500;
+  margin-left: 4px;
+}
+
+.create-protocol-form .template-deleted-badge {
+  color: #999;
+  font-style: italic;
+  margin-left: 4px;
+}
+
+.create-protocol-form .ant-select-item-option-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

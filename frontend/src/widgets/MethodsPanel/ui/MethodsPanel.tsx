@@ -30,7 +30,7 @@ interface MethodsPanelProps {
   displayItems: ListItem[];
   selectedMethodId: number | null;
   isLoading: boolean;
-  activeId: number | null;
+  activeId: string | null;
   showAddButton: boolean;
   onAddMethod: () => void;
   onMethodClick: (itemId: number, itemType: 'method' | 'group') => void;
@@ -96,7 +96,7 @@ const MethodsPanel: React.FC<MethodsPanelProps> = ({
             onDragCancel={onDragCancel}
           >
             <SortableContext
-              items={displayItems.map(item => item.id)}
+              items={displayItems.map(item => `${item.type}-${item.id}`)}
               strategy={verticalListSortingStrategy}
             >
               <div className="methods-panel-methods">
@@ -107,7 +107,7 @@ const MethodsPanel: React.FC<MethodsPanelProps> = ({
                     return (
                       <SortableMethodListItem
                         key={`method-${method.id}`}
-                        id={method.id}
+                        id={`method-${method.id}`}
                         name={method.name}
                         isActive={isActive}
                         isEditable={true}
@@ -124,7 +124,7 @@ const MethodsPanel: React.FC<MethodsPanelProps> = ({
                     return (
                       <SortableMethodListItem
                         key={`group-${group.id}`}
-                        id={group.id}
+                        id={`group-${group.id}`}
                         name={group.name}
                         isActive={isActive}
                         isEditable={true}
@@ -137,23 +137,33 @@ const MethodsPanel: React.FC<MethodsPanelProps> = ({
               </div>
             </SortableContext>
             <DragOverlay>
-              {activeId ? (
-                <div className="drag-overlay-item">
-                  <MethodListItem
-                    name={
-                      displayItems.find(item => item.id === activeId)?.type === 'method'
-                        ? (displayItems.find(item => item.id === activeId)?.data as ResearchMethod)
-                            .name
-                        : (
-                            displayItems.find(item => item.id === activeId)
-                              ?.data as ResearchMethodGroup
-                          ).name
+              {activeId
+                ? (() => {
+                    const activeIdStr = String(activeId);
+                    if (!activeIdStr.includes('-')) {
+                      return null;
                     }
-                    isActive={false}
-                    isEditable={true}
-                  />
-                </div>
-              ) : null}
+                    const [type, idStr] = activeIdStr.split('-');
+                    const id = parseInt(idStr, 10);
+                    if (isNaN(id) || (type !== 'method' && type !== 'group')) {
+                      return null;
+                    }
+                    const item = displayItems.find(item => item.id === id && item.type === type);
+                    return item ? (
+                      <div className="drag-overlay-item">
+                        <MethodListItem
+                          name={
+                            item.type === 'method'
+                              ? (item.data as ResearchMethod).name
+                              : (item.data as ResearchMethodGroup).name
+                          }
+                          isActive={false}
+                          isEditable={true}
+                        />
+                      </div>
+                    ) : null;
+                  })()
+                : null}
             </DragOverlay>
           </DndContext>
         )}
