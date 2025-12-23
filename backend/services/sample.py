@@ -2,7 +2,7 @@ from typing import Any, Dict, List, Optional
 import pendulum
 from sqlalchemy import Float, case, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload, selectinload
+from sqlalchemy.orm import selectinload
 from core.exceptions import ConflictError, NotFoundError, ValidationError
 from models.calculation import Calculation
 from models.laboratory import Branch, Department, Laboratory, SamplingLocation

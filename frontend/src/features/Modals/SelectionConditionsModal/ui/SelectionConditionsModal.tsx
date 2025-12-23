@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { PlusOutlined } from '@ant-design/icons';
 import { message } from 'antd';
-import { SelectionConditionsTable } from '../../../../entities/SelectionConditionsTable';
+import { SelectionConditionsTable } from '../../../../entities/Tables/SelectionConditionsTable';
 import { selectionConditionsApi } from '../../../../shared/api/selectionConditions';
 import {
   useCreateSelectionConditions,

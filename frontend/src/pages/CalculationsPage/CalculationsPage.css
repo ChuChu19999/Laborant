@@ -53,6 +53,16 @@
   font-family: 'HeliosCondC';
 }
 
+.calculations-page-spinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.calculations-page-spinner-placeholder {
+  min-height: 64px;
+}
+
 .calculations-page-methods-list {
   display: flex;
   flex-direction: column;

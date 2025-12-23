@@ -277,8 +277,7 @@ const ExcelEditor: React.FC<ExcelEditorProps> = ({ templateId, section, onDataCh
   if (loading) {
     return (
       <div className="loading-overlay">
-        <Spin size="large" />
-        <p style={{ marginLeft: '12px' }}>Загрузка данных...</p>
+        <Spin size="large" tip="Загрузка данных..." />
       </div>
     );
   }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { PlusOutlined } from '@ant-design/icons';
 import { message } from 'antd';
-import { MassFractionOilRefractionDirectoryTable } from '../../../../entities/MassFractionOilRefractionDirectoryTable';
+import { MassFractionOilRefractionDirectoryTable } from '../../../../entities/Tables/MassFractionOilRefractionDirectoryTable';
 import { refractionTablesApi } from '../../../../shared/api/refractionTables';
 import { useBulkUpdateMassFractionOilRefractionTable } from '../../../../shared/model/hooks';
 import { useAutoRefetchQuery } from '../../../../shared/model/lib/useQuery';

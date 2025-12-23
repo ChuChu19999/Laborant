@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PlusOutlined } from '@ant-design/icons';
-import { CalculationsTable } from '../../../../entities/CalculationsTable';
+import { CalculationsTable } from '../../../../entities/Tables/CalculationsTable';
 import { calculationApi } from '../../../../shared/api/calculation';
 import { useAutoRefetchQuery } from '../../../../shared/model/lib/useQuery';
 import Button from '../../../../shared/ui/Button/Button';
@@ -48,7 +48,7 @@ const FillCalculationsModal: React.FC<FillCalculationsModalProps> = ({ open, onC
       onCancel={handleCancel}
       showEditButton={false}
       editable={false}
-      modalWidth="1000"
+      modalWidth="1450"
       extraButtons={
         <Button
           type="primary"

@@ -1,5 +1,5 @@
 import pendulum
-from sqlalchemy import Column, DateTime, Integer, String, event
+from sqlalchemy import Column, DateTime, String, event
 from sqlalchemy.sql import func
 from core.config import get_database_schema
 from core.database import Base

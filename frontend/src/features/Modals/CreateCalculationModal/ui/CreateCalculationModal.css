@@ -172,6 +172,16 @@
   background-color: #e6f4ff;
 }
 
+.create-calculation-spinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.create-calculation-spinner-placeholder {
+  min-height: 48px;
+}
+
 .tabs {
   display: flex;
   border-bottom: 1px solid #d9d9d9;

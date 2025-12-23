@@ -7,8 +7,8 @@ import {
   type ColumnDef,
   type ColumnSizingState,
 } from '@tanstack/react-table';
-import { LoadingCard } from '../../../features/Cards';
-import Button from '../../../shared/ui/Button/Button';
+import { LoadingCard } from '../../../../features/Cards';
+import Button from '../../../../shared/ui/Button/Button';
 import './MassFractionOilRefractionDirectoryTable.css';
 
 interface EntryRow {

@@ -18,7 +18,7 @@ import Button from '../../shared/ui/Button/Button';
 import { LaboratoryCard, DepartmentCard } from '../../shared/ui/Cards';
 import Layout from '../../shared/ui/Layout/Layout';
 import { NavigationBar } from '../../widgets/NavigationBar';
-import { SamplesTable } from '../../widgets/SamplesTable';
+import { SamplesTable } from '../../widgets/Tables/SamplesTable';
 import type { Laboratory, Department } from '../../shared/api/laboratories';
 import type { Sample, SampleFilters } from '../../shared/api/samples';
 import type { PaginationState, ColumnFiltersState, SortingState } from '@tanstack/react-table';

@@ -17,12 +17,12 @@ import dayjs, { type Dayjs } from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 import { BiChevronLeft, BiChevronRight, BiChevronsLeft, BiChevronsRight } from 'react-icons/bi';
 import { FaSortUp, FaSortDown, FaSort } from 'react-icons/fa';
-import { LoadingCard } from '../../../features/Cards';
-import { type Protocol } from '../../../shared/api/protocols';
-import { getDateRangePresets } from '../../../shared/lib/datePresets';
-import { urlParamsToFilters } from '../../../shared/lib/urlParams';
-import Button from '../../../shared/ui/Button/Button';
-import { Input, Select, RangePicker } from '../../../shared/ui/FormItems';
+import { LoadingCard } from '../../../../features/Cards';
+import { type Protocol } from '../../../../shared/api/protocols';
+import { getDateRangePresets } from '../../../../shared/lib/datePresets';
+import { urlParamsToFilters } from '../../../../shared/lib/urlParams';
+import Button from '../../../../shared/ui/Button/Button';
+import { Input, Select, RangePicker } from '../../../../shared/ui/FormItems';
 import './ProtocolsTable.css';
 
 dayjs.extend(customParseFormat);

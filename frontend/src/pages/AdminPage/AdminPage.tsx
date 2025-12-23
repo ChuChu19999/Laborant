@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { SettingOutlined } from '@ant-design/icons';
 import { Dropdown, message } from 'antd';
@@ -731,6 +731,18 @@ const AdminPage: React.FC = () => {
     }
   };
 
+  const handleRegistrationDataLoader = useCallback(
+    (
+      callback: (data: {
+        initialValues: Record<string, string>;
+        laboratoryActivityDate: Dayjs | null;
+      }) => void
+    ) => {
+      setDataLoadedCallback(() => callback);
+    },
+    []
+  );
+
   const leftPanel = (
     <MethodsPanel
       methods={methods}
@@ -837,9 +849,7 @@ const AdminPage: React.FC = () => {
         lastCalculationResult={currentMethod ? lastCalculationResult[currentMethod.id] : undefined}
         laboratoryId={labId}
         departmentId={deptId}
-        onLoadRegistrationData={callback => {
-          setDataLoadedCallback(() => callback);
-        }}
+        onLoadRegistrationData={handleRegistrationDataLoader}
       />
     </div>
   );

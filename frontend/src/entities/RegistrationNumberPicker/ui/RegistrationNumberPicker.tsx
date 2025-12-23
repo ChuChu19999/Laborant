@@ -166,10 +166,8 @@ const RegistrationNumberPicker: React.FC<RegistrationNumberPickerProps> = ({
                   className="reg-number-picker-option"
                   onClick={() => handleSelect(opt)}
                 >
-                  <span style={{ fontWeight: 500 }}>{opt.registration_number}</span>
-                  <span style={{ color: '#666', marginLeft: 8, fontSize: 13 }}>
-                    {opt.test_object}
-                  </span>
+                  <span className="reg-number-picker-option-number">{opt.registration_number}</span>
+                  <span className="reg-number-picker-option-object">{opt.test_object}</span>
                 </div>
               ))
             )}
@@ -190,7 +188,7 @@ const RegistrationNumberPicker: React.FC<RegistrationNumberPickerProps> = ({
             !disabled && searchText ? (
               <CloseCircleFilled onClick={handleClear} />
             ) : (
-              <span style={{ width: 16, display: 'inline-block' }} />
+              <span className="reg-number-picker-suffix-spacer" />
             )
           }
           className={error ? 'reg-number-input-error' : ''}

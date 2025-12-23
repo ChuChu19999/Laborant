@@ -7,9 +7,9 @@ import {
   type ColumnDef,
   type ColumnSizingState,
 } from '@tanstack/react-table';
-import { LoadingCard } from '../../../features/Cards';
-import Button from '../../../shared/ui/Button/Button';
-import type { SelectionCondition } from '../../../shared/api/selectionConditions';
+import { LoadingCard } from '../../../../features/Cards';
+import Button from '../../../../shared/ui/Button/Button';
+import type { SelectionCondition } from '../../../../shared/api/selectionConditions';
 import './SelectionConditionsTable.css';
 
 interface ConditionRow extends SelectionCondition {

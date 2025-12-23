@@ -1,4 +1,4 @@
-from fastapi import HTTPException, Request, status
+from fastapi import Request, status
 from fastapi.exceptions import RequestValidationError
 from core.logger import logger
 from core.responses import ORJSONResponse

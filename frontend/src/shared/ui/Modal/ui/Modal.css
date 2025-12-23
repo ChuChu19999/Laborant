@@ -32,6 +32,10 @@
   width: 1000px;
 }
 
+.modal-wrapper.modal-width-1450 {
+  width: 1450px;
+}
+
 .modal-wrapper.modal-opening {
   animation: modalFadeIn 0.2s ease-out;
 }

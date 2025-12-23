@@ -101,28 +101,79 @@
   font-family: 'HeliosCondC';
 }
 
-.calculations-table-resizer {
-  position: absolute;
-  right: 0;
-  top: 0;
-  height: 100%;
-  width: 5px;
-  cursor: col-resize;
-  user-select: none;
-  touch-action: none;
-  z-index: 1;
+.calculations-table-input-data-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.calculations-table-resizer:hover {
-  background-color: #282828;
-  opacity: 0.5;
+.calculations-table-input-data-item {
+  line-height: 1.4;
 }
 
-.calculations-table-resizer.isResizing {
-  background-color: #282828;
-  opacity: 1;
+.calculations-table-equipment-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.calculations-table th:hover .calculations-table-resizer {
-  background-color: #bdbfc1;
+.calculations-table-equipment-item {
+  line-height: 1.4;
+  padding: 4px 8px;
+  background: #f5f7fa;
+  border: 1px solid rgba(186, 191, 199, 0.3);
+  border-radius: 6px;
+  display: inline-block;
+  width: fit-content;
+}
+
+.calculations-table-equipment-serial {
+  color: #666;
+}
+
+.calculations-table-fractional-result-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.calculations-table-fractional-result-item {
+  line-height: 1.4;
+  min-height: 1.4em;
+}
+
+.calculations-table-fractional-input-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.calculations-table-fractional-input-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.calculations-table-fractional-input-parallel {
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.calculations-table-fractional-input-item {
+  line-height: 1.4;
+}
+
+.calculations-table-fractional-error-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.calculations-table-fractional-error-item {
+  line-height: 1.4;
+  min-height: 1.4em;
 }

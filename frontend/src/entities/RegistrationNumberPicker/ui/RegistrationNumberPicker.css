@@ -52,6 +52,21 @@
   background-color: #e9f7ff;
 }
 
+.reg-number-picker-option-number {
+  font-weight: 500;
+}
+
+.reg-number-picker-option-object {
+  color: #666;
+  margin-left: 8px;
+  font-size: 13px;
+}
+
+.reg-number-picker-suffix-spacer {
+  width: 16px;
+  display: inline-block;
+}
+
 .reg-number-picker-loading {
   display: flex;
   justify-content: center;

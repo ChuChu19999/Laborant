@@ -16,7 +16,7 @@ import Button from '../../shared/ui/Button/Button';
 import { LaboratoryCard, DepartmentCard } from '../../shared/ui/Cards';
 import Layout from '../../shared/ui/Layout/Layout';
 import { NavigationBar } from '../../widgets/NavigationBar';
-import { ProtocolsTable } from '../../widgets/ProtocolsTable';
+import { ProtocolsTable } from '../../widgets/Tables/ProtocolsTable';
 import type { Laboratory, Department } from '../../shared/api/laboratories';
 import type { Protocol, ProtocolFilters } from '../../shared/api/protocols';
 import type { PaginationState, ColumnFiltersState, SortingState } from '@tanstack/react-table';

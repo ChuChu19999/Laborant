@@ -2,7 +2,7 @@ import base64
 import re
 from copy import copy
 from io import BytesIO
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 from urllib.parse import quote
 import openpyxl
 import orjson

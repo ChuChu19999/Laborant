@@ -51,6 +51,7 @@
   flex-direction: column;
   gap: 5px;
   height: calc(100% - 40px);
+  flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 4px;
@@ -64,6 +65,17 @@
   color: #718096;
   font-size: 14px;
   font-family: 'HeliosCondC';
+  flex: 1;
+}
+
+.methods-panel-spinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.methods-panel-spinner-placeholder {
+  min-height: 64px;
 }
 
 .methods-panel-methods {

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Checkbox, message } from 'antd';
+import { LoadingOutlined } from '@ant-design/icons';
+import { Checkbox, Spin, message } from 'antd';
 import { FormulaKeyboard } from '../../../../entities/FormulaKeyboard';
 import { fixturesApi, type FixtureData } from '../../../../shared/api/fixtures';
 import { researchApi } from '../../../../shared/api/research';
@@ -50,6 +51,8 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
   laboratoryName,
   departmentName,
 }) => {
+  const spinnerIndicator = <LoadingOutlined style={{ fontSize: 24, color: '#1677ff' }} spin />;
+
   const [activeTab, setActiveTab] = useState<'single' | 'group'>('single');
   const [isAnimating, setIsAnimating] = useState(false);
 
@@ -1151,7 +1154,11 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
               <label>Выберите готовый метод</label>
               <div className="fixtures-controls">
                 {isLoadingFixtures ? (
-                  <div className="loading-text">Загрузка методов...</div>
+                  <div className="loading-text create-calculation-spinner">
+                    <Spin tip="Загрузка методов..." indicator={spinnerIndicator} spinning>
+                      <div className="create-calculation-spinner-placeholder" />
+                    </Spin>
+                  </div>
                 ) : Object.keys(fixtures).length > 0 ? (
                   <Select
                     value={selectedFixture || undefined}
@@ -1208,7 +1215,11 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                 <div className="form-group">
                   <label>Выберите методы для группы</label>
                   {isLoadingMethods ? (
-                    <div>Загрузка методов...</div>
+                    <div className="loading-text create-calculation-spinner">
+                      <Spin tip="Загрузка методов..." indicator={spinnerIndicator} spinning>
+                        <div className="create-calculation-spinner-placeholder" />
+                      </Spin>
+                    </div>
                   ) : (
                     <div className="methods-list">
                       {availableMethods.individual_methods.map(method => (

@@ -15,6 +15,7 @@ import {
 } from '@dnd-kit/sortable';
 import AddIcon from '@mui/icons-material/Add';
 import { IconButton } from '@mui/material';
+import { Spin } from 'antd';
 import { MethodListItem } from '../../../entities/MethodListItem';
 import { SortableMethodListItem } from '../../../entities/SortableMethodListItem';
 import type { ResearchMethod, ResearchMethodGroup } from '../../../shared/api/research';
@@ -84,7 +85,11 @@ const MethodsPanel: React.FC<MethodsPanelProps> = ({
       </div>
       <div className="methods-panel-content">
         {isLoading ? (
-          <div className="methods-panel-empty">Загрузка методов...</div>
+          <div className="methods-panel-empty methods-panel-spinner">
+            <Spin tip="Загрузка методов..." spinning>
+              <div className="methods-panel-spinner-placeholder" />
+            </Spin>
+          </div>
         ) : hasNoMethods ? (
           <div className="methods-panel-empty">Нет активных методов исследования</div>
         ) : (

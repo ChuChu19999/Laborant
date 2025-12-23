@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { message } from 'antd';
+import { Spin, message } from 'antd';
 import { LoadingCard } from '../../features/Cards';
 import { SaveCalculationModal } from '../../features/Modals';
 import { laboratoriesApi } from '../../shared/api/laboratories';
@@ -367,7 +367,11 @@ const CalculationsPage: React.FC = () => {
       </div>
       <div className="calculations-page-left-panel-content">
         {isLoading ? (
-          <div className="calculations-page-empty">Загрузка методов...</div>
+          <div className="calculations-page-empty calculations-page-spinner">
+            <Spin tip="Загрузка методов..." spinning>
+              <div className="calculations-page-spinner-placeholder" />
+            </Spin>
+          </div>
         ) : availableMethods.length === 0 ? (
           <div className="calculations-page-empty">Нет доступных методов исследования</div>
         ) : (

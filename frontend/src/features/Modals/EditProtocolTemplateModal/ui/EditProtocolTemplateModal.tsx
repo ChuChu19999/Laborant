@@ -363,14 +363,13 @@ const EditProtocolTemplateModal: React.FC<EditProtocolTemplateModalProps> = ({
           <div className="new-template-form">
             {loading ? (
               <div className="loading-state">
-                <Spin size="large" />
-                <p>Создание шаблона...</p>
+                <Spin size="large" tip="Создание шаблона..." />
               </div>
             ) : (
               <>
                 <div className="form-group">
                   <label className="form-label">
-                    Название шаблона <span style={{ color: 'red' }}>*</span>
+                    Название шаблона <span className="form-label-required">*</span>
                   </label>
                   <Input
                     placeholder="Введите название шаблона"
@@ -387,7 +386,7 @@ const EditProtocolTemplateModal: React.FC<EditProtocolTemplateModalProps> = ({
 
                 <div className="form-group">
                   <label className="form-label">
-                    Файл шаблона <span style={{ color: 'red' }}>*</span>
+                    Файл шаблона <span className="form-label-required">*</span>
                   </label>
                   <div className="upload-container">
                     {selectedFile ? (
@@ -434,8 +433,7 @@ const EditProtocolTemplateModal: React.FC<EditProtocolTemplateModalProps> = ({
           </div>
         ) : templateLoading ? (
           <div className="loading-state">
-            <Spin size="large" />
-            <p>Загрузка...</p>
+            <Spin size="large" tip="Загрузка..." />
           </div>
         ) : !activeTemplate ? (
           <div className="no-template-message">
@@ -497,8 +495,7 @@ const EditProtocolTemplateModal: React.FC<EditProtocolTemplateModalProps> = ({
             <div className="editor-content">
               {loading ? (
                 <div className="loading-state">
-                  <Spin size="large" />
-                  <p>Сохранение...</p>
+                  <Spin size="large" tip="Сохранение..." />
                 </div>
               ) : (
                 <div className="accreditation-section">

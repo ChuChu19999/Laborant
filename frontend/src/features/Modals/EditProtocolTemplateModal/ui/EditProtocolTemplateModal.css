@@ -404,3 +404,7 @@
   color: #1890ff !important;
   font-size: 14px;
 }
+
+.form-label-required {
+  color: red !important;
+}

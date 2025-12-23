@@ -4,6 +4,9 @@
   min-height: 400px;
   max-height: 70vh;
   gap: 16px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .fill-calculations-modal-header {
@@ -20,4 +23,38 @@
   flex: 1;
   overflow-y: auto;
   min-height: 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Переопределяем overflow-x для body-content в модальном окне */
+.modal-wrapper:has(.fill-calculations-modal-content) .body-content {
+  overflow-x: visible !important;
+}
+
+/* Адаптивная таблица для модального окна */
+.fill-calculations-modal-content .calculations-table-container {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box;
+}
+
+.fill-calculations-modal-content .calculations-table-wrapper {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box;
+}
+
+.fill-calculations-modal-content .calculations-table {
+  width: 100% !important;
+  max-width: 100% !important;
+  table-layout: fixed !important;
+  box-sizing: border-box;
+}
+
+.fill-calculations-modal-content .calculations-table th,
+.fill-calculations-modal-content .calculations-table td {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  box-sizing: border-box;
 }
