@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { SettingOutlined } from '@ant-design/icons';
-import { Dropdown } from 'antd';
+import { Dropdown, message } from 'antd';
 import { ConfirmationModal } from '../../entities/ConfirmationModal';
+import RegistrationNumberPicker from '../../entities/RegistrationNumberPicker/ui/RegistrationNumberPicker';
 import {
   CreateCalculationModal,
   SaveCalculationModal,
@@ -11,7 +12,9 @@ import {
   EquipmentDefaultModal,
   EditProtocolTemplateModal,
 } from '../../features/Modals';
+import { calculationApi } from '../../shared/api/calculation';
 import { laboratoriesApi } from '../../shared/api/laboratories';
+import { samplesApi } from '../../shared/api/samples';
 import {
   useResearchMethods,
   useDeleteResearchMethod,
@@ -79,6 +82,15 @@ const AdminPage: React.FC = () => {
     itemType: null,
     itemName: null,
   });
+  const [registrationNumber, setRegistrationNumber] = useState('');
+  const [isLoadingRegistrationData, setIsLoadingRegistrationData] = useState(false);
+  const [dataLoadedCallback, setDataLoadedCallback] = useState<
+    | ((data: {
+        initialValues: Record<string, string>;
+        laboratoryActivityDate: Dayjs | null;
+      }) => void)
+    | null
+  >(null);
 
   const labId = laboratoryId ? parseInt(laboratoryId, 10) : undefined;
   const deptId = departmentId ? parseInt(departmentId, 10) : undefined;
@@ -195,6 +207,12 @@ const AdminPage: React.FC = () => {
       }
     }
   }, [displayItems, groups, selectedMethodId]);
+
+  useEffect(() => {
+    if (selectedMethodId) {
+      setRegistrationNumber('');
+    }
+  }, [selectedMethodId]);
 
   const handleBack = () => {
     if (laboratoryId) {
@@ -515,6 +533,204 @@ const AdminPage: React.FC = () => {
     }
   };
 
+  const handleLoadRegistrationData = async () => {
+    if (!dataLoadedCallback) {
+      return;
+    }
+    if (!registrationNumber || !currentMethod) {
+      message.warning('Введите регистрационный номер пробы');
+      return;
+    }
+
+    setIsLoadingRegistrationData(true);
+
+    try {
+      const samplesResponse = await samplesApi.getSamples(
+        undefined,
+        undefined,
+        { registration_number: registrationNumber },
+        undefined,
+        labId,
+        deptId
+      );
+
+      if (!samplesResponse.items.length) {
+        throw new Error('Проба не найдена');
+      }
+
+      // Ищем пробу, у которой есть расчет по текущему методу
+      let targetSample = null;
+      let targetCalculation = null;
+
+      for (const sample of samplesResponse.items) {
+        // Получаем расчеты для этой пробы
+        const calculations = await calculationApi.getCalculationsBySample(sample.id);
+
+        // Ищем расчет по текущему методу
+        const calculation = calculations.find(calc => calc.research_method_id === currentMethod.id);
+
+        if (calculation) {
+          targetSample = sample;
+          targetCalculation = calculation;
+          break;
+        }
+      }
+
+      if (!targetSample || !targetCalculation) {
+        // Проверяем, есть ли вообще расчеты для этих проб
+        const allCalculations: Array<{ research_method_id: number }> = [];
+        for (const sample of samplesResponse.items) {
+          const calculations = await calculationApi.getCalculationsBySample(sample.id);
+          allCalculations.push(...calculations);
+        }
+
+        if (allCalculations.length === 0) {
+          throw new Error('Для данной пробы не найдено ни одного расчета');
+        } else {
+          const availableMethods = allCalculations.map(calc => calc.research_method_id);
+          const methodNames = methods.filter(m => availableMethods.includes(m.id)).map(m => m.name);
+          throw new Error(
+            `Для данной пробы нет расчетов по методу "${currentMethod.name}". ` +
+              `Доступные методы: ${methodNames.join(', ')}`
+          );
+        }
+      }
+
+      // Проверяем, что структура полей ввода совпадает
+      const inputData = targetCalculation.input_data as Record<string, unknown>;
+      let calculationInputFields: string[] = [];
+
+      // Обработка для фракционного состава
+      if (
+        currentMethod.name === 'Фракционный состав (конденсат)' ||
+        currentMethod.name === 'Фракционный состав (нефть)'
+      ) {
+        if (inputData._fractional_data) {
+          const fractionalData = inputData._fractional_data as {
+            card1?: Record<string, unknown>;
+            card2?: Record<string, unknown>;
+          };
+          const card1Fields = Object.keys(fractionalData.card1 || {});
+          const card2Fields = Object.keys(fractionalData.card2 || {});
+          calculationInputFields = [...new Set([...card1Fields, ...card2Fields])];
+        } else {
+          calculationInputFields = Object.keys(inputData);
+        }
+      } else {
+        calculationInputFields = Object.keys(inputData);
+      }
+
+      const currentMethodFields = currentMethod.input_data.fields.map(field => field.name);
+
+      // Проверяем, что все поля текущего метода есть в расчете
+      const missingFields = currentMethodFields.filter(
+        field => !calculationInputFields.includes(field)
+      );
+      if (missingFields.length > 0) {
+        throw new Error(
+          `Структура метода изменилась. Отсутствуют поля: ${missingFields.join(', ')}`
+        );
+      }
+
+      // Проверяем, что все поля из расчета есть в текущем методе (исключаем поля фракционного состава)
+      const extraFields = calculationInputFields.filter(
+        field => !currentMethodFields.includes(field) && field !== '_fractional_data'
+      );
+      if (extraFields.length > 0) {
+        throw new Error(
+          `Структура метода изменилась. Лишние поля в расчете: ${extraFields.join(', ')}`
+        );
+      }
+
+      const initialValues: Record<string, string> = {};
+
+      // Обработка для фракционного состава
+      if (
+        currentMethod.name === 'Фракционный состав (конденсат)' ||
+        currentMethod.name === 'Фракционный состав (нефть)'
+      ) {
+        // Проверяем, есть ли данные в _fractional_data
+        const inputData = targetCalculation.input_data as Record<string, unknown>;
+        if (inputData._fractional_data) {
+          const fractionalData = inputData._fractional_data as {
+            card1?: Record<string, unknown>;
+            card2?: Record<string, unknown>;
+          };
+
+          // Заполняем данные для card1
+          if (fractionalData.card1) {
+            Object.entries(fractionalData.card1).forEach(([fieldName, value]) => {
+              const formFieldName = `${currentMethod.id}_${fieldName}`;
+              initialValues[formFieldName] = value ? value.toString().replace('.', ',') : '';
+            });
+          }
+
+          // Заполняем данные для card2
+          if (fractionalData.card2) {
+            Object.entries(fractionalData.card2).forEach(([fieldName, value]) => {
+              const formFieldName = `${currentMethod.id}_${fieldName}_card_2`;
+              initialValues[formFieldName] = value ? value.toString().replace('.', ',') : '';
+            });
+          }
+        } else {
+          // Если не фракционный состав, используем обычную обработку
+          Object.entries(targetCalculation.input_data).forEach(([fieldName, value]) => {
+            const field = currentMethod.input_data.fields.find(f => f.name === fieldName);
+            const cardIndex = field?.card_index || 1;
+
+            const formFieldName =
+              cardIndex > 1
+                ? `${currentMethod.id}_${fieldName}_card_${cardIndex}`
+                : `${currentMethod.id}_${fieldName}`;
+
+            initialValues[formFieldName] = value ? value.toString().replace('.', ',') : '';
+          });
+        }
+      } else {
+        // Обычная обработка для других методов
+        Object.entries(targetCalculation.input_data).forEach(([fieldName, value]) => {
+          // Находим поле в текущем методе для определения card_index
+          const field = currentMethod.input_data.fields.find(f => f.name === fieldName);
+          const cardIndex = field?.card_index || 1;
+
+          // Для поля "Цвет" в методе "Массовая доля нефти" используем специальную логику
+          const isColorField = currentMethod.name === 'Массовая доля нефти' && fieldName === 'Цвет';
+          const formFieldName = isColorField
+            ? `${currentMethod.id}_${fieldName}`
+            : cardIndex > 1
+              ? `${currentMethod.id}_${fieldName}_card_${cardIndex}`
+              : `${currentMethod.id}_${fieldName}`;
+
+          initialValues[formFieldName] = value ? value.toString().replace('.', ',') : '';
+        });
+      }
+
+      // Устанавливаем дату лабораторной деятельности
+      let laboratoryActivityDate: Dayjs | null = null;
+      if (targetCalculation.laboratory_activity_date) {
+        const dayjs = (await import('dayjs')).default;
+        const date = dayjs(targetCalculation.laboratory_activity_date);
+        if (date.isValid()) {
+          laboratoryActivityDate = date;
+        }
+      }
+
+      dataLoadedCallback({
+        initialValues,
+        laboratoryActivityDate,
+      });
+
+      message.success('Данные успешно загружены');
+    } catch (error: unknown) {
+      console.error('Ошибка при получении данных:', error);
+      message.error(
+        error instanceof Error ? error.message : 'Не удалось загрузить данные по указанному номеру'
+      );
+    } finally {
+      setIsLoadingRegistrationData(false);
+    }
+  };
+
   const leftPanel = (
     <MethodsPanel
       methods={methods}
@@ -535,6 +751,25 @@ const AdminPage: React.FC = () => {
   const rightPanel = (
     <div className="admin-page-right-panel">
       <div className="admin-page-right-panel-header">
+        {labId && (
+          <div className="admin-page-registration-wrapper">
+            <RegistrationNumberPicker
+              value={registrationNumber}
+              onChange={val => setRegistrationNumber(val)}
+              laboratoryId={labId}
+              departmentId={deptId}
+              methodId={currentMethod?.id || null}
+              className="admin-page-registration-input"
+            />
+            <Button
+              onClick={handleLoadRegistrationData}
+              loading={isLoadingRegistrationData}
+              style={{ flexShrink: 0, whiteSpace: 'nowrap' }}
+            >
+              Показать
+            </Button>
+          </div>
+        )}
         <Dropdown
           menu={{
             items: [
@@ -600,6 +835,11 @@ const AdminPage: React.FC = () => {
         onCalculate={handleCalculate}
         onSave={handleOpenSaveModal}
         lastCalculationResult={currentMethod ? lastCalculationResult[currentMethod.id] : undefined}
+        laboratoryId={labId}
+        departmentId={deptId}
+        onLoadRegistrationData={callback => {
+          setDataLoadedCallback(() => callback);
+        }}
       />
     </div>
   );

@@ -35,6 +35,14 @@ interface CalculationPanelProps {
     unit?: string;
     convergence?: string;
   };
+  laboratoryId?: number;
+  departmentId?: number;
+  onLoadRegistrationData?: (
+    onDataLoaded: (data: {
+      initialValues: Record<string, string>;
+      laboratoryActivityDate: Dayjs | null;
+    }) => void
+  ) => void;
 }
 
 const CalculationPanel: React.FC<CalculationPanelProps> = ({
@@ -46,6 +54,7 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
   onCalculate,
   onSave,
   lastCalculationResult,
+  onLoadRegistrationData,
 }) => {
   const [form] = Form.useForm();
   const [formValues, setFormValues] = useState<Record<string, string | number | undefined>>({});
@@ -81,6 +90,27 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
       setFormValues({});
     }
   }, [selectedMethodId, currentMethod, form]);
+
+  useEffect(() => {
+    if (onLoadRegistrationData) {
+      const handleDataLoaded = (data: {
+        initialValues: Record<string, string>;
+        laboratoryActivityDate: Dayjs | null;
+      }) => {
+        form.setFieldsValue(data.initialValues);
+        setFormValues(prev => ({
+          ...prev,
+          ...data.initialValues,
+        }));
+        if (data.laboratoryActivityDate) {
+          setLaboratoryActivityDate(data.laboratoryActivityDate);
+          setDateError('');
+        }
+      };
+
+      onLoadRegistrationData(handleDataLoaded);
+    }
+  }, [onLoadRegistrationData, form]);
 
   const prepareInputData = (
     method: ResearchMethod

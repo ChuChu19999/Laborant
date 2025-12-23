@@ -1,6 +1,6 @@
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, Dict, List, Optional
-from sqlalchemy import func, select
+from sqlalchemy import Float, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from core.exceptions import ConflictError, NotFoundError, ValidationError
@@ -789,7 +789,7 @@ async def calculate_mass_fraction_from_refraction(
                 MassFractionOilRefractionTable.research_method_id == research_method_id,
                 MassFractionOilRefractionTable.deleted_at.is_(None),
             )
-            .order_by(MassFractionOilRefractionTable.c_value)
+            .order_by(cast(MassFractionOilRefractionTable.c_value, Float))
         )
         table_entries = result.scalars().all()
 

@@ -6,6 +6,7 @@ from sqlalchemy.orm import selectinload
 from core.database import get_db
 from core.exceptions import NotFoundError
 from core.security import IsAuthenticated
+from models.calculation import Calculation
 from models.sample import (
     MassFractionOilRefractionTable,
     Sample,
@@ -289,6 +290,80 @@ async def delete_sample_endpoint(
     """Выполняет мягкое удаление пробы. Проба помечается как удаленная."""
     await delete_sample(db, sample_id)
     await db.commit()
+
+
+@router.get(
+    "/get-registration-numbers/",
+    response_model=dict,
+    summary="Поиск регистрационных номеров проб по методу исследования",
+    description=(
+        "Возвращает список проб с расчетами по указанному методу исследования, "
+        "которые соответствуют поисковому запросу. Используется для автодополнения "
+        "при вводе регистрационного номера пробы."
+    ),
+    responses={200: {"description": "Список проб успешно получен"}},
+)
+# @IsAuthenticated
+async def get_registration_numbers(
+    laboratory_id: Optional[int] = Query(None),
+    department_id: Optional[int] = Query(None),
+    method_id: Optional[int] = Query(None),
+    search: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db),
+):
+    """Возвращает список проб с расчетами по указанному методу исследования."""
+    if not method_id:
+        return {"samples": []}
+
+    # Ищем пробы с расчетами по указанному методу
+    # Используем подзапрос для получения уникальных ID, чтобы избежать проблем с DISTINCT на JSON полях
+    subquery = (
+        select(Sample.id)
+        .join(Calculation, Sample.id == Calculation.sample_id)
+        .where(
+            Calculation.research_method_id == method_id,
+            Calculation.deleted_at.is_(None),
+            Sample.deleted_at.is_(None),
+        )
+        .distinct()
+    )
+
+    conditions = []
+    if laboratory_id:
+        conditions.append(Sample.laboratory_id == laboratory_id)
+    if department_id:
+        conditions.append(Sample.department_id == department_id)
+    if search:
+        conditions.append(Sample.registration_number.ilike(f"%{search}%"))
+
+    if conditions:
+        subquery = subquery.where(*conditions)
+
+    # Ограничиваем результат до 10 записей для автодополнения
+    subquery = subquery.limit(10)
+
+    query = (
+        select(Sample)
+        .where(Sample.id.in_(subquery))
+        .options(
+            selectinload(Sample.laboratory),
+            selectinload(Sample.department),
+        )
+    )
+
+    result = await db.execute(query)
+    samples = result.scalars().all()
+
+    items = []
+    for sample in samples:
+        sample_dict = SampleResponse.model_validate(sample).model_dump()
+        if hasattr(sample, "laboratory") and sample.laboratory:
+            sample_dict["laboratory_name"] = sample.laboratory.name
+        if hasattr(sample, "department") and sample.department:
+            sample_dict["department_name"] = sample.department.name
+        items.append(sample_dict)
+
+    return {"samples": items}
 
 
 @router.get(

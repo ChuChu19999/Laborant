@@ -416,14 +416,26 @@ const CalculationsPage: React.FC = () => {
     return currentMethodGroup.methods;
   }, [currentMethodGroup]);
 
-  const shouldShowGroupSelector =
-    currentMethodGroup &&
-    groupMethods.length > 1 &&
-    !groupMethods.some(
+  const shouldShowGroupSelector = (() => {
+    if (!currentMethodGroup) return false;
+
+    // Проверяем, является ли метод одним из исключений
+    const isExcludedMethod = groupMethods.some(
       method =>
-        method.name.toLowerCase().includes('конденсат') ||
-        method.name.toLowerCase().includes('нефть')
+        method.name === 'Конденсат' ||
+        method.name === 'Нефть' ||
+        method.name === 'Фракционный состав (конденсат)' ||
+        method.name === 'Фракционный состав (нефть)'
     );
+
+    // Если метод не является исключением, показываем селектор даже для одного метода
+    if (!isExcludedMethod) {
+      return groupMethods.length > 0;
+    }
+
+    // Для исключенных методов показываем селектор только если методов больше одного
+    return groupMethods.length > 1;
+  })();
 
   const rightPanel = (
     <div className="calculations-page-right-panel">

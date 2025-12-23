@@ -145,3 +145,51 @@
 .calculation-panel-date-picker {
   width: 100%;
 }
+
+.calculation-panel-registration-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.calculation-panel-registration-wrapper {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  width: 470px;
+}
+
+.calculation-panel-registration-spin {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+}
+
+.calculation-panel-registration-spin .ant-spin-container {
+  width: 100%;
+}
+
+.calculation-panel-registration-input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+}
+
+.calculation-panel-registration-input .ant-select-selector {
+  width: 100% !important;
+}
+
+.calculation-panel-registration-input .ant-input {
+  width: 100% !important;
+}
+
+.calculation-panel-registration-input .ant-select {
+  width: 100% !important;
+}
+
+.calculation-panel-registration-input .ant-select-selection-search,
+.calculation-panel-registration-input .ant-select-selection-search-input {
+  width: 100% !important;
+  min-width: 0 !important;
+}

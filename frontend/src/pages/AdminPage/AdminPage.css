@@ -167,13 +167,25 @@
 
 .admin-page-right-panel-header {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
   gap: 8px;
   margin-top: 5px;
   width: 100%;
   padding-left: 0;
   padding-right: 0;
+}
+
+.admin-page-registration-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 16px;
+}
+
+.admin-page-registration-input {
+  width: 380px;
+  flex-shrink: 0;
 }
 
 .admin-page-button-settings {

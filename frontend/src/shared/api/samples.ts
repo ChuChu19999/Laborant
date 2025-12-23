@@ -209,4 +209,35 @@ export const samplesApi = {
 
     return [];
   },
+
+  getRegistrationNumbers: async (
+    laboratoryId?: number,
+    departmentId?: number,
+    methodId?: number,
+    search?: string
+  ): Promise<{ samples: Sample[] }> => {
+    const params: Record<string, unknown> = {};
+
+    if (laboratoryId) {
+      params.laboratory_id = laboratoryId;
+    }
+
+    if (departmentId) {
+      params.department_id = departmentId;
+    }
+
+    if (methodId) {
+      params.method_id = methodId;
+    }
+
+    if (search) {
+      params.search = search;
+    }
+
+    const response = await axiosInstance.get<{ samples: Sample[] }>(
+      '/api/get-registration-numbers/',
+      { params }
+    );
+    return response.data;
+  },
 };

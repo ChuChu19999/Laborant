@@ -82,14 +82,40 @@ const ParallelCard: React.FC<ParallelCardProps> = ({
       return;
     }
 
+    // Проверка на запятую: разрешаем только если это действительно запятая
+    // Проверяем физические клавиши, которые могут давать запятую
+    if (e.code === 'Comma' || e.code === 'NumpadDecimal' || (e.code === 'Period' && e.shiftKey)) {
+      // Блокируем только если это явно буква кириллицы (например, "б", "ю" и другие)
+      // Проверяем, является ли символ буквой кириллицы
+      const isCyrillicLetter = /[а-яёА-ЯЁ]/.test(e.key);
+      if (isCyrillicLetter) {
+        e.preventDefault();
+        return;
+      }
+
+      // Получаем текущее значение поля
+      const formFieldName =
+        cardFields[currentFieldIndex].card_index && cardFields[currentFieldIndex].card_index > 1
+          ? `${methodId}_${cardFields[currentFieldIndex].name}_card_${cardFields[currentFieldIndex].card_index}`
+          : `${methodId}_${cardFields[currentFieldIndex].name}`;
+      const currentValue = formValues[formFieldName]?.toString() || '';
+
+      // Если уже есть запятая, блокируем ввод новой
+      if (currentValue.includes(',')) {
+        e.preventDefault();
+        return;
+      }
+
+      // Разрешаем ввод - валидация в onChange проверит, что это действительно запятая или число
+      return;
+    }
+
     if (
       e.code === 'Backspace' ||
       e.code === 'Delete' ||
       e.code === 'Escape' ||
-      e.code === 'Comma' ||
       e.code === 'Minus' ||
       e.code === 'NumpadSubtract' ||
-      e.code === 'NumpadDecimal' ||
       e.code.startsWith('Digit') ||
       e.code.startsWith('Numpad')
     ) {
@@ -168,11 +194,14 @@ const ParallelCard: React.FC<ParallelCardProps> = ({
                     e.preventDefault();
                     const pastedText = e.clipboardData.getData('text');
                     const cleanedValue = pastedText.trim().replace(/\s+/g, '');
-                    form.setFieldValue(formFieldName, cleanedValue);
-                    setFormValues(prev => ({
-                      ...prev,
-                      [formFieldName]: cleanedValue,
-                    }));
+                    const validation = validateNumericInputWithComma(cleanedValue);
+                    if (validation.isValid) {
+                      form.setFieldValue(formFieldName, validation.normalizedValue);
+                      setFormValues(prev => ({
+                        ...prev,
+                        [formFieldName]: validation.normalizedValue,
+                      }));
+                    }
                   }}
                 />
                 {field.unit && <span className="parallel-card-unit">{field.unit}</span>}
