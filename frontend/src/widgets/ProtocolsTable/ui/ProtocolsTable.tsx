@@ -39,7 +39,7 @@ interface ProtocolsTableProps {
   sorting?: SortingState;
   onEdit: (protocolId: number) => void;
   onDelete: (protocolId: number) => void;
-  onGenerateExcel?: (protocolId: number) => void;
+  onGenerateExcel?: (protocolId: number) => void | Promise<void>;
 }
 
 const formatDate = (dateString?: string): string => {
@@ -100,6 +100,7 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
   onGenerateExcel,
 }) => {
   const [internalSorting, setInternalSorting] = React.useState<SortingState>(externalSorting || []);
+  const [generatingProtocols, setGeneratingProtocols] = React.useState<Set<number>>(new Set());
 
   React.useEffect(() => {
     if (externalSorting !== undefined) {
@@ -193,6 +194,35 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
 
   const [columnSizing, setColumnSizing] = React.useState<ColumnSizingState>({});
   const tableRef = React.useRef<ReturnType<typeof useReactTable<Protocol>> | null>(null);
+
+  const handleGenerateExcelClick = React.useCallback(
+    async (protocolId: number) => {
+      if (!onGenerateExcel) {
+        return;
+      }
+
+      setGeneratingProtocols(prev => {
+        if (prev.has(protocolId)) {
+          return prev;
+        }
+        return new Set(prev).add(protocolId);
+      });
+
+      try {
+        const result = onGenerateExcel(protocolId);
+        if (result instanceof Promise) {
+          await result;
+        }
+      } finally {
+        setGeneratingProtocols(prev => {
+          const next = new Set(prev);
+          next.delete(protocolId);
+          return next;
+        });
+      }
+    },
+    [onGenerateExcel]
+  );
 
   const columns = React.useMemo<ColumnDef<Protocol>[]>(
     () => [
@@ -299,7 +329,8 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
                 type="text"
                 size="small"
                 icon={<FileExcelOutlined />}
-                onClick={() => onGenerateExcel(row.original.id)}
+                onClick={() => handleGenerateExcelClick(row.original.id)}
+                loading={generatingProtocols.has(row.original.id)}
                 className="protocols-table-edit-button"
               >
                 Сформировать
@@ -332,7 +363,7 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
         enableResizing: false,
       },
     ],
-    [onEdit, onDelete, onGenerateExcel]
+    [onEdit, onDelete, onGenerateExcel, handleGenerateExcelClick, generatingProtocols]
   );
 
   const handleColumnFiltersChange = React.useCallback(

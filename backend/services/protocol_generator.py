@@ -19,7 +19,7 @@ from models.calculation import Calculation
 from models.equipment import Equipment
 from models.protocol import Protocol, ProtocolTemplate
 from models.research import ResearchMethod, ResearchMethodGroup
-from models.sample import Sample
+from models.sample import Sample, SelectionConditions
 from services.employees import (
     get_employee_position_and_name,
     get_employees_by_hashes,
@@ -74,7 +74,10 @@ def should_move_table_to_new_sheet(current_height, table_total_height):
 
 
 async def process_cell_markers(
-    protocol: Protocol, samples: List[Sample], cell_value: str
+    protocol: Protocol,
+    samples: List[Sample],
+    cell_value: str,
+    selection_conditions_templates: Optional[List[Dict[str, Any]]] = None,
 ) -> str:
     """Обрабатывает все метки в ячейке."""
     if not cell_value or not isinstance(cell_value, str):
@@ -102,7 +105,9 @@ async def process_cell_markers(
 
             start = end + 1
 
-        processed_result = process_selection_conditions_row(samples, result)
+        processed_result = process_selection_conditions_row(
+            samples, result, selection_conditions_templates
+        )
         if processed_result is None:
             return "HIDE_ROW"
         return processed_result
@@ -300,7 +305,9 @@ async def get_marker_value_title(
 
 
 def process_selection_conditions_row(
-    samples: List[Sample], cell_value: str
+    samples: List[Sample],
+    cell_value: str,
+    selection_conditions_templates: Optional[List[Dict[str, Any]]] = None,
 ) -> Optional[str]:
     """Обрабатывает метки условий отбора в ячейке."""
     if not cell_value or not isinstance(cell_value, str):
@@ -308,6 +315,20 @@ def process_selection_conditions_row(
 
     if "{sel_cond_" not in cell_value and "{bu}" not in cell_value:
         return cell_value
+
+    # Создаем словарь для поиска единиц измерения по названию переменной
+    unit_map = {}
+    if selection_conditions_templates:
+        for template in selection_conditions_templates:
+            if isinstance(template, dict) and "conditions" in template:
+                conditions = template.get("conditions") or []
+                if isinstance(conditions, list):
+                    for condition_template in conditions:
+                        if isinstance(condition_template, dict):
+                            variable = condition_template.get("variable", "")
+                            unit = condition_template.get("unit", "")
+                            if variable:
+                                unit_map[variable] = unit
 
     all_conditions = []
     for sample in samples:
@@ -320,6 +341,28 @@ def process_selection_conditions_row(
         # {"conditions": [ ... ]}
         if isinstance(sample_conditions, dict) and "conditions" in sample_conditions:
             sample_conditions = sample_conditions.get("conditions") or []
+
+        # Поддержка формата, когда условия хранятся в виде
+        # {"Давление": "4.33", "Температура": "-6", ...}
+        # где ключ - это название переменной, значение - это значение
+        # Единицы измерения берутся из шаблонов SelectionConditions
+        if (
+            isinstance(sample_conditions, dict)
+            and "conditions" not in sample_conditions
+        ):
+            for variable, value in sample_conditions.items():
+                if variable and value and str(value).strip() != "":
+                    formatted_value = str(value).replace(".", ",")
+                    # Ищем единицу измерения в шаблонах по названию переменной
+                    unit = unit_map.get(variable, "")
+                    all_conditions.append(
+                        {
+                            "variable": variable,
+                            "value": formatted_value,
+                            "unit": unit,
+                        }
+                    )
+            continue
 
         if isinstance(sample_conditions, list):
             for condition_item in sample_conditions:
@@ -412,6 +455,7 @@ async def process_header(
     template_sheet,
     new_sheet,
     merged_cells_map,
+    selection_conditions_templates: Optional[List[Dict[str, Any]]] = None,
 ):
     """Обрабатывает шапку протокола."""
     current_row_new = 1
@@ -462,7 +506,7 @@ async def process_header(
             cell = new_sheet.cell(row=current_row_new, column=col)
             if cell.value:
                 processed_value = await process_cell_markers(
-                    protocol, samples, str(cell.value)
+                    protocol, samples, str(cell.value), selection_conditions_templates
                 )
                 if processed_value == "HIDE_ROW":
                     skip_row = True
@@ -486,6 +530,7 @@ async def process_header_and_conditions(
     new_sheet,
     start_row,
     merged_cells_map,
+    selection_conditions_templates: Optional[List[Dict[str, Any]]] = None,
 ):
     """Обрабатывает заголовок и условия отбора после шапки до начала таблицы."""
     current_row_new = new_sheet.max_row + 1
@@ -506,7 +551,7 @@ async def process_header_and_conditions(
         for cell_value in row:
             if cell_value:
                 processed_value = await process_cell_markers(
-                    protocol, samples, str(cell_value)
+                    protocol, samples, str(cell_value), selection_conditions_templates
                 )
                 if processed_value == "HIDE_ROW":
                     skip_row = True
@@ -621,6 +666,7 @@ async def process_footer(
     merged_cells_map,
     current_row,
     sheet_number,
+    selection_conditions_templates: Optional[List[Dict[str, Any]]] = None,
 ):
     """Обрабатывает оставшиеся строки после последней таблицы (подвал протокола)."""
     sheet_merged_cells_map = current_sheet.merged_cells
@@ -681,7 +727,7 @@ async def process_footer(
             cell = current_sheet.cell(row=current_row, column=col)
             if cell.value:
                 processed_value = await process_cell_markers(
-                    protocol, samples, str(cell.value)
+                    protocol, samples, str(cell.value), selection_conditions_templates
                 )
                 if processed_value is not None:
                     cell.value = processed_value
@@ -700,6 +746,7 @@ async def process_between_tables(
     merged_cells_map,
     current_row,
     sheet_number,
+    selection_conditions_templates: Optional[List[Dict[str, Any]]] = None,
 ):
     """Обрабатывает данные между таблицами."""
     sheet_merged_cells_map = current_sheet.merged_cells
@@ -832,7 +879,10 @@ async def process_between_tables(
                         cell.value = str(cell.value).replace("{executor}", executors[0])
                     else:
                         processed_value = await process_cell_markers(
-                            protocol, samples, str(cell.value)
+                            protocol,
+                            samples,
+                            str(cell.value),
+                            selection_conditions_templates,
                         )
                         if processed_value is not None:
                             cell.value = processed_value
@@ -875,7 +925,10 @@ async def process_between_tables(
                 cell = current_sheet.cell(row=current_row, column=col)
                 if cell.value:
                     processed_value = await process_cell_markers(
-                        protocol, samples, str(cell.value)
+                        protocol,
+                        samples,
+                        str(cell.value),
+                        selection_conditions_templates,
                     )
                     if processed_value is not None:
                         cell.value = processed_value
@@ -898,51 +951,19 @@ def add_standalone_method(
     sheet_number,
 ):
     """Добавляет одиночный метод в таблицу."""
-    header_height = calculate_header_height(
-        template_sheet, table_header_start, table_header_end
-    )
-
-    current_height = calculate_current_height(current_sheet)
-    current_row_height = DEFAULT_ROW_HEIGHT
-    if current_row in current_sheet.row_dimensions:
-        current_row_height = (
-            current_sheet.row_dimensions[current_row].height or DEFAULT_ROW_HEIGHT
-        )
-
-    if current_height + header_height + current_row_height > A4_HEIGHT_POINTS:
-        sheet_number += 1
-        current_sheet = current_sheet.parent.create_sheet(f"Лист{sheet_number}")
-        set_sheet_margins(current_sheet)
-        enforce_fit_to_page(current_sheet)
-        current_row = 1
-
-        copy_column_dimensions(template_sheet, current_sheet)
-        sheet_merged_cells_map = current_sheet.merged_cells
-
+    # Копируем заголовок таблицы только для первой строки
+    if idx == 1:
         for row_num in range(table_header_start + 1, table_header_end):
             copy_row_formatting(
                 template_sheet,
                 current_sheet,
                 row_num,
                 current_row,
-                sheet_merged_cells_map,
+                merged_cells_map,
             )
             current_row += 1
-    else:
-        if (
-            idx == 1
-            and current_height + header_height + current_row_height <= A4_HEIGHT_POINTS
-        ):
-            for row_num in range(table_header_start + 1, table_header_end):
-                copy_row_formatting(
-                    template_sheet,
-                    current_sheet,
-                    row_num,
-                    current_row,
-                    merged_cells_map,
-                )
-                current_row += 1
-        sheet_merged_cells_map = current_sheet.merged_cells
+
+    sheet_merged_cells_map = current_sheet.merged_cells
 
     copy_row_formatting(
         template_sheet,
@@ -1003,52 +1024,19 @@ def add_group_methods(
     sheet_number,
 ):
     """Добавляет группу методов в таблицу."""
-    header_height = calculate_header_height(
-        template_sheet, table_header_start, table_header_end
-    )
-
-    current_height = calculate_current_height(current_sheet)
-    group_rows_height = DEFAULT_ROW_HEIGHT * (len(group_data["calculations"]) + 1)
-    additional_height = 20 * (len(group_data["calculations"]) + 1)
-
-    if (
-        current_height + header_height + group_rows_height + additional_height
-        > A4_HEIGHT_POINTS
-    ):
-        sheet_number += 1
-        current_sheet = current_sheet.parent.create_sheet(f"Лист{sheet_number}")
-        set_sheet_margins(current_sheet)
-        enforce_fit_to_page(current_sheet)
-        current_row = 1
-
-        copy_column_dimensions(template_sheet, current_sheet)
-        sheet_merged_cells_map = current_sheet.merged_cells
-
+    # Копируем заголовок таблицы только для первой строки
+    if idx == 1:
         for row_num in range(table_header_start + 1, table_header_end):
             copy_row_formatting(
                 template_sheet,
                 current_sheet,
                 row_num,
                 current_row,
-                sheet_merged_cells_map,
+                merged_cells_map,
             )
             current_row += 1
-    else:
-        if (
-            idx == 1
-            and current_height + header_height + group_rows_height + additional_height
-            <= A4_HEIGHT_POINTS
-        ):
-            for row_num in range(table_header_start + 1, table_header_end):
-                copy_row_formatting(
-                    template_sheet,
-                    current_sheet,
-                    row_num,
-                    current_row,
-                    merged_cells_map,
-                )
-                current_row += 1
-        sheet_merged_cells_map = current_sheet.merged_cells
+
+    sheet_merged_cells_map = current_sheet.merged_cells
 
     measurement_methods = set(
         method.measurement_method for method in group_data["methods"]
@@ -1174,9 +1162,6 @@ def process_fractional_composition_oil(
     sheet_number,
 ):
     """Обрабатывает фракционный состав нефти для таблицы 1."""
-    header_height = calculate_header_height(
-        template_sheet, table_header_start, table_header_end
-    )
 
     try:
         if hasattr(calc, "intermediate_data") and calc.intermediate_data:
@@ -1247,44 +1232,19 @@ def process_fractional_composition_oil(
         "Выход фракций до 300 ℃": "±1,4",
     }
 
-    current_height = calculate_current_height(current_sheet)
-    fractional_rows_height = DEFAULT_ROW_HEIGHT * (len(fractional_fields) + 1)
-
-    if current_height + header_height + fractional_rows_height > A4_HEIGHT_POINTS:
-        sheet_number += 1
-        current_sheet = current_sheet.parent.create_sheet(f"Лист{sheet_number}")
-        set_sheet_margins(current_sheet)
-        enforce_fit_to_page(current_sheet)
-        current_row = 1
-
-        copy_column_dimensions(template_sheet, current_sheet)
-        sheet_merged_cells_map = current_sheet.merged_cells
-
+    # Копируем заголовок таблицы только для первой строки
+    if idx == 1:
         for row_num in range(table_header_start + 1, table_header_end):
             copy_row_formatting(
                 template_sheet,
                 current_sheet,
                 row_num,
                 current_row,
-                sheet_merged_cells_map,
+                merged_cells_map,
             )
             current_row += 1
-    else:
-        if (
-            idx == 1
-            and current_height + header_height + fractional_rows_height
-            <= A4_HEIGHT_POINTS
-        ):
-            for row_num in range(table_header_start + 1, table_header_end):
-                copy_row_formatting(
-                    template_sheet,
-                    current_sheet,
-                    row_num,
-                    current_row,
-                    merged_cells_map,
-                )
-                current_row += 1
-        sheet_merged_cells_map = current_sheet.merged_cells
+
+    sheet_merged_cells_map = current_sheet.merged_cells
 
     copy_row_formatting(
         template_sheet,
@@ -1426,9 +1386,6 @@ def process_fractional_composition_condensate(
     sheet_number,
 ):
     """Обрабатывает фракционный состав конденсата для таблицы 1."""
-    header_height = calculate_header_height(
-        template_sheet, table_header_start, table_header_end
-    )
 
     try:
         if isinstance(calc.result, str):
@@ -1483,44 +1440,19 @@ def process_fractional_composition_condensate(
         "Объемная доля потерь": "-",
     }
 
-    current_height = calculate_current_height(current_sheet)
-    fractional_rows_height = DEFAULT_ROW_HEIGHT * (len(fractional_fields) + 1)
-
-    if current_height + header_height + fractional_rows_height > A4_HEIGHT_POINTS:
-        sheet_number += 1
-        current_sheet = current_sheet.parent.create_sheet(f"Лист{sheet_number}")
-        set_sheet_margins(current_sheet)
-        enforce_fit_to_page(current_sheet)
-        current_row = 1
-
-        copy_column_dimensions(template_sheet, current_sheet)
-        sheet_merged_cells_map = current_sheet.merged_cells
-
+    # Копируем заголовок таблицы только для первой строки
+    if idx == 1:
         for row_num in range(table_header_start + 1, table_header_end):
             copy_row_formatting(
                 template_sheet,
                 current_sheet,
                 row_num,
                 current_row,
-                sheet_merged_cells_map,
+                merged_cells_map,
             )
             current_row += 1
-    else:
-        if (
-            idx == 1
-            and current_height + header_height + fractional_rows_height
-            <= A4_HEIGHT_POINTS
-        ):
-            for row_num in range(table_header_start + 1, table_header_end):
-                copy_row_formatting(
-                    template_sheet,
-                    current_sheet,
-                    row_num,
-                    current_row,
-                    merged_cells_map,
-                )
-                current_row += 1
-        sheet_merged_cells_map = current_sheet.merged_cells
+
+    sheet_merged_cells_map = current_sheet.merged_cells
 
     copy_row_formatting(
         template_sheet,
@@ -2335,6 +2267,30 @@ async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> Respons
         if not samples:
             raise ValidationError("У протокола отсутствуют пробы")
 
+        # Загружаем шаблоны условий отбора для лаборатории/подразделения
+        selection_conditions_templates = []
+        if protocol.laboratory_id or protocol.department_id:
+            selection_conditions_query = select(SelectionConditions).where(
+                SelectionConditions.deleted_at.is_(None)
+            )
+            if protocol.laboratory_id:
+                selection_conditions_query = selection_conditions_query.where(
+                    SelectionConditions.laboratory_id == protocol.laboratory_id
+                )
+            if protocol.department_id:
+                selection_conditions_query = selection_conditions_query.where(
+                    SelectionConditions.department_id == protocol.department_id
+                )
+            selection_conditions_result = await db.execute(selection_conditions_query)
+            selection_conditions_list = list(
+                selection_conditions_result.scalars().all()
+            )
+            if selection_conditions_list:
+                # Берем первый активный шаблон (обычно должен быть один)
+                selection_conditions_templates = [
+                    {"conditions": sc.conditions} for sc in selection_conditions_list
+                ]
+
         # Собираем список используемого оборудования для всех расчетов по пробам
         equipment_ids = _collect_equipment_ids_from_samples(samples)
         equipment_list: List[Equipment] = []
@@ -2402,13 +2358,24 @@ async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> Respons
         merged_cells_map = new_sheet.merged_cells
 
         header_end = await process_header(
-            protocol, samples, template_sheet, new_sheet, merged_cells_map
+            protocol,
+            samples,
+            template_sheet,
+            new_sheet,
+            merged_cells_map,
+            selection_conditions_templates,
         )
         if header_end == 0:
             raise ValidationError("Ошибка при обработке шапки протокола")
 
         table_start = await process_header_and_conditions(
-            protocol, samples, template_sheet, new_sheet, header_end, merged_cells_map
+            protocol,
+            samples,
+            template_sheet,
+            new_sheet,
+            header_end,
+            merged_cells_map,
+            selection_conditions_templates,
         )
 
         current_sheet = process_methods_table(
@@ -2445,6 +2412,7 @@ async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> Respons
                 merged_cells_map,
                 current_sheet.max_row + 1,
                 len(new_workbook.sheetnames),
+                selection_conditions_templates,
             )
 
             current_sheet = process_equipment_table(
@@ -2482,6 +2450,7 @@ async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> Respons
                     merged_cells_map,
                     current_sheet.max_row + 1,
                     len(new_workbook.sheetnames),
+                    selection_conditions_templates,
                 )
 
                 current_sheet = process_nd_table(
@@ -2520,6 +2489,7 @@ async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> Respons
                         merged_cells_map,
                         current_sheet.max_row + 1,
                         len(new_workbook.sheetnames),
+                        selection_conditions_templates,
                     )
 
         total_sheets = len(new_workbook.sheetnames)
