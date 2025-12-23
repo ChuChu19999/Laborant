@@ -124,6 +124,9 @@ class Branch(BaseModel):
     sampling_locations = relationship(
         "SamplingLocation", back_populates="branch", cascade="all, delete-orphan"
     )
+    well_modes = relationship(
+        "WellMode", back_populates="branch", cascade="all, delete-orphan"
+    )
     samples = relationship("Sample", back_populates="branch")
 
     __table_args__ = (
@@ -173,3 +176,40 @@ class SamplingLocation(BaseModel):
 
     def __repr__(self):
         return f"<SamplingLocation(id={self.id}, name='{self.name}', branch_id={self.branch_id})>"
+
+
+class WellMode(BaseModel):
+    __tablename__ = "well_modes"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    branch_id = Column(
+        Integer,
+        ForeignKey(f"{get_database_schema()}.branches.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    name = Column(
+        String(255), nullable=False, index=True, comment="Название режима скважины"
+    )
+
+    branch = relationship("Branch", back_populates="well_modes")
+
+    __table_args__ = (
+        Index(
+            "unique_well_mode_per_branch",
+            "branch_id",
+            "name",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index("idx_well_mode_branch_name", "branch_id", "name"),
+        Index("idx_well_mode_created_at", "created_at"),
+        Index("idx_well_mode_updated_at", "updated_at"),
+        {"schema": get_database_schema()},
+    )
+
+    def __repr__(self):
+        return (
+            f"<WellMode(id={self.id}, name='{self.name}', branch_id={self.branch_id})>"
+        )

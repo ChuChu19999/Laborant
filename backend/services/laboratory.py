@@ -3,7 +3,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from core.exceptions import ConflictError, NotFoundError, ValidationError
-from models.laboratory import Branch, Department, Laboratory, SamplingLocation
+from models.laboratory import Branch, Department, Laboratory, SamplingLocation, WellMode
 from schemas.laboratory import (
     BranchCreate,
     BranchUpdate,
@@ -13,6 +13,8 @@ from schemas.laboratory import (
     LaboratoryUpdate,
     SamplingLocationCreate,
     SamplingLocationUpdate,
+    WellModeCreate,
+    WellModeUpdate,
 )
 from utils.filters import add_text_search_filter
 from utils.pagination import apply_pagination, calculate_total_pages, get_total_count
@@ -554,4 +556,123 @@ async def delete_sampling_location(db: AsyncSession, sampling_location_id: int) 
         raise NotFoundError("Место отбора пробы не найдено")
 
     sampling_location.soft_delete()
+    await db.flush()
+
+
+async def get_well_mode_by_id(
+    db: AsyncSession, well_mode_id: int, include_deleted: bool = False
+) -> Optional[WellMode]:
+    """Получить режим скважины по ID."""
+    query = (
+        select(WellMode)
+        .where(WellMode.id == well_mode_id)
+        .options(selectinload(WellMode.branch))
+    )
+    if not include_deleted:
+        query = query.where(WellMode.deleted_at.is_(None))
+    result = await db.execute(query)
+    return result.scalar_one_or_none()
+
+
+async def get_well_modes(
+    db: AsyncSession,
+    branch_id: Optional[int] = None,
+    search: Optional[str] = None,
+    sort_by: Optional[str] = None,
+    sort_order: Optional[str] = None,
+) -> list[WellMode]:
+    """Получить список режимов скважин."""
+    query = (
+        select(WellMode)
+        .where(WellMode.deleted_at.is_(None))
+        .options(selectinload(WellMode.branch))
+    )
+
+    if branch_id:
+        query = query.where(WellMode.branch_id == branch_id)
+
+    conditions = []
+    if search:
+        add_text_search_filter(conditions, search, WellMode.name)
+    if conditions:
+        query = query.where(*conditions)
+
+    sort_mapping = {
+        "name": WellMode.name,
+        "created_at": WellMode.created_at,
+    }
+    order_by = build_order_by(sort_by, sort_order, sort_mapping, WellMode.created_at)
+    query = query.order_by(order_by)
+
+    result = await db.execute(query)
+    well_modes = result.scalars().all()
+
+    return list(well_modes)
+
+
+async def create_well_mode(
+    db: AsyncSession, well_mode_data: WellModeCreate
+) -> WellMode:
+    """Создать режим скважины."""
+    branch = await get_branch_by_id(db, well_mode_data.branch_id)
+    if not branch:
+        raise NotFoundError("Филиал не найден")
+
+    existing = await db.execute(
+        select(WellMode).where(
+            WellMode.branch_id == well_mode_data.branch_id,
+            WellMode.name == well_mode_data.name.strip(),
+            WellMode.deleted_at.is_(None),
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise ConflictError(
+            "Режим скважины с таким названием уже существует для данного филиала"
+        )
+
+    well_mode = WellMode(
+        branch_id=well_mode_data.branch_id,
+        name=well_mode_data.name.strip(),
+    )
+    db.add(well_mode)
+    await db.flush()
+    return well_mode
+
+
+async def update_well_mode(
+    db: AsyncSession,
+    well_mode_id: int,
+    well_mode_data: WellModeUpdate,
+) -> WellMode:
+    """Обновить режим скважины."""
+    well_mode = await get_well_mode_by_id(db, well_mode_id)
+    if not well_mode:
+        raise NotFoundError("Режим скважины не найден")
+
+    if well_mode_data.name is not None:
+        existing = await db.execute(
+            select(WellMode).where(
+                WellMode.branch_id == well_mode.branch_id,
+                WellMode.name == well_mode_data.name.strip(),
+                WellMode.id != well_mode_id,
+                WellMode.deleted_at.is_(None),
+            )
+        )
+        if existing.scalar_one_or_none():
+            raise ConflictError(
+                "Режим скважины с таким названием уже существует для данного филиала"
+            )
+        well_mode.name = well_mode_data.name.strip()
+
+    await db.flush()
+    return well_mode
+
+
+async def delete_well_mode(db: AsyncSession, well_mode_id: int) -> None:
+    """Удалить режим скважины (мягкое удаление)."""
+    well_mode = await get_well_mode_by_id(db, well_mode_id)
+    if not well_mode:
+        raise NotFoundError("Режим скважины не найден")
+
+    well_mode.soft_delete()
     await db.flush()

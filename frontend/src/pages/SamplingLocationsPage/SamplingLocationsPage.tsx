@@ -18,19 +18,23 @@ import {
   CreateSamplingLocationModal,
   EditSamplingLocationModal,
   DeleteSamplingLocationModal,
+  CreateWellModeModal,
+  EditWellModeModal,
+  DeleteWellModeModal,
 } from '../../features/Modals';
 import { laboratoriesApi, type Department, type Laboratory } from '../../shared/api/laboratories';
 import {
   samplingLocationsApi,
   type Branch,
   type SamplingLocation,
+  type WellMode,
 } from '../../shared/api/samplingLocations';
 import { useAutoRefetchQuery } from '../../shared/model/lib/useQuery';
 import Button from '../../shared/ui/Button/Button';
 import { DepartmentCard, LaboratoryCard } from '../../shared/ui/Cards';
 import Layout from '../../shared/ui/Layout/Layout';
 import { NavigationBar } from '../../widgets/NavigationBar';
-import { SplitPanel } from '../../widgets/SplitPanel';
+import { ThreePanel } from '../../widgets/ThreePanel';
 import './SamplingLocationsPage.css';
 
 const SamplingLocationsPage: React.FC = () => {
@@ -42,6 +46,7 @@ const SamplingLocationsPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<SamplingLocation | null>(null);
+  const [selectedWellMode, setSelectedWellMode] = useState<WellMode | null>(null);
   const [branchForModal, setBranchForModal] = useState<Branch | null>(null);
   const [isCreateBranchModalOpen, setIsCreateBranchModalOpen] = useState(false);
   const [isEditBranchModalOpen, setIsEditBranchModalOpen] = useState(false);
@@ -49,6 +54,9 @@ const SamplingLocationsPage: React.FC = () => {
   const [isCreateLocationModalOpen, setIsCreateLocationModalOpen] = useState(false);
   const [isEditLocationModalOpen, setIsEditLocationModalOpen] = useState(false);
   const [isDeleteLocationModalOpen, setIsDeleteLocationModalOpen] = useState(false);
+  const [isCreateWellModeModalOpen, setIsCreateWellModeModalOpen] = useState(false);
+  const [isEditWellModeModalOpen, setIsEditWellModeModalOpen] = useState(false);
+  const [isDeleteWellModeModalOpen, setIsDeleteWellModeModalOpen] = useState(false);
 
   const labId = laboratoryId ? parseInt(laboratoryId, 10) : undefined;
   const deptId = departmentId ? parseInt(departmentId, 10) : undefined;
@@ -106,11 +114,24 @@ const SamplingLocationsPage: React.FC = () => {
     }
   );
 
+  const { data: wellModesData } = useAutoRefetchQuery<{ items: WellMode[] }>(
+    ['sampling-locations', 'well-modes', selectedBranch?.id],
+    () =>
+      samplingLocationsApi.getWellModes(selectedBranch?.id, {
+        sort_by: 'name',
+        sort_order: 'asc',
+      }),
+    {
+      enabled: !!selectedBranch?.id,
+    }
+  );
+
   const laboratoriesList = laboratories?.items ?? [];
   const departmentsList = (departments ?? []).filter((d: Department) => !d.deleted_at) ?? [];
   const branchesList = branches?.items?.filter((b: Branch) => !b.deleted_at) ?? [];
   const samplingLocations =
     samplingLocationsData?.items?.filter((l: SamplingLocation) => !l.deleted_at) ?? [];
+  const wellModes = wellModesData?.items?.filter((m: WellMode) => !m.deleted_at) ?? [];
 
   const previousLabIdRef = useRef<number | undefined>(undefined);
   const previousDeptIdRef = useRef<number | undefined>(undefined);
@@ -159,6 +180,10 @@ const SamplingLocationsPage: React.FC = () => {
 
   const refetchLocations = () => {
     queryClient.invalidateQueries({ queryKey: ['sampling-locations', 'items'] });
+  };
+
+  const refetchWellModes = () => {
+    queryClient.invalidateQueries({ queryKey: ['sampling-locations', 'well-modes'] });
   };
 
   const handleCreateBranchSuccess = () => {
@@ -221,6 +246,33 @@ const SamplingLocationsPage: React.FC = () => {
     setIsDeleteLocationModalOpen(false);
     setSelectedLocation(null);
     refetchLocations();
+  };
+
+  const handleCreateWellModeSuccess = () => {
+    setIsCreateWellModeModalOpen(false);
+    refetchWellModes();
+  };
+
+  const handleEditWellMode = (wellMode: WellMode) => {
+    setSelectedWellMode(wellMode);
+    setIsEditWellModeModalOpen(true);
+  };
+
+  const handleEditWellModeSuccess = () => {
+    setIsEditWellModeModalOpen(false);
+    setSelectedWellMode(null);
+    refetchWellModes();
+  };
+
+  const handleDeleteWellMode = (wellMode: WellMode) => {
+    setSelectedWellMode(wellMode);
+    setIsDeleteWellModeModalOpen(true);
+  };
+
+  const handleDeleteWellModeSuccess = () => {
+    setIsDeleteWellModeModalOpen(false);
+    setSelectedWellMode(null);
+    refetchWellModes();
   };
 
   const breadcrumbs = useMemo((): Array<{ label: string; onClick?: () => void }> => {
@@ -313,7 +365,7 @@ const SamplingLocationsPage: React.FC = () => {
     <Layout title={title}>
       <NavigationBar breadcrumbs={breadcrumbs} onBack={handleBack} showBack={true} />
 
-      <SplitPanel
+      <ThreePanel
         leftPanel={
           <div className="sampling-locations-branches">
             <div className="sampling-locations-branches-header">
@@ -369,6 +421,7 @@ const SamplingLocationsPage: React.FC = () => {
                             e.stopPropagation();
                             handleEditBranch(branch);
                           }}
+                          className="sampling-locations-edit-button"
                         />
                         <Button
                           type="text"
@@ -388,8 +441,8 @@ const SamplingLocationsPage: React.FC = () => {
             </div>
           </div>
         }
-        rightPanel={
-          <div className="sampling-locations-right">
+        middlePanel={
+          <div className="sampling-locations-middle-panel">
             {!selectedBranch ? (
               <div className="sampling-locations-placeholder">
                 <h3>Выберите филиал</h3>
@@ -446,6 +499,7 @@ const SamplingLocationsPage: React.FC = () => {
                             size="small"
                             icon={<EditOutlined />}
                             onClick={() => handleEditLocation(location)}
+                            className="sampling-locations-edit-button"
                           />
                           <Button
                             type="text"
@@ -463,9 +517,74 @@ const SamplingLocationsPage: React.FC = () => {
             )}
           </div>
         }
+        rightPanel={
+          <div className="sampling-locations-well-modes">
+            {!selectedBranch ? (
+              <div className="sampling-locations-placeholder">
+                <h3>Выберите филиал</h3>
+                <p>Выберите филиал слева, чтобы просмотреть режимы скважин.</p>
+              </div>
+            ) : (
+              <div className="sampling-locations-list-wrapper">
+                <div className="sampling-locations-list-header">
+                  <div>
+                    <h3 className="sampling-locations-list-title">Режимы скважин</h3>
+                  </div>
+                  <div className="sampling-locations-add-button-container">
+                    <Button
+                      type="primary"
+                      icon={<PlusOutlined />}
+                      size="small"
+                      onClick={() => setIsCreateWellModeModalOpen(true)}
+                    >
+                      Добавить режим
+                    </Button>
+                  </div>
+                </div>
+
+                {!wellModesData && selectedBranch ? (
+                  <LoadingCard loading />
+                ) : wellModes.length === 0 ? (
+                  <div className="sampling-locations-empty">
+                    <h4>Нет режимов скважин</h4>
+                    <p>Добавьте первый режим скважины, нажав на кнопку «Добавить режим».</p>
+                  </div>
+                ) : (
+                  <div className="sampling-locations-list">
+                    {wellModes.map(wellMode => (
+                      <div key={wellMode.id} className="sampling-locations-item">
+                        <div className="sampling-locations-item-main">
+                          <div>
+                            <div className="sampling-locations-item-name">{wellMode.name}</div>
+                          </div>
+                        </div>
+                        <div className="sampling-locations-item-actions">
+                          <Button
+                            type="text"
+                            size="small"
+                            icon={<EditOutlined />}
+                            onClick={() => handleEditWellMode(wellMode)}
+                            className="sampling-locations-edit-button"
+                          />
+                          <Button
+                            type="text"
+                            size="small"
+                            icon={<DeleteOutlined />}
+                            danger
+                            onClick={() => handleDeleteWellMode(wellMode)}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        }
       />
 
-      {labId && (
+      {labId !== undefined && (
         <CreateBranchModal
           open={isCreateBranchModalOpen}
           laboratoryId={labId}
@@ -495,7 +614,7 @@ const SamplingLocationsPage: React.FC = () => {
         onSuccess={handleDeleteBranchSuccess}
       />
 
-      {selectedBranch && (
+      {selectedBranch !== null && (
         <CreateSamplingLocationModal
           open={isCreateLocationModalOpen}
           branchId={selectedBranch.id}
@@ -522,6 +641,35 @@ const SamplingLocationsPage: React.FC = () => {
           setSelectedLocation(null);
         }}
         onSuccess={handleDeleteLocationSuccess}
+      />
+
+      {selectedBranch !== null && (
+        <CreateWellModeModal
+          open={isCreateWellModeModalOpen}
+          branchId={selectedBranch.id}
+          onClose={() => setIsCreateWellModeModalOpen(false)}
+          onSuccess={handleCreateWellModeSuccess}
+        />
+      )}
+
+      <EditWellModeModal
+        open={isEditWellModeModalOpen}
+        wellMode={selectedWellMode}
+        onClose={() => {
+          setIsEditWellModeModalOpen(false);
+          setSelectedWellMode(null);
+        }}
+        onSuccess={handleEditWellModeSuccess}
+      />
+
+      <DeleteWellModeModal
+        open={isDeleteWellModeModalOpen}
+        wellMode={selectedWellMode}
+        onClose={() => {
+          setIsDeleteWellModeModalOpen(false);
+          setSelectedWellMode(null);
+        }}
+        onSuccess={handleDeleteWellModeSuccess}
       />
     </Layout>
   );

@@ -1,9 +1,12 @@
 from typing import Optional
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from core.database import get_db
 from core.exceptions import NotFoundError
 from core.security import IsAuthenticated
+from models.laboratory import WellMode
 from schemas.laboratory import (
     BranchCreate,
     BranchResponse,
@@ -17,6 +20,9 @@ from schemas.laboratory import (
     SamplingLocationCreate,
     SamplingLocationResponse,
     SamplingLocationUpdate,
+    WellModeCreate,
+    WellModeResponse,
+    WellModeUpdate,
 )
 from schemas.pagination import PaginatedResponse
 from services.laboratory import create_branch as create_branch_service
@@ -25,12 +31,14 @@ from services.laboratory import create_laboratory as create_laboratory_service
 from services.laboratory import (
     create_sampling_location as create_sampling_location_service,
 )
+from services.laboratory import create_well_mode as create_well_mode_service
 from services.laboratory import delete_branch as delete_branch_service
 from services.laboratory import delete_department as delete_department_service
 from services.laboratory import delete_laboratory as delete_laboratory_service
 from services.laboratory import (
     delete_sampling_location as delete_sampling_location_service,
 )
+from services.laboratory import delete_well_mode as delete_well_mode_service
 from services.laboratory import (
     get_branch_by_id,
     get_branches,
@@ -40,6 +48,8 @@ from services.laboratory import (
     get_laboratory_by_id,
     get_sampling_location_by_id,
     get_sampling_locations,
+    get_well_mode_by_id,
+    get_well_modes,
 )
 from services.laboratory import update_branch as update_branch_service
 from services.laboratory import update_department as update_department_service
@@ -47,6 +57,7 @@ from services.laboratory import update_laboratory as update_laboratory_service
 from services.laboratory import (
     update_sampling_location as update_sampling_location_service,
 )
+from services.laboratory import update_well_mode as update_well_mode_service
 
 router = APIRouter()
 
@@ -247,6 +258,145 @@ async def delete_sampling_location(
 ):
     """Выполняет мягкое удаление места отбора проб. Место отбора проб помечается как удаленное."""
     await delete_sampling_location_service(db, sampling_location_id)
+    await db.commit()
+
+
+@router.get(
+    "/laboratories/well-modes/",
+    response_model=list[WellModeResponse],
+    summary="Получение списка режимов скважин",
+    description=(
+        "Возвращает список режимов скважин. "
+        "Поддерживает фильтрацию по филиалам, поиск и сортировку."
+    ),
+    responses={200: {"description": "Список режимов скважин успешно получен"}},
+)
+# @IsAuthenticated
+async def list_well_modes(
+    branch_id: Optional[int] = Query(None),
+    search: Optional[str] = Query(None),
+    sort_by: Optional[str] = Query(None),
+    sort_order: Optional[str] = Query("desc"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Возвращает список режимов скважин."""
+    well_modes = await get_well_modes(
+        db,
+        branch_id=branch_id,
+        search=search,
+        sort_by=sort_by,
+        sort_order=sort_order,
+    )
+    items = []
+    for mode in well_modes:
+        mode_dict = WellModeResponse.model_validate(mode).model_dump()
+        if hasattr(mode, "branch") and mode.branch:
+            mode_dict["branch_name"] = mode.branch.name
+        items.append(WellModeResponse(**mode_dict))
+
+    return items
+
+
+@router.post(
+    "/laboratories/well-modes/",
+    response_model=WellModeResponse,
+    status_code=201,
+    summary="Создание нового режима скважины",
+    description="Создает новый режим скважины на основе переданных данных.",
+    responses={
+        201: {"description": "Режим скважины успешно создан"},
+        400: {"description": "Некорректные данные для создания режима скважины"},
+    },
+)
+# @IsAuthenticated
+async def create_well_mode(
+    well_mode_data: WellModeCreate,
+    db: AsyncSession = Depends(get_db),
+):
+    """Создает новый режим скважины на основе переданных данных."""
+    well_mode = await create_well_mode_service(db, well_mode_data)
+    await db.commit()
+    await db.refresh(well_mode, ["branch"])
+    mode_dict = WellModeResponse.model_validate(well_mode).model_dump()
+    if well_mode.branch:
+        mode_dict["branch_name"] = well_mode.branch.name
+    return WellModeResponse(**mode_dict)
+
+
+@router.get(
+    "/laboratories/well-modes/{well_mode_id}/",
+    response_model=WellModeResponse,
+    summary="Получение режима скважины по ID",
+    description="Возвращает информацию о режиме скважины по его идентификатору.",
+    responses={
+        200: {"description": "Режим скважины успешно получен"},
+        404: {"description": "Режим скважины не найден"},
+    },
+)
+# @IsAuthenticated
+async def get_well_mode(
+    well_mode_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """Возвращает информацию о режиме скважины по его идентификатору."""
+    well_mode = await get_well_mode_by_id(db, well_mode_id)
+    if not well_mode:
+        raise NotFoundError("Режим скважины не найден")
+    mode_dict = WellModeResponse.model_validate(well_mode).model_dump()
+    if hasattr(well_mode, "branch") and well_mode.branch:
+        mode_dict["branch_name"] = well_mode.branch.name
+    return WellModeResponse(**mode_dict)
+
+
+@router.patch(
+    "/laboratories/well-modes/{well_mode_id}/",
+    response_model=WellModeResponse,
+    summary="Обновление режима скважины",
+    description="Обновляет существующий режим скважины. Можно обновить только указанные поля.",
+    responses={
+        200: {"description": "Режим скважины успешно обновлен"},
+        404: {"description": "Режим скважины не найден"},
+    },
+)
+# @IsAuthenticated
+async def update_well_mode(
+    well_mode_id: int,
+    well_mode_data: WellModeUpdate,
+    db: AsyncSession = Depends(get_db),
+):
+    """Обновляет существующий режим скважины. Можно обновить только указанные поля."""
+    well_mode = await update_well_mode_service(db, well_mode_id, well_mode_data)
+    await db.commit()
+    query = (
+        select(WellMode)
+        .where(WellMode.id == well_mode.id)
+        .options(selectinload(WellMode.branch))
+    )
+    result = await db.execute(query)
+    well_mode = result.scalar_one()
+    mode_dict = WellModeResponse.model_validate(well_mode).model_dump()
+    if well_mode.branch:
+        mode_dict["branch_name"] = well_mode.branch.name
+    return WellModeResponse(**mode_dict)
+
+
+@router.delete(
+    "/laboratories/well-modes/{well_mode_id}/",
+    status_code=204,
+    summary="Удаление режима скважины",
+    description="Выполняет мягкое удаление режима скважины. Режим помечается как удаленный.",
+    responses={
+        204: {"description": "Режим скважины успешно удален"},
+        404: {"description": "Режим скважины не найден"},
+    },
+)
+# @IsAuthenticated
+async def delete_well_mode(
+    well_mode_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """Выполняет мягкое удаление режима скважины. Режим помечается как удаленный."""
+    await delete_well_mode_service(db, well_mode_id)
     await db.commit()
 
 

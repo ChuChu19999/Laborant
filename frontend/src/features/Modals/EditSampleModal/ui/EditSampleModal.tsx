@@ -64,7 +64,7 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({
     branch_id: sample.branch_id as number | undefined,
     sampling_location_id: sample.sampling_location_id as number | undefined,
     well: sample.well || '',
-    mode: sample.mode || '',
+    mode: sample.mode || undefined,
   });
   const [errors, setErrors] = useState<Record<string, boolean>>({});
 
@@ -96,6 +96,19 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({
 
   const samplingLocations = samplingLocationsData?.items || [];
 
+  // Запрос на получение режимов скважин
+  const { data: wellModesData, isLoading: wellModesLoading } = useAutoRefetchQuery<{
+    items: import('../../../../shared/api/samplingLocations').WellMode[];
+  }>(
+    ['sampling-locations', 'well-modes', formData.branch_id],
+    () => samplingLocationsApi.getWellModes(formData.branch_id),
+    {
+      enabled: !!formData.branch_id,
+    }
+  );
+
+  const wellModes = wellModesData?.items || [];
+
   const { data: selectionConditionsFields = [] } = useAutoRefetchQuery<SelectionConditionsField[]>(
     ['selection-conditions-fields', laboratoryId, departmentId],
     () => samplesApi.getSelectionConditionsFields(laboratoryId!, departmentId),
@@ -117,7 +130,7 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({
         branch_id: sample.branch_id as number | undefined,
         sampling_location_id: sample.sampling_location_id as number | undefined,
         well: sample.well || '',
-        mode: sample.mode || '',
+        mode: sample.mode || undefined,
       });
       setErrors({});
 
@@ -143,7 +156,7 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({
   );
 
   const handleSelectChange = useCallback(
-    (field: 'sample_type' | 'test_object' | 'branch_id' | 'sampling_location_id') =>
+    (field: 'sample_type' | 'test_object' | 'branch_id' | 'sampling_location_id' | 'mode') =>
       (value: unknown) => {
         setFormData(prev => {
           const newData = {
@@ -151,8 +164,10 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({
             [field]: value as (typeof formData)[typeof field],
           };
 
+          // Сбрасываем место отбора и режим при изменении филиала
           if (field === 'branch_id') {
             newData.sampling_location_id = undefined;
+            newData.mode = undefined;
           }
 
           return newData;
@@ -248,7 +263,7 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({
       branch_id: sample.branch_id as number | undefined,
       sampling_location_id: sample.sampling_location_id as number | undefined,
       well: sample.well || '',
-      mode: sample.mode || '',
+      mode: sample.mode || undefined,
     });
     setSelectionConditions({});
     setErrors({});
@@ -376,11 +391,21 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({
 
         <div className="form-group">
           <label>Режим</label>
-          <Input
+          <Select
             value={formData.mode}
-            onChange={handleInputChange('mode')}
-            placeholder="Введите режим"
-          />
+            onChange={handleSelectChange('mode')}
+            placeholder="Выберите режим"
+            loading={wellModesLoading}
+            disabled={!formData.branch_id}
+            listHeight={100}
+            allowClear
+          >
+            {wellModes.map(mode => (
+              <Option key={mode.id} value={mode.name}>
+                {mode.name}
+              </Option>
+            ))}
+          </Select>
         </div>
 
         <div className="form-group">

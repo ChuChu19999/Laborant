@@ -206,3 +206,45 @@ class SamplingLocationResponse(SamplingLocationBase):
 
     class Config:
         from_attributes = True
+
+
+class WellModeBase(BaseModel):
+    name: str = Field(..., max_length=255, description="Название режима скважины")
+
+    @field_validator("name")
+    @classmethod
+    def strip_name(cls, v: str) -> str:
+        if v:
+            v = v.strip()
+            if not v:
+                raise ValueError("Название режима скважины не может быть пустым")
+        return v
+
+
+class WellModeCreate(WellModeBase):
+    branch_id: int = Field(..., description="ID филиала")
+
+
+class WellModeUpdate(BaseModel):
+    name: Optional[str] = Field(None, max_length=255)
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def strip_name(cls, v: Optional[str]) -> Optional[str]:
+        if v:
+            v = v.strip()
+            if not v:
+                raise ValueError("Название режима скважины не может быть пустым")
+        return v
+
+
+class WellModeResponse(WellModeBase):
+    id: int
+    branch_id: int
+    branch_name: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    deleted_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True

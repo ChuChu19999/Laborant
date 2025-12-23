@@ -7,6 +7,9 @@ import {
   type SamplingLocation,
   type SamplingLocationCreate,
   type SamplingLocationUpdate,
+  type WellMode,
+  type WellModeCreate,
+  type WellModeUpdate,
 } from '../../api/samplingLocations';
 import { useAutoInvalidateMutation } from '../lib/useMutation';
 
@@ -84,6 +87,42 @@ export const useDeleteSamplingLocation = () => {
     {
       onSuccess: () => {
         message.success('Место отбора пробы успешно удалено');
+      },
+    }
+  );
+};
+
+export const useCreateWellMode = () => {
+  return useAutoInvalidateMutation<WellMode, unknown, WellModeCreate>(
+    data => samplingLocationsApi.createWellMode(data),
+    [['sampling-locations', 'well-modes']],
+    {
+      onSuccess: () => {
+        message.success('Режим скважины успешно создан');
+      },
+    }
+  );
+};
+
+export const useUpdateWellMode = () => {
+  return useAutoInvalidateMutation<WellMode, unknown, { id: number; data: WellModeUpdate }>(
+    ({ id, data }) => samplingLocationsApi.updateWellMode(id, data),
+    [['sampling-locations', 'well-modes']],
+    {
+      onSuccess: () => {
+        message.success('Режим скважины успешно обновлен');
+      },
+    }
+  );
+};
+
+export const useDeleteWellMode = () => {
+  return useAutoInvalidateMutation<void, unknown, number>(
+    id => samplingLocationsApi.deleteWellMode(id),
+    [['sampling-locations', 'well-modes']],
+    {
+      onSuccess: () => {
+        message.success('Режим скважины успешно удален');
       },
     }
   );
