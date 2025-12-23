@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { message } from 'antd';
 import { UserPicker, type Employee } from '../../../../entities/UserPicker';
 import { calculationApi } from '../../../../shared/api/calculation';
+import { laboratoriesApi } from '../../../../shared/api/laboratories';
 import { samplesApi, type Sample } from '../../../../shared/api/samples';
 import { useAutoRefetchQuery } from '../../../../shared/model/lib/useQuery';
 import { Select } from '../../../../shared/ui/FormItems';
@@ -45,6 +46,7 @@ const SaveCalculationModal: React.FC<SaveCalculationModalProps> = ({
   const [executorError, setExecutorError] = useState('');
   const [selectedSampleId, setSelectedSampleId] = useState<number | undefined>(sampleId);
   const [sampleError, setSampleError] = useState('');
+  const [laboratoryName, setLaboratoryName] = useState<string>('');
 
   // Запрос на получение проб для выбора (только если sampleId не передан)
   const { data: samplesData, isLoading: samplesLoading } = useAutoRefetchQuery<{
@@ -63,6 +65,21 @@ const SaveCalculationModal: React.FC<SaveCalculationModalProps> = ({
       enabled: open && !sampleId && !!laboratoryId,
     }
   );
+
+  // Запрос на получение названия лаборатории
+  const { data: laboratory } = useAutoRefetchQuery(
+    ['laboratory', laboratoryId],
+    () => laboratoriesApi.getLaboratory(laboratoryId),
+    {
+      enabled: open && !!laboratoryId,
+    }
+  );
+
+  useEffect(() => {
+    if (laboratory?.full_name) {
+      setLaboratoryName(laboratory.full_name);
+    }
+  }, [laboratory]);
 
   const samples = useMemo(() => samplesData?.items || [], [samplesData?.items]);
 
@@ -188,6 +205,7 @@ const SaveCalculationModal: React.FC<SaveCalculationModalProps> = ({
               }}
               placeholder="Введите ФИО исполнителя"
               error={executorError}
+              laboratoryName={laboratoryName}
             />
           </div>
         </div>

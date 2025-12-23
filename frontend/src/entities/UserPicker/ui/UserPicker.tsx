@@ -32,6 +32,7 @@ interface UserPickerProps {
   className?: string;
   style?: React.CSSProperties;
   error?: string;
+  laboratoryName?: string;
 }
 
 const UserPicker: React.FC<UserPickerProps> = ({
@@ -42,6 +43,7 @@ const UserPicker: React.FC<UserPickerProps> = ({
   className = '',
   style,
   error,
+  laboratoryName,
 }) => {
   const [searchText, setSearchText] = useState('');
   const [options, setOptions] = useState<Employee[]>([]);
@@ -118,7 +120,12 @@ const UserPicker: React.FC<UserPickerProps> = ({
 
       setLoading(true);
       try {
-        const data = await employeesApi.searchByFio(text, true);
+        let data;
+        if (laboratoryName) {
+          data = await employeesApi.searchByFioAndLaboratory(text, laboratoryName, true);
+        } else {
+          data = await employeesApi.searchByFio(text, true);
+        }
         setOptions(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error('Ошибка при поиске сотрудников:', err);
@@ -128,7 +135,7 @@ const UserPicker: React.FC<UserPickerProps> = ({
         setLoading(false);
       }
     },
-    [onChange]
+    [onChange, laboratoryName]
   );
 
   const handleSearch = useCallback(

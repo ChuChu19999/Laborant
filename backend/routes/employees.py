@@ -6,6 +6,7 @@ from services.employees import (
     get_employee_by_hash,
     get_employees_by_hashes,
     search_employees_by_fio,
+    search_employees_by_fio_and_laboratory,
 )
 
 router = APIRouter()
@@ -20,7 +21,7 @@ class EmployeesByHashesRequest(BaseModel):
     "/search/",
     summary="Поиск сотрудников по ФИО",
     description=(
-        "Выполняет поиск сотрудников в HR системе по части ФИО. "
+        "Выполняет поиск сотрудников в HR API по части ФИО. "
         "Минимальная длина поискового запроса - 3 символа. "
         "Возвращает список сотрудников с их данными, включая опционально фотографии."
     ),
@@ -59,10 +60,80 @@ async def search_employees(
         description="Включать ли фотографии сотрудников в ответ",
     ),
 ):
-    """Выполняет поиск сотрудников в HR системе по части ФИО."""
+    """Выполняет поиск сотрудников в HR API по части ФИО."""
     try:
         employees = await search_employees_by_fio(
             search_fio, include_photo=include_photo
+        )
+        return employees
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=503, detail=f"Ошибка при обращении к HR API: {str(e)}"
+        )
+
+
+@router.get(
+    "/search-by-laboratory/",
+    summary="Поиск сотрудников по ФИО с фильтрацией по лаборатории",
+    description=(
+        "Выполняет поиск сотрудников в HR API по части ФИО с фильтрацией "
+        "по наименованию лаборатории. Минимальная длина поискового запроса - 3 символа. "
+        "Возвращает список сотрудников с их данными, включая опционально фотографии."
+    ),
+    responses={
+        200: {
+            "description": "Список найденных сотрудников",
+            "content": {
+                "application/json": {
+                    "example": [
+                        {
+                            "hashMd5": "abc123...",
+                            "fullName": "Иванов Иван Иванович",
+                            "department": "Отдел IT",
+                            "photo": "base64...",
+                        }
+                    ]
+                }
+            },
+        },
+        400: {
+            "description": "Поисковый запрос слишком короткий (менее 3 символов) или не указано название лаборатории"
+        },
+        503: {"description": "Ошибка при обращении к HR API"},
+    },
+)
+# @IsAuthenticated
+async def search_employees_by_laboratory(
+    search_fio: str = Query(
+        ...,
+        min_length=3,
+        alias="searchFio",
+        description="Часть ФИО для поиска (минимум 3 символа)",
+        example="Иванов",
+    ),
+    laboratory_name: str = Query(
+        ...,
+        alias="laboratoryName",
+        description="Наименование лаборатории для фильтрации",
+        example="Лаборатория №1",
+    ),
+    include_photo: bool = Query(
+        True,
+        alias="includePhoto",
+        description="Включать ли фотографии сотрудников в ответ",
+    ),
+):
+    """Выполняет поиск сотрудников в HR API по части ФИО с фильтрацией по лаборатории."""
+    if not laboratory_name:
+        raise HTTPException(
+            status_code=400, detail="Необходимо указать название лаборатории"
+        )
+
+    try:
+        employees = await search_employees_by_fio_and_laboratory(
+            search_fio, laboratory_name, include_photo=include_photo
         )
         return employees
     except ValueError as e:
@@ -78,7 +149,7 @@ async def search_employees(
     summary="Получение информации о сотруднике",
     description=(
         "Возвращает полную информацию о сотруднике по его hashMd5 (hsnils). "
-        "Данные получаются из HR системы. Может включать фотографию сотрудника."
+        "Данные получаются из HR API. Может включать фотографию сотрудника."
     ),
     responses={
         200: {

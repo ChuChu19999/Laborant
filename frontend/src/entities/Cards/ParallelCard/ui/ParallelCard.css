@@ -1,5 +1,5 @@
 .parallel-card {
-  padding: 20px;
+  padding: 15px;
   padding-bottom: 12px;
   background: #f5f8ff;
   border-radius: 16px;
@@ -12,6 +12,19 @@
   transform: translateY(0);
   backdrop-filter: blur(8px);
   background-color: rgba(245, 248, 255, 0.95);
+  position: relative;
+  overflow: hidden;
+}
+
+.parallel-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(to bottom, rgba(64, 150, 255, 0.4), rgba(0, 102, 204, 0.3));
+  border-radius: 16px 0 0 16px;
 }
 
 .parallel-card-label {

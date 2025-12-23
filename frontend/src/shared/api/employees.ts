@@ -14,6 +14,37 @@ export const employeesApi = {
     return response.data;
   },
 
+  // Поиск сотрудников по ФИО с фильтрацией по лаборатории
+  searchByFioAndLaboratory: async (
+    searchFio: string,
+    laboratoryName: string,
+    includePhoto: boolean = true
+  ) => {
+    if (!searchFio || searchFio.length < 3) {
+      return [];
+    }
+
+    if (!laboratoryName) {
+      console.warn('Название лаборатории не указано, возвращаем пустой результат');
+      return [];
+    }
+
+    try {
+      const response = await axiosInstance.get('/api/employees/search-by-laboratory/', {
+        params: {
+          searchFio,
+          laboratoryName,
+          includePhoto,
+        },
+      });
+
+      return response.data;
+    } catch (error) {
+      console.error('Ошибка при поиске сотрудников:', error);
+      throw error;
+    }
+  },
+
   // Получение ФИО по hashMd5
   getByHash: async (hash: string, includePhoto: boolean = true) => {
     if (!hash) return null;

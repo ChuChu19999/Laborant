@@ -1,5 +1,6 @@
 from typing import Any, Optional, Tuple
 import httpx
+import orjson
 from cachetools import TTLCache
 from core.config import settings
 from core.http_clients import get_hr_client
@@ -26,7 +27,7 @@ async def search_employees_by_fio(
     """
     Поиск сотрудников по ФИО через HR API.
 
-    Выполняет поиск сотрудников в HR системе по части ФИО.
+    Выполняет поиск сотрудников в HR API по части ФИО.
     Минимальная длина поискового запроса - 3 символа.
     Возвращает список найденных сотрудников с их данными.
     """
@@ -62,6 +63,66 @@ async def search_employees_by_fio(
         raise
 
 
+async def search_employees_by_fio_and_laboratory(
+    search_fio: str, laboratory_name: str, include_photo: bool = True
+) -> list[dict[str, Any]]:
+    """
+    Поиск сотрудников по ФИО с фильтрацией по наименованию лаборатории через HR API.
+
+    Выполняет поиск сотрудников в HR API по части ФИО и фильтрует результаты
+    по наименованию лаборатории на основе поля workPlaceJson.
+    Минимальная длина поискового запроса - 3 символа.
+    Возвращает список найденных сотрудников с их данными.
+    """
+    if not search_fio or len(search_fio) < 3:
+        return []
+
+    if not laboratory_name:
+        logger.warning("Название лаборатории не указано, возвращаем пустой результат")
+        return []
+
+    if not settings.HR_API_URL:
+        logger.error("HR_API_URL не настроен")
+        raise ValueError("HR_API_URL не настроен")
+
+    try:
+        url = f"{settings.HR_API_URL}/api/v2/employee/by-fio/{search_fio}?includeDismissed=true&recordsNumber=100&includePhoto={str(include_photo).lower()}"
+        headers = {"Content-Type": "application/json"}
+
+        client = await get_hr_client()
+        response = await client.get(url, headers=headers)
+        response.raise_for_status()
+        employees_data = response.json()
+
+        if not isinstance(employees_data, list):
+            if isinstance(employees_data, dict):
+                employees_data = [employees_data]
+            else:
+                employees_data = []
+
+        # Фильтруем сотрудников по наименованию лаборатории
+        filtered_employees = []
+        for employee in employees_data:
+            if not employee.get("workPlaceJson"):
+                continue
+
+            try:
+                work_places = orjson.loads(employee["workPlaceJson"])
+                if isinstance(work_places, list) and laboratory_name in work_places:
+                    filtered_employees.append(employee)
+            except (orjson.JSONDecodeError, TypeError):
+                continue
+
+        return filtered_employees
+
+    except httpx.RequestError as e:
+        logger.error(f"Ошибка при обращении к HR API: {str(e)}")
+        raise
+    except Exception as e:
+        logger.error(f"Внутренняя ошибка сервера: {str(e)}")
+        raise
+
+
 async def get_employee_by_hash(
     hash_md5: str, include_photo: bool = True
 ) -> Optional[dict[str, Any]]:
@@ -70,7 +131,7 @@ async def get_employee_by_hash(
     Возвращает None, если сотрудник не найден (404) или произошла ошибка.
 
     Возвращает полную информацию о сотруднике по его hashMd5 (MD5 хэш СНИЛС).
-    Данные получаются из HR системы и могут включать фотографию сотрудника.
+    Данные получаются из HR API и могут включать фотографию сотрудника.
     Результаты кэшируются для оптимизации повторных запросов.
     """
     if not hash_md5:

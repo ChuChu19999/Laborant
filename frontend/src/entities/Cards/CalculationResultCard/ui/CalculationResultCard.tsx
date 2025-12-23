@@ -112,7 +112,6 @@ const CalculationResultCard: React.FC<CalculationResultCardProps> = ({ result, c
     <div className="calculation-result-card">
       {!isFractionalComposition && (
         <div className="calculation-result-main">
-          <p className="calculation-result-title">Результат:</p>
           <p className="calculation-result-value">{getResultText()}</p>
         </div>
       )}
@@ -167,7 +166,7 @@ const CalculationResultCard: React.FC<CalculationResultCardProps> = ({ result, c
                   )}
                 </div>
                 <span className="calculation-intermediate-value">
-                  = {formatIntermediateValue(name, value)}
+                  {formatIntermediateValue(name, value)}
                   {field?.unit && (
                     <span className="calculation-intermediate-unit"> {field.unit}</span>
                   )}

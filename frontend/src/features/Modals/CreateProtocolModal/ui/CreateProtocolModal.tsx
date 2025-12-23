@@ -3,6 +3,7 @@ import { Checkbox, message } from 'antd';
 import dayjs from 'dayjs';
 import 'dayjs/locale/ru';
 import { UserPicker, type Employee } from '../../../../entities/UserPicker';
+import { laboratoriesApi } from '../../../../shared/api/laboratories';
 import {
   protocolsApi,
   type ProtocolCreate,
@@ -91,7 +92,17 @@ const CreateProtocolModal: React.FC<CreateProtocolModalProps> = ({
     }
   );
 
+  // Запрос на получение названия лаборатории
+  const { data: laboratory } = useAutoRefetchQuery(
+    ['laboratory', laboratoryId],
+    () => laboratoriesApi.getLaboratory(laboratoryId!),
+    {
+      enabled: !!laboratoryId,
+    }
+  );
+
   const samples = useMemo(() => samplesData?.items || [], [samplesData?.items]);
+  const laboratoryName = useMemo(() => laboratory?.full_name || '', [laboratory]);
 
   // Группируем шаблоны по имени и определяем актуальные
   const { templatesGrouped, currentTemplateIds } = useMemo(() => {
@@ -331,6 +342,7 @@ const CreateProtocolModal: React.FC<CreateProtocolModalProps> = ({
             value={formData.issued}
             onChange={employee => setFormData(prev => ({ ...prev, issued: employee }))}
             placeholder="Введите ФИО лица, оформившего протокол"
+            laboratoryName={laboratoryName}
           />
         </div>
 
@@ -356,6 +368,7 @@ const CreateProtocolModal: React.FC<CreateProtocolModalProps> = ({
             value={formData.approved}
             onChange={employee => setFormData(prev => ({ ...prev, approved: employee }))}
             placeholder="Введите ФИО лица, утвердившего протокол"
+            laboratoryName={laboratoryName}
           />
         </div>
 
