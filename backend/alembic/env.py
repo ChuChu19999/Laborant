@@ -49,6 +49,13 @@ def include_object(object, name, type_, reflected, compare_to):
     Это предотвращает попытки удалить/создать объекты из чужих схем.
     """
     schema_name = get_database_schema()
+
+    # Ранний выход для отраженных объектов из чужих схем
+    if reflected:
+        obj_schema = getattr(object, "schema", None)
+        if obj_schema != schema_name:
+            return False
+
     try:
         if type_ == "table":
             object_schema = getattr(object, "schema", None)
@@ -81,11 +88,12 @@ def include_object(object, name, type_, reflected, compare_to):
 
 def do_run_migrations(connection):
     schema_name = get_database_schema()
+
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
         version_table_schema=schema_name,
-        include_schemas=[schema_name],
+        include_schemas=True,
         include_object=include_object,
         compare_type=True,
         compare_server_default=True,
@@ -123,7 +131,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         version_table_schema=schema_name,
-        include_schemas=[schema_name],
+        include_schemas=True,
         include_object=include_object,
         compare_type=True,
         compare_server_default=True,
