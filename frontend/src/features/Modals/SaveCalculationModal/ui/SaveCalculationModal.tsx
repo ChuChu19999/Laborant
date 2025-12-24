@@ -137,7 +137,7 @@ const SaveCalculationModal: React.FC<SaveCalculationModalProps> = ({
     } catch (error) {
       console.error('Ошибка при сохранении расчета:', error);
       message.error('Не удалось сохранить результат расчета');
-      throw error; // Пробрасываем ошибку, чтобы Modal мог обработать её
+      throw error;
     }
   };
 

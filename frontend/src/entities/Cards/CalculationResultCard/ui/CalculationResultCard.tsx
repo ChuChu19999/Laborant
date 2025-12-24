@@ -135,7 +135,11 @@ const CalculationResultCard: React.FC<CalculationResultCardProps> = ({ result, c
                     <div className="calculation-condition-steps">
                       {condition.calculation_steps.type === 'single'
                         ? condition.calculation_steps.step?.evaluated
-                        : condition.calculation_steps.steps?.[0]?.evaluated}
+                          ? formatFormula(condition.calculation_steps.step.evaluated)
+                          : ''
+                        : condition.calculation_steps.steps?.[0]?.evaluated
+                          ? formatFormula(condition.calculation_steps.steps[0].evaluated)
+                          : ''}
                     </div>
                   )}
 

@@ -8,6 +8,7 @@ import { useAutoRefetchQuery } from '../../../../shared/model/lib/useQuery';
 import Button from '../../../../shared/ui/Button/Button';
 import { Input } from '../../../../shared/ui/FormItems';
 import { Modal } from '../../../../shared/ui/Modal';
+import { formatNumberForDisplay } from '../../../../shared/utils/numberFormatting';
 import './MassFractionOilRefractionDirectoryModal.css';
 
 interface MassFractionOilRefractionDirectoryModalProps {
@@ -100,8 +101,8 @@ const MassFractionOilRefractionDirectoryModal: React.FC<
       setEditingIndex(index);
       const entry = entries[index];
       setNewEntry({
-        c_value: entry.c_value.toString().replace('.', ','),
-        n_value: entry.n_value.toString().replace('.', ','),
+        c_value: formatNumberForDisplay(entry.c_value),
+        n_value: formatNumberForDisplay(entry.n_value),
       });
     },
     [entries]

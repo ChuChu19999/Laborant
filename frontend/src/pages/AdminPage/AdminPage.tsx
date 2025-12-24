@@ -26,6 +26,7 @@ import { useQueryStore } from '../../shared/model/stores';
 import Button from '../../shared/ui/Button/Button';
 import { Select } from '../../shared/ui/FormItems';
 import Layout from '../../shared/ui/Layout/Layout';
+import { formatNumberForDisplay } from '../../shared/utils/numberFormatting';
 import { CalculationPanel } from '../../widgets/CalculationPanel';
 import { MethodsPanel } from '../../widgets/MethodsPanel';
 import { NavigationBar } from '../../widgets/NavigationBar';
@@ -661,7 +662,10 @@ const AdminPage: React.FC = () => {
           if (fractionalData.card1) {
             Object.entries(fractionalData.card1).forEach(([fieldName, value]) => {
               const formFieldName = `${currentMethod.id}_${fieldName}`;
-              initialValues[formFieldName] = value ? value.toString().replace('.', ',') : '';
+              initialValues[formFieldName] =
+                value && (typeof value === 'string' || typeof value === 'number')
+                  ? formatNumberForDisplay(value)
+                  : '';
             });
           }
 
@@ -669,7 +673,10 @@ const AdminPage: React.FC = () => {
           if (fractionalData.card2) {
             Object.entries(fractionalData.card2).forEach(([fieldName, value]) => {
               const formFieldName = `${currentMethod.id}_${fieldName}_card_2`;
-              initialValues[formFieldName] = value ? value.toString().replace('.', ',') : '';
+              initialValues[formFieldName] =
+                value && (typeof value === 'string' || typeof value === 'number')
+                  ? formatNumberForDisplay(value)
+                  : '';
             });
           }
         } else {
@@ -683,7 +690,10 @@ const AdminPage: React.FC = () => {
                 ? `${currentMethod.id}_${fieldName}_card_${cardIndex}`
                 : `${currentMethod.id}_${fieldName}`;
 
-            initialValues[formFieldName] = value ? value.toString().replace('.', ',') : '';
+            initialValues[formFieldName] =
+              value && (typeof value === 'string' || typeof value === 'number')
+                ? formatNumberForDisplay(value)
+                : '';
           });
         }
       } else {
@@ -701,7 +711,10 @@ const AdminPage: React.FC = () => {
               ? `${currentMethod.id}_${fieldName}_card_${cardIndex}`
               : `${currentMethod.id}_${fieldName}`;
 
-          initialValues[formFieldName] = value ? value.toString().replace('.', ',') : '';
+          initialValues[formFieldName] =
+            value && (typeof value === 'string' || typeof value === 'number')
+              ? formatNumberForDisplay(value)
+              : '';
         });
       }
 

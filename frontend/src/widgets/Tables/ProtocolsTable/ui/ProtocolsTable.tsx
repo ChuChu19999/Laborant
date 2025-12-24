@@ -23,6 +23,7 @@ import { getDateRangePresets } from '../../../../shared/lib/datePresets';
 import { urlParamsToFilters } from '../../../../shared/lib/urlParams';
 import Button from '../../../../shared/ui/Button/Button';
 import { Input, Select, RangePicker } from '../../../../shared/ui/FormItems';
+import { formatDate } from '../../../../shared/utils/dateFormatting';
 import './ProtocolsTable.css';
 
 dayjs.extend(customParseFormat);
@@ -41,49 +42,6 @@ interface ProtocolsTableProps {
   onDelete: (protocolId: number) => void;
   onGenerateExcel?: (protocolId: number) => void | Promise<void>;
 }
-
-const formatDate = (dateString?: string): string => {
-  if (!dateString) return '-';
-  return dayjs(dateString).format('DD.MM.YYYY');
-};
-
-const formatProtocolNumber = (
-  number?: string,
-  date?: string,
-  isAccredited?: boolean,
-  samples?: Array<{ test_object?: string }>
-): string => {
-  if (!number && !date) return '-';
-  if (!isAccredited) return number || '-';
-
-  const getObjectSuffix = (): string => {
-    if (!samples || !samples.length) return '';
-    const firstSample = samples.find(sample => sample.test_object);
-    if (!firstSample || !firstSample.test_object) return '';
-
-    const testObjectLower = firstSample.test_object.toLowerCase();
-    if (testObjectLower.includes('дегазированный конденсат')) return 'дк';
-    if (testObjectLower.includes('нефть') || testObjectLower.includes('нефть калибровочная'))
-      return 'н';
-    if (testObjectLower.includes('нефтеконденсатная смесь')) return 'нкс';
-    if (testObjectLower.includes('дизельное топливо')) return 'дт';
-    if (testObjectLower.includes('отработанные нефтепродукты')) return 'он';
-    if (testObjectLower.includes('масло турбинное')) return 'м';
-    if (testObjectLower.includes('масло авиационное')) return 'м';
-    if (testObjectLower.includes('смесь жидких углеводородов')) return 'с';
-    if (testObjectLower.includes('ингибитор коррозии')) return 'ик';
-    return '';
-  };
-
-  const suffix = getObjectSuffix();
-  const formattedDate = formatDate(date);
-
-  if (!number) return `от ${formattedDate}`;
-  if (!date) return number;
-
-  const protocolNumber = suffix ? `${number}/07/${suffix}` : `${number}/07`;
-  return `${protocolNumber} от ${formattedDate}`;
-};
 
 const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
   data,
@@ -229,14 +187,7 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
       {
         accessorKey: 'test_protocol_number',
         header: '№ протокола',
-        cell: ({ row }) =>
-          row.original.formatted_protocol_number ||
-          formatProtocolNumber(
-            row.original.test_protocol_number,
-            row.original.test_protocol_date,
-            row.original.is_accredited,
-            row.original.samples_data
-          ),
+        cell: ({ row }) => row.original.formatted_protocol_number || '-',
         enableSorting: true,
         enableColumnFilter: true,
         size: 200,

@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
 import { Input } from '../../../shared/ui/FormItems';
+import { formatNumberForDisplay } from '../../../shared/utils/numberFormatting';
 import type { SelectionConditionsField } from '../../../shared/api/samples';
 import './SelectionConditionsForm.css';
 
@@ -62,7 +63,7 @@ const SelectionConditionsForm: React.FC<SelectionConditionsFormProps> = ({
 
   const formatValue = useCallback((value: string | undefined): string => {
     if (!value || value === '') return '';
-    return String(value).replace('.', ',');
+    return formatNumberForDisplay(value);
   }, []);
 
   if (!conditions || conditions.length === 0) {

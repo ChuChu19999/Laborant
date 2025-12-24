@@ -9,6 +9,7 @@ import {
 } from '@tanstack/react-table';
 import { LoadingCard } from '../../../../features/Cards';
 import Button from '../../../../shared/ui/Button/Button';
+import { formatNumberForDisplay } from '../../../../shared/utils/numberFormatting';
 import './MassFractionOilRefractionDirectoryTable.css';
 
 interface EntryRow {
@@ -39,7 +40,7 @@ const MassFractionOilRefractionDirectoryTable: React.FC<
         size: 300,
         cell: ({ row }) => {
           const value = row.original.c_value;
-          return value.toFixed(2).replace('.', ',');
+          return formatNumberForDisplay(value.toFixed(2));
         },
       },
       {
@@ -49,7 +50,7 @@ const MassFractionOilRefractionDirectoryTable: React.FC<
         size: 300,
         cell: ({ row }) => {
           const value = row.original.n_value;
-          return value.toFixed(3).replace('.', ',');
+          return formatNumberForDisplay(value.toFixed(3));
         },
       },
       {

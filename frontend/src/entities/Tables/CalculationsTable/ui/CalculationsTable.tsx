@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useReactTable, getCoreRowModel, flexRender, type ColumnDef } from '@tanstack/react-table';
-import dayjs from 'dayjs';
 import { LoadingCard } from '../../../../features/Cards';
 import { type Calculation } from '../../../../shared/api/calculation';
 import { employeesApi } from '../../../../shared/api/employees';
@@ -9,17 +8,13 @@ import {
   roundValueForOilFractional,
   roundValueForCondensateFractional,
 } from '../../../../shared/utils/calculationUtils';
+import { formatDate } from '../../../../shared/utils/dateFormatting';
 import './CalculationsTable.css';
 
 interface CalculationsTableProps {
   data: Calculation[];
   loading?: boolean;
 }
-
-const formatDate = (dateString?: string): string => {
-  if (!dateString) return '-';
-  return dayjs(dateString).format('DD.MM.YYYY');
-};
 
 // Функция для замены минуса на слово "минус"
 const formatNumberWithMinus = (value: string): string => {

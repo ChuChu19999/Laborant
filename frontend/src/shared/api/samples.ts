@@ -6,6 +6,7 @@ export interface SampleProtocol {
   test_protocol_number?: string;
   test_protocol_date?: string;
   is_accredited?: boolean;
+  formatted_protocol_number?: string;
 }
 
 export interface Sample {

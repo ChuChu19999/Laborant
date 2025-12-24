@@ -11,6 +11,7 @@ from core.exceptions import NotFoundError, ValidationError
 from core.logger import logger
 from core.security import IsAuthenticated
 from models.protocol import Protocol, ProtocolTemplate
+from models.sample import Sample
 from schemas.pagination import PaginatedResponse
 from schemas.protocol import (
     ProtocolCreate,
@@ -36,7 +37,6 @@ from services.protocol import (
     update_protocol_template,
 )
 from services.protocol_generator import generate_protocol_excel
-from services.sample import get_sample_by_id
 from utils.protocol_formatting import format_protocol_number
 from utils.query_params import parse_date_range_params
 
@@ -102,6 +102,29 @@ async def list_protocols(
         created_at_to=created_at_to_parsed,
     )
 
+    # Собираем все уникальные sample_id из всех протоколов для пакетной загрузки
+    all_sample_ids = set()
+    for protocol in protocols:
+        if protocol.samples:
+            all_sample_ids.update(protocol.samples)
+
+    samples_by_id = {}
+    if all_sample_ids:
+        samples_query = (
+            select(Sample)
+            .where(Sample.id.in_(list(all_sample_ids)))
+            .where(Sample.deleted_at.is_(None))
+            .options(
+                selectinload(Sample.laboratory),
+                selectinload(Sample.department),
+                selectinload(Sample.branch),
+                selectinload(Sample.sampling_location),
+            )
+        )
+        samples_result = await db.execute(samples_query)
+        samples_list = samples_result.scalars().all()
+        samples_by_id = {sample.id: sample for sample in samples_list}
+
     items = []
     for protocol in protocols:
         protocol_dict = ProtocolResponse.model_validate(protocol).model_dump()
@@ -114,7 +137,7 @@ async def list_protocols(
             samples_data = []
             test_object = None
             for sample_id in protocol.samples:
-                sample = await get_sample_by_id(db, sample_id)
+                sample = samples_by_id.get(sample_id)
                 if sample:
                     sample_dict = SampleResponse.model_validate(sample).model_dump()
                     if sample.laboratory:
@@ -199,9 +222,15 @@ async def create_protocol_endpoint(
     # Получаем test_object из проб для форматирования
     test_object = None
     if protocol.samples:
-        for sample_id in protocol.samples:
-            sample = await get_sample_by_id(db, sample_id)
-            if sample and sample.test_object:
+        samples_query = (
+            select(Sample)
+            .where(Sample.id.in_(protocol.samples))
+            .where(Sample.deleted_at.is_(None))
+        )
+        samples_result = await db.execute(samples_query)
+        samples_list = samples_result.scalars().all()
+        for sample in samples_list:
+            if sample.test_object:
                 test_object = sample.test_object
                 break
 
@@ -242,10 +271,25 @@ async def get_protocol(
         protocol_dict["department_name"] = protocol.department.name
 
     if protocol.samples:
+        samples_query = (
+            select(Sample)
+            .where(Sample.id.in_(protocol.samples))
+            .where(Sample.deleted_at.is_(None))
+            .options(
+                selectinload(Sample.laboratory),
+                selectinload(Sample.department),
+                selectinload(Sample.branch),
+                selectinload(Sample.sampling_location),
+            )
+        )
+        samples_result = await db.execute(samples_query)
+        samples_list = samples_result.scalars().all()
+        samples_by_id = {sample.id: sample for sample in samples_list}
+
         samples_data = []
         test_object = None
         for sample_id in protocol.samples:
-            sample = await get_sample_by_id(db, sample_id)
+            sample = samples_by_id.get(sample_id)
             if sample:
                 sample_dict = SampleResponse.model_validate(sample).model_dump()
                 if sample.laboratory:
@@ -315,9 +359,15 @@ async def update_protocol_endpoint(
     # Получаем test_object из проб для форматирования
     test_object = None
     if protocol.samples:
-        for sample_id in protocol.samples:
-            sample = await get_sample_by_id(db, sample_id)
-            if sample and sample.test_object:
+        samples_query = (
+            select(Sample)
+            .where(Sample.id.in_(protocol.samples))
+            .where(Sample.deleted_at.is_(None))
+        )
+        samples_result = await db.execute(samples_query)
+        samples_list = samples_result.scalars().all()
+        for sample in samples_list:
+            if sample.test_object:
                 test_object = sample.test_object
                 break
 

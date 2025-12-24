@@ -24,6 +24,7 @@ import { getDateRangePresets } from '../../../../shared/lib/datePresets';
 import { urlParamsToFilters } from '../../../../shared/lib/urlParams';
 import Button from '../../../../shared/ui/Button/Button';
 import { Input, Select, RangePicker } from '../../../../shared/ui/FormItems';
+import { formatDate } from '../../../../shared/utils/dateFormatting';
 import './EquipmentTable.css';
 
 const EQUIPMENT_TYPES = [
@@ -46,11 +47,6 @@ interface EquipmentTableProps {
   onEdit: (equipmentId: number) => void;
   onDelete: (equipmentId: number) => void;
 }
-
-const formatDate = (dateString?: string): string => {
-  if (!dateString) return '-';
-  return dayjs(dateString).format('DD.MM.YYYY');
-};
 
 const formatEquipmentType = (type: string): string => {
   const types: Record<string, string> = {

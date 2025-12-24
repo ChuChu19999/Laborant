@@ -8,6 +8,7 @@ import Button from '../../../shared/ui/Button/Button';
 import { DatePicker } from '../../../shared/ui/DatePicker';
 import { Select } from '../../../shared/ui/FormItems';
 import Tooltip from '../../../shared/ui/Tooltip/Tooltip';
+import { formatNumberForDisplay } from '../../../shared/utils/numberFormatting';
 import type { CalculationResult } from '../../../shared/api/calculation';
 import type { ResearchMethod, ResearchMethodGroup } from '../../../shared/api/research';
 import type { InputRef } from 'antd';
@@ -204,17 +205,15 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
 
       const result: CalculationResult = {
         ...response,
-        result: response.result ? response.result.replace('.', ',') : undefined,
+        result: response.result ? formatNumberForDisplay(response.result) : undefined,
         measurement_error: response.measurement_error
-          ? response.measurement_error.replace('.', ',')
+          ? formatNumberForDisplay(response.measurement_error)
           : undefined,
         intermediate_results: response.intermediate_results
           ? Object.fromEntries(
               Object.entries(response.intermediate_results).map(([key, value]) => [
                 key,
-                typeof value === 'string'
-                  ? value.replace('.', ',')
-                  : String(value).replace('.', ','),
+                formatNumberForDisplay(value),
               ])
             )
           : undefined,
@@ -238,7 +237,7 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
 
             const updatedValue = updatedInputData[field.name];
             if (updatedValue !== undefined && updatedValue !== null) {
-              updatedValues[fieldKey] = String(updatedValue).replace('.', ',');
+              updatedValues[fieldKey] = formatNumberForDisplay(updatedValue);
             }
           }
         });
