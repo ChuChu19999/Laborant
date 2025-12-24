@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 import pendulum
-from sqlalchemy import func, or_, select, text
+from sqlalchemy import desc, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.sql import bindparam
@@ -16,6 +16,7 @@ from schemas.protocol import (
 )
 from utils.filters import add_date_range_filter
 from utils.pagination import apply_pagination, calculate_total_pages, get_total_count
+from utils.protocol_formatting import format_protocol_number
 from utils.sorting import build_order_by
 
 
@@ -457,10 +458,21 @@ async def get_protocol_templates(
         "version": ProtocolTemplate.version,
         "created_at": ProtocolTemplate.created_at,
     }
-    order_by = build_order_by(
-        sort_by, sort_order, sort_mapping, ProtocolTemplate.created_at
-    )
-    query = query.order_by(order_by)
+
+    # Если сортировка не указана, сортируем по версии по убыванию (последние версии первыми)
+    # Используем числовую сортировку версий: извлекаем число из строки "v1", "v2" и т.д.
+    if not sort_by:
+        version_num_expr = text(
+            "CAST(REGEXP_REPLACE(REGEXP_REPLACE(version, '^[vV]', ''), '[^0-9]', '', 'g') AS INTEGER)"
+        )
+        query = query.order_by(
+            desc(version_num_expr), ProtocolTemplate.created_at.desc()
+        )
+    else:
+        order_by = build_order_by(
+            sort_by, sort_order, sort_mapping, ProtocolTemplate.created_at
+        )
+        query = query.order_by(order_by)
 
     count_query = select(func.count()).select_from(ProtocolTemplate)
     if not include_deleted:
@@ -588,6 +600,13 @@ async def get_protocols_by_sample_ids(
     )
     all_protocols = protocols_result.scalars().all()
 
+    # Получаем пробы для определения test_object
+    samples_result = await db.execute(
+        select(Sample).where(Sample.id.in_(sample_ids), Sample.deleted_at.is_(None))
+    )
+    samples_list = samples_result.scalars().all()
+    samples_by_id = {sample.id: sample for sample in samples_list}
+
     result: Dict[int, List[Dict[str, Any]]] = {
         sample_id: [] for sample_id in sample_ids
     }
@@ -596,6 +615,9 @@ async def get_protocols_by_sample_ids(
         if protocol.samples:
             for sample_id in protocol.samples:
                 if sample_id in result:
+                    sample = samples_by_id.get(sample_id)
+                    test_object = sample.test_object if sample else None
+
                     protocol_dict = {
                         "id": protocol.id,
                         "test_protocol_number": protocol.test_protocol_number,
@@ -605,6 +627,12 @@ async def get_protocols_by_sample_ids(
                             else None
                         ),
                         "is_accredited": protocol.is_accredited,
+                        "formatted_protocol_number": format_protocol_number(
+                            protocol.test_protocol_number,
+                            protocol.test_protocol_date,
+                            protocol.is_accredited,
+                            test_object,
+                        ),
                     }
                     result[sample_id].append(protocol_dict)
 

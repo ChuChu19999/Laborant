@@ -393,7 +393,9 @@ const SamplesTable: React.FC<SamplesTableProps> = ({
                 test_protocol_number?: string;
                 test_protocol_date?: string;
                 is_accredited?: boolean;
+                formatted_protocol_number?: string;
               }) =>
+                p.formatted_protocol_number ||
                 formatProtocolNumber(
                   p.test_protocol_number,
                   p.test_protocol_date,
@@ -418,7 +420,9 @@ const SamplesTable: React.FC<SamplesTableProps> = ({
                 test_protocol_number?: string;
                 test_protocol_date?: string;
                 is_accredited?: boolean;
+                formatted_protocol_number?: string;
               }) =>
+                p.formatted_protocol_number ||
                 formatProtocolNumber(
                   p.test_protocol_number,
                   p.test_protocol_date,

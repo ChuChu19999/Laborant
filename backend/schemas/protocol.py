@@ -69,6 +69,8 @@ class ProtocolResponse(ProtocolBase):
     laboratory_name: Optional[str] = None
     department_name: Optional[str] = None
     samples_data: Optional[List[Dict[str, Any]]] = None
+    formatted_protocol_number: Optional[str] = None
+    has_undeleted_calculations: Optional[bool] = None
     created_at: datetime
     updated_at: datetime
     deleted_at: Optional[datetime] = None

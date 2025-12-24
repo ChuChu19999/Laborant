@@ -122,18 +122,8 @@ const CreateProtocolModal: React.FC<CreateProtocolModalProps> = ({
       const activeTemplates = groupTemplates.filter(t => !t.deleted_at);
 
       if (activeTemplates.length > 0) {
-        // Сортируем по версии (v1, v2, v3...) и берем последнюю
-        const sorted = activeTemplates.sort((a, b) => {
-          const aNum = parseInt(a.version.replace(/^v/i, '') || '0', 10);
-          const bNum = parseInt(b.version.replace(/^v/i, '') || '0', 10);
-          if (aNum !== bNum) {
-            return bNum - aNum;
-          }
-          // Если версии одинаковые, сортируем по дате создания
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        });
-        if (sorted[0]) {
-          currentIds.add(sorted[0].id);
+        if (activeTemplates[0]) {
+          currentIds.add(activeTemplates[0].id);
         }
       }
     });
@@ -197,33 +187,13 @@ const CreateProtocolModal: React.FC<CreateProtocolModalProps> = ({
     []
   );
 
-  const handleSamplesChange = useCallback(
-    (value: unknown) => {
-      const sampleIds = (value as number[]) || [];
-      // Валидация: все пробы должны иметь одинаковый объект исследования
-      if (sampleIds.length > 0) {
-        const selectedSamplesData = samples.filter((sample: Sample) =>
-          sampleIds.includes(sample.id)
-        );
-        const testObjects = [
-          ...new Set(selectedSamplesData.map((sample: Sample) => sample.test_object)),
-        ];
-
-        if (testObjects.length > 1) {
-          message.error(
-            `Все пробы должны иметь одинаковый объект исследования. Найдены: ${testObjects.join(', ')}`
-          );
-          return;
-        }
-      }
-
-      setFormData(prev => ({
-        ...prev,
-        samples: sampleIds,
-      }));
-    },
-    [samples]
-  );
+  const handleSamplesChange = useCallback((value: unknown) => {
+    const sampleIds = (value as number[]) || [];
+    setFormData(prev => ({
+      ...prev,
+      samples: sampleIds,
+    }));
+  }, []);
 
   const validateForm = useCallback((): boolean => {
     const newErrors: Record<string, boolean> = {};
@@ -398,18 +368,7 @@ const CreateProtocolModal: React.FC<CreateProtocolModalProps> = ({
             allowClear
           >
             {Object.entries(templatesGrouped).map(([name, groupTemplates]) => {
-              // Сортируем шаблоны в группе по версии
-              const sorted = [...groupTemplates].sort((a, b) => {
-                const aNum = parseInt(a.version.replace(/^v/i, '') || '0', 10);
-                const bNum = parseInt(b.version.replace(/^v/i, '') || '0', 10);
-                if (aNum !== bNum) {
-                  return bNum - aNum;
-                }
-                // Если версии одинаковые, сортируем по дате создания
-                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-              });
-
-              return sorted.map(template => {
+              return groupTemplates.map(template => {
                 const isDeleted = !!template.deleted_at;
                 const isCurrent = currentTemplateIds.has(template.id);
 

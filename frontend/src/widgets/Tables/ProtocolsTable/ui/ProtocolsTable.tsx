@@ -230,6 +230,7 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
         accessorKey: 'test_protocol_number',
         header: '№ протокола',
         cell: ({ row }) =>
+          row.original.formatted_protocol_number ||
           formatProtocolNumber(
             row.original.test_protocol_number,
             row.original.test_protocol_date,
@@ -324,18 +325,20 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
         header: 'Действия',
         cell: ({ row }) => (
           <div className="protocols-table-actions">
-            {onGenerateExcel && row.original.protocol_template_id && (
-              <Button
-                type="text"
-                size="small"
-                icon={<FileExcelOutlined />}
-                onClick={() => handleGenerateExcelClick(row.original.id)}
-                loading={generatingProtocols.has(row.original.id)}
-                className="protocols-table-edit-button"
-              >
-                Сформировать
-              </Button>
-            )}
+            {onGenerateExcel &&
+              row.original.protocol_template_id &&
+              row.original.has_undeleted_calculations && (
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<FileExcelOutlined />}
+                  onClick={() => handleGenerateExcelClick(row.original.id)}
+                  loading={generatingProtocols.has(row.original.id)}
+                  className="protocols-table-edit-button"
+                >
+                  Сформировать
+                </Button>
+              )}
             <Button
               type="text"
               size="small"

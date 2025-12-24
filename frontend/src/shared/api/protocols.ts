@@ -19,6 +19,8 @@ export interface Protocol {
   samples_data?: Sample[];
   laboratory_name?: string;
   department_name?: string;
+  formatted_protocol_number?: string;
+  has_undeleted_calculations?: boolean;
   created_at: string;
   updated_at: string;
   deleted_at?: string;

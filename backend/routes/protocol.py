@@ -21,6 +21,7 @@ from schemas.protocol import (
     ProtocolUpdate,
 )
 from schemas.sample import SampleResponse
+from services.calculation import get_calculations_by_sample
 from services.excel_template import get_excel_styles, save_excel_section
 from services.protocol import (
     create_protocol,
@@ -36,6 +37,7 @@ from services.protocol import (
 )
 from services.protocol_generator import generate_protocol_excel
 from services.sample import get_sample_by_id
+from utils.protocol_formatting import format_protocol_number
 from utils.query_params import parse_date_range_params
 
 router = APIRouter()
@@ -110,6 +112,7 @@ async def list_protocols(
 
         if protocol.samples:
             samples_data = []
+            test_object = None
             for sample_id in protocol.samples:
                 sample = await get_sample_by_id(db, sample_id)
                 if sample:
@@ -125,7 +128,27 @@ async def list_protocols(
                             sample.sampling_location.name
                         )
                     samples_data.append(sample_dict)
+                    # Берем test_object из первой пробы для форматирования
+                    if not test_object and sample.test_object:
+                        test_object = sample.test_object
             protocol_dict["samples_data"] = samples_data
+
+            # Проверяем наличие неудаленных расчетов для проб протокола
+            calculations = await get_calculations_by_sample(
+                db, sample_ids=protocol.samples, include_deleted=False
+            )
+            protocol_dict["has_undeleted_calculations"] = len(calculations) > 0
+        else:
+            test_object = None
+            protocol_dict["has_undeleted_calculations"] = False
+
+        # Форматируем номер протокола
+        protocol_dict["formatted_protocol_number"] = format_protocol_number(
+            protocol.test_protocol_number,
+            protocol.test_protocol_date,
+            protocol.is_accredited,
+            test_object,
+        )
 
         items.append(ProtocolResponse(**protocol_dict))
 
@@ -172,6 +195,24 @@ async def create_protocol_endpoint(
         protocol_dict["laboratory_name"] = protocol.laboratory.name
     if protocol.department:
         protocol_dict["department_name"] = protocol.department.name
+
+    # Получаем test_object из проб для форматирования
+    test_object = None
+    if protocol.samples:
+        for sample_id in protocol.samples:
+            sample = await get_sample_by_id(db, sample_id)
+            if sample and sample.test_object:
+                test_object = sample.test_object
+                break
+
+    # Форматируем номер протокола
+    protocol_dict["formatted_protocol_number"] = format_protocol_number(
+        protocol.test_protocol_number,
+        protocol.test_protocol_date,
+        protocol.is_accredited,
+        test_object,
+    )
+
     return ProtocolResponse(**protocol_dict)
 
 
@@ -202,6 +243,7 @@ async def get_protocol(
 
     if protocol.samples:
         samples_data = []
+        test_object = None
         for sample_id in protocol.samples:
             sample = await get_sample_by_id(db, sample_id)
             if sample:
@@ -217,7 +259,20 @@ async def get_protocol(
                         sample.sampling_location.name
                     )
                 samples_data.append(sample_dict)
+                # Берем test_object из первой пробы для форматирования
+                if not test_object and sample.test_object:
+                    test_object = sample.test_object
         protocol_dict["samples_data"] = samples_data
+    else:
+        test_object = None
+
+    # Форматируем номер протокола
+    protocol_dict["formatted_protocol_number"] = format_protocol_number(
+        protocol.test_protocol_number,
+        protocol.test_protocol_date,
+        protocol.is_accredited,
+        test_object,
+    )
 
     return ProtocolResponse(**protocol_dict)
 
@@ -256,6 +311,24 @@ async def update_protocol_endpoint(
         protocol_dict["laboratory_name"] = protocol.laboratory.name
     if protocol.department:
         protocol_dict["department_name"] = protocol.department.name
+
+    # Получаем test_object из проб для форматирования
+    test_object = None
+    if protocol.samples:
+        for sample_id in protocol.samples:
+            sample = await get_sample_by_id(db, sample_id)
+            if sample and sample.test_object:
+                test_object = sample.test_object
+                break
+
+    # Форматируем номер протокола
+    protocol_dict["formatted_protocol_number"] = format_protocol_number(
+        protocol.test_protocol_number,
+        protocol.test_protocol_date,
+        protocol.is_accredited,
+        test_object,
+    )
+
     return ProtocolResponse(**protocol_dict)
 
 
