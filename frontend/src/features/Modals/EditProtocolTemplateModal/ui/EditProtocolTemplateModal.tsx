@@ -346,7 +346,7 @@ const EditProtocolTemplateModal: React.FC<EditProtocolTemplateModalProps> = ({
                 {menu}
                 <div className="select-dropdown-divider" />
                 <div className="select-dropdown-item" onClick={() => handleTemplateChange('new')}>
-                  <PlusOutlined /> Создать новый шаблон
+                  <PlusOutlined /> Добавить новый шаблон
                 </div>
               </>
             )}
