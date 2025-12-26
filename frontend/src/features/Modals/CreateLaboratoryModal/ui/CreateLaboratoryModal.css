@@ -26,9 +26,3 @@
 .create-laboratory-label .create-laboratory-required {
   color: #ff4d4f !important;
 }
-
-.error-message {
-  color: #ff4d4f;
-  font-size: 14px;
-  margin-top: 4px;
-}

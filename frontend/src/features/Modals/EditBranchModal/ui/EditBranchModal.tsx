@@ -154,7 +154,6 @@ const EditBranchModal: React.FC<EditBranchModalProps> = ({ open, branch, onClose
             status={errors.name ? 'error' : ''}
             required
           />
-          {errors.name && <div className="error-message">{errors.name}</div>}
         </div>
         <div className="edit-branch-form-item">
           <label className="edit-branch-label">Телефон</label>
@@ -164,7 +163,6 @@ const EditBranchModal: React.FC<EditBranchModalProps> = ({ open, branch, onClose
             placeholder="Введите телефон (необязательно)"
           />
         </div>
-        {errors.general && <div className="error-message general-error">{errors.general}</div>}
       </div>
     </Modal>
   );

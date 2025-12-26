@@ -313,7 +313,7 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
         ),
         enableSorting: false,
         enableColumnFilter: false,
-        size: 200,
+        size: 150,
         enableResizing: false,
       },
     ],

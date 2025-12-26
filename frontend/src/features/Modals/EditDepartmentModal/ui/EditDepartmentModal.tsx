@@ -158,7 +158,6 @@ const EditDepartmentModal: React.FC<EditDepartmentModalProps> = ({
               status={errors.name ? 'error' : ''}
               required
             />
-            {errors.name && <div className="error-message">{errors.name}</div>}
           </div>
           <div className="edit-department-form-item">
             <label className="edit-department-label">
@@ -172,11 +171,7 @@ const EditDepartmentModal: React.FC<EditDepartmentModalProps> = ({
               status={errors.laboratory_location ? 'error' : ''}
               required
             />
-            {errors.laboratory_location && (
-              <div className="error-message">{errors.laboratory_location}</div>
-            )}
           </div>
-          {errors.general && <div className="error-message general-error">{errors.general}</div>}
         </div>
       </Modal>
     </div>

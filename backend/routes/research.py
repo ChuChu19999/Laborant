@@ -88,11 +88,11 @@ async def list_research_methods(
     "/research-methods/",
     response_model=ResearchMethodResponse,
     status_code=201,
-    summary="Создание нового метода исследования",
-    description="Создает новый метод исследования на основе переданных данных.",
+    summary="Добавление нового метода исследования",
+    description="Добавляет новый метод исследования на основе переданных данных.",
     responses={
-        201: {"description": "Метод исследования успешно создан"},
-        400: {"description": "Некорректные данные для создания метода исследования"},
+        201: {"description": "Метод исследования успешно добавлен"},
+        400: {"description": "Некорректные данные для добавления метода исследования"},
     },
 )
 # @IsAuthenticated
@@ -100,7 +100,7 @@ async def create_research_method_endpoint(
     method_data: ResearchMethodCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    """Создает новый метод исследования на основе переданных данных."""
+    """Добавляет новый метод исследования на основе переданных данных."""
     method = await create_research_method(db, method_data)
     await db.commit()
     await db.refresh(method)
@@ -424,12 +424,12 @@ async def list_research_method_groups(
     "/research-method-groups/",
     response_model=ResearchMethodGroupResponse,
     status_code=201,
-    summary="Создание новой группы методов исследования",
-    description="Создает новую группу методов исследования на основе переданных данных.",
+    summary="Добавление новой группы методов исследования",
+    description="Добавляет новую группу методов исследования на основе переданных данных.",
     responses={
-        201: {"description": "Группа методов исследования успешно создана"},
+        201: {"description": "Группа методов исследования успешно добавлена"},
         400: {
-            "description": "Некорректные данные для создания группы методов исследования"
+            "description": "Некорректные данные для добавления группы методов исследования"
         },
     },
 )
@@ -438,7 +438,7 @@ async def create_research_method_group_endpoint(
     group_data: ResearchMethodGroupCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    """Создает новую группу методов исследования на основе переданных данных."""
+    """Добавляет новую группу методов исследования на основе переданных данных."""
     group = await create_research_method_group(db, group_data)
     await db.commit()
     return ResearchMethodGroupResponse.model_validate(group)

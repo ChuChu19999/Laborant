@@ -13,7 +13,7 @@ export const useCreateProtocol = () => {
     [['protocols']],
     {
       onSuccess: () => {
-        message.success('Протокол успешно создан');
+        message.success('Протокол успешно добавлен');
       },
     }
   );

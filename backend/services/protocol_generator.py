@@ -1056,6 +1056,13 @@ def add_group_methods(
         sheet_merged_cells_map,
     )
 
+    group_name = group_data["name"]
+    matching_calc = None
+    for calc in group_data["calculations"]:
+        if calc.research_method.name == group_name:
+            matching_calc = calc
+            break
+
     for col in range(1, template_sheet.max_column + 1):
         cell = current_sheet.cell(row=current_row, column=col)
 
@@ -1071,7 +1078,6 @@ def add_group_methods(
         if "{id_method}" in value:
             cell.value = value.replace("{id_method}", str(idx))
         elif "{name_method}" in value:
-            group_name = group_data["name"]
             cell.value = value.replace("{name_method}", group_name)
             adjust_cell_height_if_needed(current_sheet, current_row, col, group_name)
         elif "{unit}" in value:
@@ -1082,14 +1088,34 @@ def add_group_methods(
             adjust_cell_height_if_needed(
                 current_sheet, current_row, col, measurement_method
             )
-        else:
-            for placeholder in ["{result}", "{measurement_error}"]:
-                if placeholder in value:
-                    cell.value = value.replace(placeholder, "")
+        elif "{result}" in value:
+            if matching_calc:
+                cell.value = value.replace(
+                    "{result}", format_decimal_ru(matching_calc.result)
+                )
+            else:
+                cell.value = value.replace("{result}", "")
+        elif "{measurement_error}" in value:
+            if matching_calc:
+                error_value = matching_calc.measurement_error
+                formatted_error = (
+                    error_value
+                    if error_value and error_value.startswith("-")
+                    else (
+                        f"±{error_value}"
+                        if error_value and error_value != "не указано"
+                        else "не указано"
+                    )
+                )
+                cell.value = value.replace("{measurement_error}", formatted_error)
+            else:
+                cell.value = value.replace("{measurement_error}", "")
 
     current_row += 1
 
     for i, calc in enumerate(group_data["calculations"]):
+        if calc.research_method.name == group_name:
+            continue
         copy_row_formatting(
             template_sheet,
             current_sheet,
@@ -1119,12 +1145,21 @@ def add_group_methods(
                 cell.value = ""
             elif "{name_method}" in value:
                 method_name = calc.research_method.name
-                if method_name:
+                group_name = group_data["name"]
+                if method_name and (
+                    "нефть" in method_name.lower()
+                    or "конденсат" in method_name.lower()
+                    or method_name == group_name
+                ):
+                    cell.value = ""
+                elif method_name:
                     method_name = method_name[0].lower() + method_name[1:]
                     cell.value = method_name
                     adjust_cell_height_if_needed(
                         current_sheet, current_row, col, method_name
                     )
+                else:
+                    cell.value = ""
             elif "{result}" in value:
                 cell.value = value.replace("{result}", format_decimal_ru(calc.result))
             elif "{measurement_error}" in value:
@@ -1626,6 +1661,31 @@ def process_methods_table(
     if not valid_calculations:
         return current_sheet
 
+    # Сортируем расчеты по sort_order метода исследования
+    # Все методы (standalone и группы) сортируются вместе по sort_order
+    def get_sort_key(calc):
+        method = calc.research_method
+        # Если метод входит в группу, используем sort_order группы
+        if method.groups and len(method.groups) > 0:
+            group = method.groups[0]
+            group_sort_order = group.sort_order
+            # Используем sort_order группы для сортировки
+            # Вторичная сортировка по sort_order метода внутри группы
+            method_sort_order = method.sort_order
+            return (
+                group_sort_order if group_sort_order is not None else float("inf"),
+                method_sort_order if method_sort_order is not None else float("inf"),
+            )
+        else:
+            # Для standalone методов используем sort_order метода
+            method_sort_order = method.sort_order
+            return (
+                method_sort_order if method_sort_order is not None else float("inf"),
+                0,
+            )
+
+    valid_calculations.sort(key=get_sort_key)
+
     table_header_start = None
     table_header_end = None
 
@@ -1698,6 +1758,21 @@ def process_methods_table(
                 )
         else:
             processed_calculations.append({"type": "standalone", "calc": calc})
+
+    # Сортируем методы внутри каждой группы по sort_order
+    for group_id, group_data in grouped_calculations.items():
+        group_data["calculations"].sort(
+            key=lambda calc: (
+                calc.research_method.sort_order
+                if calc.research_method.sort_order is not None
+                else float("inf")
+            )
+        )
+        group_data["methods"].sort(
+            key=lambda method: (
+                method.sort_order if method.sort_order is not None else float("inf")
+            )
+        )
 
     idx = 1
     current_group = None

@@ -27,7 +27,7 @@ interface EntryRow {
 
 const MassFractionOilRefractionDirectoryModal: React.FC<
   MassFractionOilRefractionDirectoryModalProps
-> = ({ open, onClose, researchMethodId, methodName }) => {
+> = ({ open, onClose, researchMethodId }) => {
   const [entries, setEntries] = useState<EntryRow[]>([]);
   const [originalEntries, setOriginalEntries] = useState<EntryRow[]>([]);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -35,7 +35,11 @@ const MassFractionOilRefractionDirectoryModal: React.FC<
 
   const bulkUpdateMutation = useBulkUpdateMassFractionOilRefractionTable();
 
-  const { data: tablesData, isLoading } = useAutoRefetchQuery(
+  const {
+    data: tablesData,
+    isLoading,
+    refetch,
+  } = useAutoRefetchQuery(
     ['refraction-tables', researchMethodId],
     () =>
       refractionTablesApi.getRefractionTables(
@@ -194,11 +198,20 @@ const MassFractionOilRefractionDirectoryModal: React.FC<
         })),
       });
 
+      await refetch();
       onClose();
     } catch (error) {
       console.error('Ошибка при сохранении справочника:', error);
     }
-  }, [entries, originalEntries, researchMethodId, areEntriesEqual, onClose, bulkUpdateMutation]);
+  }, [
+    entries,
+    originalEntries,
+    researchMethodId,
+    areEntriesEqual,
+    onClose,
+    bulkUpdateMutation,
+    refetch,
+  ]);
 
   const handleCValueChange = useCallback((value: string) => {
     const processedValue = value.replace(/\./g, ',');
@@ -249,7 +262,7 @@ const MassFractionOilRefractionDirectoryModal: React.FC<
 
   return (
     <Modal
-      header={`Справочник массовой доли нефти - ${methodName || ''}${hasChanges ? ' (изменено)' : ''}`}
+      header={`Справочник массовой доли нефти`}
       onClose={onClose}
       onCancel={handleCancel}
       showEditButton={false}

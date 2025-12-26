@@ -13,7 +13,7 @@ export const useCreateSelectionConditions = () => {
     [['selection-conditions']],
     {
       onSuccess: () => {
-        message.success('Условия отбора успешно созданы');
+        message.success('Условия отбора успешно добавлены');
       },
     }
   );

@@ -242,3 +242,11 @@
   color: #666;
   width: 100%;
 }
+
+.loading-overlay .ant-spin-dot-item {
+  background-color: #1890ff !important;
+}
+
+.loading-overlay .ant-spin-dot {
+  font-size: 20px !important;
+}

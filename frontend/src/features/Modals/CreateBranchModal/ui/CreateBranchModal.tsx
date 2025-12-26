@@ -84,7 +84,7 @@ const CreateBranchModal: React.FC<CreateBranchModalProps> = ({
       }
       onClose();
     } catch (error: unknown) {
-      console.error('Ошибка при создании филиала:', error);
+      console.error('Ошибка при добавлении филиала:', error);
       if (error && typeof error === 'object' && 'response' in error) {
         const axiosError = error as { response?: { data?: unknown } };
         if (axiosError.response?.data) {
@@ -111,12 +111,12 @@ const CreateBranchModal: React.FC<CreateBranchModalProps> = ({
           }
         } else {
           setErrors({
-            general: 'Произошла ошибка при создании филиала',
+            general: 'Произошла ошибка при добавлении филиала',
           });
         }
       } else {
         setErrors({
-          general: 'Произошла ошибка при создании филиала',
+          general: 'Произошла ошибка при добавлении филиала',
         });
       }
     } finally {
@@ -161,7 +161,6 @@ const CreateBranchModal: React.FC<CreateBranchModalProps> = ({
               status={errors.name ? 'error' : ''}
               required
             />
-            {errors.name && <div className="error-message">{errors.name}</div>}
           </div>
           <div className="create-branch-form-item">
             <label className="create-branch-label">Номер телефона</label>
@@ -171,7 +170,6 @@ const CreateBranchModal: React.FC<CreateBranchModalProps> = ({
               placeholder="Введите номер телефона (необязательно)"
             />
           </div>
-          {errors.general && <div className="error-message general-error">{errors.general}</div>}
         </div>
       </Modal>
     </div>

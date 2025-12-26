@@ -9,7 +9,7 @@ import {
 import { useAutoInvalidateMutation } from '../lib/useMutation';
 
 /**
- * Хук для создания метода исследования
+ * Хук для добавления метода исследования
  */
 export const useCreateResearchMethod = () => {
   return useAutoInvalidateMutation<ResearchMethod, unknown, ResearchMethodCreate>(
@@ -17,7 +17,7 @@ export const useCreateResearchMethod = () => {
     [['research-methods']],
     {
       onSuccess: () => {
-        message.success('Метод исследования успешно создан');
+        message.success('Метод исследования успешно добавлен');
       },
     }
   );
@@ -69,7 +69,7 @@ export const useUpdateResearchMethodSortOrder = () => {
 };
 
 /**
- * Хук для создания группы методов исследования
+ * Хук для добавления группы методов исследования
  */
 export const useCreateResearchMethodGroup = () => {
   return useAutoInvalidateMutation<ResearchMethodGroup, unknown, ResearchMethodGroupCreate>(
@@ -77,7 +77,7 @@ export const useCreateResearchMethodGroup = () => {
     [['research-method-groups']],
     {
       onSuccess: () => {
-        message.success('Группа методов исследования успешно создана');
+        message.success('Группа методов исследования успешно добавлена');
       },
     }
   );

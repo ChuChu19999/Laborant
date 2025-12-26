@@ -74,12 +74,6 @@
   cursor: not-allowed;
 }
 
-.create-sample-form .error-message {
-  color: #ff4d4f;
-  font-size: 12px;
-  margin-top: 4px;
-}
-
 /* Стили для выпадающих списков */
 .create-sample-form .ant-select-dropdown {
   font-size: 14px;

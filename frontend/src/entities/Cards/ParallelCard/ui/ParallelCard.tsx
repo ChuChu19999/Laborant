@@ -5,10 +5,7 @@ import { FormItem } from '../../../../features/FormItems';
 import { Input } from '../../../../shared/ui/FormItems';
 import Tooltip from '../../../../shared/ui/Tooltip/Tooltip';
 import { getCardParallelLabel as getCardParallelLabelUtil } from '../../../../shared/utils/calculationUtils';
-import {
-  validateNumericInputWithComma,
-  preserveCursorPosition,
-} from '../../../../shared/utils/inputValidation';
+import { validateNumericInputWithComma } from '../../../../shared/utils/inputValidation';
 import type { FormInstance, InputRef } from 'antd';
 import './ParallelCard.css';
 
@@ -82,9 +79,22 @@ const ParallelCard: React.FC<ParallelCardProps> = ({
       return;
     }
 
-    // Проверка на запятую: разрешаем только если это действительно запятая
-    // Проверяем физические клавиши, которые могут давать запятую
-    if (e.code === 'Comma' || e.code === 'NumpadDecimal' || (e.code === 'Period' && e.shiftKey)) {
+    // Проверка на запятую и точку: разрешаем ввод точки, которая заменится на запятую
+    // Проверяем фактический символ, который будет введен (e.key), чтобы работать с любой раскладкой
+    if (
+      e.key === ',' ||
+      e.key === '.' ||
+      e.code === 'Comma' ||
+      e.code === 'NumpadDecimal' ||
+      e.code === 'Period'
+    ) {
+      // Получаем текущее значение поля
+      const formFieldName =
+        cardFields[currentFieldIndex].card_index && cardFields[currentFieldIndex].card_index > 1
+          ? `${methodId}_${cardFields[currentFieldIndex].name}_card_${cardFields[currentFieldIndex].card_index}`
+          : `${methodId}_${cardFields[currentFieldIndex].name}`;
+      const currentValue = formValues[formFieldName]?.toString() || '';
+
       // Блокируем только если это явно буква кириллицы (например, "б", "ю" и другие)
       // Проверяем, является ли символ буквой кириллицы
       const isCyrillicLetter = /[а-яёА-ЯЁ]/.test(e.key);
@@ -93,20 +103,40 @@ const ParallelCard: React.FC<ParallelCardProps> = ({
         return;
       }
 
+      // Если уже есть запятая, блокируем ввод новой запятой или точки
+      if (currentValue.includes(',')) {
+        e.preventDefault();
+        return;
+      }
+
+      // Разрешаем ввод - валидация в onChange заменит точку на запятую и проверит корректность
+      return;
+    }
+
+    // Проверка на минус: разрешаем только один минус и только в начале
+    if (e.key === '-' || e.code === 'Minus' || e.code === 'NumpadSubtract') {
       // Получаем текущее значение поля
       const formFieldName =
         cardFields[currentFieldIndex].card_index && cardFields[currentFieldIndex].card_index > 1
           ? `${methodId}_${cardFields[currentFieldIndex].name}_card_${cardFields[currentFieldIndex].card_index}`
           : `${methodId}_${cardFields[currentFieldIndex].name}`;
       const currentValue = formValues[formFieldName]?.toString() || '';
+      const inputElement = e.target as HTMLInputElement;
+      const cursorPosition = inputElement.selectionStart || 0;
 
-      // Если уже есть запятая, блокируем ввод новой
-      if (currentValue.includes(',')) {
+      // Если минус уже есть в значении, блокируем ввод
+      if (currentValue.includes('-')) {
         e.preventDefault();
         return;
       }
 
-      // Разрешаем ввод - валидация в onChange проверит, что это действительно запятая или число
+      // Если курсор не в начале, блокируем ввод минуса
+      if (cursorPosition !== 0) {
+        e.preventDefault();
+        return;
+      }
+
+      // Разрешаем ввод минуса в начале
       return;
     }
 
@@ -114,8 +144,6 @@ const ParallelCard: React.FC<ParallelCardProps> = ({
       e.code === 'Backspace' ||
       e.code === 'Delete' ||
       e.code === 'Escape' ||
-      e.code === 'Minus' ||
-      e.code === 'NumpadSubtract' ||
       e.code.startsWith('Digit') ||
       e.code.startsWith('Numpad')
     ) {
@@ -174,15 +202,73 @@ const ParallelCard: React.FC<ParallelCardProps> = ({
                     if (shouldDisableField) {
                       return;
                     }
-                    const validation = validateNumericInputWithComma(e.target.value);
-                    if (validation.isValid) {
-                      preserveCursorPosition(e.target, () => {
-                        form.setFieldValue(formFieldName, validation.normalizedValue);
-                        setFormValues(prev => ({
-                          ...prev,
-                          [formFieldName]: validation.normalizedValue,
-                        }));
-                      });
+
+                    const inputValue = e.target.value;
+                    const currentFormValue = formValues[formFieldName]?.toString() || '';
+
+                    // Пропускаем обработку, если значение уже нормализовано (избегаем повторных вызовов)
+                    if (inputValue === currentFormValue && !inputValue.includes('.')) {
+                      return;
+                    }
+
+                    const validation = validateNumericInputWithComma(inputValue);
+                    // Проверяем, что исходное значение содержит только допустимые символы (цифры, точка, запятая, минус)
+                    const containsOnlyValidChars = /^[-.,\d]*$/.test(inputValue);
+                    // Проверяем, есть ли в исходном значении точка (которую нужно заменить на запятую)
+                    const hasPoint = inputValue.includes('.');
+                    // Проверяем, отличается ли нормализованное значение от введенного
+                    const valueChanged = validation.normalizedValue !== inputValue;
+
+                    // Проверяем и нормализуем минус: он должен быть только один и только в начале
+                    let finalValue = validation.normalizedValue;
+                    if (finalValue.includes('-')) {
+                      // Если минус не в начале, перемещаем его в начало
+                      if (!finalValue.startsWith('-')) {
+                        finalValue = '-' + finalValue.replace(/-/g, '');
+                      }
+                      // Убеждаемся, что минус только один
+                      const minusCount = (finalValue.match(/-/g) || []).length;
+                      if (minusCount > 1) {
+                        finalValue = '-' + finalValue.replace(/-/g, '');
+                      }
+                    }
+
+                    // Применяем нормализованное значение, если:
+                    // 1. В исходном значении есть точка (нужно заменить на запятую) и значение содержит только допустимые символы
+                    // 2. Или значение валидно
+                    // И только если нормализованное значение отличается от введенного
+                    const needsUpdate = valueChanged || finalValue !== validation.normalizedValue;
+                    if (
+                      needsUpdate &&
+                      ((hasPoint && containsOnlyValidChars) || validation.isValid)
+                    ) {
+                      // Обновляем состояние
+                      form.setFieldValue(formFieldName, finalValue);
+                      setFormValues(prev => ({
+                        ...prev,
+                        [formFieldName]: finalValue,
+                      }));
+
+                      // Принудительно обновляем значение в нативном input через ref
+                      const inputRef = inputRefs.current?.[formFieldName];
+                      if (inputRef && inputRef.input) {
+                        const nativeInput = inputRef.input;
+                        const cursorPosition = nativeInput.selectionStart || 0;
+                        const valueSetter = Object.getOwnPropertyDescriptor(
+                          nativeInput.constructor.prototype,
+                          'value'
+                        )?.set;
+                        if (valueSetter) {
+                          valueSetter.call(nativeInput, finalValue);
+                          const event = new Event('input', { bubbles: true });
+                          nativeInput.dispatchEvent(event);
+                        } else {
+                          nativeInput.value = finalValue;
+                        }
+                        setTimeout(() => {
+                          nativeInput.setSelectionRange(cursorPosition, cursorPosition);
+                        }, 0);
+                      }
                     }
                   }}
                   onKeyDown={e => handleKeyDown(e, fieldIndex, fields)}
@@ -196,10 +282,22 @@ const ParallelCard: React.FC<ParallelCardProps> = ({
                     const cleanedValue = pastedText.trim().replace(/\s+/g, '');
                     const validation = validateNumericInputWithComma(cleanedValue);
                     if (validation.isValid) {
-                      form.setFieldValue(formFieldName, validation.normalizedValue);
+                      // Нормализуем минус: он должен быть только в начале
+                      let finalValue = validation.normalizedValue;
+                      if (finalValue.includes('-') && !finalValue.startsWith('-')) {
+                        // Если минус не в начале, перемещаем его в начало
+                        finalValue = '-' + finalValue.replace(/-/g, '');
+                      }
+                      // Убеждаемся, что минус только один
+                      const minusCount = (finalValue.match(/-/g) || []).length;
+                      if (minusCount > 1) {
+                        finalValue = '-' + finalValue.replace(/-/g, '');
+                      }
+
+                      form.setFieldValue(formFieldName, finalValue);
                       setFormValues(prev => ({
                         ...prev,
-                        [formFieldName]: validation.normalizedValue,
+                        [formFieldName]: finalValue,
                       }));
                     }
                   }}

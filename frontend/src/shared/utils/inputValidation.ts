@@ -22,7 +22,7 @@ export const validateNumericInputWithComma = (value: string): NumericInputValida
 
   return {
     isValid: false,
-    normalizedValue: '',
+    normalizedValue,
   };
 };
 

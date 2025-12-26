@@ -611,7 +611,8 @@ async def get_mass_fraction_oil_refraction_tables(
             sort_by,
             sort_order,
             sort_mapping,
-            cast(MassFractionOilRefractionTable.c_value, Float).asc(),
+            cast(MassFractionOilRefractionTable.c_value, Float),
+            default_order="asc",
         )
         query = query.order_by(order_by)
 

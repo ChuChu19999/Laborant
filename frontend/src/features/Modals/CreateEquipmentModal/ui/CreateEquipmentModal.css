@@ -73,12 +73,6 @@
   cursor: not-allowed;
 }
 
-.create-equipment-form .error-message {
-  color: #ff4d4f;
-  font-size: 12px;
-  margin-top: 4px;
-}
-
 .create-equipment-form .ant-select-dropdown {
   font-size: 14px;
 }

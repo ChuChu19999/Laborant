@@ -544,7 +544,7 @@ const CalculationsTable: React.FC<CalculationsTableProps> = ({ data, loading = f
           );
         },
         enableSorting: false,
-        size: 110,
+        size: 140,
       },
       {
         accessorKey: 'executor',

@@ -13,7 +13,7 @@ export const useCreateEquipment = () => {
     [['equipment']],
     {
       onSuccess: () => {
-        message.success('Прибор успешно создан');
+        message.success('Прибор успешно добавлен');
       },
     }
   );

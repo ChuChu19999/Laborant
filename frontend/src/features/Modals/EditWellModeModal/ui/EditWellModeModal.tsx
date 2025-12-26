@@ -153,9 +153,7 @@ const EditWellModeModal: React.FC<EditWellModeModalProps> = ({
               status={errors.name ? 'error' : ''}
               required
             />
-            {errors.name && <div className="error-message">{errors.name}</div>}
           </div>
-          {errors.general && <div className="error-message general-error">{errors.general}</div>}
         </div>
       </Modal>
     </div>

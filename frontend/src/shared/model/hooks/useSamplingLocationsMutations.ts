@@ -19,7 +19,7 @@ export const useCreateBranch = () => {
     [['sampling-locations', 'branches']],
     {
       onSuccess: () => {
-        message.success('Филиал успешно создан');
+        message.success('Филиал успешно добавлен');
       },
     }
   );
@@ -58,7 +58,7 @@ export const useCreateSamplingLocation = () => {
     [['sampling-locations', 'items']],
     {
       onSuccess: () => {
-        message.success('Место отбора пробы успешно создано');
+        message.success('Место отбора пробы успешно добавлено');
       },
     }
   );
@@ -98,7 +98,7 @@ export const useCreateWellMode = () => {
     [['sampling-locations', 'well-modes']],
     {
       onSuccess: () => {
-        message.success('Режим скважины успешно создан');
+        message.success('Режим скважины успешно добавлен');
       },
     }
   );

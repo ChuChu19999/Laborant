@@ -15,7 +15,7 @@ export const useCreateMassFractionOilRefractionTable = () => {
     MassFractionOilRefractionTableCreate
   >(data => refractionTablesApi.createRefractionTable(data), [['refraction-tables']], {
     onSuccess: () => {
-      message.success('Запись справочника успешно создана');
+      message.success('Запись справочника успешно добавлена');
     },
   });
 };

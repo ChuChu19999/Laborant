@@ -105,11 +105,11 @@ async def list_equipment(
     "/equipment/",
     response_model=EquipmentResponse,
     status_code=201,
-    summary="Создание нового оборудования",
-    description="Создает новое оборудование на основе переданных данных.",
+    summary="Добавление нового оборудования",
+    description="Добавляет новое оборудование на основе переданных данных.",
     responses={
-        201: {"description": "Оборудование успешно создано"},
-        400: {"description": "Некорректные данные для создания оборудования"},
+        201: {"description": "Оборудование успешно добавлено"},
+        400: {"description": "Некорректные данные для добавления оборудования"},
     },
 )
 # @IsAuthenticated
@@ -117,7 +117,7 @@ async def create_equipment_endpoint(
     equipment_data: EquipmentCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    """Создает новое оборудование на основе переданных данных."""
+    """Добавляет новое оборудование на основе переданных данных."""
     equipment = await create_equipment(db, equipment_data)
 
     eq_dict = EquipmentResponse.model_validate(equipment).model_dump()

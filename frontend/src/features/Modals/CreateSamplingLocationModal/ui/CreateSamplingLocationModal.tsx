@@ -77,7 +77,7 @@ const CreateSamplingLocationModal: React.FC<CreateSamplingLocationModalProps> = 
       }
       onClose();
     } catch (error: unknown) {
-      console.error('Ошибка при создании места отбора пробы:', error);
+      console.error('Ошибка при добавлении места отбора пробы:', error);
       if (error && typeof error === 'object' && 'response' in error) {
         const axiosError = error as { response?: { data?: unknown } };
         if (axiosError.response?.data) {
@@ -104,12 +104,12 @@ const CreateSamplingLocationModal: React.FC<CreateSamplingLocationModalProps> = 
           }
         } else {
           setErrors({
-            general: 'Произошла ошибка при создании места отбора пробы',
+            general: 'Произошла ошибка при добавлении места отбора пробы',
           });
         }
       } else {
         setErrors({
-          general: 'Произошла ошибка при создании места отбора пробы',
+          general: 'Произошла ошибка при добавлении места отбора пробы',
         });
       }
     } finally {
@@ -154,9 +154,7 @@ const CreateSamplingLocationModal: React.FC<CreateSamplingLocationModalProps> = 
               status={errors.name ? 'error' : ''}
               required
             />
-            {errors.name && <div className="error-message">{errors.name}</div>}
           </div>
-          {errors.general && <div className="error-message general-error">{errors.general}</div>}
         </div>
       </Modal>
     </div>

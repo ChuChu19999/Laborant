@@ -368,7 +368,7 @@ const CalculationsPage: React.FC = () => {
       <div className="calculations-page-left-panel-content">
         {isLoading ? (
           <div className="calculations-page-empty calculations-page-spinner">
-            <Spin tip="Загрузка методов..." spinning>
+            <Spin spinning>
               <div className="calculations-page-spinner-placeholder" />
             </Spin>
           </div>

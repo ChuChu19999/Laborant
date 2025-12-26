@@ -158,11 +158,11 @@ async def list_samples(
     "/samples/",
     response_model=SampleResponse,
     status_code=201,
-    summary="Создание новой пробы",
-    description="Создает новую пробу на основе переданных данных.",
+    summary="Добавление новой пробы",
+    description="Добавляет новую пробу на основе переданных данных.",
     responses={
-        201: {"description": "Проба успешно создана"},
-        400: {"description": "Некорректные данные для создания пробы"},
+        201: {"description": "Проба успешно добавлена"},
+        400: {"description": "Некорректные данные для добавления пробы"},
     },
 )
 # @IsAuthenticated
@@ -170,7 +170,7 @@ async def create_sample_endpoint(
     sample_data: SampleCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    """Создает новую пробу на основе переданных данных."""
+    """Добавляет новую пробу на основе переданных данных."""
     sample = await create_sample(db, sample_data)
     await db.flush()
     await db.commit()
@@ -420,11 +420,11 @@ async def list_selection_conditions(
     "/selection-conditions/",
     response_model=SelectionConditionsResponse,
     status_code=201,
-    summary="Создание условий отбора",
-    description="Создает новые условия отбора на основе переданных данных.",
+    summary="Добавление условий отбора",
+    description="Добавляет новые условия отбора на основе переданных данных.",
     responses={
-        201: {"description": "Условия отбора успешно созданы"},
-        400: {"description": "Некорректные данные для создания условий отбора"},
+        201: {"description": "Условия отбора успешно добавлены"},
+        400: {"description": "Некорректные данные для добавления условий отбора"},
     },
 )
 # @IsAuthenticated
@@ -432,7 +432,7 @@ async def create_selection_conditions_endpoint(
     conditions_data: SelectionConditionsCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    """Создает новые условия отбора на основе переданных данных."""
+    """Добавляет новые условия отбора на основе переданных данных."""
     conditions = await create_selection_conditions(db, conditions_data)
     await db.commit()
 
@@ -563,11 +563,11 @@ async def list_mass_fraction_oil_refraction_tables(
     "/mass-fraction-oil-refraction-tables/",
     response_model=MassFractionOilRefractionTableResponse,
     status_code=201,
-    summary="Создание таблицы соотношения C к n",
-    description="Создает новую таблицу соотношения массовой доли нефти к показателю преломления.",
+    summary="Добавление таблицы соотношения C к n",
+    description="Добавляет новую таблицу соотношения массовой доли нефти к показателю преломления.",
     responses={
-        201: {"description": "Таблица успешно создана"},
-        400: {"description": "Некорректные данные для создания таблицы"},
+        201: {"description": "Таблица успешно добавлена"},
+        400: {"description": "Некорректные данные для добавления таблицы"},
     },
 )
 # @IsAuthenticated
@@ -575,7 +575,7 @@ async def create_mass_fraction_oil_refraction_table_endpoint(
     table_data: MassFractionOilRefractionTableCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    """Создает новую таблицу соотношения массовой доли нефти к показателю преломления."""
+    """Добавляет новую таблицу соотношения массовой доли нефти к показателю преломления."""
     table = await create_mass_fraction_oil_refraction_table(db, table_data)
     await db.commit()
     table_dict = MassFractionOilRefractionTableResponse.model_validate(

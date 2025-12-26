@@ -164,7 +164,6 @@ const EditLaboratoryModal: React.FC<EditLaboratoryModalProps> = ({
               status={errors.name ? 'error' : ''}
               required
             />
-            {errors.name && <div className="error-message">{errors.name}</div>}
           </div>
           <div className="edit-laboratory-form-item">
             <label className="edit-laboratory-label">
@@ -177,7 +176,6 @@ const EditLaboratoryModal: React.FC<EditLaboratoryModalProps> = ({
               status={errors.full_name ? 'error' : ''}
               required
             />
-            {errors.full_name && <div className="error-message">{errors.full_name}</div>}
           </div>
           <div className="edit-laboratory-form-item">
             <label className="edit-laboratory-label">

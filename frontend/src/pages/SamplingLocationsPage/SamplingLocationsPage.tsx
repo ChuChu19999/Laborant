@@ -392,12 +392,9 @@ const SamplingLocationsPage: React.FC = () => {
                           ? ' sampling-locations-branch-item--active'
                           : ''
                       }`}
+                      onClick={() => setSelectedBranch(branch)}
                     >
-                      <button
-                        type="button"
-                        className="sampling-locations-branch-item-button"
-                        onClick={() => setSelectedBranch(branch)}
-                      >
+                      <div className="sampling-locations-branch-item-button">
                         <div className="sampling-locations-branch-item-main">
                           <div className="sampling-locations-branch-item-icon">
                             <BankOutlined />
@@ -411,7 +408,7 @@ const SamplingLocationsPage: React.FC = () => {
                             )}
                           </div>
                         </div>
-                      </button>
+                      </div>
                       <div className="sampling-locations-branch-item-actions">
                         <Button
                           type="text"
@@ -472,7 +469,9 @@ const SamplingLocationsPage: React.FC = () => {
                 </div>
 
                 {!samplingLocationsData && selectedBranch ? (
-                  <LoadingCard loading />
+                  <div className="sampling-locations-empty">
+                    <LoadingCard loading />
+                  </div>
                 ) : samplingLocations.length === 0 ? (
                   <div className="sampling-locations-empty">
                     <h4>Нет мест отбора проб</h4>
@@ -543,7 +542,9 @@ const SamplingLocationsPage: React.FC = () => {
                 </div>
 
                 {!wellModesData && selectedBranch ? (
-                  <LoadingCard loading />
+                  <div className="sampling-locations-empty">
+                    <LoadingCard loading />
+                  </div>
                 ) : wellModes.length === 0 ? (
                   <div className="sampling-locations-empty">
                     <h4>Нет режимов скважин</h4>

@@ -8,7 +8,7 @@ export const useCreateSample = () => {
     [['samples']],
     {
       onSuccess: () => {
-        message.success('Проба успешно создана');
+        message.success('Проба успешно добавлена');
       },
     }
   );

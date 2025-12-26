@@ -980,7 +980,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
         });
 
         if (groupResponse) {
-          message.success('Группа методов успешно создана');
+          message.success('Группа методов успешно добавлена');
           onSuccess?.(groupResponse);
           onClose();
         }

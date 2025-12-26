@@ -74,7 +74,7 @@ const CreateLaboratoryModal: React.FC<CreateLaboratoryModalProps> = ({
         laboratory_location: formData.laboratory_location.trim() || undefined,
       });
 
-      message.success('Лаборатория успешно создана');
+      message.success('Лаборатория успешно добавлена');
       setFormData({
         name: '',
         full_name: '',
@@ -87,7 +87,7 @@ const CreateLaboratoryModal: React.FC<CreateLaboratoryModalProps> = ({
       }
       onClose();
     } catch (error: unknown) {
-      console.error('Ошибка при создании лаборатории:', error);
+      console.error('Ошибка при добавлении лаборатории:', error);
       if (error && typeof error === 'object' && 'response' in error) {
         const axiosError = error as { response?: { data?: unknown } };
         if (axiosError.response?.data) {
@@ -99,13 +99,13 @@ const CreateLaboratoryModal: React.FC<CreateLaboratoryModalProps> = ({
           } else if (errorData.detail) {
             message.error(String(errorData.detail));
           } else {
-            message.error('Ошибка при создании лаборатории');
+            message.error('Ошибка при добавлении лаборатории');
           }
         } else {
-          message.error('Произошла ошибка при создании лаборатории');
+          message.error('Произошла ошибка при добавлении лаборатории');
         }
       } else {
-        message.error('Произошла ошибка при создании лаборатории');
+        message.error('Произошла ошибка при добавлении лаборатории');
       }
     } finally {
       setLoading(false);
@@ -150,7 +150,6 @@ const CreateLaboratoryModal: React.FC<CreateLaboratoryModalProps> = ({
               status={errors.name ? 'error' : ''}
               required
             />
-            {errors.name && <div className="error-message">{errors.name}</div>}
           </div>
           <div className="create-laboratory-form-item">
             <label className="create-laboratory-label">
@@ -163,7 +162,6 @@ const CreateLaboratoryModal: React.FC<CreateLaboratoryModalProps> = ({
               status={errors.full_name ? 'error' : ''}
               required
             />
-            {errors.full_name && <div className="error-message">{errors.full_name}</div>}
           </div>
           <div className="create-laboratory-form-item">
             <label className="create-laboratory-label">

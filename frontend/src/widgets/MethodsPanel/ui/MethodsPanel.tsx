@@ -86,7 +86,7 @@ const MethodsPanel: React.FC<MethodsPanelProps> = ({
       <div className="methods-panel-content">
         {isLoading ? (
           <div className="methods-panel-empty methods-panel-spinner">
-            <Spin tip="Загрузка методов..." spinning>
+            <Spin spinning>
               <div className="methods-panel-spinner-placeholder" />
             </Spin>
           </div>

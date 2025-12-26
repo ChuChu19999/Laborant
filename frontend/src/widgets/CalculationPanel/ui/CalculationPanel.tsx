@@ -219,6 +219,8 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
           : undefined,
       };
 
+      const finalInputData = inputData;
+
       if (currentMethod.name === 'Массовая доля нефти' && response.updated_input_data) {
         const updatedInputData = response.updated_input_data;
         const updatedValues: Record<string, string> = {};
@@ -238,6 +240,7 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
             const updatedValue = updatedInputData[field.name];
             if (updatedValue !== undefined && updatedValue !== null) {
               updatedValues[fieldKey] = formatNumberForDisplay(updatedValue);
+              finalInputData[field.name] = updatedValue;
             }
           }
         });
@@ -258,7 +261,7 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
 
       // Вызываем внешний колбэк, если он передан
       if (onCalculate) {
-        onCalculate(result, inputData, laboratoryActivityDate);
+        onCalculate(result, finalInputData, laboratoryActivityDate);
       }
     } catch (error: unknown) {
       console.error('Ошибка при расчете:', error);

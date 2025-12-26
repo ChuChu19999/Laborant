@@ -77,7 +77,7 @@ const CreateWellModeModal: React.FC<CreateWellModeModalProps> = ({
       }
       onClose();
     } catch (error: unknown) {
-      console.error('Ошибка при создании режима скважины:', error);
+      console.error('Ошибка при добавлении режима скважины:', error);
       if (error && typeof error === 'object' && 'response' in error) {
         const axiosError = error as { response?: { data?: unknown } };
         if (axiosError.response?.data) {
@@ -104,12 +104,12 @@ const CreateWellModeModal: React.FC<CreateWellModeModalProps> = ({
           }
         } else {
           setErrors({
-            general: 'Произошла ошибка при создании режима скважины',
+            general: 'Произошла ошибка при добавлении режима скважины',
           });
         }
       } else {
         setErrors({
-          general: 'Произошла ошибка при создании режима скважины',
+          general: 'Произошла ошибка при добавлении режима скважины',
         });
       }
     } finally {
@@ -153,9 +153,7 @@ const CreateWellModeModal: React.FC<CreateWellModeModalProps> = ({
               status={errors.name ? 'error' : ''}
               required
             />
-            {errors.name && <div className="error-message">{errors.name}</div>}
           </div>
-          {errors.general && <div className="error-message general-error">{errors.general}</div>}
         </div>
       </Modal>
     </div>

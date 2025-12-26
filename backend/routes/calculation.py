@@ -209,14 +209,14 @@ async def get_calculations_by_sample_endpoint(
     "/calculations/",
     response_model=CalculationResponse,
     status_code=201,
-    summary="Создание нового расчета",
+    summary="Добавление нового расчета",
     description=(
-        "Создает новый расчет на основе переданных данных. "
+        "Добавляет новый расчет на основе переданных данных. "
         "Расчет привязывается к пробе и методу исследования."
     ),
     responses={
-        201: {"description": "Расчет успешно создан"},
-        400: {"description": "Некорректные данные для создания расчета"},
+        201: {"description": "Расчет успешно добавлен"},
+        400: {"description": "Некорректные данные для добавления расчета"},
     },
 )
 # @IsAuthenticated
@@ -224,7 +224,7 @@ async def create_calculation_endpoint(
     calculation_data: CalculationCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    """Создает новый расчет на основе переданных данных."""
+    """Добавляет новый расчет на основе переданных данных."""
     calculation = await create_calculation(db, calculation_data)
     await db.commit()
 

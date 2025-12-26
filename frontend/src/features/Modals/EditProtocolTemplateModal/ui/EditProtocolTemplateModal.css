@@ -131,12 +131,16 @@
   align-items: center;
   justify-content: center;
   padding: 40px;
+  min-height: 200px;
+  gap: 16px;
 }
 
-.loading-state p {
-  margin-top: 16px;
-  color: rgba(0, 0, 0, 0.45) !important;
-  font-family: 'HeliosCondC', sans-serif;
+.loading-state .ant-spin-dot-item {
+  background-color: #1890ff !important;
+}
+
+.loading-state .ant-spin-dot {
+  font-size: 20px !important;
 }
 
 .upload-container {
@@ -299,13 +303,6 @@
   background-color: rgba(255, 77, 79, 0.1) !important;
 }
 
-.error-message {
-  color: #ff4d4f !important;
-  font-size: 12px;
-  margin-top: 4px;
-  font-family: 'HeliosCondC', sans-serif;
-}
-
 .select-template-message,
 .no-template-message {
   text-align: center;
@@ -334,7 +331,7 @@
 
 .accreditation-card .card-header {
   background: #fafafa !important;
-  padding: 16px;
+  padding: 12px;
   border-bottom: 1px solid #f0f0f0 !important;
   display: flex;
   align-items: center;
@@ -350,7 +347,7 @@
 }
 
 .accreditation-card .form-group {
-  padding: 20px;
+  padding: 15px;
   margin: 0;
   width: 100%;
   max-width: 100%;

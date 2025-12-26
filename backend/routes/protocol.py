@@ -188,11 +188,11 @@ async def list_protocols(
     "/protocols/",
     response_model=ProtocolResponse,
     status_code=201,
-    summary="Создание нового протокола",
-    description="Создает новый протокол на основе переданных данных.",
+    summary="Добавление нового протокола",
+    description="Добавляет новый протокол на основе переданных данных.",
     responses={
-        201: {"description": "Протокол успешно создан"},
-        400: {"description": "Некорректные данные для создания протокола"},
+        201: {"description": "Протокол успешно добавлен"},
+        400: {"description": "Некорректные данные для добавления протокола"},
     },
 )
 # @IsAuthenticated
@@ -200,7 +200,7 @@ async def create_protocol_endpoint(
     protocol_data: ProtocolCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    """Создает новый протокол на основе переданных данных."""
+    """Добавляет новый протокол на основе переданных данных."""
     protocol = await create_protocol(db, protocol_data)
     await db.commit()
     query = (
@@ -520,11 +520,11 @@ async def get_available_protocol_templates(
     "/protocol-templates/",
     response_model=ProtocolTemplateResponse,
     status_code=201,
-    summary="Создание нового шаблона протокола",
-    description="Создает новый шаблон протокола на основе переданных данных.",
+    summary="Добавление нового шаблона протокола",
+    description="Добавляет новый шаблон протокола на основе переданных данных.",
     responses={
-        201: {"description": "Шаблон протокола успешно создан"},
-        400: {"description": "Некорректные данные для создания шаблона протокола"},
+        201: {"description": "Шаблон протокола успешно добавлен"},
+        400: {"description": "Некорректные данные для добавления шаблона протокола"},
     },
 )
 # @IsAuthenticated
@@ -532,7 +532,7 @@ async def create_protocol_template_endpoint(
     template_data: ProtocolTemplateCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    """Создает новый шаблон протокола на основе переданных данных."""
+    """Добавляет новый шаблон протокола на основе переданных данных."""
     template = await create_protocol_template(db, template_data)
     await db.commit()
     query = (

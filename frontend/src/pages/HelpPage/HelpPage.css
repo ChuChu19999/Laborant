@@ -105,3 +105,16 @@
 .help-page-content {
   padding-top: 20px;
 }
+
+.help-page-content > div {
+  margin-bottom: 0;
+}
+
+.help-page-wrapper .version-title {
+  font-family: 'HeliosCondC';
+  font-size: 16px;
+  font-weight: 600;
+  color: #0079c2;
+  margin: 0;
+  padding-bottom: 4px;
+}

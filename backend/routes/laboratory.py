@@ -112,11 +112,11 @@ async def list_laboratories(
     "/laboratories/",
     response_model=LaboratoryResponse,
     status_code=201,
-    summary="Создание новой лаборатории",
-    description="Создает новую лабораторию на основе переданных данных.",
+    summary="Добавление новой лаборатории",
+    description="Добавляет новую лабораторию на основе переданных данных.",
     responses={
-        201: {"description": "Лаборатория успешно создана"},
-        400: {"description": "Некорректные данные для создания лаборатории"},
+        201: {"description": "Лаборатория успешно добавлена"},
+        400: {"description": "Некорректные данные для добавления лаборатории"},
     },
 )
 # @IsAuthenticated
@@ -124,7 +124,7 @@ async def create_laboratory(
     laboratory_data: LaboratoryCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    """Создает новую лабораторию на основе переданных данных."""
+    """Добавляет новую лабораторию на основе переданных данных."""
     laboratory = await create_laboratory_service(db, laboratory_data)
     await db.commit()
     return LaboratoryResponse.model_validate(laboratory)
@@ -171,11 +171,11 @@ async def list_sampling_locations(
     "/laboratories/sampling-locations/",
     response_model=SamplingLocationResponse,
     status_code=201,
-    summary="Создание нового места отбора проб",
-    description="Создает новое место отбора проб на основе переданных данных.",
+    summary="Добавление нового места отбора проб",
+    description="Добавляет новое место отбора проб на основе переданных данных.",
     responses={
-        201: {"description": "Место отбора проб успешно создано"},
-        400: {"description": "Некорректные данные для создания места отбора проб"},
+        201: {"description": "Место отбора проб успешно добавлено"},
+        400: {"description": "Некорректные данные для добавления места отбора проб"},
     },
 )
 # @IsAuthenticated
@@ -183,7 +183,7 @@ async def create_sampling_location(
     sampling_location_data: SamplingLocationCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    """Создает новое место отбора проб на основе переданных данных."""
+    """Добавляет новое место отбора проб на основе переданных данных."""
     sampling_location = await create_sampling_location_service(
         db, sampling_location_data
     )
@@ -238,6 +238,7 @@ async def update_sampling_location(
         db, sampling_location_id, sampling_location_data
     )
     await db.commit()
+    await db.refresh(sampling_location)
     return SamplingLocationResponse.model_validate(sampling_location)
 
 
@@ -301,11 +302,11 @@ async def list_well_modes(
     "/laboratories/well-modes/",
     response_model=WellModeResponse,
     status_code=201,
-    summary="Создание нового режима скважины",
-    description="Создает новый режим скважины на основе переданных данных.",
+    summary="Добавление нового режима скважины",
+    description="Добавляет новый режим скважины на основе переданных данных.",
     responses={
-        201: {"description": "Режим скважины успешно создан"},
-        400: {"description": "Некорректные данные для создания режима скважины"},
+        201: {"description": "Режим скважины успешно добавлен"},
+        400: {"description": "Некорректные данные для добавления режима скважины"},
     },
 )
 # @IsAuthenticated
@@ -313,7 +314,7 @@ async def create_well_mode(
     well_mode_data: WellModeCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    """Создает новый режим скважины на основе переданных данных."""
+    """Добавляет новый режим скважины на основе переданных данных."""
     well_mode = await create_well_mode_service(db, well_mode_data)
     await db.commit()
     await db.refresh(well_mode, ["branch"])
@@ -539,11 +540,11 @@ async def get_departments_by_laboratory(
     "/departments/",
     response_model=DepartmentResponse,
     status_code=201,
-    summary="Создание нового подразделения",
-    description="Создает новое подразделение на основе переданных данных.",
+    summary="Добавление нового подразделения",
+    description="Добавляет новое подразделение на основе переданных данных.",
     responses={
-        201: {"description": "Подразделение успешно создано"},
-        400: {"description": "Некорректные данные для создания подразделения"},
+        201: {"description": "Подразделение успешно добавлено"},
+        400: {"description": "Некорректные данные для добавления подразделения"},
     },
 )
 # @IsAuthenticated
@@ -551,7 +552,7 @@ async def create_department(
     department_data: DepartmentCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    """Создает новое подразделение на основе переданных данных."""
+    """Добавляет новое подразделение на основе переданных данных."""
     department = await create_department_service(db, department_data)
     await db.commit()
     return DepartmentResponse.model_validate(department)
@@ -635,11 +636,11 @@ async def list_branches(
     "/branches/",
     response_model=BranchResponse,
     status_code=201,
-    summary="Создание нового филиала",
-    description="Создает новый филиал на основе переданных данных.",
+    summary="Добавление нового филиала",
+    description="Добавляет новый филиал на основе переданных данных.",
     responses={
-        201: {"description": "Филиал успешно создан"},
-        400: {"description": "Некорректные данные для создания филиала"},
+        201: {"description": "Филиал успешно добавлен"},
+        400: {"description": "Некорректные данные для добавления филиала"},
     },
 )
 # @IsAuthenticated
@@ -647,7 +648,7 @@ async def create_branch(
     branch_data: BranchCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    """Создает новый филиал на основе переданных данных."""
+    """Добавляет новый филиал на основе переданных данных."""
     branch = await create_branch_service(db, branch_data)
     await db.commit()
     return BranchResponse.model_validate(branch)
@@ -672,6 +673,7 @@ async def update_branch(
     """Обновляет существующий филиал. Можно обновить только указанные поля."""
     branch = await update_branch_service(db, branch_id, branch_data)
     await db.commit()
+    await db.refresh(branch)
     return BranchResponse.model_validate(branch)
 
 

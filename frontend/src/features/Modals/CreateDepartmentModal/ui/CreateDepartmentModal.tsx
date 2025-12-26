@@ -74,7 +74,7 @@ const CreateDepartmentModal: React.FC<CreateDepartmentModalProps> = ({
         laboratory_location: formData.laboratory_location.trim(),
       });
 
-      message.success('Подразделение успешно создано');
+      message.success('Подразделение успешно добавлено');
       setFormData({
         name: '',
         laboratory_location: '',
@@ -86,7 +86,7 @@ const CreateDepartmentModal: React.FC<CreateDepartmentModalProps> = ({
       }
       onClose();
     } catch (error: unknown) {
-      console.error('Ошибка при создании подразделения:', error);
+      console.error('Ошибка при добавлении подразделения:', error);
       if (error && typeof error === 'object' && 'response' in error) {
         const axiosError = error as { response?: { data?: unknown } };
         if (axiosError.response?.data) {
@@ -113,12 +113,12 @@ const CreateDepartmentModal: React.FC<CreateDepartmentModalProps> = ({
           }
         } else {
           setErrors({
-            general: 'Произошла ошибка при создании подразделения',
+            general: 'Произошла ошибка при добавлении подразделения',
           });
         }
       } else {
         setErrors({
-          general: 'Произошла ошибка при создании подразделения',
+          general: 'Произошла ошибка при добавлении подразделения',
         });
       }
     } finally {
@@ -163,7 +163,6 @@ const CreateDepartmentModal: React.FC<CreateDepartmentModalProps> = ({
               status={errors.name ? 'error' : ''}
               required
             />
-            {errors.name && <div className="error-message">{errors.name}</div>}
           </div>
           <div className="create-department-form-item">
             <label className="create-department-label">
@@ -177,11 +176,7 @@ const CreateDepartmentModal: React.FC<CreateDepartmentModalProps> = ({
               status={errors.laboratory_location ? 'error' : ''}
               required
             />
-            {errors.laboratory_location && (
-              <div className="error-message">{errors.laboratory_location}</div>
-            )}
           </div>
-          {errors.general && <div className="error-message general-error">{errors.general}</div>}
         </div>
       </Modal>
     </div>

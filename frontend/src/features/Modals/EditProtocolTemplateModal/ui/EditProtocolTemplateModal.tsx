@@ -175,11 +175,11 @@ const EditProtocolTemplateModal: React.FC<EditProtocolTemplateModalProps> = ({
       setIsCreatingNew(false);
       setNewTemplateName('');
       setSelectedFile(null);
-      message.success('Шаблон успешно создан');
+      message.success('Шаблон успешно добавлен');
       refetchTemplates();
     } catch (error) {
-      console.error('Ошибка при создании шаблона:', error);
-      message.error('Ошибка при создании шаблона');
+      console.error('Ошибка при добавлении шаблона:', error);
+      message.error('Ошибка при добавлении шаблона');
     } finally {
       setLoading(false);
     }
@@ -324,7 +324,7 @@ const EditProtocolTemplateModal: React.FC<EditProtocolTemplateModalProps> = ({
 
   return (
     <Modal
-      header={isCreatingNew ? 'Создание нового шаблона' : 'Редактирование шаблона'}
+      header={isCreatingNew ? 'Добавление нового шаблона' : 'Редактирование шаблона'}
       onClose={handleModalClose}
       onCancel={handleModalClose}
       onSave={handleSave}
@@ -334,36 +334,38 @@ const EditProtocolTemplateModal: React.FC<EditProtocolTemplateModalProps> = ({
       modalWidth="1000"
     >
       <div className="edit-protocol-template-modal-content">
-        <div className="template-select-section">
-          <Select
-            placeholder="Выберите шаблон протокола"
-            onChange={handleTemplateChange}
-            value={selectedTemplateId || undefined}
-            style={{ width: '100%', marginBottom: 24 }}
-            loading={templatesLoading}
-            dropdownRender={menu => (
-              <>
-                {menu}
-                <div className="select-dropdown-divider" />
-                <div className="select-dropdown-item" onClick={() => handleTemplateChange('new')}>
-                  <PlusOutlined /> Добавить новый шаблон
-                </div>
-              </>
-            )}
-          >
-            {templates.map(template => (
-              <Option key={template.id} value={template.id}>
-                {template.name} - {template.version}
-              </Option>
-            ))}
-          </Select>
-        </div>
+        {!isCreatingNew && (
+          <div className="template-select-section">
+            <Select
+              placeholder="Выберите шаблон протокола"
+              onChange={handleTemplateChange}
+              value={selectedTemplateId || undefined}
+              style={{ width: '100%', marginBottom: 24 }}
+              loading={templatesLoading}
+              dropdownRender={menu => (
+                <>
+                  {menu}
+                  <div className="select-dropdown-divider" />
+                  <div className="select-dropdown-item" onClick={() => handleTemplateChange('new')}>
+                    <PlusOutlined /> Добавить новый шаблон
+                  </div>
+                </>
+              )}
+            >
+              {templates.map(template => (
+                <Option key={template.id} value={template.id}>
+                  {template.name} - {template.version}
+                </Option>
+              ))}
+            </Select>
+          </div>
+        )}
 
         {isCreatingNew ? (
           <div className="new-template-form">
             {loading ? (
               <div className="loading-state">
-                <Spin size="large" tip="Создание шаблона..." />
+                <Spin size="large" />
               </div>
             ) : (
               <>
@@ -381,7 +383,6 @@ const EditProtocolTemplateModal: React.FC<EditProtocolTemplateModalProps> = ({
                     className="template-name-input"
                     status={errors.name ? 'error' : ''}
                   />
-                  {errors.name && <div className="error-message">{errors.name}</div>}
                 </div>
 
                 <div className="form-group">
@@ -422,7 +423,6 @@ const EditProtocolTemplateModal: React.FC<EditProtocolTemplateModalProps> = ({
                       </Dragger>
                     )}
                   </div>
-                  {errors.file && <div className="error-message">{errors.file}</div>}
                 </div>
               </>
             )}
@@ -433,7 +433,7 @@ const EditProtocolTemplateModal: React.FC<EditProtocolTemplateModalProps> = ({
           </div>
         ) : templateLoading ? (
           <div className="loading-state">
-            <Spin size="large" tip="Загрузка..." />
+            <Spin size="large" />
           </div>
         ) : !activeTemplate ? (
           <div className="no-template-message">
@@ -495,7 +495,7 @@ const EditProtocolTemplateModal: React.FC<EditProtocolTemplateModalProps> = ({
             <div className="editor-content">
               {loading ? (
                 <div className="loading-state">
-                  <Spin size="large" tip="Сохранение..." />
+                  <Spin size="large" />
                 </div>
               ) : (
                 <div className="accreditation-section">
