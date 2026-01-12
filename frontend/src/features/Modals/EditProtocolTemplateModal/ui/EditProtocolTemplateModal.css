@@ -263,7 +263,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
 }
@@ -285,22 +285,40 @@
   white-space: nowrap;
 }
 
-.delete-file-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.protocol-template-delete-button,
+.protocol-template-delete-button.ant-btn,
+.protocol-template-delete-button.ant-btn-text {
   color: #ff4d4f !important;
-  transition: all 0.2s ease;
-  font-size: 18px;
+  font-family: 'HeliosCondC';
+  font-size: 14px;
+  margin-left: auto !important;
+  flex-shrink: 0 !important;
 }
 
-.delete-file-btn:hover {
-  color: #ff7875 !important;
+.protocol-template-delete-button:hover,
+.protocol-template-delete-button.ant-btn:hover,
+.protocol-template-delete-button.ant-btn-text:hover {
   background-color: rgba(255, 77, 79, 0.1) !important;
+  color: #ff4d4f !important;
+}
+
+.protocol-template-delete-button:hover span,
+.protocol-template-delete-button.ant-btn:hover span,
+.protocol-template-delete-button.ant-btn-text:hover span {
+  color: #ff4d4f !important;
+}
+
+.protocol-template-delete-button:focus,
+.protocol-template-delete-button.ant-btn:focus,
+.protocol-template-delete-button.ant-btn-text:focus {
+  background-color: rgba(255, 77, 79, 0.1) !important;
+  color: #ff4d4f !important;
+}
+
+.protocol-template-delete-button span,
+.protocol-template-delete-button.ant-btn span,
+.protocol-template-delete-button.ant-btn-text span {
+  color: #ff4d4f !important;
 }
 
 .select-template-message,

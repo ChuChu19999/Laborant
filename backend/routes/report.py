@@ -1,0 +1,249 @@
+from typing import Optional
+from urllib.parse import quote
+from fastapi import APIRouter, Depends, Query
+from fastapi.responses import Response
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+from core.database import get_db
+from core.exceptions import NotFoundError
+from schemas.pagination import PaginatedResponse
+from schemas.report import (
+    ReportTemplateCreate,
+    ReportTemplateResponse,
+    ReportTemplateUpdate,
+)
+from services.report import (
+    create_report_template,
+    delete_report_template,
+    get_report_template_by_id,
+    get_report_templates,
+    update_report_template,
+)
+
+router = APIRouter()
+
+
+@router.get(
+    "/report-templates/",
+    response_model=PaginatedResponse[ReportTemplateResponse],
+    summary="Получение списка шаблонов отчетов",
+    description=(
+        "Возвращает список шаблонов отчетов с пагинацией или без. "
+        "Если page и page_size не указаны, возвращает все записи. "
+        "Поддерживает фильтрацию по лабораториям и подразделениям, сортировку."
+    ),
+    responses={200: {"description": "Список шаблонов отчетов успешно получен"}},
+)
+# @IsAuthenticated
+async def list_report_templates(
+    laboratory_id: Optional[int] = Query(None),
+    department_id: Optional[int] = Query(None),
+    include_deleted: bool = Query(False),
+    page: Optional[int] = Query(None, ge=1),
+    page_size: Optional[int] = Query(None, ge=1, le=100),
+    sort_by: Optional[str] = Query(None),
+    sort_order: Optional[str] = Query("desc"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Возвращает список шаблонов отчетов с пагинацией или без."""
+    templates, total, total_pages = await get_report_templates(
+        db,
+        laboratory_id=laboratory_id,
+        department_id=department_id,
+        include_deleted=include_deleted,
+        page=page,
+        page_size=page_size,
+        sort_by=sort_by,
+        sort_order=sort_order,
+    )
+
+    items = []
+    for template in templates:
+        template_dict = ReportTemplateResponse.model_validate(template).model_dump()
+        if template.laboratory:
+            template_dict["laboratory_name"] = template.laboratory.name
+        if template.department:
+            template_dict["department_name"] = template.department.name
+        items.append(ReportTemplateResponse(**template_dict))
+
+    return PaginatedResponse(
+        items=items,
+        total=total,
+        page=page if page is not None else 1,
+        page_size=page_size if page_size is not None else total,
+        total_pages=total_pages,
+    )
+
+
+@router.get(
+    "/report-templates/available/",
+    response_model=list[ReportTemplateResponse],
+    summary="Получение доступных шаблонов отчетов",
+    description=(
+        "Возвращает список доступных шаблонов отчетов для указанной лаборатории и подразделения."
+    ),
+    responses={200: {"description": "Список доступных шаблонов успешно получен"}},
+)
+# @IsAuthenticated
+async def get_available_report_templates(
+    laboratory_id: int = Query(..., description="ID лаборатории"),
+    department_id: Optional[int] = Query(None, description="ID подразделения"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Возвращает список доступных шаблонов отчетов для указанной лаборатории и подразделения."""
+    templates, _, _ = await get_report_templates(
+        db,
+        laboratory_id=laboratory_id,
+        department_id=department_id,
+        include_deleted=True,
+    )
+
+    items = []
+    for template in templates:
+        template_dict = ReportTemplateResponse.model_validate(template).model_dump()
+        if template.laboratory:
+            template_dict["laboratory_name"] = template.laboratory.name
+        if template.department:
+            template_dict["department_name"] = template.department.name
+        items.append(ReportTemplateResponse(**template_dict))
+
+    return items
+
+
+@router.post(
+    "/report-templates/",
+    response_model=ReportTemplateResponse,
+    status_code=201,
+    summary="Добавление нового шаблона отчета",
+    description="Добавляет новый шаблон отчета на основе переданных данных.",
+    responses={
+        201: {"description": "Шаблон отчета успешно добавлен"},
+        400: {"description": "Некорректные данные для добавления шаблона отчета"},
+    },
+)
+# @IsAuthenticated
+async def create_report_template_endpoint(
+    template_data: ReportTemplateCreate,
+    db: AsyncSession = Depends(get_db),
+):
+    """Добавляет новый шаблон отчета на основе переданных данных."""
+    from models.report import ReportTemplate
+
+    template = await create_report_template(db, template_data)
+    await db.commit()
+    query = (
+        select(ReportTemplate)
+        .where(ReportTemplate.id == template.id)
+        .options(
+            selectinload(ReportTemplate.laboratory),
+            selectinload(ReportTemplate.department),
+        )
+    )
+    result = await db.execute(query)
+    template = result.scalar_one()
+    template_dict = ReportTemplateResponse.model_validate(template).model_dump()
+    if template.laboratory:
+        template_dict["laboratory_name"] = template.laboratory.name
+    if template.department:
+        template_dict["department_name"] = template.department.name
+    return ReportTemplateResponse(**template_dict)
+
+
+@router.get(
+    "/report-templates/{template_id}/",
+    summary="Получение шаблона отчета по ID",
+    description="Возвращает информацию о шаблоне отчета по его идентификатору или файл при download=true.",
+    responses={
+        200: {"description": "Шаблон отчета успешно получен"},
+        404: {"description": "Шаблон отчета не найден"},
+    },
+)
+# @IsAuthenticated
+async def get_report_template(
+    template_id: int,
+    download: bool = Query(False, description="Скачать файл шаблона"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Возвращает информацию о шаблоне отчета по его идентификатору или файл при download=true."""
+    template = await get_report_template_by_id(db, template_id)
+    if not template:
+        raise NotFoundError("Шаблон отчета не найден")
+
+    if download:
+        import base64
+
+        file_data = base64.b64decode(template.file)
+        encoded_filename = quote(template.file_name, safe="")
+        content_disposition = f"attachment; filename*=UTF-8''{encoded_filename}"
+        return Response(
+            content=file_data,
+            media_type="application/octet-stream",
+            headers={"Content-Disposition": content_disposition},
+        )
+
+    template_dict = ReportTemplateResponse.model_validate(template).model_dump()
+    if template.laboratory:
+        template_dict["laboratory_name"] = template.laboratory.name
+    if template.department:
+        template_dict["department_name"] = template.department.name
+    return ReportTemplateResponse(**template_dict)
+
+
+@router.patch(
+    "/report-templates/{template_id}/",
+    response_model=ReportTemplateResponse,
+    summary="Обновление шаблона отчета",
+    description="Обновляет существующий шаблон отчета. Можно обновить только указанные поля.",
+    responses={
+        200: {"description": "Шаблон отчета успешно обновлен"},
+        404: {"description": "Шаблон отчета не найден"},
+    },
+)
+# @IsAuthenticated
+async def update_report_template_endpoint(
+    template_id: int,
+    template_data: ReportTemplateUpdate,
+    db: AsyncSession = Depends(get_db),
+):
+    """Обновляет существующий шаблон отчета. Можно обновить только указанные поля."""
+    from models.report import ReportTemplate
+
+    template = await update_report_template(db, template_id, template_data)
+    await db.commit()
+    query = (
+        select(ReportTemplate)
+        .where(ReportTemplate.id == template.id)
+        .options(
+            selectinload(ReportTemplate.laboratory),
+            selectinload(ReportTemplate.department),
+        )
+    )
+    result = await db.execute(query)
+    template = result.scalar_one()
+    template_dict = ReportTemplateResponse.model_validate(template).model_dump()
+    if template.laboratory:
+        template_dict["laboratory_name"] = template.laboratory.name
+    if template.department:
+        template_dict["department_name"] = template.department.name
+    return ReportTemplateResponse(**template_dict)
+
+
+@router.delete(
+    "/report-templates/{template_id}/",
+    status_code=204,
+    summary="Удаление шаблона отчета",
+    description="Выполняет мягкое удаление шаблона отчета. Шаблон помечается как удаленный.",
+    responses={
+        204: {"description": "Шаблон отчета успешно удален"},
+        404: {"description": "Шаблон отчета не найден"},
+    },
+)
+# @IsAuthenticated
+async def delete_report_template_endpoint(
+    template_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """Выполняет мягкое удаление шаблона отчета. Шаблон помечается как удаленный."""
+    await delete_report_template(db, template_id)
+    await db.commit()

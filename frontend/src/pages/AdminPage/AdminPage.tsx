@@ -11,6 +11,7 @@ import {
   MassFractionOilRefractionDirectoryModal,
   EquipmentDefaultModal,
   EditProtocolTemplateModal,
+  EditReportTemplateModal,
 } from '../../features/Modals';
 import { calculationApi } from '../../shared/api/calculation';
 import { laboratoriesApi } from '../../shared/api/laboratories';
@@ -57,6 +58,7 @@ const AdminPage: React.FC = () => {
   const [isRefractionTableModalOpen, setIsRefractionTableModalOpen] = useState(false);
   const [isEquipmentModalOpen, setIsEquipmentModalOpen] = useState(false);
   const [isProtocolTemplateModalOpen, setIsProtocolTemplateModalOpen] = useState(false);
+  const [isReportTemplateModalOpen, setIsReportTemplateModalOpen] = useState(false);
   const [isSaveCalculationModalOpen, setIsSaveCalculationModalOpen] = useState(false);
   const [lastCalculationResult, setLastCalculationResult] = useState<
     Record<
@@ -488,6 +490,14 @@ const AdminPage: React.FC = () => {
     setIsProtocolTemplateModalOpen(false);
   };
 
+  const handleOpenReportTemplateModal = () => {
+    setIsReportTemplateModalOpen(true);
+  };
+
+  const handleCloseReportTemplateModal = () => {
+    setIsReportTemplateModalOpen(false);
+  };
+
   const handleCalculate = async (
     result: CalculationResult,
     inputData: Record<string, unknown>,
@@ -804,6 +814,11 @@ const AdminPage: React.FC = () => {
                 onClick: handleOpenProtocolTemplateModal,
               },
               {
+                key: 'report-template',
+                label: 'Шаблон отчета',
+                onClick: handleOpenReportTemplateModal,
+              },
+              {
                 key: 'selection-conditions',
                 label: 'Условия отбора',
                 onClick: handleOpenSelectionConditionsModal,
@@ -928,6 +943,14 @@ const AdminPage: React.FC = () => {
         <EditProtocolTemplateModal
           open={isProtocolTemplateModalOpen}
           onClose={handleCloseProtocolTemplateModal}
+          laboratoryId={labId}
+          departmentId={deptId}
+        />
+      )}
+      {isReportTemplateModalOpen && labId && (
+        <EditReportTemplateModal
+          open={isReportTemplateModalOpen}
+          onClose={handleCloseReportTemplateModal}
           laboratoryId={labId}
           departmentId={deptId}
         />

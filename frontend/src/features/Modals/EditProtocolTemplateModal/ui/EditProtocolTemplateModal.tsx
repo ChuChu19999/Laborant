@@ -396,16 +396,18 @@ const EditProtocolTemplateModal: React.FC<EditProtocolTemplateModalProps> = ({
                           <FileExcelOutlined className="file-icon" />
                           <span className="file-name">{selectedFile.name}</span>
                         </div>
-                        <button
-                          type="button"
+                        <div style={{ flex: 50 }} />
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<DeleteOutlined />}
                           onClick={() => {
                             setSelectedFile(null);
                             setErrors(prev => ({ ...prev, file: '' }));
                           }}
-                          className="delete-file-btn"
-                        >
-                          <DeleteOutlined />
-                        </button>
+                          className="protocol-template-delete-button"
+                          danger
+                        />
                       </div>
                     ) : (
                       <Dragger
@@ -429,7 +431,7 @@ const EditProtocolTemplateModal: React.FC<EditProtocolTemplateModalProps> = ({
           </div>
         ) : !selectedTemplateId ? (
           <div className="select-template-message">
-            <p>Выберите шаблон для редактирования или создайте новый</p>
+            <p>Выберите шаблон для редактирования или добавьте новый</p>
           </div>
         ) : templateLoading ? (
           <div className="loading-state">

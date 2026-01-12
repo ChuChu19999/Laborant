@@ -3,6 +3,7 @@ from models.calculation import Calculation
 from models.equipment import Equipment, EquipmentType
 from models.laboratory import Branch, Department, Laboratory, SamplingLocation
 from models.protocol import Protocol, ProtocolTemplate
+from models.report import ReportTemplate, ReportType
 from models.research import (
     ResearchMethod,
     ResearchMethodGroup,
@@ -27,6 +28,8 @@ __all__ = [
     "MassFractionOilRefractionTable",
     "Protocol",
     "ProtocolTemplate",
+    "ReportTemplate",
+    "ReportType",
     "Calculation",
     "Equipment",
     "EquipmentType",

@@ -23,6 +23,7 @@ from models import (  # noqa: F401
     MassFractionOilRefractionTable,
     Protocol,
     ProtocolTemplate,
+    ReportTemplate,
     ResearchMethod,
     ResearchMethodGroup,
     Sample,

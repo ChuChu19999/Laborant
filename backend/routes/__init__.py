@@ -6,6 +6,7 @@ from routes import (
     fixtures,
     laboratory,
     protocol,
+    report,
     research,
     sample,
     user,
@@ -20,6 +21,7 @@ api_router.include_router(research.router, tags=("research",))
 api_router.include_router(sample.router, tags=("sample",))
 api_router.include_router(equipment.router, tags=("equipment",))
 api_router.include_router(protocol.router, tags=("protocol",))
+api_router.include_router(report.router, tags=("report",))
 api_router.include_router(calculation.router, tags=("calculation",))
 api_router.include_router(fixtures.router, tags=("fixtures",))
 

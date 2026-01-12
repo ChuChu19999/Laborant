@@ -31,6 +31,7 @@ class Laboratory(BaseModel):
         "SelectionConditions", back_populates="laboratory"
     )
     protocol_templates = relationship("ProtocolTemplate", back_populates="laboratory")
+    report_templates = relationship("ReportTemplate", back_populates="laboratory")
     research_methods = relationship("ResearchMethod", back_populates="laboratory")
 
     __table_args__ = (
@@ -80,6 +81,7 @@ class Department(BaseModel):
         "SelectionConditions", back_populates="department"
     )
     protocol_templates = relationship("ProtocolTemplate", back_populates="department")
+    report_templates = relationship("ReportTemplate", back_populates="department")
     research_methods = relationship("ResearchMethod", back_populates="department")
 
     __table_args__ = (
