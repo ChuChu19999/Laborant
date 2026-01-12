@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from core.database import get_db
 from core.exceptions import NotFoundError
+from core.security import IsAuthenticated
 from schemas.pagination import PaginatedResponse
 from schemas.report import (
     ReportTemplateCreate,
