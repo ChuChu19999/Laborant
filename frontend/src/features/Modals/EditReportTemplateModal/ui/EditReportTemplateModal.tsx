@@ -374,7 +374,7 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
               <span className="info-label">Файл:</span>
               <div className="info-value-with-button">
                 <span className="info-value">{activeTemplate.file_name}</span>
-                <div style={{ flex: 4 }} />
+                <div style={{ flex: 2.5 }} />
                 {!isEditingFile && (
                   <Button
                     onClick={() => setIsEditingFile(true)}
