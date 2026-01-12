@@ -44,6 +44,9 @@ const KeycloakService = {
       const parsedToken = keycloak.tokenParsed;
       console.log('Содержимое токена:', parsedToken);
 
+      // Логирование и расшифровка JWT токена
+      KeycloakService.logTokenForAnalysis();
+
       // Устанавливаем обработчик события истечения токена
       keycloak.onTokenExpired = async () => {
         console.log('Токен истёк, попытка обновления...');
@@ -141,6 +144,32 @@ const KeycloakService = {
     if (tokenRefreshInterval) {
       clearTimeout(tokenRefreshInterval);
       tokenRefreshInterval = null;
+    }
+  },
+
+  // Логирование расшифрованного JWT токена
+  logTokenForAnalysis: () => {
+    try {
+      const token = keycloak.token;
+      if (!token) {
+        return;
+      }
+
+      // Декодируем payload токена
+      const parts = token.split('.');
+      if (parts.length !== 3) {
+        return;
+      }
+
+      let payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+      while (payload.length % 4) {
+        payload += '=';
+      }
+      const decodedPayload = JSON.parse(atob(payload));
+
+      console.log('Расшифрованный JWT токен:', JSON.stringify(decodedPayload, null, 2));
+    } catch (error) {
+      console.error('Ошибка при расшифровке токена:', error);
     }
   },
 };

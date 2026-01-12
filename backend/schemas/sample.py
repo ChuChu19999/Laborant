@@ -34,6 +34,9 @@ class SampleBase(BaseModel):
     selection_conditions: Optional[Dict[str, Any]] = Field(
         None, description="JSON с условиями отбора и их значениями"
     )
+    added_by: Optional[str] = Field(
+        None, max_length=150, description="hsnils лица, добавившего пробу"
+    )
 
     @field_validator("registration_number")
     @classmethod
@@ -60,6 +63,7 @@ class SampleUpdate(BaseModel):
     mode: Optional[str] = Field(None, max_length=255)
     phone: Optional[str] = Field(None, max_length=50)
     selection_conditions: Optional[Dict[str, Any]] = None
+    added_by: Optional[str] = Field(None, max_length=150)
     laboratory_id: Optional[int] = None
     department_id: Optional[int] = None
 

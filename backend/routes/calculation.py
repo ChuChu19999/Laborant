@@ -94,7 +94,7 @@ async def list_calculations(
             for eq_id in calc.equipment_data:
                 if isinstance(eq_id, dict):
                     eq_id = eq_id.get("id", eq_id)
-                equipment = await get_equipment_by_id(db, eq_id)
+                equipment = await get_equipment_by_id(db, eq_id, include_deleted=True)
                 if equipment:
                     equipment_list.append(
                         EquipmentBrief.model_validate(equipment).model_dump()
@@ -178,7 +178,7 @@ async def get_calculations_by_sample_endpoint(
             for eq_id in calc.equipment_data:
                 if isinstance(eq_id, dict):
                     eq_id = eq_id.get("id", eq_id)
-                equipment = await get_equipment_by_id(db, eq_id)
+                equipment = await get_equipment_by_id(db, eq_id, include_deleted=True)
                 if equipment:
                     equipment_list.append(
                         EquipmentBrief.model_validate(equipment).model_dump()
@@ -269,7 +269,7 @@ async def create_calculation_endpoint(
         for eq_id in calculation.equipment_data:
             if isinstance(eq_id, dict):
                 eq_id = eq_id.get("id", eq_id)
-            equipment = await get_equipment_by_id(db, eq_id)
+            equipment = await get_equipment_by_id(db, eq_id, include_deleted=True)
             if equipment:
                 equipment_list.append(
                     EquipmentBrief.model_validate(equipment).model_dump()
@@ -320,7 +320,7 @@ async def get_calculation(
         for eq_id in calculation.equipment_data:
             if isinstance(eq_id, dict):
                 eq_id = eq_id.get("id", eq_id)
-            equipment = await get_equipment_by_id(db, eq_id)
+            equipment = await get_equipment_by_id(db, eq_id, include_deleted=True)
             if equipment:
                 equipment_list.append(
                     EquipmentBrief.model_validate(equipment).model_dump()
@@ -370,7 +370,7 @@ async def update_calculation_endpoint(
         for eq_id in calculation.equipment_data:
             if isinstance(eq_id, dict):
                 eq_id = eq_id.get("id", eq_id)
-            equipment = await get_equipment_by_id(db, eq_id)
+            equipment = await get_equipment_by_id(db, eq_id, include_deleted=True)
             if equipment:
                 equipment_list.append(
                     EquipmentBrief.model_validate(equipment).model_dump()

@@ -287,10 +287,14 @@ const CalculationsPage: React.FC = () => {
       }
     }
 
-    items.push({ label: 'Расчеты' });
+    if (sample) {
+      items.push({ label: `Проба № ${sample.registration_number}` });
+    } else {
+      items.push({ label: 'Расчеты' });
+    }
 
     return items;
-  }, [labId, deptId, laboratories, departments, navigate]);
+  }, [labId, deptId, laboratories, departments, navigate, sample]);
 
   const methods = useMemo(() => {
     const result: ResearchMethod[] = [];

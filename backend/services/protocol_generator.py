@@ -2370,11 +2370,7 @@ async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> Respons
         equipment_ids = _collect_equipment_ids_from_samples(samples)
         equipment_list: List[Equipment] = []
         if equipment_ids:
-            equipment_query = (
-                select(Equipment)
-                .where(Equipment.id.in_(equipment_ids))
-                .where(Equipment.deleted_at.is_(None))
-            )
+            equipment_query = select(Equipment).where(Equipment.id.in_(equipment_ids))
             equipment_result = await db.execute(equipment_query)
             equipment_list = list(equipment_result.scalars().all())
 

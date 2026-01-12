@@ -285,6 +285,7 @@ async def create_sample(db: AsyncSession, sample_data: SampleCreate) -> Sample:
         mode=sample_data.mode,
         phone=sample_data.phone,
         selection_conditions=sample_data.selection_conditions,
+        added_by=sample_data.added_by,
     )
 
     if sample.branch_id:
@@ -309,6 +310,8 @@ async def update_sample(
         raise NotFoundError("Проба не найдена")
 
     update_data = sample_data.model_dump(exclude_unset=True)
+    # Исключаем added_by из обновления, так как это поле нельзя изменять
+    update_data.pop("added_by", None)
     for key, value in update_data.items():
         if key == "registration_number" and value:
             existing = await db.execute(

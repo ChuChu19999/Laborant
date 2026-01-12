@@ -26,8 +26,8 @@
 
 .condition-item {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  gap: 4px;
   padding: 12px;
   background-color: white;
   border-radius: 6px;
@@ -35,7 +35,6 @@
 }
 
 .input-wrapper {
-  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -45,11 +44,20 @@
   font-size: 12px;
   font-weight: 500;
   color: #666;
-  margin-bottom: 4px;
+  margin-bottom: 0;
+  line-height: 1.5;
+}
+
+.input-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
 }
 
 .input-wrapper .ant-input {
   font-family: 'HeliosCondC', sans-serif;
+  flex: 1;
 }
 
 .unit {
@@ -62,6 +70,9 @@
   background-color: #f0f0f0;
   border-radius: 4px;
   font-family: 'HeliosCondC', sans-serif;
+  white-space: nowrap;
+  flex-shrink: 0;
+  height: fit-content;
 }
 
 @media (max-width: 768px) {
@@ -69,7 +80,7 @@
     grid-template-columns: 1fr;
   }
 
-  .condition-item {
+  .input-row {
     flex-direction: column;
     align-items: stretch;
   }
@@ -77,5 +88,6 @@
   .unit {
     text-align: left;
     margin-top: 4px;
+    align-self: flex-start;
   }
 }

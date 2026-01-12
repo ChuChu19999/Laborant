@@ -57,6 +57,9 @@ class Sample(BaseModel):
     selection_conditions = Column(
         JSON, nullable=True, comment="JSON с условиями отбора и их значениями"
     )
+    added_by = Column(
+        String(150), nullable=True, comment="hsnils лица, добавившего пробу"
+    )
 
     laboratory = relationship("Laboratory", back_populates="samples")
     department = relationship("Department", back_populates="samples")

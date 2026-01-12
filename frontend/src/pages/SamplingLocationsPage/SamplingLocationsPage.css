@@ -18,7 +18,7 @@
 
 .sampling-locations-branches-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   margin-bottom: 0px;
   position: sticky;
@@ -38,6 +38,7 @@
   color: transparent;
   -webkit-text-fill-color: transparent;
   margin: 0;
+  padding-top: 10px;
   display: flex;
   align-items: center;
   line-height: 1;
@@ -48,6 +49,7 @@
 .sampling-locations-branches-add-button {
   background-color: rgba(44, 82, 130, 0.1) !important;
   padding: 4px !important;
+  margin-top: 4.5px !important;
 }
 
 .sampling-locations-branches-add-button:hover {

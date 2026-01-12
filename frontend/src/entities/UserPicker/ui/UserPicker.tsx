@@ -33,6 +33,7 @@ interface UserPickerProps {
   style?: React.CSSProperties;
   error?: string;
   laboratoryName?: string;
+  allowClear?: boolean;
 }
 
 const UserPicker: React.FC<UserPickerProps> = ({
@@ -44,6 +45,7 @@ const UserPicker: React.FC<UserPickerProps> = ({
   style,
   error,
   laboratoryName,
+  allowClear = true,
 }) => {
   const [searchText, setSearchText] = useState('');
   const [options, setOptions] = useState<Employee[]>([]);
@@ -323,7 +325,7 @@ const UserPicker: React.FC<UserPickerProps> = ({
           disabled={disabled}
           onChange={e => handleSearch(e.target.value)}
           suffix={
-            value ? (
+            value && allowClear && !disabled ? (
               <CloseCircleFilled className="user-picker-clear-icon" onClick={handleClear} />
             ) : null
           }

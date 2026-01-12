@@ -22,6 +22,7 @@ export interface Sample {
   mode?: string;
   phone?: string;
   selection_conditions?: Record<string, unknown>;
+  added_by?: string;
   laboratory_id: number;
   department_id?: number;
   laboratory_name?: string;
@@ -46,6 +47,7 @@ export interface SampleCreate {
   mode?: string;
   phone?: string;
   selection_conditions?: Record<string, unknown>;
+  added_by?: string;
   laboratory_id: number;
   department_id?: number;
 }

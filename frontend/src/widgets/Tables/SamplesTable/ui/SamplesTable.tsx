@@ -19,6 +19,7 @@ import customParseFormat from 'dayjs/plugin/customParseFormat';
 import { BiChevronLeft, BiChevronRight, BiChevronsLeft, BiChevronsRight } from 'react-icons/bi';
 import { FaSortUp, FaSortDown, FaSort } from 'react-icons/fa';
 import { LoadingCard } from '../../../../features/Cards';
+import { employeesApi } from '../../../../shared/api/employees';
 import { type Sample, samplesApi } from '../../../../shared/api/samples';
 import { getDateRangePresets } from '../../../../shared/lib/datePresets';
 import { urlParamsToFilters } from '../../../../shared/lib/urlParams';
@@ -224,6 +225,43 @@ const SamplesTable: React.FC<SamplesTableProps> = ({
 
   const [columnSizing, setColumnSizing] = React.useState<ColumnSizingState>({});
   const tableRef = React.useRef<ReturnType<typeof useReactTable<Sample>> | null>(null);
+  const [employeesMap, setEmployeesMap] = React.useState<Record<string, { fullName: string }>>({});
+  const previousHashesRef = React.useRef<string>('');
+
+  // Загружаем информацию о сотрудниках по массиву added_by hashMd5
+  React.useEffect(() => {
+    const loadEmployees = async () => {
+      const uniqueAddedBy = Array.from(
+        new Set(data.filter(sample => sample.added_by).map(sample => sample.added_by!))
+      ).sort();
+
+      const hashesKey = uniqueAddedBy.join(',');
+
+      // Пропускаем запрос, если уникальные хеши не изменились
+      if (hashesKey === previousHashesRef.current) {
+        return;
+      }
+
+      previousHashesRef.current = hashesKey;
+
+      if (uniqueAddedBy.length === 0) {
+        setEmployeesMap({});
+        return;
+      }
+
+      try {
+        const employees = await employeesApi.getByHashes(uniqueAddedBy, false);
+        setEmployeesMap(employees);
+      } catch (error) {
+        console.error('Ошибка при загрузке информации о сотрудниках:', error);
+        setEmployeesMap({});
+      }
+    };
+
+    if (data.length > 0) {
+      loadEmployees();
+    }
+  }, [data]);
 
   const columns = React.useMemo<ColumnDef<Sample>[]>(
     () => [
@@ -398,6 +436,19 @@ const SamplesTable: React.FC<SamplesTableProps> = ({
         },
       },
       {
+        accessorKey: 'added_by',
+        header: 'Добавил пробу',
+        cell: ({ row }) => {
+          const addedBy = row.original.added_by;
+          if (!addedBy) return '-';
+          const employee = employeesMap[addedBy];
+          return employee?.fullName || '-';
+        },
+        enableSorting: true,
+        enableColumnFilter: true,
+        size: 200,
+      },
+      {
         id: 'actions',
         header: 'Действия',
         cell: ({ row }) => (
@@ -440,7 +491,7 @@ const SamplesTable: React.FC<SamplesTableProps> = ({
         enableResizing: false,
       },
     ],
-    [onEdit, onDelete, onFillCalculations]
+    [onEdit, onDelete, onFillCalculations, employeesMap]
   );
 
   const handleColumnFiltersChange = React.useCallback(

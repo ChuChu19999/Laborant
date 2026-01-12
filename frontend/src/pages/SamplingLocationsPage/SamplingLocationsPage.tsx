@@ -9,7 +9,7 @@ import {
 } from '@ant-design/icons';
 import AddIcon from '@mui/icons-material/Add';
 import { IconButton } from '@mui/material';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { LoadingCard } from '../../features/Cards';
 import {
   CreateBranchModal,
@@ -102,7 +102,11 @@ const SamplingLocationsPage: React.FC = () => {
     }
   );
 
-  const { data: samplingLocationsData } = useAutoRefetchQuery<{ items: SamplingLocation[] }>(
+  const {
+    data: samplingLocationsData,
+    isPlaceholderData: isSamplingLocationsPlaceholder,
+    isLoading: isSamplingLocationsLoading,
+  } = useAutoRefetchQuery<{ items: SamplingLocation[] }>(
     ['sampling-locations', 'items', selectedBranch?.id],
     () =>
       samplingLocationsApi.getSamplingLocations(selectedBranch?.id, {
@@ -111,10 +115,15 @@ const SamplingLocationsPage: React.FC = () => {
       }),
     {
       enabled: !!selectedBranch?.id,
+      placeholderData: keepPreviousData,
     }
   );
 
-  const { data: wellModesData } = useAutoRefetchQuery<{ items: WellMode[] }>(
+  const {
+    data: wellModesData,
+    isPlaceholderData: isWellModesPlaceholder,
+    isLoading: isWellModesLoading,
+  } = useAutoRefetchQuery<{ items: WellMode[] }>(
     ['sampling-locations', 'well-modes', selectedBranch?.id],
     () =>
       samplingLocationsApi.getWellModes(selectedBranch?.id, {
@@ -123,6 +132,7 @@ const SamplingLocationsPage: React.FC = () => {
       }),
     {
       enabled: !!selectedBranch?.id,
+      placeholderData: keepPreviousData,
     }
   );
 
@@ -468,7 +478,7 @@ const SamplingLocationsPage: React.FC = () => {
                   </div>
                 </div>
 
-                {!samplingLocationsData && selectedBranch ? (
+                {isSamplingLocationsLoading && !isSamplingLocationsPlaceholder && selectedBranch ? (
                   <div className="sampling-locations-empty">
                     <LoadingCard loading />
                   </div>
@@ -541,7 +551,7 @@ const SamplingLocationsPage: React.FC = () => {
                   </div>
                 </div>
 
-                {!wellModesData && selectedBranch ? (
+                {isWellModesLoading && !isWellModesPlaceholder && selectedBranch ? (
                   <div className="sampling-locations-empty">
                     <LoadingCard loading />
                   </div>

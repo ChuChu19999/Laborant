@@ -3,6 +3,8 @@ import { message } from 'antd';
 import dayjs from 'dayjs';
 import 'dayjs/locale/ru';
 import { SelectionConditionsForm } from '../../../../entities/SelectionConditionsForm';
+import { UserPicker, type Employee } from '../../../../entities/UserPicker';
+import { employeesApi } from '../../../../shared/api/employees';
 import { samplesApi } from '../../../../shared/api/samples';
 import {
   samplingLocationsApi,
@@ -118,6 +120,30 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({
   );
 
   const [selectionConditions, setSelectionConditions] = useState<Record<string, string>>({});
+  const [addedByEmployee, setAddedByEmployee] = useState<Employee | null>(null);
+
+  // Загрузка информации о сотруднике, добавившем пробу
+  useEffect(() => {
+    const loadAddedByEmployee = async () => {
+      if (sample.added_by) {
+        try {
+          const employee = await employeesApi.getByHash(sample.added_by, false);
+          if (employee) {
+            setAddedByEmployee(employee);
+          }
+        } catch (error) {
+          console.error('Ошибка при загрузке информации о сотруднике:', error);
+          setAddedByEmployee(null);
+        }
+      } else {
+        setAddedByEmployee(null);
+      }
+    };
+
+    if (open && sample) {
+      loadAddedByEmployee();
+    }
+  }, [open, sample]);
 
   useEffect(() => {
     if (open && sample) {
@@ -435,6 +461,19 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({
             popupClassName="custom-date-picker-popup"
             inputReadOnly={false}
             allowClear={true}
+          />
+        </div>
+
+        <div className="form-group">
+          <label>
+            Добавил пробу <span className="required">*</span>
+          </label>
+          <UserPicker
+            value={addedByEmployee}
+            onChange={() => {}}
+            placeholder="ФИО лица, добавившего пробу"
+            disabled={true}
+            allowClear={false}
           />
         </div>
 

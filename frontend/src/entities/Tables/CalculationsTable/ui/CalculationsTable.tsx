@@ -512,14 +512,14 @@ const CalculationsTable: React.FC<CalculationsTableProps> = ({ data, loading = f
           return formatFractionalError(error, methodName, result || null);
         },
         enableSorting: false,
-        size: 70,
+        size: 75,
       },
       {
         accessorKey: 'unit',
         header: 'Единица измерения',
         cell: ({ row }) => row.original.unit || '-',
         enableSorting: false,
-        size: 60,
+        size: 65,
       },
       {
         accessorKey: 'equipment',

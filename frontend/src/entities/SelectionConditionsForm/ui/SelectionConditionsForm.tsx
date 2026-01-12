@@ -79,15 +79,17 @@ const SelectionConditionsForm: React.FC<SelectionConditionsFormProps> = ({
             <div key={condition.variable} className="condition-item">
               <div className="input-wrapper">
                 <label>{condition.variable}</label>
-                <Input
-                  placeholder="Введите значение"
-                  value={formatValue(values[condition.variable])}
-                  onChange={e => handleInputChange(e, condition.variable)}
-                  onPaste={e => handlePaste(e, condition.variable)}
-                  onKeyDown={handleKeyDown}
-                />
+                <div className="input-row">
+                  <Input
+                    placeholder="Введите значение"
+                    value={formatValue(values[condition.variable])}
+                    onChange={e => handleInputChange(e, condition.variable)}
+                    onPaste={e => handlePaste(e, condition.variable)}
+                    onKeyDown={handleKeyDown}
+                  />
+                  <div className="unit">{condition.unit}</div>
+                </div>
               </div>
-              <div className="unit">{condition.unit}</div>
             </div>
           ))}
         </div>

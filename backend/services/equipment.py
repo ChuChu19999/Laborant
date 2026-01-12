@@ -6,6 +6,7 @@ from sqlalchemy.orm import selectinload
 from core.exceptions import ConflictError, NotFoundError, ValidationError
 from models.equipment import Equipment
 from models.laboratory import Department, Laboratory
+from models.research import ResearchMethod
 from schemas.equipment import EquipmentCreate, EquipmentUpdate
 from utils.filters import add_date_range_filter, add_text_search_filter
 from utils.pagination import apply_pagination, calculate_total_pages, get_total_count
@@ -179,11 +180,21 @@ async def create_equipment(
                 "Подразделение должно принадлежать выбранной лаборатории"
             )
 
-    latest = await db.execute(
-        select(Equipment)
-        .where(Equipment.name == equipment_data.name, Equipment.deleted_at.is_(None))
-        .order_by(Equipment.version.desc())
+    latest_query = select(Equipment).where(
+        Equipment.name == equipment_data.name,
+        Equipment.laboratory_id == equipment_data.laboratory_id,
+        Equipment.deleted_at.is_(None),
     )
+
+    if equipment_data.department_id:
+        latest_query = latest_query.where(
+            Equipment.department_id == equipment_data.department_id
+        )
+    else:
+        latest_query = latest_query.where(Equipment.department_id.is_(None))
+
+    latest_query = latest_query.order_by(Equipment.version.desc())
+    latest = await db.execute(latest_query)
     latest_equipment = latest.scalar_one_or_none()
 
     if latest_equipment:
@@ -208,6 +219,16 @@ async def create_equipment(
     )
     db.add(equipment)
     await db.flush()
+
+    if latest_equipment:
+        old_equipment_id = latest_equipment.id
+        await _update_research_methods_with_new_equipment_version(
+            db,
+            old_equipment_id,
+            equipment.id,
+            equipment_data.laboratory_id,
+            equipment_data.department_id,
+        )
 
     query = (
         select(Equipment)
@@ -275,6 +296,7 @@ async def update_equipment(
     except (ValueError, IndexError):
         next_version = "v1"
 
+    old_equipment_id = old_equipment.id
     old_equipment.soft_delete()
     await db.flush()
 
@@ -292,6 +314,10 @@ async def update_equipment(
     db.add(new_equipment)
     await db.flush()
 
+    await _update_research_methods_with_new_equipment_version(
+        db, old_equipment_id, new_equipment.id, lab_id, dept_id
+    )
+
     query = (
         select(Equipment)
         .where(Equipment.id == new_equipment.id)
@@ -300,6 +326,52 @@ async def update_equipment(
     result = await db.execute(query)
     new_equipment = result.scalar_one()
     return new_equipment
+
+
+async def _update_research_methods_with_new_equipment_version(
+    db: AsyncSession,
+    old_equipment_id: int,
+    new_equipment_id: int,
+    laboratory_id: int,
+    department_id: Optional[int],
+) -> None:
+    """Обновить методы исследования, привязанные к старой версии прибора.
+
+    Находит все методы в той же лаборатории (и подразделении при наличии),
+    которые используют старую версию прибора, и заменяет её на новую версию.
+    """
+    methods_query = select(ResearchMethod).where(
+        ResearchMethod.deleted_at.is_(None),
+        ResearchMethod.laboratory_id == laboratory_id,
+    )
+
+    if department_id:
+        methods_query = methods_query.where(
+            ResearchMethod.department_id == department_id
+        )
+
+    methods_result = await db.execute(methods_query)
+    methods = methods_result.scalars().all()
+
+    has_updates = False
+    for method in methods:
+        if not method.equipment_data_default:
+            continue
+
+        equipment_ids = method.equipment_data_default
+        if not isinstance(equipment_ids, list):
+            continue
+
+        if old_equipment_id in equipment_ids:
+            equipment_ids = [
+                new_equipment_id if eq_id == old_equipment_id else eq_id
+                for eq_id in equipment_ids
+            ]
+            method.equipment_data_default = equipment_ids
+            has_updates = True
+
+    if has_updates:
+        await db.flush()
 
 
 async def delete_equipment(db: AsyncSession, equipment_id: int) -> None:

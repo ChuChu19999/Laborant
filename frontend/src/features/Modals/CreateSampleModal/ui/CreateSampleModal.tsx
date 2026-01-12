@@ -1,8 +1,10 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useMemo } from 'react';
 import { message } from 'antd';
 import dayjs from 'dayjs';
 import 'dayjs/locale/ru';
 import { SelectionConditionsForm } from '../../../../entities/SelectionConditionsForm';
+import { UserPicker, type Employee } from '../../../../entities/UserPicker';
+import { laboratoriesApi } from '../../../../shared/api/laboratories';
 import { samplesApi } from '../../../../shared/api/samples';
 import { samplingLocationsApi } from '../../../../shared/api/samplingLocations';
 import { useCreateSample } from '../../../../shared/model/hooks';
@@ -56,6 +58,7 @@ const CreateSampleModal: React.FC<CreateSampleModalProps> = ({
     sampling_location_id: undefined as number | undefined,
     well: '',
     mode: undefined as string | undefined,
+    added_by: null as Employee | null,
   });
   const [errors, setErrors] = useState<Record<string, boolean>>({});
   const [selectionConditions, setSelectionConditions] = useState<Record<string, string>>({});
@@ -112,6 +115,17 @@ const CreateSampleModal: React.FC<CreateSampleModalProps> = ({
     }
   );
 
+  // Запрос на получение названия лаборатории
+  const { data: laboratory } = useAutoRefetchQuery(
+    ['laboratory', laboratoryId],
+    () => laboratoriesApi.getLaboratory(laboratoryId!),
+    {
+      enabled: !!laboratoryId,
+    }
+  );
+
+  const laboratoryName = useMemo(() => laboratory?.full_name || '', [laboratory]);
+
   const handleInputChange = useCallback(
     (field: keyof typeof formData) => (e: React.ChangeEvent<HTMLInputElement>) => {
       setFormData(prev => ({
@@ -163,7 +177,7 @@ const CreateSampleModal: React.FC<CreateSampleModalProps> = ({
   );
 
   const validateForm = useCallback((): boolean => {
-    const requiredFields = ['registration_number', 'sample_type', 'test_object'];
+    const requiredFields = ['registration_number', 'sample_type', 'test_object', 'added_by'];
     const newErrors: Record<string, boolean> = {};
 
     requiredFields.forEach(field => {
@@ -214,6 +228,7 @@ const CreateSampleModal: React.FC<CreateSampleModalProps> = ({
         Object.keys(processedSelectionConditions).length > 0
           ? processedSelectionConditions
           : undefined,
+      added_by: formData.added_by?.hashMd5 || undefined,
       laboratory_id: laboratoryId!,
       department_id: departmentId,
     };
@@ -229,6 +244,7 @@ const CreateSampleModal: React.FC<CreateSampleModalProps> = ({
       sampling_location_id: undefined,
       well: '',
       mode: undefined as string | undefined,
+      added_by: null,
     });
     setSelectionConditions({});
     setErrors({});
@@ -261,6 +277,7 @@ const CreateSampleModal: React.FC<CreateSampleModalProps> = ({
       sampling_location_id: undefined,
       well: '',
       mode: undefined as string | undefined,
+      added_by: null,
     });
     setSelectionConditions({});
     setErrors({});
@@ -422,6 +439,19 @@ const CreateSampleModal: React.FC<CreateSampleModalProps> = ({
             popupClassName="custom-date-picker-popup"
             inputReadOnly={false}
             allowClear={true}
+          />
+        </div>
+
+        <div className="form-group">
+          <label>
+            Добавил пробу <span className="required">*</span>
+          </label>
+          <UserPicker
+            value={formData.added_by}
+            onChange={employee => setFormData(prev => ({ ...prev, added_by: employee }))}
+            placeholder="Введите ФИО лица, добавившего пробу"
+            laboratoryName={laboratoryName}
+            error={errors.added_by ? 'Поле обязательно для заполнения' : undefined}
           />
         </div>
 
