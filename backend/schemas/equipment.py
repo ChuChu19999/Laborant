@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from typing import Optional
+from typing import List, Optional
 from pydantic import BaseModel, Field, field_validator
 from models.equipment import EquipmentType
 
@@ -56,6 +56,9 @@ class EquipmentCreate(BaseModel):
     )
     laboratory_id: int = Field(..., description="ID лаборатории")
     department_id: Optional[int] = Field(None, description="ID подразделения")
+    method_data_default: Optional[List[int]] = Field(
+        None, description="Методы по умолчанию"
+    )
 
     @field_validator("type")
     @classmethod
@@ -74,6 +77,20 @@ class EquipmentCreate(BaseModel):
             raise ValueError("Поле не может быть пустым")
         return v.strip()
 
+    @field_validator("method_data_default")
+    @classmethod
+    def validate_method_data_default(
+        cls, v: Optional[List[int]]
+    ) -> Optional[List[int]]:
+        if v is None:
+            return []
+        for item in v:
+            if not isinstance(item, int) or item <= 0:
+                raise ValueError(
+                    "Каждый ID метода должен быть положительным целым числом"
+                )
+        return v
+
 
 class EquipmentUpdate(BaseModel):
     type: Optional[str] = None
@@ -85,6 +102,7 @@ class EquipmentUpdate(BaseModel):
     version: Optional[str] = Field(None, max_length=8)
     laboratory_id: Optional[int] = None
     department_id: Optional[int] = None
+    method_data_default: Optional[List[int]] = None
 
     @field_validator("name", "serial_number", mode="before")
     @classmethod
@@ -106,11 +124,26 @@ class EquipmentUpdate(BaseModel):
                 )
         return v
 
+    @field_validator("method_data_default", mode="before")
+    @classmethod
+    def validate_method_data_default(
+        cls, v: Optional[List[int]]
+    ) -> Optional[List[int]]:
+        if v is None:
+            return None
+        for item in v:
+            if not isinstance(item, int) or item <= 0:
+                raise ValueError(
+                    "Каждый ID метода должен быть положительным целым числом"
+                )
+        return v
+
 
 class EquipmentResponse(EquipmentBase):
     id: int
     laboratory_id: int
     department_id: Optional[int] = None
+    method_data_default: Optional[List[int]] = None
     laboratory_name: Optional[str] = None
     department_name: Optional[str] = None
     created_at: datetime

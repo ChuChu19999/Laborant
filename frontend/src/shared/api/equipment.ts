@@ -12,6 +12,7 @@ export interface Equipment {
   version: string;
   laboratory_id: number;
   department_id?: number;
+  method_data_default?: number[];
   laboratory_name?: string;
   department_name?: string;
   created_at: string;
@@ -28,6 +29,7 @@ export interface EquipmentCreate {
   verification_end_date: string;
   laboratory_id: number;
   department_id?: number;
+  method_data_default?: number[];
 }
 
 export interface EquipmentUpdate {
@@ -39,6 +41,7 @@ export interface EquipmentUpdate {
   verification_end_date?: string;
   laboratory_id?: number;
   department_id?: number;
+  method_data_default?: number[];
 }
 
 export interface EquipmentFilters {

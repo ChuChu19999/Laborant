@@ -216,6 +216,7 @@ async def create_equipment(
         version=next_version,
         laboratory_id=equipment_data.laboratory_id,
         department_id=equipment_data.department_id,
+        method_data_default=equipment_data.method_data_default or [],
     )
     db.add(equipment)
     await db.flush()
@@ -261,6 +262,9 @@ async def update_equipment(
     )
     new_verification_end_date = update_data.get(
         "verification_end_date", old_equipment.verification_end_date
+    )
+    new_method_data_default = update_data.get(
+        "method_data_default", old_equipment.method_data_default
     )
 
     lab_id = (
@@ -310,6 +314,7 @@ async def update_equipment(
         version=next_version,
         laboratory_id=lab_id,
         department_id=dept_id,
+        method_data_default=new_method_data_default,
     )
     db.add(new_equipment)
     await db.flush()
@@ -374,11 +379,43 @@ async def _update_research_methods_with_new_equipment_version(
         await db.flush()
 
 
+async def _remove_equipment_from_research_methods(
+    db: AsyncSession, equipment_id: int
+) -> None:
+    """Удалить прибор из equipment_data_default во всех методах исследования.
+
+    Находит все не удаленные методы исследования, которые содержат
+    указанный ID прибора в equipment_data_default, и удаляет этот ID из списка.
+    """
+    methods_query = select(ResearchMethod).where(ResearchMethod.deleted_at.is_(None))
+
+    methods_result = await db.execute(methods_query)
+    methods = methods_result.scalars().all()
+
+    has_updates = False
+    for method in methods:
+        if not method.equipment_data_default:
+            continue
+
+        equipment_ids = method.equipment_data_default
+        if not isinstance(equipment_ids, list):
+            continue
+
+        if equipment_id in equipment_ids:
+            equipment_ids = [eq_id for eq_id in equipment_ids if eq_id != equipment_id]
+            method.equipment_data_default = equipment_ids
+            has_updates = True
+
+    if has_updates:
+        await db.flush()
+
+
 async def delete_equipment(db: AsyncSession, equipment_id: int) -> None:
     """Удалить оборудование (мягкое удаление)."""
     equipment = await get_equipment_by_id(db, equipment_id)
     if not equipment:
         raise NotFoundError("Оборудование не найдено")
 
+    await _remove_equipment_from_research_methods(db, equipment_id)
     equipment.soft_delete()
     await db.flush()

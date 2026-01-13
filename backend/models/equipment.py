@@ -1,5 +1,5 @@
 from enum import Enum as PyEnum
-from sqlalchemy import Column, Date, ForeignKey, Index, Integer, String
+from sqlalchemy import JSON, Column, Date, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import relationship
 from core.config import get_database_schema
 from models.base import BaseModel
@@ -47,6 +47,9 @@ class Equipment(BaseModel):
         Integer,
         ForeignKey(f"{get_database_schema()}.departments.id", ondelete="CASCADE"),
         nullable=True,
+    )
+    method_data_default = Column(
+        JSON, nullable=True, default=list, comment="Методы по умолчанию"
     )
 
     laboratory = relationship("Laboratory", back_populates="equipment")

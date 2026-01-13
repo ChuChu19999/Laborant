@@ -93,3 +93,21 @@
   background-color: #f5f5f5;
   cursor: not-allowed;
 }
+
+.edit-equipment-form .method-checkbox {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  width: 100%;
+}
+
+.edit-equipment-form .method-checkbox .ant-checkbox {
+  flex-shrink: 0;
+}
+
+.edit-equipment-form .method-checkbox .ant-checkbox + span {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

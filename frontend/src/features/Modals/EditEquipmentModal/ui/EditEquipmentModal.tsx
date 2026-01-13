@@ -1,9 +1,12 @@
-import React, { useCallback, useState, useEffect } from 'react';
-import { message } from 'antd';
+import React, { useCallback, useState, useEffect, useMemo } from 'react';
+import { LoadingOutlined } from '@ant-design/icons';
+import { Checkbox, message, Spin } from 'antd';
 import dayjs from 'dayjs';
 import 'dayjs/locale/ru';
 import { type Equipment, type EquipmentUpdate } from '../../../../shared/api/equipment';
+import { researchApi } from '../../../../shared/api/research';
 import { useUpdateEquipment } from '../../../../shared/model/hooks';
+import { useAutoRefetchQuery } from '../../../../shared/model/lib/useQuery';
 import { Input, Select, DatePicker } from '../../../../shared/ui/FormItems';
 import { Modal } from '../../../../shared/ui/Modal';
 import './EditEquipmentModal.css';
@@ -36,6 +39,147 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({
 }) => {
   const updateEquipmentMutation = useUpdateEquipment();
   const [errors, setErrors] = useState<Record<string, boolean>>({});
+  const [selectedMethods, setSelectedMethods] = useState<number[]>([]);
+  const spinnerIndicator = <LoadingOutlined style={{ fontSize: 24, color: '#1677ff' }} spin />;
+
+  const { data: methodsData, isLoading: isLoadingMethods } = useAutoRefetchQuery(
+    ['research-methods', 'for-equipment', laboratoryId, departmentId],
+    () =>
+      researchApi.getResearchMethods({
+        laboratory_id: laboratoryId,
+        department_id: departmentId,
+      }),
+    {
+      enabled: open && !!laboratoryId,
+    }
+  );
+
+  const { data: groupsData } = useAutoRefetchQuery(
+    ['research-method-groups', 'for-equipment'],
+    () => researchApi.getResearchMethodGroups({}),
+    {
+      enabled: open,
+    }
+  );
+
+  const methodsWithDisplayNames = useMemo(() => {
+    if (!methodsData?.items || !groupsData?.items) {
+      return [];
+    }
+
+    const groupsMap = new Map(
+      groupsData.items.map(group => [group.id, { name: group.name, sort_order: group.sort_order || 0 }])
+    );
+
+    const methodsWithGroups: Array<{
+      id: number;
+      name: string;
+      displayName: string;
+      nd_code: string;
+      sort_order: number;
+      groupId: number;
+      groupSortOrder: number;
+    }> = [];
+    const methodsWithoutGroups: Array<{
+      id: number;
+      name: string;
+      displayName: string;
+      nd_code: string;
+      sort_order: number;
+    }> = [];
+
+    methodsData.items
+      .filter(method => !method.deleted_at)
+      .forEach(method => {
+        const groupInfo =
+          method.groups && method.groups.length > 0 ? groupsMap.get(method.groups[0].id) : null;
+
+        let displayName = method.name;
+        if (groupInfo && method.name) {
+          displayName = `${groupInfo.name} ${method.name.charAt(0).toLowerCase()}${method.name.slice(1)}`;
+        }
+
+        const methodData = {
+          id: method.id,
+          name: method.name,
+          displayName: `${displayName} (${method.nd_code})`,
+          nd_code: method.nd_code,
+          sort_order: method.sort_order || 0,
+        };
+
+        if (groupInfo && method.groups && method.groups.length > 0) {
+          methodsWithGroups.push({
+            ...methodData,
+            groupId: method.groups[0].id,
+            groupSortOrder: groupInfo.sort_order,
+          });
+        } else {
+          methodsWithoutGroups.push(methodData);
+        }
+      });
+
+    const groupedMethods = new Map<number, typeof methodsWithGroups>();
+    methodsWithGroups.forEach(method => {
+      if (!groupedMethods.has(method.groupId)) {
+        groupedMethods.set(method.groupId, []);
+      }
+      groupedMethods.get(method.groupId)!.push(method);
+    });
+
+    const sortedGroups = Array.from(groupedMethods.entries()).sort((a, b) => {
+      const groupA = groupsMap.get(a[0]);
+      const groupB = groupsMap.get(b[0]);
+      const sortOrderA = groupA?.sort_order || 0;
+      const sortOrderB = groupB?.sort_order || 0;
+      if (sortOrderA !== sortOrderB) {
+        return sortOrderA - sortOrderB;
+      }
+      const nameA = groupA?.name || '';
+      const nameB = groupB?.name || '';
+      return nameA.localeCompare(nameB);
+    });
+
+    sortedGroups.forEach(([, methods]) => {
+      methods.sort((a, b) => {
+        if (a.sort_order !== b.sort_order) {
+          return a.sort_order - b.sort_order;
+        }
+        return a.displayName.localeCompare(b.displayName);
+      });
+    });
+
+    methodsWithoutGroups.sort((a, b) => {
+      if (a.sort_order !== b.sort_order) {
+        return a.sort_order - b.sort_order;
+      }
+      return a.displayName.localeCompare(b.displayName);
+    });
+
+    const result: Array<{
+      id: number;
+      name: string;
+      displayName: string;
+      nd_code: string;
+      sort_order: number;
+    }> = [];
+
+    sortedGroups.forEach(([, methods]) => {
+      methods.forEach(method => {
+        result.push({
+          id: method.id,
+          name: method.name,
+          displayName: method.displayName,
+          nd_code: method.nd_code,
+          sort_order: method.sort_order,
+        });
+      });
+    });
+
+    result.push(...methodsWithoutGroups);
+
+    return result;
+  }, [methodsData, groupsData]);
+
   const [formData, setFormData] = useState({
     type: undefined as string | undefined,
     name: '',
@@ -57,6 +201,7 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({
           ? dayjs(equipment.verification_end_date)
           : null,
       });
+      setSelectedMethods(equipment.method_data_default || []);
       setErrors({});
     }
   }, [open, equipment]);
@@ -146,6 +291,7 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({
       verification_end_date: formData.verification_end_date!.format('YYYY-MM-DD'),
       laboratory_id: laboratoryId,
       department_id: departmentId,
+      method_data_default: selectedMethods,
     };
 
     await updateEquipmentMutation.mutateAsync({ id: equipment.id, data: equipmentData });
@@ -155,23 +301,29 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({
     equipment.id,
     laboratoryId,
     departmentId,
+    selectedMethods,
     updateEquipmentMutation,
     onSuccess,
     validateForm,
   ]);
 
   const handleCancel = useCallback(() => {
-    setFormData({
-      type: undefined,
-      name: '',
-      serial_number: '',
-      verification_info: '',
-      verification_date: null,
-      verification_end_date: null,
-    });
+    if (equipment) {
+      setFormData({
+        type: equipment.type || undefined,
+        name: equipment.name || '',
+        serial_number: equipment.serial_number || '',
+        verification_info: equipment.verification_info || '',
+        verification_date: equipment.verification_date ? dayjs(equipment.verification_date) : null,
+        verification_end_date: equipment.verification_end_date
+          ? dayjs(equipment.verification_end_date)
+          : null,
+      });
+      setSelectedMethods(equipment.method_data_default || []);
+    }
     setErrors({});
     onClose();
-  }, [onClose]);
+  }, [onClose, equipment]);
 
   if (!open || !equipment) return null;
 
@@ -263,6 +415,42 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({
             format="DD.MM.YYYY"
             status={errors.verification_end_date ? 'error' : ''}
           />
+        </div>
+
+        <div className="form-group">
+          <label>Выберите методы, которым будет доступен этот прибор</label>
+          {isLoadingMethods ? (
+            <div style={{ textAlign: 'center', padding: '20px' }}>
+              <Spin indicator={spinnerIndicator} tip="Загрузка методов..." />
+            </div>
+          ) : (
+            <div
+              style={{
+                maxHeight: '300px',
+                overflowY: 'auto',
+                border: '1px solid #d9d9d9',
+                borderRadius: '4px',
+                padding: '8px',
+              }}
+            >
+              {methodsWithDisplayNames.map(method => (
+                <Checkbox
+                  key={method.id}
+                  checked={selectedMethods.includes(method.id)}
+                  onChange={e => {
+                    if (e.target.checked) {
+                      setSelectedMethods(prev => [...prev, method.id]);
+                    } else {
+                      setSelectedMethods(prev => prev.filter(id => id !== method.id));
+                    }
+                  }}
+                  className="method-checkbox"
+                >
+                  {method.displayName}
+                </Checkbox>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </Modal>
