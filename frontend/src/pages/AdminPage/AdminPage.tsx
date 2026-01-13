@@ -70,6 +70,7 @@ const AdminPage: React.FC = () => {
         unit?: string;
         convergence?: string;
         laboratory_activity_date: Dayjs | null;
+        equipment_data?: number[];
       }
     >
   >({});
@@ -514,6 +515,7 @@ const AdminPage: React.FC = () => {
         unit: result.unit,
         convergence: result.convergence,
         laboratory_activity_date: laboratoryActivityDate,
+        equipment_data: currentMethod.equipment_data_default,
       },
     }));
   };
@@ -970,6 +972,7 @@ const AdminPage: React.FC = () => {
           laboratoryId={labId!}
           departmentId={deptId}
           researchMethodId={currentMethod.id}
+          equipment_data={lastCalculationResult[currentMethod.id].equipment_data}
         />
       )}
     </Layout>

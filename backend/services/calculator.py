@@ -114,14 +114,6 @@ async def calculate_result(
 ) -> Dict[str, Any]:
     """
     Вычисляет результат расчета.
-
-    Args:
-        db: Сессия базы данных
-        input_data: Входные данные для расчета
-        research_method: Метод исследования с формулами и параметрами
-
-    Returns:
-        Словарь с результатами расчета
     """
     try:
         logger.info("Начало расчета")
@@ -371,10 +363,21 @@ async def calculate_result(
                 f"Повторяемость отсутствие, неудовлетворительная, следы: {convergence_result}"
             )
 
+            # Определяем текст результата в зависимости от типа повторяемости
+            result_text = None
+            if convergence_result == "custom":
+                result_text = custom_value
+            elif convergence_result == "absence":
+                result_text = "Отсутствие"
+            elif convergence_result == "traces":
+                result_text = "Следы"
+            elif convergence_result == "unsatisfactory":
+                result_text = "Неудовлетворительно"
+
             response_data_early = {
                 "convergence": convergence_result,
                 "intermediate_results": intermediate_results,
-                "result": custom_value if convergence_result == "custom" else None,
+                "result": result_text,
                 "measurement_error": None,
                 "unit": research_method["unit"],
                 "conditions_info": conditions_info,
