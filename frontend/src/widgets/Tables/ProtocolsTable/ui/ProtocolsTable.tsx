@@ -190,7 +190,7 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
         cell: ({ row }) => row.original.formatted_protocol_number || '-',
         enableSorting: true,
         enableColumnFilter: true,
-        size: 200,
+        size: 300,
       },
       {
         accessorKey: 'sampling_act_number',
@@ -198,7 +198,7 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
         cell: ({ row }) => row.original.sampling_act_number || '-',
         enableSorting: true,
         enableColumnFilter: true,
-        size: 160,
+        size: 250,
       },
       {
         id: 'samples_data',
@@ -223,7 +223,7 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
         },
         enableSorting: true,
         enableColumnFilter: true,
-        size: 200,
+        size: 250,
       },
       {
         accessorKey: 'is_accredited',
@@ -241,7 +241,7 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
         ),
         enableSorting: true,
         enableColumnFilter: true,
-        size: 120,
+        size: 220,
       },
       {
         accessorKey: 'created_at',
@@ -249,7 +249,7 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
         cell: ({ row }) => formatDate(row.original.created_at),
         enableSorting: true,
         enableColumnFilter: true,
-        size: 180,
+        size: 250,
         filterFn: (row, _id, filterValue) => {
           if (!filterValue) return true;
           if (!row.original.created_at) return false;
@@ -313,7 +313,7 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
         ),
         enableSorting: false,
         enableColumnFilter: false,
-        size: 150,
+        size: 80,
         enableResizing: false,
       },
     ],

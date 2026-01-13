@@ -213,7 +213,7 @@ const EquipmentTable: React.FC<EquipmentTableProps> = ({
         cell: ({ row }) => formatEquipmentType(row.original.type),
         enableSorting: true,
         enableColumnFilter: true,
-        size: 200,
+        size: 250,
       },
       {
         accessorKey: 'name',
@@ -221,7 +221,7 @@ const EquipmentTable: React.FC<EquipmentTableProps> = ({
         cell: ({ row }) => row.original.name || '-',
         enableSorting: true,
         enableColumnFilter: true,
-        size: 250,
+        size: 300,
       },
       {
         accessorKey: 'serial_number',
@@ -229,7 +229,7 @@ const EquipmentTable: React.FC<EquipmentTableProps> = ({
         cell: ({ row }) => row.original.serial_number || '-',
         enableSorting: true,
         enableColumnFilter: true,
-        size: 180,
+        size: 200,
       },
       {
         accessorKey: 'verification_date',
@@ -237,7 +237,7 @@ const EquipmentTable: React.FC<EquipmentTableProps> = ({
         cell: ({ row }) => formatDate(row.original.verification_date),
         enableSorting: true,
         enableColumnFilter: true,
-        size: 150,
+        size: 250,
         filterFn: (row, _id, filterValue) => {
           if (!filterValue) return true;
           if (!row.original.verification_date) return false;
@@ -265,7 +265,7 @@ const EquipmentTable: React.FC<EquipmentTableProps> = ({
         cell: ({ row }) => formatDate(row.original.verification_end_date),
         enableSorting: true,
         enableColumnFilter: true,
-        size: 200,
+        size: 250,
         filterFn: (row, _id, filterValue) => {
           if (!filterValue) return true;
           if (!row.original.verification_end_date) return false;
@@ -293,7 +293,7 @@ const EquipmentTable: React.FC<EquipmentTableProps> = ({
         cell: ({ row }) => formatDate(row.original.created_at),
         enableSorting: true,
         enableColumnFilter: true,
-        size: 180,
+        size: 250,
         filterFn: (row, _id, filterValue) => {
           if (!filterValue) return true;
           if (!row.original.created_at) return false;
@@ -343,7 +343,7 @@ const EquipmentTable: React.FC<EquipmentTableProps> = ({
         ),
         enableSorting: false,
         enableColumnFilter: false,
-        size: 200,
+        size: 80,
         enableResizing: false,
       },
     ],
