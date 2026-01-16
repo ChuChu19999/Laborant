@@ -25,18 +25,12 @@ from services.employees import (
     get_employees_by_hashes,
 )
 from utils.protocol_generator_utils import (
-    A4_HEIGHT_POINTS,
-    DEFAULT_ROW_HEIGHT,
     adjust_cell_height_if_needed,
-    adjust_row_height_for_text,
-    calculate_current_height,
-    calculate_header_height,
     check_method_name,
     copy_cell_style,
     copy_column_dimensions,
     copy_row_formatting,
     copy_row_with_styles,
-    find_text_in_workbook,
     format_decimal_ru,
     map_test_object_to_suffix,
 )
@@ -57,20 +51,6 @@ def enforce_fit_to_page(sheet):
     sheet.page_setup.fitToWidth = 1
     sheet.page_setup.fitToHeight = 0
     sheet.page_setup.fitToPage = True
-
-
-def calculate_table_total_height(
-    header_height, data_count, additional_height_per_row=20
-):
-    """Рассчитывает общую высоту таблицы: шапка + все строки данных + дополнительная высота"""
-    data_height = DEFAULT_ROW_HEIGHT * data_count
-    additional_height = additional_height_per_row * data_count
-    return header_height + data_height + additional_height
-
-
-def should_move_table_to_new_sheet(current_height, table_total_height):
-    """Проверяет, нужно ли перенести всю таблицу на новый лист"""
-    return current_height + table_total_height > A4_HEIGHT_POINTS
 
 
 async def process_cell_markers(
@@ -607,39 +587,6 @@ async def process_footer_test_protocol_number(
     result = text.replace("{test_protocol_number}", value)
 
     prefix = '&"Times New Roman,Обычный"'
-    size_mark = "&11s"
-    if result.startswith(prefix):
-        after = result[len(prefix) :]
-        if after.startswith("&") and len(after) > 1 and after[1].isdigit():
-            idx = 2
-            while idx < len(after) and after[idx].isdigit():
-                idx += 1
-            after = after[idx:]
-        if not after.startswith(size_mark):
-            after = size_mark + after
-        result = prefix + after
-    else:
-        result = f"{prefix}{size_mark}{result}"
-
-    return _HeaderFooterPart(text=result)
-
-
-async def process_footer_test_protocol_number_and_pages(
-    protocol: Protocol, samples: List[Sample], text, total_sheets, current_sheet_num
-) -> _HeaderFooterPart:
-    """Заменяет в тексте колонтитула метки: {test_protocol_number}, {strs}, {str}."""
-    orig_text = text
-    if hasattr(text, "text"):
-        text = text.text
-    if not text or not isinstance(text, str):
-        return orig_text
-
-    value = await get_marker_value_title(protocol, samples, "test_protocol_number")
-    result = text.replace("{test_protocol_number}", value)
-    result = result.replace("{strs}", str(total_sheets))
-    result = result.replace("{str}", str(current_sheet_num))
-
-    prefix = '&"Times New Roman,Обычный"'
     size_mark = "&11"
     if result.startswith(prefix):
         after = result[len(prefix) :]
@@ -665,7 +612,6 @@ async def process_footer(
     footer_start,
     merged_cells_map,
     current_row,
-    sheet_number,
     selection_conditions_templates: Optional[List[Dict[str, Any]]] = None,
 ):
     """Обрабатывает оставшиеся строки после последней таблицы (подвал протокола)."""
@@ -689,17 +635,6 @@ async def process_footer(
             for cell in row
         ):
             continue
-
-        current_height = calculate_current_height(current_sheet)
-        if current_height + DEFAULT_ROW_HEIGHT > A4_HEIGHT_POINTS:
-            sheet_number += 1
-            current_sheet = current_sheet.parent.create_sheet(f"Лист{sheet_number}")
-            set_sheet_margins(current_sheet)
-            enforce_fit_to_page(current_sheet)
-            current_row = 1
-
-            copy_column_dimensions(template_sheet, current_sheet)
-            sheet_merged_cells_map = current_sheet.merged_cells
 
         if row_num in template_sheet.row_dimensions:
             current_sheet.row_dimensions[current_row] = copy(
@@ -745,7 +680,6 @@ async def process_between_tables(
     table_end,
     merged_cells_map,
     current_row,
-    sheet_number,
     selection_conditions_templates: Optional[List[Dict[str, Any]]] = None,
 ):
     """Обрабатывает данные между таблицами."""
@@ -856,17 +790,6 @@ async def process_between_tables(
         ):
             continue
 
-        current_height = calculate_current_height(current_sheet)
-        if current_height + DEFAULT_ROW_HEIGHT > A4_HEIGHT_POINTS:
-            sheet_number += 1
-            current_sheet = current_sheet.parent.create_sheet(f"Лист{sheet_number}")
-            set_sheet_margins(current_sheet)
-            enforce_fit_to_page(current_sheet)
-            current_row = 1
-
-            copy_column_dimensions(template_sheet, current_sheet)
-            sheet_merged_cells_map = current_sheet.merged_cells
-
         copy_row_formatting(
             template_sheet, current_sheet, row_num, current_row, sheet_merged_cells_map
         )
@@ -890,19 +813,6 @@ async def process_between_tables(
             current_row += 1
 
             for executor in executors[1:]:
-                current_height = calculate_current_height(current_sheet)
-                if current_height + DEFAULT_ROW_HEIGHT > A4_HEIGHT_POINTS:
-                    sheet_number += 1
-                    current_sheet = current_sheet.parent.create_sheet(
-                        f"Лист{sheet_number}"
-                    )
-                    set_sheet_margins(current_sheet)
-                    enforce_fit_to_page(current_sheet)
-                    current_row = 1
-
-                    copy_column_dimensions(template_sheet, current_sheet)
-                    sheet_merged_cells_map = current_sheet.merged_cells
-
                 copy_row_formatting(
                     template_sheet,
                     current_sheet,
@@ -948,7 +858,6 @@ def add_standalone_method(
     template_row_num,
     merged_cells_map,
     idx,
-    sheet_number,
 ):
     """Добавляет одиночный метод в таблицу."""
     # Копируем заголовок таблицы только для первой строки
@@ -1004,7 +913,7 @@ def add_standalone_method(
                 current_sheet, current_row, col, measurement_method
             )
 
-    return current_row + 1, current_sheet, sheet_number
+    return current_row + 1, current_sheet
 
 
 def add_group_methods(
@@ -1017,7 +926,6 @@ def add_group_methods(
     template_row_num,
     merged_cells_map,
     idx,
-    sheet_number,
 ):
     """Добавляет группу методов в таблицу."""
     # Копируем заголовок таблицы только для первой строки
@@ -1173,7 +1081,7 @@ def add_group_methods(
 
         current_row += 1
 
-    return current_row, current_sheet, sheet_number
+    return current_row, current_sheet
 
 
 def process_fractional_composition_oil(
@@ -1186,7 +1094,6 @@ def process_fractional_composition_oil(
     template_row_num,
     merged_cells_map,
     idx,
-    sheet_number,
 ):
     """Обрабатывает фракционный состав нефти для таблицы 1."""
 
@@ -1229,7 +1136,7 @@ def process_fractional_composition_oil(
         logger.error(
             f"Не удалось распарсить результат для фракционного состава нефти: {str(e)}"
         )
-        return current_row, current_sheet, sheet_number
+        return current_row, current_sheet
 
     fractional_fields = [
         "Температура н.к.",
@@ -1393,7 +1300,7 @@ def process_fractional_composition_oil(
 
         current_row += 1
 
-    return current_row, current_sheet, sheet_number
+    return current_row, current_sheet
 
 
 def process_fractional_composition_condensate(
@@ -1406,7 +1313,6 @@ def process_fractional_composition_condensate(
     template_row_num,
     merged_cells_map,
     idx,
-    sheet_number,
 ):
     """Обрабатывает фракционный состав конденсата для таблицы 1."""
 
@@ -1419,7 +1325,7 @@ def process_fractional_composition_condensate(
         logger.error(
             f"Не удалось распарсить результат для фракционного состава: {str(e)}"
         )
-        return current_row, current_sheet, sheet_number
+        return current_row, current_sheet
 
     fractional_fields = [
         "Температура н.к.",
@@ -1607,7 +1513,7 @@ def process_fractional_composition_condensate(
 
         current_row += 1
 
-    return current_row, current_sheet, sheet_number
+    return current_row, current_sheet
 
 
 def process_methods_table(
@@ -1618,7 +1524,6 @@ def process_methods_table(
     table_start,
     merged_cells_map,
     current_row,
-    sheet_number,
 ):
     """Обрабатывает таблицу с методами исследования."""
     current_sheet = new_sheet
@@ -1768,35 +1673,29 @@ def process_methods_table(
 
     for item in processed_calculations:
         if item["type"] == "fractional_condensate":
-            current_row, current_sheet, sheet_number = (
-                process_fractional_composition_condensate(
-                    item["calc"],
-                    current_row,
-                    current_sheet,
-                    template_sheet,
-                    table_header_start,
-                    table_header_end,
-                    template_row_num,
-                    merged_cells_map,
-                    idx,
-                    sheet_number,
-                )
+            current_row, current_sheet = process_fractional_composition_condensate(
+                item["calc"],
+                current_row,
+                current_sheet,
+                template_sheet,
+                table_header_start,
+                table_header_end,
+                template_row_num,
+                merged_cells_map,
+                idx,
             )
             idx += 1
         elif item["type"] == "fractional_oil":
-            current_row, current_sheet, sheet_number = (
-                process_fractional_composition_oil(
-                    item["calc"],
-                    current_row,
-                    current_sheet,
-                    template_sheet,
-                    table_header_start,
-                    table_header_end,
-                    template_row_num,
-                    merged_cells_map,
-                    idx,
-                    sheet_number,
-                )
+            current_row, current_sheet = process_fractional_composition_oil(
+                item["calc"],
+                current_row,
+                current_sheet,
+                template_sheet,
+                table_header_start,
+                table_header_end,
+                template_row_num,
+                merged_cells_map,
+                idx,
             )
             idx += 1
         elif item["type"] == "standalone":
@@ -1812,7 +1711,7 @@ def process_methods_table(
                 if has_special_methods:
                     group_calc = copy(group_data["calculations"][0])
                     group_calc.research_method.name = group_data["name"]
-                    current_row, current_sheet, sheet_number = add_standalone_method(
+                    current_row, current_sheet = add_standalone_method(
                         group_calc,
                         current_row,
                         current_sheet,
@@ -1822,10 +1721,9 @@ def process_methods_table(
                         template_row_num,
                         merged_cells_map,
                         idx,
-                        sheet_number,
                     )
                 else:
-                    current_row, current_sheet, sheet_number = add_group_methods(
+                    current_row, current_sheet = add_group_methods(
                         group_data,
                         current_row,
                         current_sheet,
@@ -1835,13 +1733,12 @@ def process_methods_table(
                         template_row_num,
                         merged_cells_map,
                         idx,
-                        sheet_number,
                     )
                 idx += 1
                 group_methods = []
                 current_group = None
 
-            current_row, current_sheet, sheet_number = add_standalone_method(
+            current_row, current_sheet = add_standalone_method(
                 item["calc"],
                 current_row,
                 current_sheet,
@@ -1851,7 +1748,6 @@ def process_methods_table(
                 template_row_num,
                 merged_cells_map,
                 idx,
-                sheet_number,
             )
             idx += 1
         else:
@@ -1871,7 +1767,7 @@ def process_methods_table(
                 if has_special_methods:
                     group_calc = copy(group_data["calculations"][0])
                     group_calc.research_method.name = group_data["name"]
-                    current_row, current_sheet, sheet_number = add_standalone_method(
+                    current_row, current_sheet = add_standalone_method(
                         group_calc,
                         current_row,
                         current_sheet,
@@ -1881,10 +1777,9 @@ def process_methods_table(
                         template_row_num,
                         merged_cells_map,
                         idx,
-                        sheet_number,
                     )
                 else:
-                    current_row, current_sheet, sheet_number = add_group_methods(
+                    current_row, current_sheet = add_group_methods(
                         group_data,
                         current_row,
                         current_sheet,
@@ -1894,7 +1789,6 @@ def process_methods_table(
                         template_row_num,
                         merged_cells_map,
                         idx,
-                        sheet_number,
                     )
                 idx += 1
 
@@ -1912,7 +1806,7 @@ def process_methods_table(
         if has_special_methods:
             group_calc = copy(group_data["calculations"][0])
             group_calc.research_method.name = group_data["name"]
-            current_row, current_sheet, sheet_number = add_standalone_method(
+            current_row, current_sheet = add_standalone_method(
                 group_calc,
                 current_row,
                 current_sheet,
@@ -1922,10 +1816,9 @@ def process_methods_table(
                 template_row_num,
                 merged_cells_map,
                 idx,
-                sheet_number,
             )
         else:
-            current_row, current_sheet, sheet_number = add_group_methods(
+            current_row, current_sheet = add_group_methods(
                 group_data,
                 current_row,
                 current_sheet,
@@ -1935,7 +1828,6 @@ def process_methods_table(
                 template_row_num,
                 merged_cells_map,
                 idx,
-                sheet_number,
             )
 
     return current_sheet
@@ -1988,7 +1880,6 @@ def process_equipment_table(
     table_start,
     merged_cells_map,
     current_row,
-    sheet_number,
 ):
     """Обрабатывает таблицу с оборудованием."""
     # Сортируем список оборудования по наименованию и версии
@@ -2038,45 +1929,17 @@ def process_equipment_table(
     if not template_row_num:
         return current_sheet
 
-    header_height = calculate_header_height(
-        template_sheet, table_header_start, table_header_end
-    )
+    sheet_merged_cells_map = current_sheet.merged_cells
 
-    equipment_count = len(equipment_list)
-    table_total_height = calculate_table_total_height(header_height, equipment_count)
-
-    current_height = calculate_current_height(current_sheet)
-    if should_move_table_to_new_sheet(current_height, table_total_height):
-        sheet_number += 1
-        current_sheet = current_sheet.parent.create_sheet(f"Лист{sheet_number}")
-        set_sheet_margins(current_sheet)
-        enforce_fit_to_page(current_sheet)
-        current_row = 1
-
-        copy_column_dimensions(template_sheet, current_sheet)
-        sheet_merged_cells_map = current_sheet.merged_cells
-
-        for row_num in range(table_header_start + 1, table_header_end):
-            copy_row_formatting(
-                template_sheet,
-                current_sheet,
-                row_num,
-                current_row,
-                sheet_merged_cells_map,
-            )
-            current_row += 1
-    else:
-        sheet_merged_cells_map = current_sheet.merged_cells
-
-        for row_num in range(table_header_start + 1, table_header_end):
-            copy_row_formatting(
-                template_sheet,
-                current_sheet,
-                row_num,
-                current_row,
-                sheet_merged_cells_map,
-            )
-            current_row += 1
+    for row_num in range(table_header_start + 1, table_header_end):
+        copy_row_formatting(
+            template_sheet,
+            current_sheet,
+            row_num,
+            current_row,
+            sheet_merged_cells_map,
+        )
+        current_row += 1
 
     idx = 1
     for equipment in equipment_list:
@@ -2143,7 +2006,6 @@ def process_nd_table(
     table_start,
     merged_cells_map,
     current_row,
-    sheet_number,
 ):
     """Обрабатывает таблицу с нормативными документами."""
     calculations = []
@@ -2215,45 +2077,17 @@ def process_nd_table(
     if not template_row_num:
         return current_sheet
 
-    header_height = calculate_header_height(
-        template_sheet, table_header_start, table_header_end
-    )
+    sheet_merged_cells_map = current_sheet.merged_cells
 
-    nd_count = len(nd_list)
-    table_total_height = calculate_table_total_height(header_height, nd_count)
-
-    current_height = calculate_current_height(current_sheet)
-    if should_move_table_to_new_sheet(current_height, table_total_height):
-        sheet_number += 1
-        current_sheet = current_sheet.parent.create_sheet(f"Лист{sheet_number}")
-        set_sheet_margins(current_sheet)
-        enforce_fit_to_page(current_sheet)
-        current_row = 1
-
-        copy_column_dimensions(template_sheet, current_sheet)
-        sheet_merged_cells_map = current_sheet.merged_cells
-
-        for row_num in range(table_header_start + 1, table_header_end):
-            copy_row_formatting(
-                template_sheet,
-                current_sheet,
-                row_num,
-                current_row,
-                sheet_merged_cells_map,
-            )
-            current_row += 1
-    else:
-        sheet_merged_cells_map = current_sheet.merged_cells
-
-        for row_num in range(table_header_start + 1, table_header_end):
-            copy_row_formatting(
-                template_sheet,
-                current_sheet,
-                row_num,
-                current_row,
-                sheet_merged_cells_map,
-            )
-            current_row += 1
+    for row_num in range(table_header_start + 1, table_header_end):
+        copy_row_formatting(
+            template_sheet,
+            current_sheet,
+            row_num,
+            current_row,
+            sheet_merged_cells_map,
+        )
+        current_row += 1
 
     idx = 1
     for nd_code, nd_name in nd_list:
@@ -2445,7 +2279,6 @@ async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> Respons
             table_start,
             merged_cells_map,
             new_sheet.max_row + 1,
-            1,
         )
         if not current_sheet:
             raise ValidationError("Ошибка при обработке таблицы методов")
@@ -2470,7 +2303,6 @@ async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> Respons
                 table1_end,
                 merged_cells_map,
                 current_sheet.max_row + 1,
-                len(new_workbook.sheetnames),
                 selection_conditions_templates,
             )
 
@@ -2483,7 +2315,6 @@ async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> Respons
                 table1_end + 1,
                 merged_cells_map,
                 current_row,
-                len(new_workbook.sheetnames),
             )
             if not current_sheet:
                 raise ValidationError("Ошибка при обработке таблицы оборудования")
@@ -2508,7 +2339,6 @@ async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> Respons
                     table2_end,
                     merged_cells_map,
                     current_sheet.max_row + 1,
-                    len(new_workbook.sheetnames),
                     selection_conditions_templates,
                 )
 
@@ -2520,7 +2350,6 @@ async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> Respons
                     table2_end + 1,
                     merged_cells_map,
                     current_row,
-                    len(new_workbook.sheetnames),
                 )
                 if not current_sheet:
                     raise ValidationError("Ошибка при обработке таблицы НД")
@@ -2547,97 +2376,12 @@ async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> Respons
                         table3_end,
                         merged_cells_map,
                         current_sheet.max_row + 1,
-                        len(new_workbook.sheetnames),
                         selection_conditions_templates,
                     )
 
-        total_sheets = len(new_workbook.sheetnames)
-        for idx, ws in enumerate(new_workbook.worksheets, start=1):
-            set_sheet_margins(ws)
-            copy_column_dimensions(template_sheet, ws)
-            enforce_fit_to_page(ws)
-
-            ws.page_setup.firstPageNumber = 1
-            ws.page_setup.useFirstPageNumber = True
-
-            if hasattr(template_sheet, "oddFooter") and hasattr(ws, "oddFooter"):
-                ws.oddFooter.left = await process_footer_test_protocol_number_and_pages(
-                    protocol, samples, template_sheet.oddFooter.left, total_sheets, idx
-                )
-                ws.oddFooter.center = (
-                    await process_footer_test_protocol_number_and_pages(
-                        protocol,
-                        samples,
-                        template_sheet.oddFooter.center,
-                        total_sheets,
-                        idx,
-                    )
-                )
-                ws.oddFooter.right = (
-                    await process_footer_test_protocol_number_and_pages(
-                        protocol,
-                        samples,
-                        template_sheet.oddFooter.right,
-                        total_sheets,
-                        idx,
-                    )
-                )
-            if hasattr(template_sheet, "evenFooter") and hasattr(ws, "evenFooter"):
-                ws.evenFooter.left = (
-                    await process_footer_test_protocol_number_and_pages(
-                        protocol,
-                        samples,
-                        template_sheet.evenFooter.left,
-                        total_sheets,
-                        idx,
-                    )
-                )
-                ws.evenFooter.center = (
-                    await process_footer_test_protocol_number_and_pages(
-                        protocol,
-                        samples,
-                        template_sheet.evenFooter.center,
-                        total_sheets,
-                        idx,
-                    )
-                )
-                ws.evenFooter.right = (
-                    await process_footer_test_protocol_number_and_pages(
-                        protocol,
-                        samples,
-                        template_sheet.evenFooter.right,
-                        total_sheets,
-                        idx,
-                    )
-                )
-            if hasattr(template_sheet, "firstFooter") and hasattr(ws, "firstFooter"):
-                ws.firstFooter.left = (
-                    await process_footer_test_protocol_number_and_pages(
-                        protocol,
-                        samples,
-                        template_sheet.firstFooter.left,
-                        total_sheets,
-                        idx,
-                    )
-                )
-                ws.firstFooter.center = (
-                    await process_footer_test_protocol_number_and_pages(
-                        protocol,
-                        samples,
-                        template_sheet.firstFooter.center,
-                        total_sheets,
-                        idx,
-                    )
-                )
-                ws.firstFooter.right = (
-                    await process_footer_test_protocol_number_and_pages(
-                        protocol,
-                        samples,
-                        template_sheet.firstFooter.right,
-                        total_sheets,
-                        idx,
-                    )
-                )
+        set_sheet_margins(new_sheet)
+        copy_column_dimensions(template_sheet, new_sheet)
+        enforce_fit_to_page(new_sheet)
 
         output = BytesIO()
         new_workbook.save(output)

@@ -2,8 +2,6 @@ from copy import copy
 import openpyxl
 from core.logger import logger
 
-# Константы для размеров листа А4
-A4_HEIGHT_POINTS = 990
 DEFAULT_ROW_HEIGHT = 21  # Стандартная высота строки в пикселях
 
 # Константы для расчета размеров текста
@@ -115,36 +113,6 @@ def copy_row_formatting(
                     max_row=target_row + (merged_range.max_row - merged_range.min_row),
                 )
                 merged_cells_map.add(new_range)
-
-
-def calculate_current_height(sheet) -> float:
-    """
-    Рассчитывает текущую высоту листа в пикселях
-    """
-    total_height = 0
-    for row_num in range(1, sheet.max_row + 1):
-        if row_num in sheet.row_dimensions:
-            total_height += sheet.row_dimensions[row_num].height or DEFAULT_ROW_HEIGHT
-        else:
-            total_height += DEFAULT_ROW_HEIGHT
-    return total_height
-
-
-def calculate_header_height(
-    template_sheet, table_header_start, table_header_end
-) -> float:
-    """
-    Рассчитывает высоту шапки таблицы в пикселях
-    """
-    header_height = 0
-    for row_num in range(table_header_start + 1, table_header_end):
-        if row_num in template_sheet.row_dimensions:
-            header_height += (
-                template_sheet.row_dimensions[row_num].height or DEFAULT_ROW_HEIGHT
-            )
-        else:
-            header_height += DEFAULT_ROW_HEIGHT
-    return header_height
 
 
 def copy_column_dimensions(source_sheet, target_sheet):
