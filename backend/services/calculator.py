@@ -366,13 +366,13 @@ async def calculate_result(
             # Определяем текст результата в зависимости от типа повторяемости
             result_text = None
             if convergence_result == "custom":
-                result_text = custom_value
+                result_text = custom_value.lower() if custom_value else None
             elif convergence_result == "absence":
-                result_text = "Отсутствие"
+                result_text = "отсутствие"
             elif convergence_result == "traces":
-                result_text = "Следы"
+                result_text = "следы"
             elif convergence_result == "unsatisfactory":
-                result_text = "Неудовлетворительно"
+                result_text = "неудовлетворительно"
 
             response_data_early = {
                 "convergence": convergence_result,

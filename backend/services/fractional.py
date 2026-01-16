@@ -331,9 +331,16 @@ def calculate_fractional_composition(input_data: Dict[str, Any]) -> Dict[str, An
                         value_str = str(value).replace(",", ".")
                         float_value = float(value_str)
                         int_value = int(float_value)
-                        intermediate_results[field_name] = str(int_value)
+                        # Нормализуем ключ: заменяем запятую на точку
+                        normalized_key = field_name.replace(
+                            "Температура н,к.", "Температура н.к."
+                        )
+                        intermediate_results[normalized_key] = str(int_value)
                     except (ValueError, TypeError):
-                        intermediate_results[field_name] = str(value)
+                        normalized_key = field_name.replace(
+                            "Температура н,к.", "Температура н.к."
+                        )
+                        intermediate_results[normalized_key] = str(value)
 
         if average_volume_distillate is not None:
             intermediate_results["Объемная доля отгона"] = (
@@ -351,11 +358,6 @@ def calculate_fractional_composition(input_data: Dict[str, Any]) -> Dict[str, An
         result_json = orjson.dumps(
             intermediate_results, option=orjson.OPT_NON_STR_KEYS
         ).decode("utf-8")
-
-        if '"Температура н,к."' in result_json:
-            result_json = result_json.replace(
-                '"Температура н,к."', '"Температура н.к."'
-            )
 
         return {
             "convergence": "satisfactory",
@@ -546,9 +548,16 @@ def calculate_fractional_composition_oil(input_data: Dict[str, Any]) -> Dict[str
                     value_str = str(value).replace(",", ".")
                     float_value = float(value_str)
                     int_value = int(float_value)
-                    intermediate_results[field_name] = str(int_value)
+                    # Нормализуем ключ: заменяем запятую на точку
+                    normalized_key = field_name.replace(
+                        "Температура н,к.", "Температура н.к."
+                    )
+                    intermediate_results[normalized_key] = str(int_value)
                 except (ValueError, TypeError):
-                    intermediate_results[field_name] = str(value)
+                    normalized_key = field_name.replace(
+                        "Температура н,к.", "Температура н.к."
+                    )
+                    intermediate_results[normalized_key] = str(value)
 
         for field_name, value in average_outputs.items():
             if value and value != "0" and str(value).strip():
@@ -557,11 +566,6 @@ def calculate_fractional_composition_oil(input_data: Dict[str, Any]) -> Dict[str
         result_json = orjson.dumps(
             intermediate_results, option=orjson.OPT_NON_STR_KEYS
         ).decode("utf-8")
-
-        if '"Температура н,к."' in result_json:
-            result_json = result_json.replace(
-                '"Температура н,к."', '"Температура н.к."'
-            )
 
         return {
             "convergence": "satisfactory",

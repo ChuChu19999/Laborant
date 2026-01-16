@@ -986,7 +986,7 @@ def add_standalone_method(
             cell.value = value.replace("{name_method}", method_name)
             adjust_cell_height_if_needed(current_sheet, current_row, col, method_name)
         elif "{unit}" in value:
-            cell.value = value.replace("{unit}", calc.unit or "не указано")
+            cell.value = value.replace("{unit}", calc.unit or "-")
         elif "{result}" in value:
             cell.value = value.replace("{result}", format_decimal_ru(calc.result))
         elif "{measurement_error}" in value:
@@ -994,15 +994,11 @@ def add_standalone_method(
             formatted_error = (
                 error_value
                 if error_value and error_value.startswith("-")
-                else (
-                    f"±{error_value}"
-                    if error_value and error_value != "не указано"
-                    else "не указано"
-                )
+                else (f"±{error_value}" if error_value and error_value != "-" else "-")
             )
             cell.value = value.replace("{measurement_error}", formatted_error)
         elif "{measurement_method}" in value:
-            measurement_method = calc.research_method.measurement_method or "не указано"
+            measurement_method = calc.research_method.measurement_method or "-"
             cell.value = value.replace("{measurement_method}", measurement_method)
             adjust_cell_height_if_needed(
                 current_sheet, current_row, col, measurement_method
@@ -1081,9 +1077,9 @@ def add_group_methods(
             cell.value = value.replace("{name_method}", group_name)
             adjust_cell_height_if_needed(current_sheet, current_row, col, group_name)
         elif "{unit}" in value:
-            cell.value = value.replace("{unit}", common_unit or "не указано")
+            cell.value = value.replace("{unit}", common_unit or "-")
         elif "{measurement_method}" in value:
-            measurement_method = common_measurement_method or "не указано"
+            measurement_method = common_measurement_method or "-"
             cell.value = value.replace("{measurement_method}", measurement_method)
             adjust_cell_height_if_needed(
                 current_sheet, current_row, col, measurement_method
@@ -1102,9 +1098,7 @@ def add_group_methods(
                     error_value
                     if error_value and error_value.startswith("-")
                     else (
-                        f"±{error_value}"
-                        if error_value and error_value != "не указано"
-                        else "не указано"
+                        f"±{error_value}" if error_value and error_value != "-" else "-"
                     )
                 )
                 cell.value = value.replace("{measurement_error}", formatted_error)
@@ -1168,9 +1162,7 @@ def add_group_methods(
                     error_value
                     if error_value and error_value.startswith("-")
                     else (
-                        f"±{error_value}"
-                        if error_value and error_value != "не указано"
-                        else "не указано"
+                        f"±{error_value}" if error_value and error_value != "-" else "-"
                     )
                 )
                 cell.value = value.replace("{measurement_error}", formatted_error)
@@ -1225,6 +1217,14 @@ def process_fractional_composition_oil(
 
             result_data = combined_data
 
+        # Нормализуем ключи: заменяем запятую на точку в "Температура н,к."
+        if isinstance(result_data, dict):
+            normalized_data = {}
+            for key, value in result_data.items():
+                normalized_key = key.replace("Температура н,к.", "Температура н.к.")
+                normalized_data[normalized_key] = value
+            result_data = normalized_data
+
     except (orjson.JSONDecodeError, TypeError) as e:
         logger.error(
             f"Не удалось распарсить результат для фракционного состава нефти: {str(e)}"
@@ -1233,37 +1233,19 @@ def process_fractional_composition_oil(
 
     fractional_fields = [
         "Температура н.к.",
-        "Выход фракций до температуры:",
+        "10% отгона при температуре",
+        "50% отгона при температуре",
         "Выход фракций до 100 ℃",
-        "Выход фракций до 120 ℃",
-        "Выход фракций до 150 ℃",
-        "Выход фракций до 160 ℃",
-        "Выход фракций до 180 ℃",
         "Выход фракций до 200 ℃",
-        "Выход фракций до 220 ℃",
-        "Выход фракций до 240 ℃",
-        "Выход фракций до 250 ℃",
-        "Выход фракций до 260 ℃",
-        "Выход фракций до 270 ℃",
-        "Выход фракций до 280 ℃",
         "Выход фракций до 300 ℃",
     ]
 
     error_map = {
         "Температура н.к.": "±5",
-        "Выход фракций до температуры:": "-",
+        "10% отгона при температуре": "±4",
+        "50% отгона при температуре": "±2",
         "Выход фракций до 100 ℃": "±1,4",
-        "Выход фракций до 120 ℃": "±1,4",
-        "Выход фракций до 150 ℃": "±1,4",
-        "Выход фракций до 160 ℃": "±1,4",
-        "Выход фракций до 180 ℃": "±1,4",
         "Выход фракций до 200 ℃": "±1,4",
-        "Выход фракций до 220 ℃": "±1,4",
-        "Выход фракций до 240 ℃": "±1,4",
-        "Выход фракций до 250 ℃": "±1,4",
-        "Выход фракций до 260 ℃": "±1,4",
-        "Выход фракций до 270 ℃": "±1,4",
-        "Выход фракций до 280 ℃": "±1,4",
         "Выход фракций до 300 ℃": "±1,4",
     }
 
@@ -1302,7 +1284,7 @@ def process_fractional_composition_oil(
         elif "{unit}" in value:
             cell.value = value.replace("{unit}", "")
         elif "{measurement_method}" in value:
-            measurement_method = calc.research_method.measurement_method or "не указано"
+            measurement_method = calc.research_method.measurement_method or "-"
             cell.value = value.replace("{measurement_method}", measurement_method)
         else:
             for placeholder in ["{result}", "{measurement_error}"]:
@@ -1319,13 +1301,15 @@ def process_fractional_composition_oil(
     current_row += 1
 
     for i, field in enumerate(fractional_fields):
+        # Проверяем оба варианта ключа (с точкой и с запятой)
         field_value = result_data.get(field, "")
+        if not field_value or field_value == "-":
+            # Пробуем вариант с запятой для "Температура н.к."
+            if field == "Температура н.к.":
+                field_value = result_data.get("Температура н,к.", "")
 
-        if field == "Выход фракций до температуры:":
-            field_value = ""
-        else:
-            if field_value is None or field_value == "" or field_value == "-":
-                continue
+        if field_value is None or field_value == "" or field_value == "-":
+            continue
 
         copy_row_formatting(
             template_sheet,
@@ -1346,12 +1330,14 @@ def process_fractional_composition_oil(
             elif "{name_method}" in value:
                 field_name = field
                 if field_name:
-                    if "℃" in field_name or "температура" in field_name.lower():
+                    if (
+                        "℃" in field_name
+                        or "температура" in field_name.lower()
+                        or "% отгона" in field_name
+                    ):
                         field_name = field_name[0].upper() + field_name[1:]
 
-                    if "Выход фракций до" in field_name and not field_name.endswith(
-                        "температуры:"
-                    ):
+                    if "Выход фракций до" in field_name:
                         temp_match = (
                             field_name.split("до ")[1]
                             if "до " in field_name
@@ -1361,7 +1347,7 @@ def process_fractional_composition_oil(
 
                     cell.value = field_name
             elif "{result}" in value:
-                if "температура" in field.lower():
+                if "температура" in field.lower() or "% отгона" in field:
                     try:
                         numeric_value = (
                             float(field_value)
@@ -1380,15 +1366,17 @@ def process_fractional_composition_oil(
                 else:
                     cell.value = str(field_value).replace(".", ",")
             elif "{measurement_error}" in value:
-                if field == "Выход фракций до температуры:":
-                    cell.value = ""
-                else:
-                    error_value = error_map.get(field, "-")
-                    cell.value = error_value
+                error_value = error_map.get(field, "-")
+                cell.value = error_value
             elif "{unit}" in value:
-                if "температура" in field.lower():
+                if field == "Температура н.к.":
                     cell.value = "°C"
-                elif field == "Выход фракций до температуры:":
+                elif (
+                    field == "10% отгона при температуре"
+                    or field == "50% отгона при температуре"
+                ):
+                    cell.value = "°C"
+                elif "Выход фракций до" in field:
                     cell.value = "%"
                 else:
                     cell.value = ""
@@ -1510,7 +1498,7 @@ def process_fractional_composition_condensate(
         elif "{unit}" in value:
             cell.value = value.replace("{unit}", "")
         elif "{measurement_method}" in value:
-            measurement_method = calc.research_method.measurement_method or "не указано"
+            measurement_method = calc.research_method.measurement_method or "-"
             cell.value = value.replace("{measurement_method}", measurement_method)
         else:
             for placeholder in ["{result}", "{measurement_error}"]:
