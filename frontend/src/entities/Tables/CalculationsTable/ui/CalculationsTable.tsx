@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
+import { DeleteOutlined } from '@ant-design/icons';
 import { useReactTable, getCoreRowModel, flexRender, type ColumnDef } from '@tanstack/react-table';
 import { LoadingCard } from '../../../../features/Cards';
 import { type Calculation } from '../../../../shared/api/calculation';
 import { employeesApi } from '../../../../shared/api/employees';
 import { researchApi, type ResearchMethod } from '../../../../shared/api/research';
+import Button from '../../../../shared/ui/Button/Button';
 import {
   roundValueForOilFractional,
   roundValueForCondensateFractional,
@@ -14,6 +16,7 @@ import './CalculationsTable.css';
 interface CalculationsTableProps {
   data: Calculation[];
   loading?: boolean;
+  onDelete?: (calculationId: number) => void;
 }
 
 // Функция для замены минуса на слово "минус"
@@ -321,7 +324,11 @@ const formatFractionalError = (
     : `± ${formattedError}`;
 };
 
-const CalculationsTable: React.FC<CalculationsTableProps> = ({ data, loading = false }) => {
+const CalculationsTable: React.FC<CalculationsTableProps> = ({
+  data,
+  loading = false,
+  onDelete,
+}) => {
   const [employeesMap, setEmployeesMap] = useState<Record<string, { fullName: string }>>({});
   const [methodDisplayNames, setMethodDisplayNames] = useState<Record<number, string>>({});
   const [methodSortOrders, setMethodSortOrders] = useState<Record<number, number | null>>({});
@@ -504,7 +511,7 @@ const CalculationsTable: React.FC<CalculationsTableProps> = ({ data, loading = f
       },
       {
         accessorKey: 'measurement_error',
-        header: 'Погрешность',
+        header: 'Погр.',
         cell: ({ row }) => {
           const error = row.original.measurement_error;
           const methodName = row.original.research_method?.name;
@@ -512,14 +519,14 @@ const CalculationsTable: React.FC<CalculationsTableProps> = ({ data, loading = f
           return formatFractionalError(error, methodName, result || null);
         },
         enableSorting: false,
-        size: 75,
+        size: 65,
       },
       {
         accessorKey: 'unit',
-        header: 'Единица измерения',
+        header: 'Ед. изм.',
         cell: ({ row }) => row.original.unit || '-',
         enableSorting: false,
-        size: 65,
+        size: 35,
       },
       {
         accessorKey: 'equipment',
@@ -560,13 +567,35 @@ const CalculationsTable: React.FC<CalculationsTableProps> = ({ data, loading = f
       },
       {
         accessorKey: 'laboratory_activity_date',
-        header: 'Дата лабораторной деятельности',
+        header: 'Дата лаб. деят.',
         cell: ({ row }) => formatDate(row.original.laboratory_activity_date),
         enableSorting: false,
         size: 80,
       },
+      {
+        id: 'actions',
+        header: 'Действия',
+        cell: ({ row }) => (
+          <div className="calculations-table-actions">
+            {onDelete && (
+              <Button
+                type="text"
+                danger
+                size="small"
+                icon={<DeleteOutlined />}
+                onClick={() => onDelete(row.original.id)}
+                className="calculations-table-delete-button"
+              >
+                Удалить
+              </Button>
+            )}
+          </div>
+        ),
+        enableSorting: false,
+        size: 95,
+      },
     ],
-    [employeesMap, methodDisplayNames]
+    [employeesMap, methodDisplayNames, onDelete]
   );
 
   const table = useReactTable<Calculation>({

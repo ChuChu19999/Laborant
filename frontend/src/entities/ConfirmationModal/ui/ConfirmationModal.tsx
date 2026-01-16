@@ -12,7 +12,7 @@ interface ConfirmationModalProps {
   onCancel: () => void;
   confirmButtonColor?: string;
   style?: React.CSSProperties;
-  modalWidth?: '450' | '550' | '1000' | '1450';
+  modalWidth?: '450' | '550' | '1000' | '1800';
 }
 
 const ConfirmationModal: React.FC<ConfirmationModalProps> = ({

@@ -177,3 +177,42 @@
   line-height: 1.4;
   min-height: 1.4em;
 }
+
+.calculations-table-actions {
+  display: flex;
+  align-items: center;
+}
+
+.calculations-table-delete-button,
+.calculations-table-delete-button.ant-btn,
+.calculations-table-delete-button.ant-btn-text {
+  color: #ff4d4f !important;
+  font-family: 'HeliosCondC';
+  font-size: 14px;
+}
+
+.calculations-table-delete-button:hover,
+.calculations-table-delete-button.ant-btn:hover,
+.calculations-table-delete-button.ant-btn-text:hover {
+  background-color: rgba(255, 77, 79, 0.1) !important;
+  color: #ff4d4f !important;
+}
+
+.calculations-table-delete-button:hover span,
+.calculations-table-delete-button.ant-btn:hover span,
+.calculations-table-delete-button.ant-btn-text:hover span {
+  color: #ff4d4f !important;
+}
+
+.calculations-table-delete-button:focus,
+.calculations-table-delete-button.ant-btn:focus,
+.calculations-table-delete-button.ant-btn-text:focus {
+  background-color: rgba(255, 77, 79, 0.1) !important;
+  color: #ff4d4f !important;
+}
+
+.calculations-table-delete-button span,
+.calculations-table-delete-button.ant-btn span,
+.calculations-table-delete-button.ant-btn-text span {
+  color: #ff4d4f !important;
+}

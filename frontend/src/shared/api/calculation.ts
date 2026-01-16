@@ -155,4 +155,8 @@ export const calculationApi = {
     const response = await axiosInstance.post<Calculation>('/api/calculations/', data);
     return response.data;
   },
+
+  deleteCalculation: async (id: number): Promise<void> => {
+    await axiosInstance.delete(`/api/calculations/${id}/`);
+  },
 };

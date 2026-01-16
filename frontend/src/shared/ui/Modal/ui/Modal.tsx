@@ -23,7 +23,7 @@ interface ModalProps {
   generateButtonText?: string;
   generateLoading?: boolean;
   extraButtons?: React.ReactNode;
-  modalWidth?: '450' | '550' | '1000' | '1450';
+  modalWidth?: '450' | '550' | '1000' | '1800';
 }
 
 const Modal = ({

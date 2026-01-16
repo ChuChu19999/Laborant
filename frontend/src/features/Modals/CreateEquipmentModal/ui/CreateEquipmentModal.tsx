@@ -66,7 +66,10 @@ const CreateEquipmentModal: React.FC<CreateEquipmentModalProps> = ({
     }
 
     const groupsMap = new Map(
-      groupsData.items.map(group => [group.id, { name: group.name, sort_order: group.sort_order || 0 }])
+      groupsData.items.map(group => [
+        group.id,
+        { name: group.name, sort_order: group.sort_order || 0 },
+      ])
     );
 
     const methodsWithGroups: Array<{
