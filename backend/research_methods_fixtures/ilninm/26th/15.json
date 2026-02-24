@@ -57,6 +57,11 @@
             {
                 "formula": "abs(X₁-X₂)>r",
                 "convergence_value": "unsatisfactory"
+            },
+            {
+                "formula": "Xср<0.015",
+                "custom_value": "менее 0,015",
+                "convergence_value": "custom"
             }
         ]
     },

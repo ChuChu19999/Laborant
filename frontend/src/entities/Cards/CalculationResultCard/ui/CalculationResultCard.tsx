@@ -32,12 +32,18 @@ interface IntermediateField {
   unit?: string;
 }
 
+interface IntermediateResultValue {
+  value: string;
+  reference: string;
+}
+
 interface CalculationResult {
   result?: string;
+  result_reference?: string;
   measurement_error?: string;
   unit?: string;
   convergence?: string;
-  intermediate_results?: Record<string, string>;
+  intermediate_results?: Record<string, string | IntermediateResultValue>;
   conditions_info?: ConditionInfo[];
   is_fractional_composition?: boolean;
 }
@@ -56,8 +62,14 @@ const CalculationResultCard: React.FC<CalculationResultCardProps> = ({ result, c
   const isMassFractionOilMethod = currentMethod?.name === 'Массовая доля нефти';
   const isFractionalComposition = result.is_fractional_composition;
   const csrValue = result.intermediate_results?.['Cср'];
+  const csrValueStr =
+    typeof csrValue === 'object' && 'value' in csrValue
+      ? csrValue.value
+      : typeof csrValue === 'string'
+        ? csrValue
+        : '';
   const shouldShowLessThan =
-    isMassFractionOilMethod && csrValue && parseFloat(csrValue.replace(',', '.')) < 0.1;
+    isMassFractionOilMethod && csrValueStr && parseFloat(csrValueStr.replace(',', '.')) < 0.1;
 
   const formatFormula = (formula: string): string => {
     return processAbs(formula)
@@ -69,14 +81,22 @@ const CalculationResultCard: React.FC<CalculationResultCardProps> = ({ result, c
       .replace(/and/g, 'и');
   };
 
-  const getResultText = (): string => {
+  const getResultText = (): React.ReactNode => {
     if (result.convergence === 'custom') {
       return shouldShowLessThan ? ' менее 0,1' : ` ${result.result || ''}`;
     } else if (result.convergence === 'satisfactory') {
       if (shouldShowLessThan) {
         return ' менее 0,1';
       }
-      return ` ${result.result || ''} ± ${result.measurement_error || ''} ${result.unit || ''}`;
+      // Специальная обработка для "выпадение парафина" - выводим без ± и единиц измерения
+      if (result.result === 'выпадение парафина') {
+        return <span>{result.result}</span>;
+      }
+      return (
+        <span>
+          {result.result || ''} ± {result.measurement_error || ''} {result.unit || ''}
+        </span>
+      );
     } else if (result.convergence === 'absence') {
       return ' Отсутствие';
     } else if (result.convergence === 'traces') {
@@ -95,17 +115,70 @@ const CalculationResultCard: React.FC<CalculationResultCardProps> = ({ result, c
     return label || '';
   };
 
-  const formatIntermediateValue = (name: string, value: string): string => {
+  const formatIntermediateValue = (
+    name: string,
+    value: string | IntermediateResultValue
+  ): React.ReactNode => {
+    // Если значение - объект с value и reference
+    if (typeof value === 'object' && 'value' in value && 'reference' in value) {
+      const mainValueStr = String(value.value).replace('.', ',');
+      const refValueStr = String(value.reference).replace('.', ',');
+
+      if (isFractionalComposition && currentMethod?.name === 'Фракционный состав (нефть)') {
+        const mainFormatted = roundValueForOilFractional(String(value.value), name);
+        const refFormatted = roundValueForOilFractional(String(value.reference), name);
+        return (
+          <>
+            <span className="calculation-intermediate-main">
+              {mainFormatted}{' '}
+              <span className="calculation-intermediate-used-badge">(используется)</span>
+            </span>
+            <span className="calculation-intermediate-reference">
+              Справка (с точностью +1 знак): {refFormatted}
+            </span>
+          </>
+        );
+      }
+      if (isFractionalComposition && currentMethod?.name === 'Фракционный состав (конденсат)') {
+        const mainFormatted = roundValueForCondensateFractional(String(value.value), name);
+        const refFormatted = roundValueForCondensateFractional(String(value.reference), name);
+        return (
+          <>
+            <span className="calculation-intermediate-main">
+              {mainFormatted}{' '}
+              <span className="calculation-intermediate-used-badge">(используется)</span>
+            </span>
+            <span className="calculation-intermediate-reference">
+              Справка (с точностью +1 знак): {refFormatted}
+            </span>
+          </>
+        );
+      }
+      return (
+        <>
+          <span className="calculation-intermediate-main">
+            {mainValueStr}{' '}
+            <span className="calculation-intermediate-used-badge">(используется)</span>
+          </span>
+          <span className="calculation-intermediate-reference">
+            Справка (с точностью +1 знак): {refValueStr}
+          </span>
+        </>
+      );
+    }
+
+    // Старый формат (строка) - для обратной совместимости
+    const valueStr = typeof value === 'string' ? value : String(value);
     if (isFractionalComposition && currentMethod?.name === 'Фракционный состав (нефть)') {
-      return roundValueForOilFractional(value, name);
+      return roundValueForOilFractional(valueStr, name);
     }
     if (isFractionalComposition && currentMethod?.name === 'Фракционный состав (конденсат)') {
-      return roundValueForCondensateFractional(value, name);
+      return roundValueForCondensateFractional(valueStr, name);
     }
     if (result.result) {
-      return roundValue(value, result.result);
+      return roundValue(valueStr, result.result);
     }
-    return value;
+    return valueStr;
   };
 
   return (
@@ -169,12 +242,14 @@ const CalculationResultCard: React.FC<CalculationResultCardProps> = ({ result, c
                     </Tooltip>
                   )}
                 </div>
-                <span className="calculation-intermediate-value">
-                  {formatIntermediateValue(name, value)}
-                  {field?.unit && (
-                    <span className="calculation-intermediate-unit"> {field.unit}</span>
-                  )}
-                </span>
+                <div className="calculation-intermediate-value-container">
+                  <div className="calculation-intermediate-value">
+                    {formatIntermediateValue(name, value)}
+                    {field?.unit && (
+                      <span className="calculation-intermediate-unit"> {field.unit}</span>
+                    )}
+                  </div>
+                </div>
               </div>
             );
           })}

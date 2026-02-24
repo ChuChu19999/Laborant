@@ -73,55 +73,121 @@
             {
                 "name": "X₁₁",
                 "unit": "мг/дм³",
-                "formula": "(Vр₁₁-V₀)*T*1000/Vпр",
+                "formula": "0",
                 "description": "X₁,₁",
                 "show_calculation": true,
-                "range_calculation": null,
+                "range_calculation": {
+                    "ranges": [
+                        {
+                            "formula": "0",
+                            "condition": "Vр₁₁=0"
+                        },
+                        {
+                            "formula": "(Vр₁₁-V₀)*T*1000/Vпр",
+                            "condition": "(Vр₁₁>0) or (Vр₁₁<0)"
+                        }
+                    ]
+                },
                 "use_multiple_rounding": false
             },
             {
                 "name": "X₁₂",
                 "unit": "мг/дм³",
-                "formula": "(Vр₁₂-V₀)*T*1000/Vпр",
+                "formula": "0",
                 "description": "X₁,₂",
                 "show_calculation": true,
-                "range_calculation": null,
+                "range_calculation": {
+                    "ranges": [
+                        {
+                            "formula": "0",
+                            "condition": "Vр₁₂=0"
+                        },
+                        {
+                            "formula": "(Vр₁₂-V₀)*T*1000/Vпр",
+                            "condition": "(Vр₁₂>0) or (Vр₁₂<0)"
+                        }
+                    ]
+                },
                 "use_multiple_rounding": false
             },
             {
                 "name": "X₁₃",
                 "unit": "мг/дм³",
-                "formula": "(Vр₁₃-V₀)*T*1000/Vпр",
+                "formula": "0",
                 "description": "X₁,₃",
                 "show_calculation": true,
-                "range_calculation": null,
+                "range_calculation": {
+                    "ranges": [
+                        {
+                            "formula": "0",
+                            "condition": "Vр₁₃=0"
+                        },
+                        {
+                            "formula": "(Vр₁₃-V₀)*T*1000/Vпр",
+                            "condition": "(Vр₁₃>0) or (Vр₁₃<0)"
+                        }
+                    ]
+                },
                 "use_multiple_rounding": false
             },
             {
                 "name": "X₂₁",
                 "unit": "мг/дм³",
-                "formula": "(Vр₂₁-V₀)*T*1000/Vпр",
+                "formula": "0",
                 "description": "X₂,₁",
                 "show_calculation": true,
-                "range_calculation": null,
+                "range_calculation": {
+                    "ranges": [
+                        {
+                            "formula": "0",
+                            "condition": "Vр₂₁=0"
+                        },
+                        {
+                            "formula": "(Vр₂₁-V₀)*T*1000/Vпр",
+                            "condition": "(Vр₂₁>0) or (Vр₂₁<0)"
+                        }
+                    ]
+                },
                 "use_multiple_rounding": false
             },
             {
                 "name": "X₂₂",
                 "unit": "мг/дм³",
-                "formula": "(Vр₂₂-V₀)*T*1000/Vпр",
+                "formula": "0",
                 "description": "X₂,₂",
                 "show_calculation": true,
-                "range_calculation": null,
+                "range_calculation": {
+                    "ranges": [
+                        {
+                            "formula": "0",
+                            "condition": "Vр₂₂=0"
+                        },
+                        {
+                            "formula": "(Vр₂₂-V₀)*T*1000/Vпр",
+                            "condition": "(Vр₂₂>0) or (Vр₂₂<0)"
+                        }
+                    ]
+                },
                 "use_multiple_rounding": false
             },
             {
                 "name": "X₂₃",
                 "unit": "мг/дм³",
-                "formula": "(Vр₂₃-V₀)*T*1000/Vпр",
+                "formula": "0",
                 "description": "X₂,₃",
                 "show_calculation": true,
-                "range_calculation": null,
+                "range_calculation": {
+                    "ranges": [
+                        {
+                            "formula": "0",
+                            "condition": "Vр₂₃=0"
+                        },
+                        {
+                            "formula": "(Vр₂₃-V₀)*T*1000/Vпр",
+                            "condition": "(Vр₂₃>0) or (Vр₂₃<0)"
+                        }
+                    ]
+                },
                 "use_multiple_rounding": false
             },
             {
@@ -182,6 +248,11 @@
             {
                 "formula": "Xср<1",
                 "custom_value": "менее 1,0",
+                "convergence_value": "custom"
+            },
+            {
+                "formula": "Xср>=10.1",
+                "custom_value": "более 10,0",
                 "convergence_value": "custom"
             },
             {

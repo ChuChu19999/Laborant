@@ -193,3 +193,7 @@
   width: 100% !important;
   min-width: 0 !important;
 }
+
+.wax-precipitation-wrapper .form-item-container {
+  gap: 0;
+}

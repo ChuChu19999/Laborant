@@ -7,11 +7,6 @@ from core.http_clients import get_hr_client
 from core.logger import logger
 from utils.date import ensure_datetime, parse_date_string
 
-CACHE_MAX_SIZE = 1000
-CACHE_TTL_SECONDS = 600
-
-_cache: TTLCache[str, Any] = TTLCache(maxsize=CACHE_MAX_SIZE, ttl=CACHE_TTL_SECONDS)
-
 # Кэш для должностей и имен сотрудников
 POSITION_CACHE_MAX_SIZE = 512
 POSITION_CACHE_TTL_SECONDS = 600
@@ -26,10 +21,6 @@ async def search_employees_by_fio(
 ) -> list[dict[str, Any]]:
     """
     Поиск сотрудников по ФИО через HR API.
-
-    Выполняет поиск сотрудников в HR API по части ФИО.
-    Минимальная длина поискового запроса - 3 символа.
-    Возвращает список найденных сотрудников с их данными.
     """
     if not search_fio or len(search_fio) < 3:
         return []
@@ -128,18 +119,9 @@ async def get_employee_by_hash(
 ) -> Optional[dict[str, Any]]:
     """
     Получение информации о сотруднике по hashMd5 через HR API.
-    Возвращает None, если сотрудник не найден (404) или произошла ошибка.
-
-    Возвращает полную информацию о сотруднике по его hashMd5 (MD5 хэш СНИЛС).
-    Данные получаются из HR API и могут включать фотографию сотрудника.
-    Результаты кэшируются для оптимизации повторных запросов.
     """
     if not hash_md5:
         return None
-
-    cache_key = f"hr_employee_{hash_md5}_photo_{include_photo}"
-    if cache_key in _cache:
-        return _cache[cache_key]
 
     if not settings.HR_API_URL:
         logger.error("HR_API_URL не настроен")
@@ -154,19 +136,16 @@ async def get_employee_by_hash(
 
         if response.status_code == 404:
             logger.debug(f"Сотрудник с hash_md5={hash_md5} не найден в HR API (404)")
-            _cache[cache_key] = None
             return None
 
         response.raise_for_status()
         employee_data = response.json()
 
-        _cache[cache_key] = employee_data
         return employee_data
 
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 404:
             logger.debug(f"Сотрудник с hash_md5={hash_md5} не найден в HR API (404)")
-            _cache[cache_key] = None
             return None
         logger.error(f"Ошибка HTTP при обращении к HR API: {str(e)}")
         raise
@@ -183,12 +162,6 @@ async def get_employees_by_hashes(
 ) -> dict[str, dict[str, Any]]:
     """
     Получение информации о сотрудниках по массиву hashMd5 через HR API (батч-запрос).
-    Возвращает словарь только с найденными сотрудниками. Отсутствующие в HR API игнорируются.
-
-    Возвращает информацию о нескольких сотрудниках по массиву hashMd5 одним запросом.
-    Полезно для получения данных о множестве сотрудников одновременно.
-    Если массив пуст, возвращается пустой словарь.
-    Результаты кэшируются для оптимизации повторных запросов.
     """
     if not hashes_md5 or len(hashes_md5) == 0:
         return {}
@@ -225,9 +198,19 @@ async def get_employees_by_hashes(
                 if isinstance(employee, dict) and "hashMd5" in employee:
                     hash_md5 = employee.get("hashMd5")
                     if hash_md5:
-                        result[hash_md5] = employee
-                        cache_key = f"hr_employee_{hash_md5}_photo_{include_photo}"
-                        _cache[cache_key] = employee
+                        # Если для этого hash уже есть запись, выбираем ту, где workingNowStatus == "Работает"
+                        if hash_md5 in result:
+                            current_status = result[hash_md5].get("workingNowStatus")
+                            new_status = employee.get("workingNowStatus")
+
+                            # Заменяем только если новая запись имеет статус "Работает", а текущая - нет
+                            if (
+                                new_status == "Работает"
+                                and current_status != "Работает"
+                            ):
+                                result[hash_md5] = employee
+                        else:
+                            result[hash_md5] = employee
 
         return result
 
@@ -355,13 +338,6 @@ async def get_employee_position_and_name(hash_md5: str, target_date) -> Tuple[st
                     f"Ошибка парсинга даты для hash={hash_md5}: {e}, дата: {begin_date_str}"
                 )
                 continue
-
-        logger.info(
-            "Получена должность сотрудника: hash=%s → '%s' на дату %s",
-            hash_md5,
-            target_position,
-            target_datetime.strftime("%d.%m.%Y"),
-        )
 
         result = (target_position, formatted_name)
         _position_cache[cache_key] = result

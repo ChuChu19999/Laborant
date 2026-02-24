@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, Dict, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.logger import logger
@@ -191,9 +191,10 @@ async def calculate_result(
                 f"Неверный тип округления: {research_method['rounding_type']}"
             )
 
-        # Сначала вычисляем промежуточные результаты
+        # Сначала вычисляем промежуточные результаты (неокругленные)
         logger.info("Начало вычисления промежуточных результатов")
         intermediate_results = {}
+        intermediate_results_unrounded = {}  # Сохраняем неокругленные значения
         # Исключаем поле "Цвет" из переменных для вычисления формул (это строка, не число)
         variables = {k: v for k, v in input_data.items() if k != "Цвет"}
 
@@ -266,6 +267,8 @@ async def calculate_result(
                 logger.info(
                     f"Промежуточный результат {field['name']} = {intermediate_value}"
                 )
+                # Сохраняем неокругленное значение
+                intermediate_results_unrounded[field["name"]] = intermediate_value
                 # Добавляем результат в словарь только если show_calculation = true
                 if field.get("show_calculation", True):
                     intermediate_results[field["name"]] = str(intermediate_value)
@@ -279,14 +282,67 @@ async def calculate_result(
                     f"Ошибка при вычислении промежуточного результата: {str(e)}"
                 )
 
-        logger.info("Начало проверки условий повторяемости")
+        # Сначала вычисляем неокругленный основной результат для определения количества знаков
+        result_unrounded_for_rounding = None
+        result_decimal_places = None
+        if research_method["rounding_type"] == "decimal":
+            try:
+                logger.info(
+                    f"Предварительное вычисление результата для определения количества знаков: {research_method['formula']}"
+                )
+                result_unrounded_for_rounding = evaluate_formula(
+                    research_method["formula"], variables
+                )
+                # Округляем для определения количества знаков
+                result_temp = round_result(
+                    result_unrounded_for_rounding,
+                    research_method["rounding_type"],
+                    research_method["rounding_decimal"],
+                )
+                result_decimal_places = (
+                    len(str(result_temp).split(".")[-1])
+                    if "." in str(result_temp)
+                    else 0
+                )
+                logger.info(
+                    f"Количество знаков после запятой в результате: {result_decimal_places}"
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Не удалось определить количество знаков: {str(e)}, используем настройки метода"
+                )
+                result_decimal_places = research_method["rounding_decimal"]
+
+        # Округляем промежуточные результаты до количества знаков результата
+        variables_rounded = {k: v for k, v in input_data.items() if k != "Цвет"}
+        if result_decimal_places is not None:
+            logger.info(
+                f"Округление промежуточных результатов до {result_decimal_places} знаков"
+            )
+            for field_name, unrounded_value in intermediate_results_unrounded.items():
+                if isinstance(unrounded_value, (int, float, Decimal)):
+                    d = Decimal(str(float(unrounded_value)))
+                    rounded_value = d.quantize(
+                        Decimal("0.1") ** result_decimal_places, rounding=ROUND_HALF_UP
+                    )
+                    variables_rounded[field_name] = rounded_value
+                    logger.info(
+                        f"Промежуточный результат {field_name}: {unrounded_value} -> {rounded_value}"
+                    )
+                else:
+                    variables_rounded[field_name] = unrounded_value
+        else:
+            # Если не удалось определить количество знаков, используем неокругленные значения
+            variables_rounded = variables
+
+        logger.info("Начало проверки условий повторяемости с округленными значениями")
         satisfied_conditions = []
 
         for condition in research_method["convergence_conditions"]["formulas"]:
             try:
                 logger.info(f"Проверка условия: {condition['formula']}")
                 condition_result = evaluate_formula(
-                    condition["formula"], variables, is_condition=True
+                    condition["formula"], variables_rounded, is_condition=True
                 )
                 logger.info(
                     f"Результат проверки условия: {condition_result} (тип: {condition['convergence_value']}"
@@ -314,7 +370,7 @@ async def calculate_result(
             ):
                 try:
                     condition_result = evaluate_formula(
-                        condition["formula"], variables, is_condition=True
+                        condition["formula"], variables_rounded, is_condition=True
                     )
                     if condition_result:
                         convergence_result = "custom"
@@ -339,7 +395,7 @@ async def calculate_result(
             if condition["convergence_value"] == convergence_result:
                 try:
                     condition_result = evaluate_formula(
-                        condition["formula"], variables, is_condition=True
+                        condition["formula"], variables_rounded, is_condition=True
                     )
                     conditions_info.append(
                         {
@@ -347,7 +403,7 @@ async def calculate_result(
                             "satisfied": condition_result,
                             "convergence_value": condition["convergence_value"],
                             "calculation_steps": calculate_convergence_steps(
-                                condition["formula"], variables
+                                condition["formula"], variables_rounded
                             ),
                         }
                     )
@@ -374,10 +430,56 @@ async def calculate_result(
             elif convergence_result == "unsatisfactory":
                 result_text = "неудовлетворительно"
 
+            # Округляем промежуточные результаты до количества знаков из настроек метода
+            # (используем rounding_decimal из метода исследования)
+            intermediate_results_rounded = {}
+            if research_method["rounding_type"] == "decimal":
+                result_decimal_places = research_method["rounding_decimal"]
+                logger.info(
+                    f"Округление промежуточных результатов до {result_decimal_places} знаков (из настроек метода)"
+                )
+
+                for (
+                    field_name,
+                    unrounded_value,
+                ) in intermediate_results_unrounded.items():
+                    if isinstance(unrounded_value, (int, float, Decimal)):
+                        d = Decimal(str(float(unrounded_value)))
+                        # Основное округление (до N знаков)
+                        rounded_value = d.quantize(
+                            Decimal("0.1") ** result_decimal_places,
+                            rounding=ROUND_HALF_UP,
+                        )
+                        # Справочное округление (до N+1 знаков)
+                        reference_value = d.quantize(
+                            Decimal("0.1") ** (result_decimal_places + 1),
+                            rounding=ROUND_HALF_UP,
+                        )
+                        intermediate_results_rounded[field_name] = {
+                            "value": str(rounded_value),
+                            "reference": str(reference_value),
+                        }
+                        logger.info(
+                            f"Промежуточный результат {field_name}: {rounded_value} (справка (с точностью +1 знак): {reference_value})"
+                        )
+                    else:
+                        intermediate_results_rounded[field_name] = {
+                            "value": str(unrounded_value),
+                            "reference": str(unrounded_value),
+                        }
+            else:
+                # Для significant округления используем старый формат
+                for field_name, value_str in intermediate_results.items():
+                    intermediate_results_rounded[field_name] = {
+                        "value": value_str,
+                        "reference": value_str,
+                    }
+
             response_data_early = {
                 "convergence": convergence_result,
-                "intermediate_results": intermediate_results,
+                "intermediate_results": intermediate_results_rounded,
                 "result": result_text,
+                "result_reference": None,
                 "measurement_error": None,
                 "unit": research_method["unit"],
                 "conditions_info": conditions_info,
@@ -394,39 +496,76 @@ async def calculate_result(
 
         # Если повторяемость удовлетворительная, вычисляем результат
         result = None
+        result_unrounded = None
         measurement_error = None
 
         if convergence_result == "satisfactory":
-            # Затем вычисляем основной результат
+            # Формируем округленные промежуточные результаты для ответа
+            intermediate_results_rounded = {}
+            for field_name, unrounded_value in intermediate_results_unrounded.items():
+                if (
+                    isinstance(unrounded_value, (int, float, Decimal))
+                    and result_decimal_places is not None
+                ):
+                    d = Decimal(str(float(unrounded_value)))
+                    # Основное округление (до N знаков)
+                    rounded_value = d.quantize(
+                        Decimal("0.1") ** result_decimal_places, rounding=ROUND_HALF_UP
+                    )
+                    # Справочное округление (до N+1 знаков)
+                    reference_value = d.quantize(
+                        Decimal("0.1") ** (result_decimal_places + 1),
+                        rounding=ROUND_HALF_UP,
+                    )
+                    intermediate_results_rounded[field_name] = {
+                        "value": str(rounded_value),
+                        "reference": str(reference_value),
+                    }
+                    logger.info(
+                        f"Промежуточный результат {field_name}: {rounded_value} (справка: {reference_value})"
+                    )
+                else:
+                    intermediate_results_rounded[field_name] = {
+                        "value": str(unrounded_value),
+                        "reference": str(unrounded_value),
+                    }
+
+            # Вычисляем основной результат с округленными промежуточными значениями
             try:
                 logger.info(
-                    f"Вычисление основного результата по формуле: {research_method['formula']}"
+                    "Вычисление основного результата с округленными промежуточными значениями"
                 )
-                logger.info(f"Используемые переменные: {variables}")
-                result = evaluate_formula(research_method["formula"], variables)
-                logger.info(f"Неокругленный результат: {result}")
+                result_unrounded_rounded = evaluate_formula(
+                    research_method["formula"], variables_rounded
+                )
+                logger.info(
+                    f"Неокругленный результат с округленными промежуточными: {result_unrounded_rounded}"
+                )
+
+                # Округляем пересчитанный результат
+                result = round_result(
+                    result_unrounded_rounded,
+                    research_method["rounding_type"],
+                    research_method["rounding_decimal"],
+                )
+                logger.info(f"Окончательный результат после пересчета: {result}")
+
+                # Справочное значение результата с +1 знаком
+                if result_decimal_places is not None:
+                    result_decimal = Decimal(str(float(result_unrounded_rounded)))
+                    result_reference = result_decimal.quantize(
+                        Decimal("0.1") ** (result_decimal_places + 1),
+                        rounding=ROUND_HALF_UP,
+                    )
+                    logger.info(f"Справочное значение результата: {result_reference}")
+                else:
+                    result_reference = None
             except Exception as e:
                 logger.error(f"Ошибка при вычислении основного результата: {str(e)}")
                 raise ValueError(f"Ошибка при вычислении результата: {str(e)}")
 
-            # Округляем результат
-            logger.info(
-                f"Округление результата: тип={research_method['rounding_type']}, знаков={research_method['rounding_decimal']}"
-            )
-            result = round_result(
-                result,
-                research_method["rounding_type"],
-                research_method["rounding_decimal"],
-            )
-            logger.info(f"Окончательный результат после округления: {result}")
-
-            # Вычисляем количество знаков после запятой в результате
-            result_decimal_places = (
-                len(str(result).split(".")[-1]) if "." in str(result) else 0
-            )
-            logger.info(
-                f"Количество знаков после запятой в результате: {result_decimal_places}"
-            )
+            # Обновляем промежуточные результаты в ответе
+            intermediate_results = intermediate_results_rounded
 
             # Вычисляем погрешность
             try:
@@ -455,10 +594,16 @@ async def calculate_result(
                 logger.error(f"Ошибка при вычислении погрешности: {str(e)}")
                 raise ValueError(f"Ошибка при вычислении погрешности: {str(e)}")
 
+        # Формируем структуру ответа с основными и справочными значениями
+        result_reference_value = None
+        if convergence_result == "satisfactory" and result is not None:
+            result_reference_value = str(result_reference)
+
         response_data = {
             "convergence": convergence_result,
             "intermediate_results": intermediate_results,
             "result": str(result) if result is not None else None,
+            "result_reference": result_reference_value,
             "measurement_error": (
                 str(measurement_error) if measurement_error is not None else None
             ),

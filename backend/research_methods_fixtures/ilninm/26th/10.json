@@ -7,8 +7,8 @@
         "value": "1*delta"
     },
     "unit": "%",
-    "measurement_method": "СТО 05751745-198-2014",
-    "nd_code": "СТО 05751745-198-2014",
+    "measurement_method": "СТО 05751745-198-2025",
+    "nd_code": "СТО 05751745-198-2025",
     "nd_name": "Конденсат газовый, нефть. Определение асфальтенов, смол, парафина. Методика измерения",
     "input_data": {
         "fields": [
@@ -88,12 +88,8 @@
                 "range_calculation": {
                     "ranges": [
                         {
-                            "formula": "0.15*Xср",
-                            "condition": "(Xср>=0) and (Xср<=10)"
-                        },
-                        {
-                            "formula": "0.08*Xср",
-                            "condition": "(Xср>10) and (Xср<=15)"
+                            "formula": "Xср*(3.17/Xср+5.4)*0.01",
+                            "condition": "(Xср>=0.1) and (Xср<=5)"
                         }
                     ]
                 },
@@ -108,12 +104,8 @@
                 "range_calculation": {
                     "ranges": [
                         {
-                            "formula": "0.075*Xср",
-                            "condition": "(Xср>=0) and (Xср<=10)"
-                        },
-                        {
-                            "formula": "0.04*Xср",
-                            "condition": "(Xср>10) and (Xср<=15)"
+                            "formula": "2.77*(0.655+2.625/Xср)*Xср*0.01",
+                            "condition": "(Xср>=0.1) and (Xср<=5)"
                         }
                     ]
                 },
@@ -130,6 +122,11 @@
             {
                 "formula": "abs(X₁-X₂)>r",
                 "convergence_value": "unsatisfactory"
+            },
+            {
+                "formula": "Xср<0.1",
+                "custom_value": "менее 0,1",
+                "convergence_value": "custom"
             }
         ]
     },

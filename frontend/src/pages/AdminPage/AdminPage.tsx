@@ -289,6 +289,7 @@ const AdminPage: React.FC = () => {
       } else {
         await deleteGroupMutation.mutateAsync(deleteConfirmation.itemId);
       }
+      await researchMethods.refetch();
       setDeleteConfirmation({
         isOpen: false,
         itemId: null,

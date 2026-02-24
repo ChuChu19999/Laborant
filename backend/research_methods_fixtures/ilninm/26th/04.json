@@ -1,7 +1,7 @@
 {
         "name": "Температура застывания",
         "sample_type": ["oil", "condensate", "turbine_oil", "aviation_oil", "corrosion_inhibitor"],
-        "formula": "(T₁+T₂)/2",
+        "formula": "Tср",
         "measurement_error": {
             "type": "fixed",
             "value": "6"
@@ -29,10 +29,10 @@
         "intermediate_data": {
             "fields": [
                 {
-                    "name": "",
-                    "unit": "",
-                    "formula": "",
-                    "description": "",
+                    "name": "Tср",
+                    "unit": "℃",
+                    "formula": "(T₁+T₂)/2",
+                    "description": "Среднее значение температуры застывания",
                     "multiple_value": "",
                     "show_calculation": false,
                     "use_multiple_rounding": false
@@ -48,6 +48,11 @@
                 {
                     "formula": "abs(T₁-T₂)>2",
                     "convergence_value": "unsatisfactory"
+                },
+                {
+                    "formula": "Xср<-57",
+                    "custom_value": "ниже минус 57",
+                    "convergence_value": "custom"
                 }
             ]
         },

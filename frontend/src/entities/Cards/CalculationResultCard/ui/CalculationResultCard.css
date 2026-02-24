@@ -176,3 +176,60 @@
   color: #0066cc;
   transform: scale(1.1);
 }
+
+.calculation-intermediate-value-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.calculation-intermediate-value {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.calculation-intermediate-main {
+  color: #1a4a7a;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.calculation-intermediate-used-badge {
+  color: #0066cc;
+  font-weight: 500;
+  font-size: 12px;
+  margin-left: 4px;
+}
+
+.calculation-intermediate-reference {
+  color: #718096;
+  font-weight: 400;
+  font-size: 12px;
+  font-style: italic;
+}
+
+.calculation-result-main-value {
+  display: inline-block;
+}
+
+.calculation-result-used-badge {
+  color: #0066cc;
+  font-weight: 500;
+  font-size: 13px;
+  margin-left: 4px;
+}
+
+.calculation-result-reference {
+  color: #718096;
+  font-weight: 400;
+  font-size: 13px;
+  font-style: italic;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(64, 150, 255, 0.15);
+}

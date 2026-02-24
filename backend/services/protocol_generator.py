@@ -188,7 +188,7 @@ async def get_marker_value_title(
             dates = []
             for sample in samples:
                 for calc in sample.calculations:
-                    if calc.laboratory_activity_date:
+                    if calc.deleted_at is None and calc.laboratory_activity_date:
                         dates.append(calc.laboratory_activity_date)
             if dates:
                 min_date = pendulum.instance(min(dates)).format("DD.MM.YYYY")
@@ -708,7 +708,7 @@ async def process_between_tables(
     unique_executors = set()
     for sample in samples:
         for calc in sample.calculations:
-            if calc.executor:
+            if calc.deleted_at is None and calc.executor:
                 unique_executors.add(calc.executor)
 
     # Делаем батч-запрос для получения базовой информации о всех исполнителях
@@ -731,8 +731,15 @@ async def process_between_tables(
             executor_hash, target_date
         )
         if formatted_name:
+            logger.info(
+                f"Из HR API получили: ФИО={formatted_name}, должность={position or ''}"
+            )
+            # Преобразуем должность в нижний регистр
+            position_lower = position.lower() if position else ""
             executor_info = (
-                f"{position} {formatted_name}".strip() if position else formatted_name
+                f"{position_lower} {formatted_name}".strip()
+                if position_lower
+                else formatted_name
             )
             executors_cache.add(executor_info)
 
@@ -860,18 +867,6 @@ def add_standalone_method(
     idx,
 ):
     """Добавляет одиночный метод в таблицу."""
-    # Копируем заголовок таблицы только для первой строки
-    if idx == 1:
-        for row_num in range(table_header_start + 1, table_header_end):
-            copy_row_formatting(
-                template_sheet,
-                current_sheet,
-                row_num,
-                current_row,
-                merged_cells_map,
-            )
-            current_row += 1
-
     sheet_merged_cells_map = current_sheet.merged_cells
 
     copy_row_formatting(
@@ -928,18 +923,6 @@ def add_group_methods(
     idx,
 ):
     """Добавляет группу методов в таблицу."""
-    # Копируем заголовок таблицы только для первой строки
-    if idx == 1:
-        for row_num in range(table_header_start + 1, table_header_end):
-            copy_row_formatting(
-                template_sheet,
-                current_sheet,
-                row_num,
-                current_row,
-                merged_cells_map,
-            )
-            current_row += 1
-
     sheet_merged_cells_map = current_sheet.merged_cells
 
     measurement_methods = set(
@@ -1140,33 +1123,23 @@ def process_fractional_composition_oil(
 
     fractional_fields = [
         "Температура н.к.",
-        "10% отгона при температуре",
-        "50% отгона при температуре",
         "Выход фракций до 100 ℃",
+        "Выход фракций до 150 ℃",
         "Выход фракций до 200 ℃",
+        "Выход фракций до 250 ℃",
+        "Выход фракций до 270 ℃",
         "Выход фракций до 300 ℃",
     ]
 
     error_map = {
         "Температура н.к.": "±5",
-        "10% отгона при температуре": "±4",
-        "50% отгона при температуре": "±2",
         "Выход фракций до 100 ℃": "±1,4",
+        "Выход фракций до 150 ℃": "±1,4",
         "Выход фракций до 200 ℃": "±1,4",
+        "Выход фракций до 250 ℃": "±1,4",
+        "Выход фракций до 270 ℃": "±1,4",
         "Выход фракций до 300 ℃": "±1,4",
     }
-
-    # Копируем заголовок таблицы только для первой строки
-    if idx == 1:
-        for row_num in range(table_header_start + 1, table_header_end):
-            copy_row_formatting(
-                template_sheet,
-                current_sheet,
-                row_num,
-                current_row,
-                merged_cells_map,
-            )
-            current_row += 1
 
     sheet_merged_cells_map = current_sheet.merged_cells
 
@@ -1369,18 +1342,6 @@ def process_fractional_composition_condensate(
         "Объемная доля потерь": "-",
     }
 
-    # Копируем заголовок таблицы только для первой строки
-    if idx == 1:
-        for row_num in range(table_header_start + 1, table_header_end):
-            copy_row_formatting(
-                template_sheet,
-                current_sheet,
-                row_num,
-                current_row,
-                merged_cells_map,
-            )
-            current_row += 1
-
     sheet_merged_cells_map = current_sheet.merged_cells
 
     copy_row_formatting(
@@ -1536,7 +1497,7 @@ def process_methods_table(
     calculations = []
     for sample in samples:
         for calc in sample.calculations:
-            if calc.research_method:
+            if calc.deleted_at is None and calc.research_method:
                 calculations.append(calc)
 
     valid_calculations = []
@@ -1554,28 +1515,19 @@ def process_methods_table(
     if not valid_calculations:
         return current_sheet
 
-    # Сортируем расчеты по sort_order метода исследования
-    # Все методы (standalone и группы) сортируются вместе по sort_order
+    # Сортируем расчеты как на странице расчётов: sort_order, затем имя.
+    # Для группы с sort_order=None используем sort_order метода, чтобы не ставить блок в начало.
     def get_sort_key(calc):
         method = calc.research_method
-        # Если метод входит в группу, используем sort_order группы
+        method_name = method.name or ""
+        method_sort_order = method.sort_order if method.sort_order is not None else 0
         if method.groups and len(method.groups) > 0:
             group = method.groups[0]
-            group_sort_order = group.sort_order
-            # Используем sort_order группы для сортировки
-            # Вторичная сортировка по sort_order метода внутри группы
-            method_sort_order = method.sort_order
-            return (
-                group_sort_order if group_sort_order is not None else float("inf"),
-                method_sort_order if method_sort_order is not None else float("inf"),
+            group_sort_order = (
+                group.sort_order if group.sort_order is not None else method_sort_order
             )
-        else:
-            # Для standalone методов используем sort_order метода
-            method_sort_order = method.sort_order
-            return (
-                method_sort_order if method_sort_order is not None else float("inf"),
-                0,
-            )
+            return (group_sort_order, method_sort_order, method_name)
+        return (method_sort_order, 0, method_name)
 
     valid_calculations.sort(key=get_sort_key)
 
@@ -1652,27 +1604,92 @@ def process_methods_table(
         else:
             processed_calculations.append({"type": "standalone", "calc": calc})
 
-    # Сортируем методы внутри каждой группы по sort_order
+    def _item_desc(it):
+        if it["type"] == "fractional_condensate":
+            return f"fractional_condensate {it['calc'].research_method.name!r}"
+        if it["type"] == "fractional_oil":
+            return f"fractional_oil {it['calc'].research_method.name!r}"
+        if it["type"] == "group":
+            g = grouped_calculations.get(it["group_id"], {})
+            return f"group {g.get('name')!r} method={it['calc'].research_method.name!r}"
+        return f"standalone {it['calc'].research_method.name!r}"
+
+    # Сортируем методы внутри каждой группы как в API: sort_order (0 при None), затем имя.
     for group_id, group_data in grouped_calculations.items():
         group_data["calculations"].sort(
             key=lambda calc: (
-                calc.research_method.sort_order
-                if calc.research_method.sort_order is not None
-                else float("inf")
+                (
+                    calc.research_method.sort_order
+                    if calc.research_method.sort_order is not None
+                    else 0
+                ),
+                (calc.research_method.name or ""),
             )
         )
         group_data["methods"].sort(
             key=lambda method: (
-                method.sort_order if method.sort_order is not None else float("inf")
+                method.sort_order if method.sort_order is not None else 0,
+                method.name or "",
             )
         )
+
+    # Заголовок таблицы копируем один раз в начало, чтобы порядок блоков совпадал с processed_calculations.
+    row_before_header = current_row
+    for row_num in range(table_header_start + 1, table_header_end):
+        copy_row_formatting(
+            template_sheet,
+            current_sheet,
+            row_num,
+            current_row,
+            merged_cells_map,
+        )
+        current_row += 1
 
     idx = 1
     current_group = None
     group_methods = []
 
-    for item in processed_calculations:
+    for i, item in enumerate(processed_calculations):
+        row_start = current_row
         if item["type"] == "fractional_condensate":
+            if group_methods:
+                group_id = current_group
+                group_data = grouped_calculations[group_id]
+                has_special_methods = any(
+                    "нефть" in method.name.lower() or "конденсат" in method.name.lower()
+                    for method in group_data["methods"]
+                )
+                if has_special_methods:
+                    group_calc = copy(group_data["calculations"][0])
+                    original_name = group_calc.research_method.name
+                    group_calc.research_method.name = group_data["name"]
+                    current_row, current_sheet = add_standalone_method(
+                        group_calc,
+                        current_row,
+                        current_sheet,
+                        template_sheet,
+                        table_header_start,
+                        table_header_end,
+                        template_row_num,
+                        merged_cells_map,
+                        idx,
+                    )
+                    group_calc.research_method.name = original_name
+                else:
+                    current_row, current_sheet = add_group_methods(
+                        group_data,
+                        current_row,
+                        current_sheet,
+                        template_sheet,
+                        table_header_start,
+                        table_header_end,
+                        template_row_num,
+                        merged_cells_map,
+                        idx,
+                    )
+                idx += 1
+                group_methods = []
+                current_group = None
             current_row, current_sheet = process_fractional_composition_condensate(
                 item["calc"],
                 current_row,
@@ -1686,6 +1703,44 @@ def process_methods_table(
             )
             idx += 1
         elif item["type"] == "fractional_oil":
+            if group_methods:
+                group_id = current_group
+                group_data = grouped_calculations[group_id]
+                has_special_methods = any(
+                    "нефть" in method.name.lower() or "конденсат" in method.name.lower()
+                    for method in group_data["methods"]
+                )
+                if has_special_methods:
+                    group_calc = copy(group_data["calculations"][0])
+                    original_name = group_calc.research_method.name
+                    group_calc.research_method.name = group_data["name"]
+                    current_row, current_sheet = add_standalone_method(
+                        group_calc,
+                        current_row,
+                        current_sheet,
+                        template_sheet,
+                        table_header_start,
+                        table_header_end,
+                        template_row_num,
+                        merged_cells_map,
+                        idx,
+                    )
+                    group_calc.research_method.name = original_name
+                else:
+                    current_row, current_sheet = add_group_methods(
+                        group_data,
+                        current_row,
+                        current_sheet,
+                        template_sheet,
+                        table_header_start,
+                        table_header_end,
+                        template_row_num,
+                        merged_cells_map,
+                        idx,
+                    )
+                idx += 1
+                group_methods = []
+                current_group = None
             current_row, current_sheet = process_fractional_composition_oil(
                 item["calc"],
                 current_row,
@@ -1710,6 +1765,8 @@ def process_methods_table(
 
                 if has_special_methods:
                     group_calc = copy(group_data["calculations"][0])
+                    # Временно изменяем имя метода для отображения, потом вернем обратно
+                    original_name = group_calc.research_method.name
                     group_calc.research_method.name = group_data["name"]
                     current_row, current_sheet = add_standalone_method(
                         group_calc,
@@ -1722,6 +1779,8 @@ def process_methods_table(
                         merged_cells_map,
                         idx,
                     )
+                    # Возвращаем оригинальное имя
+                    group_calc.research_method.name = original_name
                 else:
                     current_row, current_sheet = add_group_methods(
                         group_data,
@@ -1766,6 +1825,8 @@ def process_methods_table(
 
                 if has_special_methods:
                     group_calc = copy(group_data["calculations"][0])
+                    # Временно изменяем имя метода для отображения, потом вернем обратно
+                    original_name = group_calc.research_method.name
                     group_calc.research_method.name = group_data["name"]
                     current_row, current_sheet = add_standalone_method(
                         group_calc,
@@ -1778,6 +1839,8 @@ def process_methods_table(
                         merged_cells_map,
                         idx,
                     )
+                    # Возвращаем оригинальное имя
+                    group_calc.research_method.name = original_name
                 else:
                     current_row, current_sheet = add_group_methods(
                         group_data,
@@ -1805,6 +1868,8 @@ def process_methods_table(
 
         if has_special_methods:
             group_calc = copy(group_data["calculations"][0])
+            # Временно изменяем имя метода для отображения, потом вернем обратно
+            original_name = group_calc.research_method.name
             group_calc.research_method.name = group_data["name"]
             current_row, current_sheet = add_standalone_method(
                 group_calc,
@@ -1817,6 +1882,8 @@ def process_methods_table(
                 merged_cells_map,
                 idx,
             )
+            # Возвращаем оригинальное имя
+            group_calc.research_method.name = original_name
         else:
             current_row, current_sheet = add_group_methods(
                 group_data,
@@ -1841,6 +1908,8 @@ def _collect_equipment_ids_from_samples(samples: List[Sample]) -> set[int]:
 
     for sample in samples:
         for calc in getattr(sample, "calculations", []) or []:
+            if calc.deleted_at is not None:
+                continue
             data = getattr(calc, "equipment_data", None)
             if not data:
                 continue
@@ -1882,9 +1951,42 @@ def process_equipment_table(
     current_row,
 ):
     """Обрабатывает таблицу с оборудованием."""
+    # Дедуплицируем оборудование по ключевым полям
+    seen_equipment = set()
+    unique_equipment = []
+
+    for equipment in equipment_list:
+        # Преобразуем даты в строки для корректного сравнения
+        ver_date = None
+        if equipment.verification_date:
+            if hasattr(equipment.verification_date, "date"):
+                ver_date = equipment.verification_date.date().isoformat()
+            else:
+                ver_date = str(equipment.verification_date)
+
+        ver_end_date = None
+        if equipment.verification_end_date:
+            if hasattr(equipment.verification_end_date, "date"):
+                ver_end_date = equipment.verification_end_date.date().isoformat()
+            else:
+                ver_end_date = str(equipment.verification_end_date)
+
+        # Создаем ключ из полей для дедупликации
+        equipment_key = (
+            equipment.name or "",
+            equipment.serial_number or "",
+            equipment.verification_info or "",
+            ver_date,
+            ver_end_date,
+        )
+
+        if equipment_key not in seen_equipment:
+            seen_equipment.add(equipment_key)
+            unique_equipment.append(equipment)
+
     # Сортируем список оборудования по наименованию и версии
     equipment_list = sorted(
-        equipment_list, key=lambda x: (x.name or "", x.version or "")
+        unique_equipment, key=lambda x: (x.name or "", x.version or "")
     )
 
     if not equipment_list:
@@ -2011,7 +2113,7 @@ def process_nd_table(
     calculations = []
     for sample in samples:
         for calc in sample.calculations:
-            if calc.research_method:
+            if calc.deleted_at is None and calc.research_method:
                 calculations.append(calc)
 
     test_objects = []
@@ -2019,13 +2121,30 @@ def process_nd_table(
         if sample.test_object:
             test_objects.append(sample.test_object)
 
+    valid_calculations = [
+        calc
+        for calc in calculations
+        if check_method_name(calc.research_method.name, test_objects)
+    ]
+
+    # Та же сортировка, что в таблице 1: sort_order группы/метода, затем имя.
+    def get_sort_key(calc):
+        method = calc.research_method
+        method_name = method.name or ""
+        method_sort_order = method.sort_order if method.sort_order is not None else 0
+        if method.groups and len(method.groups) > 0:
+            group = method.groups[0]
+            group_sort_order = (
+                group.sort_order if group.sort_order is not None else method_sort_order
+            )
+            return (group_sort_order, method_sort_order, method_name)
+        return (method_sort_order, 0, method_name)
+
+    valid_calculations.sort(key=get_sort_key)
+
     nd_list = []
     seen_nd = set()
-
-    for calc in calculations:
-        if not check_method_name(calc.research_method.name, test_objects):
-            continue
-
+    for calc in valid_calculations:
         nd_code = calc.research_method.nd_code or ""
         nd_name = calc.research_method.nd_name or ""
         nd_key = (nd_code, nd_name)
@@ -2394,7 +2513,6 @@ async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> Respons
             protocol_number_str = str(protocol.test_protocol_number).strip()
             if protocol_number_str:
                 protocol_number = protocol_number_str
-                logger.info(f"Используется номер протокола: {protocol_number}")
 
         # Если номер протокола отсутствует, используем ID протокола
         if not protocol_number:

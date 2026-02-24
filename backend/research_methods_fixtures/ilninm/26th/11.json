@@ -4,11 +4,11 @@
     "formula": "1*Xср",
     "measurement_error": {
         "type": "formula",
-        "value": "0.1*Xср"
+        "value": "1*delta"
     },
     "unit": "%",
-    "measurement_method": "СТО 05751745-198-2014",
-    "nd_code": "СТО 05751745-198-2014",
+    "measurement_method": "СТО 05751745-198-2025",
+    "nd_code": "СТО 05751745-198-2025",
     "nd_name": "Конденсат газовый, нефть. Определение асфальтенов, смол, парафина. Методика измерения",
     "input_data": {
         "fields": [
@@ -78,18 +78,60 @@
                 "show_calculation": false,
                 "range_calculation": null,
                 "use_multiple_rounding": false
+            },
+            {
+                "name": "delta",
+                "unit": "%",
+                "formula": "0",
+                "description": "Δ",
+                "show_calculation": true,
+                "range_calculation": {
+                    "ranges": [
+                        {
+                            "formula": "Xср*(8.17/Xср+3.08)*0.01",
+                            "condition": "(Xср>=0.1) and (Xср<=5)"
+                        }
+                    ]
+                },
+                "use_multiple_rounding": false
+            },
+            {
+                "name": "r",
+                "unit": "%",
+                "formula": "0",
+                "description": "Повторяемость",
+                "show_calculation": true,
+                "range_calculation": {
+                    "ranges": [
+                        {
+                            "formula": "2.77*(2.07+2.36/Xср)*Xср*0.01",
+                            "condition": "(Xср>=0.1) and (Xср<=5)"
+                        }
+                    ]
+                },
+                "use_multiple_rounding": false
             }
         ]
     },
     "convergence_conditions": {
         "formulas": [
             {
-                "formula": "abs(X₁-X₂)<=Xср*0.05",
+                "formula": "abs(X₁-X₂)<=r",
                 "convergence_value": "satisfactory"
             },
             {
-                "formula": "abs(X₁-X₂)>Xср*0.05",
+                "formula": "abs(X₁-X₂)>r",
                 "convergence_value": "unsatisfactory"
+            },
+            {
+                "formula": "Xср>=10.1",
+                "custom_value": "более 10,0",
+                "convergence_value": "custom"
+            },
+            {
+                "formula": "Xср<0.5",
+                "custom_value": "менее 0,5",
+                "convergence_value": "custom"
             }
         ]
     },

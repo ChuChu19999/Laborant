@@ -62,11 +62,8 @@ def copy_row_with_styles(
     Копирует строку с сохранением стилей из исходного листа в целевой.
     """
     try:
-        logger.info(f"Начинаем копирование строки {source_row} в строку {target_row}")
-
         # Получаем максимальное количество столбцов
         max_col = source_sheet.max_column
-        logger.info(f"Максимальное количество столбцов: {max_col}")
 
         # Копируем каждую ячейку в строке
         for col in range(1, max_col + 1):
@@ -82,8 +79,6 @@ def copy_row_with_styles(
                     f"Ошибка при копировании ячейки [{source_row}, {col}]: {str(cell_error)}"
                 )
                 continue
-
-        logger.info(f"Успешно скопирована строка {source_row} -> {target_row}")
 
     except Exception as e:
         logger.error(f"Ошибка при копировании строки {source_row}: {str(e)}")
@@ -249,10 +244,6 @@ def adjust_cell_height_if_needed(sheet, row, col, text, min_height_pixels=35):
                     sheet, row
                 )
             sheet.row_dimensions[row].height = new_height_points
-
-            logger.info(
-                f"Увеличена высота ячейки [{row}, {col}] с {current_height_pixels:.1f} до {new_height_pixels:.1f} пикселей"
-            )
             return True
 
         return False
@@ -294,10 +285,6 @@ def adjust_row_height_for_text(sheet, row, text_columns):
                     sheet, row
                 )
             sheet.row_dimensions[row].height = new_height_points
-
-            logger.info(
-                f"Увеличена высота строки {row} с {current_height_pixels:.1f} до 35.0 пикселей"
-            )
             return True
 
         return False
@@ -346,23 +333,14 @@ def check_method_name(method_name, test_objects):
     if "нефть" in method_lower and not any(
         "нефть" in obj for obj in test_objects_lower
     ):
-        logger.info(
-            f"Метод '{method_name}' содержит слово 'нефть', но в объектах испытаний нет нефти"
-        )
         return False
 
     # Если в методе есть "конденсат", проверяем наличие конденсата в объектах испытаний
     if "конденсат" in method_lower:
         has_condensate = any("конденсат" in obj for obj in test_objects_lower)
         if has_condensate:
-            logger.info(
-                f"Метод '{method_name}' подходит для объектов испытаний (найден конденсат)"
-            )
             return True
         else:
-            logger.info(
-                f"Метод '{method_name}' содержит слово 'конденсат', но в объектах испытаний нет конденсата"
-            )
             return False
     return True
 

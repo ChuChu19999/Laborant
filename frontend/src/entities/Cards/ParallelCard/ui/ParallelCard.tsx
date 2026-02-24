@@ -89,10 +89,12 @@ const ParallelCard: React.FC<ParallelCardProps> = ({
       e.code === 'Period'
     ) {
       // Получаем текущее значение поля
+      const currentField = cardFields[currentFieldIndex];
+      if (!currentField) return;
       const formFieldName =
-        cardFields[currentFieldIndex].card_index && cardFields[currentFieldIndex].card_index > 1
-          ? `${methodId}_${cardFields[currentFieldIndex].name}_card_${cardFields[currentFieldIndex].card_index}`
-          : `${methodId}_${cardFields[currentFieldIndex].name}`;
+        currentField.card_index && currentField.card_index > 1
+          ? `${methodId}_${currentField.name}_card_${currentField.card_index}`
+          : `${methodId}_${currentField.name}`;
       const currentValue = formValues[formFieldName]?.toString() || '';
 
       // Блокируем только если это явно буква кириллицы (например, "б", "ю" и другие)
@@ -116,10 +118,12 @@ const ParallelCard: React.FC<ParallelCardProps> = ({
     // Проверка на минус: разрешаем только один минус и только в начале
     if (e.key === '-' || e.code === 'Minus' || e.code === 'NumpadSubtract') {
       // Получаем текущее значение поля
+      const currentField = cardFields[currentFieldIndex];
+      if (!currentField) return;
       const formFieldName =
-        cardFields[currentFieldIndex].card_index && cardFields[currentFieldIndex].card_index > 1
-          ? `${methodId}_${cardFields[currentFieldIndex].name}_card_${cardFields[currentFieldIndex].card_index}`
-          : `${methodId}_${cardFields[currentFieldIndex].name}`;
+        currentField.card_index && currentField.card_index > 1
+          ? `${methodId}_${currentField.name}_card_${currentField.card_index}`
+          : `${methodId}_${currentField.name}`;
       const currentValue = formValues[formFieldName]?.toString() || '';
       const inputElement = e.target as HTMLInputElement;
       const cursorPosition = inputElement.selectionStart || 0;
@@ -199,7 +203,7 @@ const ParallelCard: React.FC<ParallelCardProps> = ({
                   value={fieldValue}
                   disabled={lockedMethods[methodId] || shouldDisableField}
                   onChange={e => {
-                    if (shouldDisableField) {
+                    if (shouldDisableField || lockedMethods[methodId]) {
                       return;
                     }
 
@@ -273,7 +277,7 @@ const ParallelCard: React.FC<ParallelCardProps> = ({
                   }}
                   onKeyDown={e => handleKeyDown(e, fieldIndex, fields)}
                   onPaste={e => {
-                    if (shouldDisableField) {
+                    if (shouldDisableField || lockedMethods[methodId]) {
                       e.preventDefault();
                       return;
                     }

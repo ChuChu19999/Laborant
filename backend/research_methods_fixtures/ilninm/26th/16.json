@@ -114,6 +114,11 @@
             {
                 "formula": "(2*abs(C₁-C₂)*100)/(C₁+C₂)>r",
                 "convergence_value": "unsatisfactory"
+            },
+            {
+                "formula": "Cср<0.1",
+                "custom_value": "менее 0,1",
+                "convergence_value": "custom"
             }
         ]
     },

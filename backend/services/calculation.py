@@ -458,8 +458,10 @@ def evaluate_formula(
 
                 if any_or_condition_met:
                     # Если условие выполняется, вычисляем формулу из диапазона
+                    range_formula = _replace_subscript_digits(range_item["formula"])
+                    range_formula = range_formula.replace("×", "*").replace("÷", "/")
                     result = float(
-                        eval(range_item["formula"], {"__builtins__": None}, safe_dict)
+                        eval(range_formula, {"__builtins__": None}, safe_dict)
                     )
                     return Decimal(str(result))
 

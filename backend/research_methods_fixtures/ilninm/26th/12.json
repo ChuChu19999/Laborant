@@ -48,12 +48,22 @@
             {
                 "formula": "abs(T₁-T₂)>0.2",
                 "convergence_value": "unsatisfactory"
+            },
+                        {
+                "formula": "(T₁+T₂)/2>65",
+                "custom_value": "более 65",
+                "convergence_value": "custom"
+            },
+            {
+                "formula": "(T₁+T₂)/2<45",
+                "custom_value": "менее 45",
+                "convergence_value": "custom"
             }
         ]
     },
     "is_deleted": false,
     "rounding_type": "decimal",
-    "rounding_decimal": 1,
+    "rounding_decimal": 2,
     "is_active": true,
     "is_group_member": false,
     "group_name": ""

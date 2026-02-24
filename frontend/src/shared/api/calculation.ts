@@ -6,12 +6,18 @@ export interface CalculateRequest {
   equipment_data?: number[];
 }
 
+export interface IntermediateResultValue {
+  value: string;
+  reference: string;
+}
+
 export interface CalculationResult {
   result?: string;
+  result_reference?: string;
   measurement_error?: string;
   unit?: string;
   convergence?: string;
-  intermediate_results?: Record<string, string>;
+  intermediate_results?: Record<string, string | IntermediateResultValue>;
   conditions_info?: Array<{
     satisfied: boolean;
     formula?: string;

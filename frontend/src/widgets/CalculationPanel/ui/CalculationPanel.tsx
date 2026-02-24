@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Form, message } from 'antd';
+import { Checkbox, Form, message } from 'antd';
 import { BiHelpCircle } from 'react-icons/bi';
 import { CalculationResultCard, ParallelCard } from '../../../entities/Cards';
 import { FormItem } from '../../../features/FormItems';
@@ -64,6 +64,7 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
   const [calculationResults, setCalculationResults] = useState<Record<number, CalculationResult[]>>(
     {}
   );
+  const [waxPrecipitation, setWaxPrecipitation] = useState(false);
   const inputRefs = useRef<Record<string, InputRef | null>>({});
   const calculateMutation = useCalculate();
   const isCalculating = calculateMutation.isPending;
@@ -81,6 +82,7 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
     if (selectedMethodId && currentMethod) {
       form.resetFields();
       setFormValues({});
+      setWaxPrecipitation(false);
       setCalculationResults(prev => {
         const newResults = { ...prev };
         delete newResults[selectedMethodId];
@@ -89,6 +91,7 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
     } else if (!selectedMethodId) {
       form.resetFields();
       setFormValues({});
+      setWaxPrecipitation(false);
     }
   }, [selectedMethodId, currentMethod, form]);
 
@@ -197,6 +200,26 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
     try {
       const inputData = prepareInputData(currentMethod);
 
+      // Специальная обработка для метода "При 20 ℃" с выпадением парафина
+      if (currentMethod.name === 'При 20 ℃' && waxPrecipitation) {
+        const result: CalculationResult = {
+          result: 'выпадение парафина',
+          unit: currentMethod.unit,
+          measurement_error: undefined,
+          convergence: 'satisfactory',
+        };
+
+        setCalculationResults(prev => ({
+          ...prev,
+          [currentMethod.id]: [result],
+        }));
+
+        if (onCalculate) {
+          onCalculate(result, inputData, laboratoryActivityDate);
+        }
+        return;
+      }
+
       const response = await calculateMutation.mutateAsync({
         input_data: inputData,
         research_method_id: currentMethod.id,
@@ -211,10 +234,19 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
           : undefined,
         intermediate_results: response.intermediate_results
           ? Object.fromEntries(
-              Object.entries(response.intermediate_results).map(([key, value]) => [
-                key,
-                formatNumberForDisplay(value),
-              ])
+              Object.entries(response.intermediate_results).map(([key, value]) => {
+                // Если значение - объект с value и reference, оставляем как есть
+                if (
+                  typeof value === 'object' &&
+                  value !== null &&
+                  'value' in value &&
+                  'reference' in value
+                ) {
+                  return [key, value];
+                }
+                // Иначе применяем formatNumberForDisplay (для строк и чисел)
+                return [key, formatNumberForDisplay(value as string | number)];
+              })
             )
           : undefined,
       };
@@ -299,6 +331,7 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
 
   const fields = currentMethod.input_data?.fields || [];
   const isMassFractionOilMethod = currentMethod.name === 'Массовая доля нефти';
+  const isTemperature20Method = currentMethod.name === 'При 20 ℃';
   const colorField = isMassFractionOilMethod ? fields.find(field => field.name === 'Цвет') : null;
   const fieldsWithoutColor = isMassFractionOilMethod
     ? fields.filter(field => field.name !== 'Цвет')
@@ -350,6 +383,21 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
 
           {groupSelector}
 
+          {isTemperature20Method && (
+            <div className="wax-precipitation-wrapper">
+              <FormItem name={`${currentMethod.id}_wax_precipitation`}>
+                <Checkbox
+                  checked={waxPrecipitation}
+                  onChange={e => {
+                    setWaxPrecipitation(e.target.checked);
+                  }}
+                >
+                  Выпадение парафина
+                </Checkbox>
+              </FormItem>
+            </div>
+          )}
+
           <div className="calculation-panel-cards-wrapper">
             {cardIndices.map(cardIndex => {
               const cardFields = fieldsWithoutColor.filter(field => field.card_index === cardIndex);
@@ -366,6 +414,9 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
                   setFormValues={setFormValues}
                   inputRefs={inputRefs}
                   currentMethod={currentMethod}
+                  lockedMethods={
+                    isTemperature20Method && waxPrecipitation ? { [currentMethod.id]: true } : {}
+                  }
                 />
               );
             })}
@@ -405,6 +456,7 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
                     placeholder="Выберите цвет"
                     allowClear={false}
                     className="research-method-select parallel-card-select"
+                    disabled={isTemperature20Method && waxPrecipitation}
                   >
                     {colorOptions.map((option, index) => (
                       <Option key={index} value={option || ''}>
