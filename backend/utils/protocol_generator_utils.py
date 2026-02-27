@@ -14,7 +14,8 @@ PIXELS_TO_POINTS = 0.75  # Коэффициент перевода пиксел�
 def format_decimal_ru(value) -> str:
     """
     Форматирует десятичное число для отображения в русском формате.
-    Заменяет точку на запятую в десятичных числах.
+    Заменяет точку на запятую, для отрицательных подставляет слово "минус",
+    для целых не добавляет дробную часть (,0).
     """
     if value is None:
         return ""
@@ -30,7 +31,15 @@ def format_decimal_ru(value) -> str:
                 return value
 
         if isinstance(value, (int, float)):
-            return str(value).replace(".", ",")
+            num = float(value)
+            is_negative = num < 0
+            abs_num = abs(num)
+            is_integer = abs_num == int(abs_num)
+            if is_integer:
+                num_str = str(int(abs_num))
+            else:
+                num_str = str(abs_num).replace(".", ",")
+            return f"минус {num_str}" if is_negative else num_str
 
         return str(value)
     except Exception:

@@ -1180,6 +1180,8 @@ def process_fractional_composition_oil(
 
     current_row += 1
 
+    fractional_output_header_done = False
+
     for i, field in enumerate(fractional_fields):
         # Проверяем оба варианта ключа (с точкой и с запятой)
         field_value = result_data.get(field, "")
@@ -1190,6 +1192,43 @@ def process_fractional_composition_oil(
 
         if field_value is None or field_value == "" or field_value == "-":
             continue
+
+        is_output_fraction_field = "Выход фракций до" in field
+        if is_output_fraction_field and not fractional_output_header_done:
+            # Строка-заголовок: "Выход фракций до температуры: %"
+            copy_row_formatting(
+                template_sheet,
+                current_sheet,
+                template_row_num,
+                current_row,
+                sheet_merged_cells_map,
+            )
+            for col in range(1, template_sheet.max_column + 1):
+                cell = current_sheet.cell(row=current_row, column=col)
+                if not cell.value:
+                    continue
+                value = str(cell.value)
+                if "{id_method}" in value:
+                    cell.value = ""
+                elif "{name_method}" in value:
+                    cell.value = "Выход фракций до температуры:"
+                elif "{unit}" in value:
+                    cell.value = "%"
+                elif "{result}" in value or "{measurement_error}" in value:
+                    cell.value = value.replace("{result}", "").replace(
+                        "{measurement_error}", ""
+                    )
+                elif "{measurement_method}" in value:
+                    cell.value = ""
+            for col in range(1, template_sheet.max_column + 1):
+                cell = current_sheet.cell(row=current_row, column=col)
+                if cell.border:
+                    new_border = copy(cell.border)
+                    new_border.top = None
+                    new_border.bottom = None
+                    cell.border = new_border
+            current_row += 1
+            fractional_output_header_done = True
 
         copy_row_formatting(
             template_sheet,
@@ -1257,7 +1296,7 @@ def process_fractional_composition_oil(
                 ):
                     cell.value = "°C"
                 elif "Выход фракций до" in field:
-                    cell.value = "%"
+                    cell.value = ""
                 else:
                     cell.value = ""
             elif "{measurement_method}" in value:

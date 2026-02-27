@@ -27,9 +27,18 @@ const formatNumberWithMinus = (value: string): string => {
 
 const formatInputData = (
   inputData: Record<string, unknown>,
-  methodName?: string
+  methodName?: string,
+  method?: ResearchMethod
 ): React.ReactNode => {
   if (!inputData || typeof inputData !== 'object') return '-';
+
+  const unitByName: Record<string, string> =
+    method?.input_data?.fields?.reduce<Record<string, string>>((acc, field) => {
+      if (field.name && field.unit) {
+        acc[field.name] = field.unit;
+      }
+      return acc;
+    }, {}) || {};
 
   // Проверяем, является ли это фракционным составом
   const isFractionalComposition =
@@ -94,6 +103,7 @@ const formatInputData = (
               return (
                 <div key={field} className="calculations-table-fractional-input-item">
                   {field} = {formattedValue}
+                  {unitByName[field] ? ` ${unitByName[field]}` : ''}
                 </div>
               );
             })}
@@ -144,6 +154,7 @@ const formatInputData = (
         return (
           <div key={index} className="calculations-table-input-data-item">
             {key} = {formattedValue}
+            {unitByName[key] ? ` ${unitByName[key]}` : ''}
           </div>
         );
       })}
@@ -332,6 +343,7 @@ const CalculationsTable: React.FC<CalculationsTableProps> = ({
   const [employeesMap, setEmployeesMap] = useState<Record<string, { fullName: string }>>({});
   const [methodDisplayNames, setMethodDisplayNames] = useState<Record<number, string>>({});
   const [methodSortOrders, setMethodSortOrders] = useState<Record<number, number | null>>({});
+  const [methodsById, setMethodsById] = useState<Record<number, ResearchMethod>>({});
 
   // Загружаем информацию о сотрудниках по массиву executor hashMd5
   useEffect(() => {
@@ -378,11 +390,13 @@ const CalculationsTable: React.FC<CalculationsTableProps> = ({
 
       const currentNames: Record<number, string> = {};
       const currentOrders: Record<number, number | null> = {};
+      const currentMethods: Record<number, ResearchMethod> = {};
 
       await Promise.all(
         uniqueMethodIds.map(async id => {
           try {
             const method: ResearchMethod = await researchApi.getResearchMethod(id);
+            currentMethods[id] = method;
 
             const baseName = method.name || '';
             const lowerName = baseName.toLowerCase();
@@ -423,6 +437,7 @@ const CalculationsTable: React.FC<CalculationsTableProps> = ({
 
       setMethodDisplayNames(prev => ({ ...prev, ...currentNames }));
       setMethodSortOrders(prev => ({ ...prev, ...currentOrders }));
+      setMethodsById(prev => ({ ...prev, ...currentMethods }));
     };
 
     if (data.length > 0) {
@@ -484,7 +499,13 @@ const CalculationsTable: React.FC<CalculationsTableProps> = ({
         accessorKey: 'input_data',
         header: 'Входные данные',
         cell: ({ row }) =>
-          formatInputData(row.original.input_data, row.original.research_method?.name),
+          formatInputData(
+            row.original.input_data,
+            row.original.research_method?.name,
+            typeof row.original.research_method_id === 'number'
+              ? methodsById[row.original.research_method_id]
+              : undefined
+          ),
         enableSorting: false,
         size: 200,
       },
@@ -524,7 +545,82 @@ const CalculationsTable: React.FC<CalculationsTableProps> = ({
       {
         accessorKey: 'unit',
         header: 'Ед. изм.',
-        cell: ({ row }) => row.original.unit || '-',
+        cell: ({ row }) => {
+          const unit = row.original.unit;
+          const methodName = row.original.research_method?.name;
+          const result = row.original.result;
+          const methodId = row.original.research_method_id;
+
+          const isFractionalComposition =
+            methodName && methodName.toLowerCase().includes('фракционный состав');
+
+          if (isFractionalComposition && result && typeof methodId === 'number') {
+            const method = methodsById[methodId];
+            if (!method) {
+              return unit || '-';
+            }
+
+            try {
+              const parsed = typeof result === 'string' ? JSON.parse(result) : (result as unknown);
+              if (!parsed || typeof parsed !== 'object') {
+                return unit || method.unit || '-';
+              }
+
+              const entries = Object.entries(parsed as Record<string, unknown>);
+              if (entries.length === 0) {
+                return unit || method.unit || '-';
+              }
+
+              const inputFields = method.input_data?.fields || [];
+
+              const getUnitForKey = (key: string): string => {
+                const directField = inputFields.find(f => f.name === key && f.unit);
+                if (directField?.unit) {
+                  return directField.unit;
+                }
+
+                const parts = key.split(' ');
+                if (parts.length >= 2) {
+                  const tailName = parts.slice(-2).join(' ');
+                  const tailField = inputFields.find(f => f.name === tailName && f.unit);
+                  if (tailField?.unit) {
+                    return tailField.unit;
+                  }
+                }
+
+                return unit || method.unit || '-';
+              };
+
+              const unitValues = entries
+                .map(([key, value]) => {
+                  const correctedKey = key.replace(/н,к\./g, 'н.к.');
+                  if (value === null || value === undefined || value === '-') {
+                    return null;
+                  }
+                  return getUnitForKey(correctedKey);
+                })
+                .filter((u): u is string => u !== null);
+
+              if (unitValues.length === 0) {
+                return unit || method.unit || '-';
+              }
+
+              return (
+                <div className="calculations-table-fractional-error-container">
+                  {unitValues.map((u, index) => (
+                    <div key={index} className="calculations-table-fractional-error-item">
+                      {u}
+                    </div>
+                  ))}
+                </div>
+              );
+            } catch {
+              return unit || method.unit || '-';
+            }
+          }
+
+          return unit || '-';
+        },
         enableSorting: false,
         size: 35,
       },

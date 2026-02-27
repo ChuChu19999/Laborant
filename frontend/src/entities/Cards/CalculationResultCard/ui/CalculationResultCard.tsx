@@ -55,6 +55,12 @@ interface CalculationResultCardProps {
     intermediate_data?: {
       fields?: IntermediateField[];
     };
+    input_data?: {
+      fields?: Array<{
+        name: string;
+        unit?: string;
+      }>;
+    };
   };
 }
 
@@ -113,6 +119,34 @@ const CalculationResultCard: React.FC<CalculationResultCardProps> = ({ result, c
       return label('');
     }
     return label || '';
+  };
+
+  const getIntermediateUnit = (name: string): string | undefined => {
+    const field = currentMethod?.intermediate_data?.fields?.find(f => f.name === name);
+    if (field?.unit) {
+      return field.unit;
+    }
+
+    const inputFields = currentMethod?.input_data?.fields || [];
+    if (inputFields.length === 0) {
+      return undefined;
+    }
+
+    const directMatch = inputFields.find(f => f.name === name && f.unit);
+    if (directMatch?.unit) {
+      return directMatch.unit;
+    }
+
+    const nameParts = name.split(' ');
+    if (nameParts.length >= 2) {
+      const tailName = nameParts.slice(-2).join(' ');
+      const tailMatch = inputFields.find(f => f.name === tailName && f.unit);
+      if (tailMatch?.unit) {
+        return tailMatch.unit;
+      }
+    }
+
+    return undefined;
   };
 
   const formatIntermediateValue = (
@@ -232,6 +266,7 @@ const CalculationResultCard: React.FC<CalculationResultCardProps> = ({ result, c
           </p>
           {Object.entries(result.intermediate_results).map(([name, value]) => {
             const field = currentMethod?.intermediate_data?.fields?.find(f => f.name === name);
+            const unit = getIntermediateUnit(name);
             return (
               <div key={name} className="calculation-intermediate-item">
                 <div className="calculation-intermediate-name">
@@ -245,9 +280,7 @@ const CalculationResultCard: React.FC<CalculationResultCardProps> = ({ result, c
                 <div className="calculation-intermediate-value-container">
                   <div className="calculation-intermediate-value">
                     {formatIntermediateValue(name, value)}
-                    {field?.unit && (
-                      <span className="calculation-intermediate-unit"> {field.unit}</span>
-                    )}
+                    {unit && <span className="calculation-intermediate-unit"> {unit}</span>}
                   </div>
                 </div>
               </div>

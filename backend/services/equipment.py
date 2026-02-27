@@ -193,7 +193,7 @@ async def create_equipment(
     else:
         latest_query = latest_query.where(Equipment.department_id.is_(None))
 
-    latest_query = latest_query.order_by(Equipment.version.desc())
+    latest_query = latest_query.order_by(Equipment.version.desc()).limit(1)
     latest = await db.execute(latest_query)
     latest_equipment = latest.scalar_one_or_none()
 

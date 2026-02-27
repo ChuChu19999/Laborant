@@ -312,6 +312,32 @@ async def calculate_result(
                     f"Не удалось определить количество знаков: {str(e)}, используем настройки метода"
                 )
                 result_decimal_places = research_method["rounding_decimal"]
+        elif research_method["rounding_type"] == "significant":
+            try:
+                logger.info(
+                    f"Предварительное вычисление результата (significant): {research_method['formula']}"
+                )
+                result_unrounded_for_rounding = evaluate_formula(
+                    research_method["formula"], variables
+                )
+                result_temp = round_result(
+                    result_unrounded_for_rounding,
+                    research_method["rounding_type"],
+                    research_method["rounding_decimal"],
+                )
+                result_decimal_places = (
+                    len(str(result_temp).split(".")[-1])
+                    if "." in str(result_temp)
+                    else 0
+                )
+                logger.info(
+                    f"Количество знаков после запятой в результате (significant): {result_decimal_places}"
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Не удалось определить количество знаков (significant): {str(e)}"
+                )
+                result_decimal_places = research_method.get("rounding_decimal", 3)
 
         # Округляем промежуточные результаты до количества знаков результата
         variables_rounded = {k: v for k, v in input_data.items() if k != "Цвет"}

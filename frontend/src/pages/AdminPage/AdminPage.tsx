@@ -635,20 +635,12 @@ const AdminPage: React.FC = () => {
       }
 
       const currentMethodFields = currentMethod.input_data.fields.map(field => field.name);
-
-      // Проверяем, что все поля текущего метода есть в расчете
-      const missingFields = currentMethodFields.filter(
-        field => !calculationInputFields.includes(field)
-      );
-      if (missingFields.length > 0) {
-        throw new Error(
-          `Структура метода изменилась. Отсутствуют поля: ${missingFields.join(', ')}`
-        );
-      }
+      const uniqueCurrentMethodFields = Array.from(new Set(currentMethodFields));
+      const uniqueCalculationInputFields = Array.from(new Set(calculationInputFields));
 
       // Проверяем, что все поля из расчета есть в текущем методе (исключаем поля фракционного состава)
-      const extraFields = calculationInputFields.filter(
-        field => !currentMethodFields.includes(field) && field !== '_fractional_data'
+      const extraFields = uniqueCalculationInputFields.filter(
+        field => !uniqueCurrentMethodFields.includes(field) && field !== '_fractional_data'
       );
       if (extraFields.length > 0) {
         throw new Error(

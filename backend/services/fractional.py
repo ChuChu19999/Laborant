@@ -390,6 +390,7 @@ def calculate_fractional_composition_oil(input_data: Dict[str, Any]) -> Dict[str
             card_2_data = {}
 
             parallel_1_fields = [
+                "Pатм",
                 "Температура н.к.",
                 "10% отгона при температуре",
                 "50% отгона при температуре",
@@ -420,6 +421,10 @@ def calculate_fractional_composition_oil(input_data: Dict[str, Any]) -> Dict[str
                     elif field_count[key] == 2:
                         card_2_data[key] = value
 
+        # Получаем давление для первой и второй параллели
+        patm1 = card_1_data.get("Pатм", "0")
+        patm2 = card_2_data.get("Pатм", "0")
+
         # Получаем данные для первой и второй параллели
         temp_fields_1 = [
             ("Температура н.к.", card_1_data.get("Температура н.к.", "0")),
@@ -444,6 +449,31 @@ def calculate_fractional_composition_oil(input_data: Dict[str, Any]) -> Dict[str
                 card_2_data.get("50% отгона при температуре", "0"),
             ),
         ]
+
+        # Поправка на атмосферное давление для температур (как у конденсата)
+        corrected_temps_1 = {}
+        for field_name, temp_value in temp_fields_1:
+            if temp_value and temp_value != "0" and temp_value.strip():
+                try:
+                    temp_float = float(str(temp_value).replace(",", "."))
+                    correction = get_temperature_correction(temp_float, patm1)
+                    corrected_temps_1[field_name] = temp_float + correction
+                except (ValueError, TypeError):
+                    corrected_temps_1[field_name] = temp_value
+            else:
+                corrected_temps_1[field_name] = temp_value
+
+        corrected_temps_2 = {}
+        for field_name, temp_value in temp_fields_2:
+            if temp_value and temp_value != "0" and temp_value.strip():
+                try:
+                    temp_float = float(str(temp_value).replace(",", "."))
+                    correction = get_temperature_correction(temp_float, patm2)
+                    corrected_temps_2[field_name] = temp_float + correction
+                except (ValueError, TypeError):
+                    corrected_temps_2[field_name] = temp_value
+            else:
+                corrected_temps_2[field_name] = temp_value
 
         output_fields_1 = [
             ("100 ℃", card_1_data.get("100 ℃", "0")),
@@ -477,10 +507,11 @@ def calculate_fractional_composition_oil(input_data: Dict[str, Any]) -> Dict[str
             ("300 ℃", card_2_data.get("300 ℃", "0")),
         ]
 
-        # Рассчитываем средние значения температур
+        # Усредняем скорректированные температуры по двум параллелям
         average_temps = {}
-        for field_name, val1 in temp_fields_1:
-            val2 = temp_fields_2[temp_fields_1.index((field_name, val1))][1]
+        for field_name in corrected_temps_1.keys():
+            val1 = corrected_temps_1.get(field_name, 0)
+            val2 = corrected_temps_2.get(field_name, 0)
 
             if (val1 and val1 != "0" and str(val1).strip()) and (
                 val2 and val2 != "0" and str(val2).strip()
