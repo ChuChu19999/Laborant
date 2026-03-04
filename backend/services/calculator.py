@@ -198,6 +198,13 @@ async def calculate_result(
         # Исключаем поле "Цвет" из переменных для вычисления формул (это строка, не число)
         variables = {k: v for k, v in input_data.items() if k != "Цвет"}
 
+        # Количество знаков для подстановки промежуточных в следующие формулы
+        intermediate_decimal_places = None
+        if research_method["rounding_type"] == "decimal":
+            intermediate_decimal_places = research_method.get("rounding_decimal")
+        elif research_method["rounding_type"] == "significant":
+            intermediate_decimal_places = research_method.get("rounding_decimal", 3)
+
         for field in research_method["intermediate_data"]["fields"]:
             # Пропускаем поля с пустыми именами или формулами
             if not field["name"].strip() or not field["formula"].strip():
@@ -267,13 +274,23 @@ async def calculate_result(
                 logger.info(
                     f"Промежуточный результат {field['name']} = {intermediate_value}"
                 )
-                # Сохраняем неокругленное значение
+                # Сохраняем неокругленное значение (для отображения value и справки)
                 intermediate_results_unrounded[field["name"]] = intermediate_value
                 # Добавляем результат в словарь только если show_calculation = true
                 if field.get("show_calculation", True):
                     intermediate_results[field["name"]] = str(intermediate_value)
-                # В любом случае добавляем значение в переменные для дальнейших расчетов
-                variables[field["name"]] = intermediate_value
+                # В переменные для последующих формул подставляем округленное значение (как на экране)
+                if intermediate_decimal_places is not None and isinstance(
+                    intermediate_value, (int, float, Decimal)
+                ):
+                    d = Decimal(str(float(intermediate_value)))
+                    value_for_next = d.quantize(
+                        Decimal("0.1") ** intermediate_decimal_places,
+                        rounding=ROUND_HALF_UP,
+                    )
+                    variables[field["name"]] = value_for_next
+                else:
+                    variables[field["name"]] = intermediate_value
             except Exception as e:
                 logger.error(
                     f"Ошибка при вычислении промежуточного результата {field['name']}: {str(e)}"
