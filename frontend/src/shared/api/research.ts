@@ -196,6 +196,11 @@ export const researchApi = {
     return response.data;
   },
 
+  getResearchMethodGroup: async (id: number): Promise<ResearchMethodGroup> => {
+    const response = await axiosInstance.get(`/api/research-method-groups/${id}/`);
+    return response.data;
+  },
+
   createResearchMethodGroup: async (
     data: ResearchMethodGroupCreate
   ): Promise<ResearchMethodGroup> => {

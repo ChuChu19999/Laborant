@@ -101,17 +101,33 @@
   font-weight: 500;
 }
 
+.method-list-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.method-list-item-edit,
 .method-list-item-delete {
   background: none;
   border: none;
   cursor: pointer;
   padding: 2px;
-  font-size: 18px;
+  font-size: 21px;
   color: #666;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: color 0.2s ease;
+}
+
+.method-list-item-edit .anticon {
+  font-size: 13px;
+}
+
+.method-list-item-edit:hover {
+  color: #2c5282;
 }
 
 .method-list-item-delete:hover {

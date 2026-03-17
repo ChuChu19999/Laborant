@@ -691,7 +691,7 @@ const CalculationsTable: React.FC<CalculationsTableProps> = ({
         size: 95,
       },
     ],
-    [employeesMap, methodDisplayNames, onDelete]
+    [employeesMap, methodDisplayNames, methodsById, onDelete]
   );
 
   const table = useReactTable<Calculation>({

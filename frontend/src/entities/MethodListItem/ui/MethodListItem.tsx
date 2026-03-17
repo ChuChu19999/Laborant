@@ -1,4 +1,5 @@
 import React from 'react';
+import { EditOutlined } from '@ant-design/icons';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import './MethodListItem.css';
 
@@ -7,6 +8,7 @@ interface MethodListItemProps {
   isActive?: boolean;
   isEditable?: boolean;
   onClick?: () => void;
+  onEdit?: (e: React.MouseEvent) => void;
   onDelete?: (e: React.MouseEvent) => void;
   dragHandleProps?: React.HTMLAttributes<HTMLDivElement>;
 }
@@ -16,6 +18,7 @@ const MethodListItem: React.FC<MethodListItemProps> = ({
   isActive = false,
   isEditable = false,
   onClick,
+  onEdit,
   onDelete,
   dragHandleProps,
 }) => {
@@ -52,21 +55,39 @@ const MethodListItem: React.FC<MethodListItemProps> = ({
         <div className="method-list-item-content">
           <span className="method-list-item-name">{displayName}</span>
         </div>
-        {onDelete && (
-          <button
-            className="method-list-item-delete"
-            onClick={e => {
-              e.stopPropagation();
-              onDelete(e);
-            }}
-            onPointerDown={e => {
-              e.stopPropagation();
-            }}
-            type="button"
-          >
-            ×
-          </button>
-        )}
+        <div className="method-list-item-actions">
+          {onEdit && (
+            <button
+              className="method-list-item-edit"
+              onClick={e => {
+                e.stopPropagation();
+                onEdit(e);
+              }}
+              onPointerDown={e => {
+                e.stopPropagation();
+              }}
+              type="button"
+              title="Редактировать метод"
+            >
+              <EditOutlined />
+            </button>
+          )}
+          {onDelete && (
+            <button
+              className="method-list-item-delete"
+              onClick={e => {
+                e.stopPropagation();
+                onDelete(e);
+              }}
+              onPointerDown={e => {
+                e.stopPropagation();
+              }}
+              type="button"
+            >
+              ×
+            </button>
+          )}
+        </div>
       </div>
     );
   }

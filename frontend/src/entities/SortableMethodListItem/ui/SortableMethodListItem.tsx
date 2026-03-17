@@ -10,6 +10,7 @@ interface SortableMethodListItemProps {
   isActive: boolean;
   isEditable: boolean;
   onClick: () => void;
+  onEdit?: () => void;
   onDelete: () => void;
 }
 
@@ -19,11 +20,18 @@ const SortableMethodListItem: React.FC<SortableMethodListItemProps> = ({
   isActive,
   isEditable,
   onClick,
+  onEdit,
   onDelete,
 }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
   });
+
+  const handleEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    onEdit?.();
+  };
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -48,6 +56,7 @@ const SortableMethodListItem: React.FC<SortableMethodListItemProps> = ({
         isActive={isActive}
         isEditable={isEditable}
         onClick={onClick}
+        onEdit={onEdit ? handleEdit : undefined}
         onDelete={handleDelete}
         dragHandleProps={{ ...attributes, ...listeners }}
       />

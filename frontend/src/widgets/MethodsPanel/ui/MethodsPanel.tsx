@@ -35,6 +35,7 @@ interface MethodsPanelProps {
   showAddButton: boolean;
   onAddMethod: () => void;
   onMethodClick: (itemId: number, itemType: 'method' | 'group') => void;
+  onMethodEdit?: (methodId: number) => void;
   onMethodDelete: (itemId: number, itemType: 'method' | 'group') => void;
   onDragStart: (event: DragStartEvent) => void;
   onDragEnd: (event: DragEndEvent) => void;
@@ -50,6 +51,7 @@ const MethodsPanel: React.FC<MethodsPanelProps> = ({
   showAddButton,
   onAddMethod,
   onMethodClick,
+  onMethodEdit,
   onMethodDelete,
   onDragStart,
   onDragEnd,
@@ -117,6 +119,7 @@ const MethodsPanel: React.FC<MethodsPanelProps> = ({
                         isActive={isActive}
                         isEditable={true}
                         onClick={() => onMethodClick(method.id, 'method')}
+                        onEdit={onMethodEdit ? () => onMethodEdit(method.id) : undefined}
                         onDelete={() => onMethodDelete(method.id, 'method')}
                       />
                     );
@@ -126,6 +129,8 @@ const MethodsPanel: React.FC<MethodsPanelProps> = ({
                       group.methods.some(gm => gm.id === m.id)
                     );
                     const isActive = groupMethods.some(m => selectedMethodId === m.id);
+                    const selectedInGroup =
+                      selectedMethodId != null && groupMethods.some(m => m.id === selectedMethodId);
                     return (
                       <SortableMethodListItem
                         key={`group-${group.id}`}
@@ -134,6 +139,11 @@ const MethodsPanel: React.FC<MethodsPanelProps> = ({
                         isActive={isActive}
                         isEditable={true}
                         onClick={() => onMethodClick(group.id, 'group')}
+                        onEdit={
+                          onMethodEdit && selectedInGroup && selectedMethodId != null
+                            ? () => onMethodEdit(selectedMethodId)
+                            : undefined
+                        }
                         onDelete={() => onMethodDelete(group.id, 'group')}
                       />
                     );

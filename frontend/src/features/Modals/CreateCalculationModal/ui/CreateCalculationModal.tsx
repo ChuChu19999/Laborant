@@ -6,7 +6,7 @@ import { fixturesApi, type FixtureData } from '../../../../shared/api/fixtures';
 import { researchApi } from '../../../../shared/api/research';
 import { Input, Select } from '../../../../shared/ui/FormItems';
 import { Modal } from '../../../../shared/ui/Modal';
-import type { ResearchMethodCreate } from '../../../../shared/api/research';
+import type { ResearchMethod, ResearchMethodCreate } from '../../../../shared/api/research';
 import type { InputRef } from 'antd';
 import './CreateCalculationModal.css';
 
@@ -40,6 +40,54 @@ interface CreateCalculationModalProps {
   departmentId?: number;
   laboratoryName?: string;
   departmentName?: string;
+  /** Режим редактирования: ID метода для загрузки и замены (старый помечается удалённым, создаётся новая запись). */
+  editMethodId?: number;
+}
+
+function methodToFormData(method: ResearchMethod) {
+  const me = method.measurement_error;
+  const hasRanges = Array.isArray(me?.ranges) && me.ranges.length > 0;
+  const errorType: 'fixed' | 'formula' | 'range' = hasRanges
+    ? 'range'
+    : me?.type === 'formula'
+      ? 'formula'
+      : 'fixed';
+  return {
+    name: method.name,
+    sample_type: Array.isArray(method.sample_type) ? method.sample_type : [],
+    formula: method.formula ?? '',
+    measurement_error: {
+      type: errorType,
+      value: me?.value ?? '',
+      ranges: me?.ranges ?? [],
+    },
+    unit: method.unit ?? '',
+    measurement_method: method.measurement_method ?? '',
+    nd_code: method.nd_code ?? '',
+    nd_name: method.nd_name ?? '',
+    input_data: method.input_data ?? {
+      fields: [{ name: '', description: '', unit: '', card_index: 1 }],
+    },
+    intermediate_data: {
+      fields: (method.intermediate_data?.fields ?? []).map(f => ({
+        name: f.name ?? '',
+        formula: f.formula ?? '',
+        description: f.description ?? '',
+        unit: f.unit ?? '',
+        show_calculation: f.show_calculation ?? true,
+        use_multiple_rounding: f.use_multiple_rounding ?? false,
+        multiple_value: f.multiple_value ?? '',
+        range_calculation: f.range_calculation,
+        use_threshold_table: f.use_threshold_table,
+        threshold_table_values: f.threshold_table_values,
+      })),
+    },
+    convergence_conditions: method.convergence_conditions?.formulas?.length
+      ? method.convergence_conditions
+      : { formulas: [{ formula: '', convergence_value: 'satisfactory' }] },
+    rounding_type: (method.rounding_type as 'decimal' | 'significant') ?? 'decimal',
+    rounding_decimal: method.rounding_decimal ?? 0,
+  };
 }
 
 const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
@@ -50,11 +98,15 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
   departmentId,
   laboratoryName,
   departmentName,
+  editMethodId,
 }) => {
   const spinnerIndicator = <LoadingOutlined style={{ fontSize: 24, color: '#1677ff' }} spin />;
 
+  const isEditMode = editMethodId != null;
   const [activeTab, setActiveTab] = useState<'single' | 'group'>('single');
   const [isAnimating, setIsAnimating] = useState(false);
+  const [isLoadingMethod, setIsLoadingMethod] = useState(false);
+  const [loadedMethod, setLoadedMethod] = useState<ResearchMethod | null>(null);
 
   const [formData, setFormData] = useState<{
     name: string;
@@ -328,15 +380,44 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
     [fixtures]
   );
 
-  useEffect(() => {
-    if (isOpen) {
-      if (activeTab === 'group') {
-        loadAvailableMethods();
-      } else {
-        loadFixtures();
-      }
+  const loadMethodForEdit = useCallback(async () => {
+    if (editMethodId == null) return;
+    try {
+      setIsLoadingMethod(true);
+      const method = await researchApi.getResearchMethod(editMethodId);
+      setLoadedMethod(method);
+      setFormData(methodToFormData(method));
+    } catch (err) {
+      console.error('Ошибка при загрузке метода:', err);
+      message.error('Не удалось загрузить метод исследования');
+    } finally {
+      setIsLoadingMethod(false);
     }
-  }, [isOpen, activeTab, loadAvailableMethods, loadFixtures]);
+  }, [editMethodId]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setLoadedMethod(null);
+      return;
+    }
+    if (isEditMode && editMethodId != null) {
+      loadMethodForEdit();
+      return;
+    }
+    if (activeTab === 'group') {
+      loadAvailableMethods();
+    } else {
+      loadFixtures();
+    }
+  }, [
+    isOpen,
+    isEditMode,
+    editMethodId,
+    activeTab,
+    loadMethodForEdit,
+    loadAvailableMethods,
+    loadFixtures,
+  ]);
 
   const handleGroupDataChange = (field: string, value: unknown) => {
     setGroupData(prev => ({
@@ -962,8 +1043,80 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
     }));
   };
 
+  const buildCreatePayload = (): ResearchMethodCreate => ({
+    name: formData.name,
+    sample_type: formData.sample_type,
+    formula: formData.formula,
+    measurement_error: {
+      type: formData.measurement_error.type === 'range' ? 'fixed' : formData.measurement_error.type,
+      value: formData.measurement_error.value,
+    },
+    unit: formData.unit,
+    measurement_method: formData.measurement_method,
+    nd_code: formData.nd_code,
+    nd_name: formData.nd_name,
+    input_data: formData.input_data,
+    intermediate_data: {
+      fields: formData.intermediate_data.fields.map(field => ({
+        ...field,
+        formula: field.use_threshold_table ? '0' : field.range_calculation ? '0' : field.formula,
+      })),
+    },
+    convergence_conditions:
+      formData.convergence_conditions.formulas.length > 0 &&
+      formData.convergence_conditions.formulas[0].formula
+        ? formData.convergence_conditions
+        : {
+            formulas: [
+              {
+                formula: '',
+                convergence_value: 'satisfactory',
+              },
+            ],
+          },
+    rounding_type: formData.rounding_type,
+    rounding_decimal: formData.rounding_decimal,
+    laboratory_id: laboratoryId,
+    department_id: departmentId,
+  });
+
   const handleSubmit = async () => {
     try {
+      if (isEditMode && loadedMethod) {
+        if (!formData.name.trim()) {
+          message.error('Введите название формулы');
+          return;
+        }
+        if (formData.sample_type.length === 0) {
+          message.error('Выберите хотя бы один тип пробы');
+          return;
+        }
+        const groupId = loadedMethod.groups?.[0]?.id;
+        let groupMethodIds: number[] | null = null;
+        if (groupId != null) {
+          const group = await researchApi.getResearchMethodGroup(groupId);
+          groupMethodIds = group.methods.map(m => m.id);
+        }
+        await researchApi.deleteResearchMethod(editMethodId!);
+        const dataToSend: ResearchMethodCreate = {
+          ...buildCreatePayload(),
+          sort_order: loadedMethod.sort_order ?? undefined,
+          equipment_data_default: loadedMethod.equipment_data_default ?? undefined,
+          laboratory_id: loadedMethod.laboratory_id ?? laboratoryId,
+          department_id: loadedMethod.department_id ?? departmentId,
+          is_group_member: false,
+        };
+        const response = await researchApi.createResearchMethod(dataToSend);
+        if (groupId != null && groupMethodIds != null) {
+          const newMethodIds = groupMethodIds.map(id => (id === editMethodId ? response.id : id));
+          await researchApi.updateResearchMethodGroup(groupId, { method_ids: newMethodIds });
+        }
+        message.success('Метод исследования успешно обновлён');
+        onSuccess?.(response);
+        onClose();
+        return;
+      }
+
       if (activeTab === 'group') {
         if (!groupData.name.trim()) {
           message.error('Введите название группы');
@@ -995,50 +1148,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
           return;
         }
 
-        const dataToSend: ResearchMethodCreate = {
-          name: formData.name,
-          sample_type: formData.sample_type,
-          formula: formData.formula,
-          measurement_error: {
-            type:
-              formData.measurement_error.type === 'range'
-                ? 'fixed'
-                : formData.measurement_error.type,
-            value: formData.measurement_error.value,
-          },
-          unit: formData.unit,
-          measurement_method: formData.measurement_method,
-          nd_code: formData.nd_code,
-          nd_name: formData.nd_name,
-          input_data: formData.input_data,
-          intermediate_data: {
-            fields: formData.intermediate_data.fields.map(field => ({
-              ...field,
-              formula: field.use_threshold_table
-                ? '0'
-                : field.range_calculation
-                  ? '0'
-                  : field.formula,
-            })),
-          },
-          convergence_conditions:
-            formData.convergence_conditions.formulas.length > 0 &&
-            formData.convergence_conditions.formulas[0].formula
-              ? formData.convergence_conditions
-              : {
-                  formulas: [
-                    {
-                      formula: '',
-                      convergence_value: 'satisfactory',
-                    },
-                  ],
-                },
-          rounding_type: formData.rounding_type,
-          rounding_decimal: formData.rounding_decimal,
-          laboratory_id: laboratoryId,
-          department_id: departmentId,
-        };
-
+        const dataToSend = buildCreatePayload();
         const response = await researchApi.createResearchMethod(dataToSend);
 
         if (response) {
@@ -1121,9 +1231,11 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
 
   if (!isOpen) return null;
 
+  const showSingleForm = isEditMode || activeTab === 'single';
+
   return (
     <Modal
-      header="Добавление метода исследования"
+      header={isEditMode ? 'Редактирование метода исследования' : 'Добавление метода исследования'}
       onClose={onClose}
       onCancel={onClose}
       onSave={handleSubmit}
@@ -1131,24 +1243,26 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
       saveButtonText="Сохранить"
     >
       <div className="add-calculation-form">
-        <div className="tabs">
-          <button
-            className={`tab ${activeTab === 'single' ? 'active' : ''}`}
-            onClick={() => handleTabChange('single')}
-            type="button"
-          >
-            Одиночный метод
-          </button>
-          <button
-            className={`tab ${activeTab === 'group' ? 'active' : ''}`}
-            onClick={() => handleTabChange('group')}
-            type="button"
-          >
-            Группированный метод
-          </button>
-        </div>
+        {!isEditMode && (
+          <div className="tabs">
+            <button
+              className={`tab ${activeTab === 'single' ? 'active' : ''}`}
+              onClick={() => handleTabChange('single')}
+              type="button"
+            >
+              Одиночный метод
+            </button>
+            <button
+              className={`tab ${activeTab === 'group' ? 'active' : ''}`}
+              onClick={() => handleTabChange('group')}
+              type="button"
+            >
+              Группированный метод
+            </button>
+          </div>
+        )}
 
-        {activeTab === 'single' && (
+        {showSingleForm && !isEditMode && (
           <div className="fixtures-section">
             <div className="form-group">
               <label>Выберите готовый метод</label>
@@ -1198,10 +1312,16 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
         )}
 
         <div
-          className={`modal-content-wrapper ${activeTab === 'group' ? 'group-content' : 'single-content'}`}
+          className={`modal-content-wrapper ${isEditMode || activeTab === 'single' ? 'single-content' : 'group-content'}`}
         >
           <div className={`tab-content ${isAnimating ? 'entering' : ''}`}>
-            {activeTab === 'group' ? (
+            {isEditMode && isLoadingMethod ? (
+              <div className="loading-text create-calculation-spinner">
+                <Spin tip="Загрузка метода..." indicator={spinnerIndicator} spinning>
+                  <div className="create-calculation-spinner-placeholder" />
+                </Spin>
+              </div>
+            ) : activeTab === 'group' && !isEditMode ? (
               <>
                 <div className="form-group">
                   <label>Название группы</label>

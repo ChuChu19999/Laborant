@@ -54,6 +54,9 @@ const AdminPage: React.FC = () => {
   const [selectedMethodId, setSelectedMethodId] = useState<number | null>(null);
   const [showAddButton] = useState(true);
   const [isCreateCalculationModalOpen, setIsCreateCalculationModalOpen] = useState(false);
+  const [editCalculationMethodId, setEditCalculationMethodId] = useState<number | undefined>(
+    undefined
+  );
   const [isSelectionConditionsModalOpen, setIsSelectionConditionsModalOpen] = useState(false);
   const [isRefractionTableModalOpen, setIsRefractionTableModalOpen] = useState(false);
   const [isEquipmentModalOpen, setIsEquipmentModalOpen] = useState(false);
@@ -432,11 +435,25 @@ const AdminPage: React.FC = () => {
 
   const handleCalculationModalClose = () => {
     setIsCreateCalculationModalOpen(false);
+    setEditCalculationMethodId(undefined);
   };
 
-  const handleCalculationModalSuccess = () => {
+  const handleCalculationModalSuccess = (payload?: unknown) => {
     setIsCreateCalculationModalOpen(false);
+    setEditCalculationMethodId(undefined);
     researchMethods.refetch();
+    const method =
+      payload && typeof payload === 'object' && 'formula' in payload
+        ? (payload as ResearchMethod)
+        : null;
+    if (method?.id != null) {
+      setSelectedMethodId(method.id);
+    }
+  };
+
+  const handleEditCalculationMethod = (methodId: number) => {
+    setEditCalculationMethodId(methodId);
+    setIsCreateCalculationModalOpen(true);
   };
 
   const hasNoMethods = displayItems.length === 0;
@@ -771,6 +788,7 @@ const AdminPage: React.FC = () => {
       showAddButton={showAddButton}
       onAddMethod={handleAddMethod}
       onMethodClick={handleMethodClick}
+      onMethodEdit={handleEditCalculationMethod}
       onMethodDelete={handleMethodDelete}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
@@ -889,6 +907,7 @@ const AdminPage: React.FC = () => {
         departmentId={departmentId ? parseInt(departmentId, 10) : undefined}
         laboratoryName={laboratory?.name}
         departmentName={department?.name}
+        editMethodId={editCalculationMethodId}
       />
       <ConfirmationModal
         open={deleteConfirmation.isOpen}
