@@ -8,6 +8,15 @@ const HelpPage = () => {
         <div className="help-page-content">
           <p className="title">Новости обновлений:</p>
           <div>
+            <p className="version-title">Версия 1.0.1:</p>
+            <ul className="list">
+              <li className="list-item">
+                Добавлено формирование отчёта «Количество проб» для лаборатории ИЛНиНМ: кнопка
+                «Формирование отчёта» на странице «Поступления проб» открывает модальное окно, в
+                котором можно задать период по дате получения пробы и получить отчёт с разбивкой по
+                филиалам
+              </li>
+            </ul>
             <p className="version-title">Версия 1.0.0:</p>
             <ul className="list">
               <li className="list-item">

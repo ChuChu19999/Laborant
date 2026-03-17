@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { PlusOutlined } from '@ant-design/icons';
+import { FileTextOutlined, PlusOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { ResetFiltersButton } from '../../entities/ResetFiltersButton';
 import { LoadingCard } from '../../features/Cards';
@@ -9,6 +9,7 @@ import {
   EditSampleModal,
   DeleteSampleModal,
   FillCalculationsModal,
+  GenerateReportModal,
 } from '../../features/Modals';
 import { laboratoriesApi } from '../../shared/api/laboratories';
 import { useSamples } from '../../shared/model/hooks';
@@ -36,6 +37,7 @@ const SamplesPage: React.FC = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isFillCalculationsModalOpen, setIsFillCalculationsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isGenerateReportModalOpen, setIsGenerateReportModalOpen] = useState(false);
 
   const labId = laboratoryId ? parseInt(laboratoryId, 10) : undefined;
   const deptId = departmentId ? parseInt(departmentId, 10) : undefined;
@@ -74,10 +76,12 @@ const SamplesPage: React.FC = () => {
   const { data: laboratories } = useAutoRefetchQuery<{ items: Laboratory[] }>(
     ['laboratories'],
     () => laboratoriesApi.getLaboratories(),
-    {
-      enabled: !effectiveLabId,
-    }
+    { enabled: true }
   );
+
+  const isIlninmLaboratory =
+    effectiveLabId != null &&
+    laboratories?.items?.find(l => l.id === effectiveLabId)?.name === 'ИЛНиНМ';
 
   const { data: departments } = useAutoRefetchQuery<Department[]>(
     ['departments', 'by-laboratory', effectiveLabId],
@@ -400,6 +404,15 @@ const SamplesPage: React.FC = () => {
             >
               Добавить пробу
             </Button>
+            {isIlninmLaboratory && (
+              <Button
+                type="default"
+                onClick={() => setIsGenerateReportModalOpen(true)}
+                icon={<FileTextOutlined />}
+              >
+                Сформировать отчёт
+              </Button>
+            )}
           </div>
           <div className="samples-page-header-right">
             <ResetFiltersButton
@@ -476,6 +489,15 @@ const SamplesPage: React.FC = () => {
           }}
           onSuccess={handleDeleteConfirm}
           sample={selectedSample}
+        />
+      )}
+
+      {isGenerateReportModalOpen && effectiveLabId != null && (
+        <GenerateReportModal
+          open={isGenerateReportModalOpen}
+          onClose={() => setIsGenerateReportModalOpen(false)}
+          laboratoryId={effectiveLabId}
+          departmentId={effectiveDeptId}
         />
       )}
     </Layout>

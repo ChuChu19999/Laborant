@@ -29,4 +29,5 @@ export { MassFractionOilRefractionDirectoryModal } from './MassFractionOilRefrac
 export { EquipmentDefaultModal } from './EquipmentDefaultModal';
 export { EditProtocolTemplateModal } from './EditProtocolTemplateModal';
 export { EditReportTemplateModal } from './EditReportTemplateModal';
+export { GenerateReportModal } from './GenerateReportModal';
 export { SaveCalculationModal } from './SaveCalculationModal';

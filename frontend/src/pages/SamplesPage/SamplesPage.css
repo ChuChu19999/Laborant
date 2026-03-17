@@ -16,6 +16,7 @@
 .samples-page-header-left {
   display: flex;
   align-items: center;
+  gap: 10px;
 }
 
 .samples-page-header-right {

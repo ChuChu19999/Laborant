@@ -55,3 +55,23 @@ class ReportTemplateResponse(ReportTemplateBase):
 
     class Config:
         from_attributes = True
+
+
+class GenerateSampleCountReportRequest(BaseModel):
+    """Параметры формирования отчёта «Количество проб» (ИЛНиНМ)."""
+
+    laboratory_id: int = Field(..., description="ID лаборатории")
+    department_id: Optional[int] = Field(
+        None,
+        description="ID подразделения; пробы фильтруются по laboratory_id и department_id",
+    )
+    template_id: Optional[int] = Field(
+        None,
+        description="ID шаблона; если не указан — последний для типа «Количество проб»",
+    )
+    date_from: str = Field(
+        ..., description="Начало периода по дате получения пробы (YYYY-MM-DD)"
+    )
+    date_to: str = Field(
+        ..., description="Конец периода по дате получения пробы (YYYY-MM-DD)"
+    )

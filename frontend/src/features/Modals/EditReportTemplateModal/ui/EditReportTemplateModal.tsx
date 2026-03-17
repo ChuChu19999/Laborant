@@ -117,7 +117,7 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
 
   const handleCreateNewTemplate = useCallback(async () => {
     if (!selectedReportType) {
-      setErrors(prev => ({ ...prev, report_type: 'Выберите тип отчета' }));
+      setErrors(prev => ({ ...prev, report_type: 'Выберите тип отчёта' }));
       return;
     }
 
@@ -236,7 +236,7 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
 
   return (
     <Modal
-      header={isCreatingNew ? 'Добавление нового шаблона отчета' : 'Шаблоны отчетов'}
+      header={isCreatingNew ? 'Добавление нового шаблона отчёта' : 'Шаблоны отчётов'}
       onClose={handleModalClose}
       onCancel={handleModalClose}
       onSave={shouldShowSaveButton ? handleSave : undefined}
@@ -249,7 +249,7 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
         {!isCreatingNew && (
           <div className="template-select-section">
             <Select
-              placeholder="Выберите шаблон отчета"
+              placeholder="Выберите шаблон отчёта"
               onChange={handleTemplateChange}
               value={selectedTemplateId || undefined}
               style={{ width: '100%', marginBottom: 24 }}
@@ -283,10 +283,10 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
               <>
                 <div className="form-group">
                   <label className="form-label">
-                    Тип отчета <span className="form-label-required">*</span>
+                    Тип отчёта <span className="form-label-required">*</span>
                   </label>
                   <Select
-                    placeholder="Выберите тип отчета"
+                    placeholder="Выберите тип отчёта"
                     value={selectedReportType || undefined}
                     onChange={value => {
                       setSelectedReportType(value as string);
@@ -363,7 +363,7 @@ const EditReportTemplateModal: React.FC<EditReportTemplateModalProps> = ({
         ) : (
           <div className="template-info">
             <div className="info-item">
-              <span className="info-label">Тип отчета:</span>
+              <span className="info-label">Тип отчёта:</span>
               <span className="info-value">{activeTemplate.report_type}</span>
             </div>
             <div className="info-item">

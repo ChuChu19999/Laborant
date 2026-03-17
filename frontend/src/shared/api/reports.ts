@@ -112,4 +112,19 @@ export const reportsApi = {
     });
     return response.data;
   },
+
+  generateSampleCountReport: async (params: {
+    laboratory_id: number;
+    department_id?: number;
+    template_id?: number;
+    date_from: string;
+    date_to: string;
+  }): Promise<Blob> => {
+    const response = await axiosInstance.post(
+      '/api/report-templates/generate/sample-count/',
+      params,
+      { responseType: 'blob' }
+    );
+    return response.data;
+  },
 };

@@ -828,7 +828,7 @@ const AdminPage: React.FC = () => {
               },
               {
                 key: 'report-template',
-                label: 'Шаблон отчета',
+                label: 'Шаблон отчёта',
                 onClick: handleOpenReportTemplateModal,
               },
               {

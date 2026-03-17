@@ -1,19 +1,24 @@
 from typing import Optional
 from urllib.parse import quote
+import pendulum
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from core.database import get_db
-from core.exceptions import NotFoundError
-from core.security import IsAuthenticated
+from core.exceptions import NotFoundError, ValidationError
+from models.laboratory import Laboratory
+from models.report import ReportTemplate, ReportType
 from schemas.pagination import PaginatedResponse
 from schemas.report import (
+    GenerateSampleCountReportRequest,
     ReportTemplateCreate,
     ReportTemplateResponse,
     ReportTemplateUpdate,
 )
+from services.ilninm_reports import LABORATORY_NAME_ILNINM
+from services.ilninm_reports.sample_count_generator import build_sample_count_excel
 from services.report import (
     create_report_template,
     delete_report_template,
@@ -248,3 +253,84 @@ async def delete_report_template_endpoint(
     """Выполняет мягкое удаление шаблона отчета. Шаблон помечается как удаленный."""
     await delete_report_template(db, template_id)
     await db.commit()
+
+
+@router.post(
+    "/report-templates/generate/sample-count/",
+    summary="Сформировать отчёт «Количество проб» (ИЛНиНМ)",
+    description=(
+        "Доступно только для лаборатории с названием ИЛНиНМ. "
+        "Возвращает Excel-файл: для каждого филиала копируется блок шаблона с заполнением столбца B."
+    ),
+    responses={
+        200: {"description": "Excel-файл отчёта"},
+        400: {"description": "Лаборатория не ИЛНиНМ или нет шаблона"},
+        404: {"description": "Лаборатория или шаблон не найдены"},
+    },
+)
+# @IsAuthenticated
+async def generate_sample_count_report(
+    body: GenerateSampleCountReportRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Формирует отчёт «Количество проб» и возвращает Excel-файл."""
+    lab_result = await db.execute(
+        select(Laboratory).where(Laboratory.id == body.laboratory_id)
+    )
+    lab = lab_result.scalar_one_or_none()
+    if not lab:
+        raise NotFoundError("Лаборатория не найдена")
+    if lab.name != LABORATORY_NAME_ILNINM:
+        raise ValidationError(
+            f"Отчёт «Количество проб» доступен только для лаборатории «{LABORATORY_NAME_ILNINM}»"
+        )
+
+    if body.template_id:
+        template = await get_report_template_by_id(db, body.template_id)
+        if not template:
+            raise NotFoundError("Шаблон отчёта не найден")
+        if template.report_type != ReportType.SAMPLE_COUNT.value:
+            raise ValidationError("Шаблон должен быть типа «Количество проб»")
+        if template.laboratory_id != body.laboratory_id:
+            raise ValidationError("Шаблон не принадлежит выбранной лаборатории")
+    else:
+        templates, _, _ = await get_report_templates(
+            db,
+            laboratory_id=body.laboratory_id,
+            include_deleted=False,
+            sort_by="version",
+            sort_order="desc",
+        )
+        template = None
+        for t in templates:
+            if t.report_type == ReportType.SAMPLE_COUNT.value:
+                template = t
+                break
+        if not template:
+            raise NotFoundError(
+                "Не найден шаблон отчёта «Количество проб» для данной лаборатории"
+            )
+
+    try:
+        date_from = pendulum.parse(body.date_from).start_of("day")
+        date_to = pendulum.parse(body.date_to).end_of("day")
+    except Exception:
+        raise ValidationError("Некорректный формат дат (ожидается YYYY-MM-DD)")
+
+    file_bytes = await build_sample_count_excel(
+        db,
+        template_file_base64=template.file,
+        laboratory_id=body.laboratory_id,
+        receiving_date_from=date_from,
+        receiving_date_to=date_to,
+        department_id=body.department_id,
+    )
+
+    filename = f"Количество_проб_{body.date_from}_{body.date_to}.xlsx"
+    encoded_filename = quote(filename, safe="")
+    content_disposition = f"attachment; filename*=UTF-8''{encoded_filename}"
+    return Response(
+        content=file_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": content_disposition},
+    )
