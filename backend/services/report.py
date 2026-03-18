@@ -13,7 +13,7 @@ from utils.sorting import build_order_by
 async def get_report_template_by_id(
     db: AsyncSession, template_id: int, include_deleted: bool = False
 ) -> Optional[ReportTemplate]:
-    """Получить шаблон отчета по ID."""
+    """Получить шаблон отчёта по ID."""
     query = (
         select(ReportTemplate)
         .where(ReportTemplate.id == template_id)
@@ -38,7 +38,7 @@ async def get_report_templates(
     sort_by: Optional[str] = None,
     sort_order: Optional[str] = None,
 ) -> tuple[List[ReportTemplate], int, int]:
-    """Получить список шаблонов отчетов."""
+    """Получить список шаблонов отчётов."""
     query = select(ReportTemplate).options(
         selectinload(ReportTemplate.laboratory),
         selectinload(ReportTemplate.department),
@@ -102,7 +102,7 @@ async def get_report_templates(
 async def create_report_template(
     db: AsyncSession, template_data: ReportTemplateCreate
 ) -> ReportTemplate:
-    """Создать шаблон отчета."""
+    """Создать шаблон отчёта."""
     laboratory = await db.execute(
         select(Laboratory).where(Laboratory.id == template_data.laboratory_id)
     )
@@ -158,10 +158,10 @@ async def create_report_template(
 async def update_report_template(
     db: AsyncSession, template_id: int, template_data: ReportTemplateUpdate
 ) -> ReportTemplate:
-    """Обновить шаблон отчета."""
+    """Обновить шаблон отчёта."""
     template = await get_report_template_by_id(db, template_id)
     if not template:
-        raise NotFoundError("Шаблон отчета не найден")
+        raise NotFoundError("Шаблон отчёта не найден")
 
     update_data = template_data.model_dump(exclude_unset=True)
 
@@ -171,7 +171,7 @@ async def update_report_template(
         template.soft_delete()
         await db.flush()
 
-        # Получаем последнюю версию для этого типа отчета
+        # Получаем последнюю версию для этого типа отчёта
         latest = await db.execute(
             select(ReportTemplate)
             .where(
@@ -220,10 +220,10 @@ async def update_report_template(
 
 
 async def delete_report_template(db: AsyncSession, template_id: int) -> None:
-    """Удалить шаблон отчета (мягкое удаление)."""
+    """Удалить шаблон отчёта (мягкое удаление)."""
     template = await get_report_template_by_id(db, template_id)
     if not template:
-        raise NotFoundError("Шаблон отчета не найден")
+        raise NotFoundError("Шаблон отчёта не найден")
 
     template.soft_delete()
     await db.flush()

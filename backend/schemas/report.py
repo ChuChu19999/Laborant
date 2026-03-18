@@ -5,7 +5,7 @@ from models.report import ReportType
 
 
 class ReportTemplateBase(BaseModel):
-    report_type: str = Field(..., max_length=255, description="Тип отчета")
+    report_type: str = Field(..., max_length=255, description="Тип отчёта")
     file_name: str = Field(..., max_length=255, description="Оригинальное имя файла")
 
     @field_validator("report_type")
@@ -14,7 +14,7 @@ class ReportTemplateBase(BaseModel):
         valid_types = [rt.value for rt in ReportType]
         if v not in valid_types:
             raise ValueError(
-                f"Тип отчета должен быть одним из: {', '.join(valid_types)}"
+                f"Тип отчёта должен быть одним из: {', '.join(valid_types)}"
             )
         return v
 
@@ -37,7 +37,7 @@ class ReportTemplateUpdate(BaseModel):
             valid_types = [rt.value for rt in ReportType]
             if v not in valid_types:
                 raise ValueError(
-                    f"Тип отчета должен быть одним из: {', '.join(valid_types)}"
+                    f"Тип отчёта должен быть одним из: {', '.join(valid_types)}"
                 )
         return v
 

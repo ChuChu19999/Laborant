@@ -33,13 +33,13 @@ router = APIRouter()
 @router.get(
     "/report-templates/",
     response_model=PaginatedResponse[ReportTemplateResponse],
-    summary="Получение списка шаблонов отчетов",
+    summary="Получение списка шаблонов отчётов",
     description=(
-        "Возвращает список шаблонов отчетов с пагинацией или без. "
+        "Возвращает список шаблонов отчётов с пагинацией или без. "
         "Если page и page_size не указаны, возвращает все записи. "
         "Поддерживает фильтрацию по лабораториям и подразделениям, сортировку."
     ),
-    responses={200: {"description": "Список шаблонов отчетов успешно получен"}},
+    responses={200: {"description": "Список шаблонов отчётов успешно получен"}},
 )
 # @IsAuthenticated
 async def list_report_templates(
@@ -52,7 +52,7 @@ async def list_report_templates(
     sort_order: Optional[str] = Query("desc"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Возвращает список шаблонов отчетов с пагинацией или без."""
+    """Возвращает список шаблонов отчётов с пагинацией или без."""
     templates, total, total_pages = await get_report_templates(
         db,
         laboratory_id=laboratory_id,
@@ -85,9 +85,9 @@ async def list_report_templates(
 @router.get(
     "/report-templates/available/",
     response_model=list[ReportTemplateResponse],
-    summary="Получение доступных шаблонов отчетов",
+    summary="Получение доступных шаблонов отчётов",
     description=(
-        "Возвращает список доступных шаблонов отчетов для указанной лаборатории и подразделения."
+        "Возвращает список доступных шаблонов отчётов для указанной лаборатории и подразделения."
     ),
     responses={200: {"description": "Список доступных шаблонов успешно получен"}},
 )
@@ -97,7 +97,7 @@ async def get_available_report_templates(
     department_id: Optional[int] = Query(None, description="ID подразделения"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Возвращает список доступных шаблонов отчетов для указанной лаборатории и подразделения."""
+    """Возвращает список доступных шаблонов отчётов для указанной лаборатории и подразделения."""
     templates, _, _ = await get_report_templates(
         db,
         laboratory_id=laboratory_id,
@@ -121,11 +121,11 @@ async def get_available_report_templates(
     "/report-templates/",
     response_model=ReportTemplateResponse,
     status_code=201,
-    summary="Добавление нового шаблона отчета",
-    description="Добавляет новый шаблон отчета на основе переданных данных.",
+    summary="Добавление нового шаблона отчёта",
+    description="Добавляет новый шаблон отчёта на основе переданных данных.",
     responses={
-        201: {"description": "Шаблон отчета успешно добавлен"},
-        400: {"description": "Некорректные данные для добавления шаблона отчета"},
+        201: {"description": "Шаблон отчёта успешно добавлен"},
+        400: {"description": "Некорректные данные для добавления шаблона отчёта"},
     },
 )
 # @IsAuthenticated
@@ -133,7 +133,7 @@ async def create_report_template_endpoint(
     template_data: ReportTemplateCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    """Добавляет новый шаблон отчета на основе переданных данных."""
+    """Добавляет новый шаблон отчёта на основе переданных данных."""
     from models.report import ReportTemplate
 
     template = await create_report_template(db, template_data)
@@ -158,11 +158,11 @@ async def create_report_template_endpoint(
 
 @router.get(
     "/report-templates/{template_id}/",
-    summary="Получение шаблона отчета по ID",
-    description="Возвращает информацию о шаблоне отчета по его идентификатору или файл при download=true.",
+    summary="Получение шаблона отчёта по ID",
+    description="Возвращает информацию о шаблоне отчёта по его идентификатору или файл при download=true.",
     responses={
-        200: {"description": "Шаблон отчета успешно получен"},
-        404: {"description": "Шаблон отчета не найден"},
+        200: {"description": "Шаблон отчёта успешно получен"},
+        404: {"description": "Шаблон отчёта не найден"},
     },
 )
 # @IsAuthenticated
@@ -171,10 +171,10 @@ async def get_report_template(
     download: bool = Query(False, description="Скачать файл шаблона"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Возвращает информацию о шаблоне отчета по его идентификатору или файл при download=true."""
+    """Возвращает информацию о шаблоне отчёта по его идентификатору или файл при download=true."""
     template = await get_report_template_by_id(db, template_id)
     if not template:
-        raise NotFoundError("Шаблон отчета не найден")
+        raise NotFoundError("Шаблон отчёта не найден")
 
     if download:
         import base64
@@ -199,11 +199,11 @@ async def get_report_template(
 @router.patch(
     "/report-templates/{template_id}/",
     response_model=ReportTemplateResponse,
-    summary="Обновление шаблона отчета",
-    description="Обновляет существующий шаблон отчета. Можно обновить только указанные поля.",
+    summary="Обновление шаблона отчёта",
+    description="Обновляет существующий шаблон отчёта. Можно обновить только указанные поля.",
     responses={
-        200: {"description": "Шаблон отчета успешно обновлен"},
-        404: {"description": "Шаблон отчета не найден"},
+        200: {"description": "Шаблон отчёта успешно обновлен"},
+        404: {"description": "Шаблон отчёта не найден"},
     },
 )
 # @IsAuthenticated
@@ -212,7 +212,7 @@ async def update_report_template_endpoint(
     template_data: ReportTemplateUpdate,
     db: AsyncSession = Depends(get_db),
 ):
-    """Обновляет существующий шаблон отчета. Можно обновить только указанные поля."""
+    """Обновляет существующий шаблон отчёта. Можно обновить только указанные поля."""
     from models.report import ReportTemplate
 
     template = await update_report_template(db, template_id, template_data)
@@ -238,11 +238,11 @@ async def update_report_template_endpoint(
 @router.delete(
     "/report-templates/{template_id}/",
     status_code=204,
-    summary="Удаление шаблона отчета",
-    description="Выполняет мягкое удаление шаблона отчета. Шаблон помечается как удаленный.",
+    summary="Удаление шаблона отчёта",
+    description="Выполняет мягкое удаление шаблона отчёта. Шаблон помечается как удаленный.",
     responses={
-        204: {"description": "Шаблон отчета успешно удален"},
-        404: {"description": "Шаблон отчета не найден"},
+        204: {"description": "Шаблон отчёта успешно удален"},
+        404: {"description": "Шаблон отчёта не найден"},
     },
 )
 # @IsAuthenticated
@@ -250,7 +250,7 @@ async def delete_report_template_endpoint(
     template_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """Выполняет мягкое удаление шаблона отчета. Шаблон помечается как удаленный."""
+    """Выполняет мягкое удаление шаблона отчёта. Шаблон помечается как удаленный."""
     await delete_report_template(db, template_id)
     await db.commit()
 
