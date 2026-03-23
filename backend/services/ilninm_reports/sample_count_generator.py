@@ -48,15 +48,39 @@ def _cell_value_with_bold_counts(value: str) -> str | CellRichText:
     if not matches:
         return value
     bold_font = InlineFont(b=True)
+    plain_font = InlineFont(b=False)
     parts: list[str | TextBlock] = []
     last_end = 0
     for m in matches:
         if m.start() > last_end:
-            parts.append(value[last_end : m.start()])
+            mid = value[last_end : m.start()]
+            # `CellRichText` может “съедать” переходы строк в строковых сегментах.
+            # Поэтому перевод строки кладём отдельным `TextBlock`, чтобы строки не склеивались.
+            if mid:
+                normalized = mid.replace("\r\n", "\n").replace("\r", "\n")
+                if "\n" in normalized:
+                    segments = normalized.split("\n")
+                    for i, seg in enumerate(segments):
+                        if seg:
+                            parts.append(seg)
+                        if i < len(segments) - 1:
+                            parts.append(TextBlock(plain_font, "\n"))
+                else:
+                    parts.append(mid)
         parts.append(TextBlock(bold_font, m.group(0)))
         last_end = m.end()
     if last_end < len(value):
-        parts.append(value[last_end:])
+        tail = value[last_end:]
+        normalized_tail = tail.replace("\r\n", "\n").replace("\r", "\n")
+        if "\n" in normalized_tail:
+            segments = normalized_tail.split("\n")
+            for i, seg in enumerate(segments):
+                if seg:
+                    parts.append(seg)
+                if i < len(segments) - 1:
+                    parts.append(TextBlock(plain_font, "\n"))
+        else:
+            parts.append(tail)
     return CellRichText(*parts)
 
 

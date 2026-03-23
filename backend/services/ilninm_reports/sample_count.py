@@ -4,6 +4,9 @@
 Собирает по пробам за период (по дате получения) количество расчётов и показателей,
 группирует по типам строк отчёта и по branch_id. Пустые строки (0 шт / 0 пок) не выводятся.
 В отчёт попадают только неудалённые пробы (deleted_at IS NULL) и неудалённые расчёты.
+
+Места отбора с префиксами «ГКП-21» и «ГКП-22» сопоставляются по началу имени.
+Число в «N шт» подменяется по правилам (_map_display_sht_count).
 """
 
 from collections import defaultdict
@@ -13,6 +16,7 @@ import pendulum
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from core.logger import logger
 from models.calculation import Calculation
 from models.laboratory import Branch, SamplingLocation
 from models.sample import Sample
@@ -21,23 +25,24 @@ from .constants import (
     BRANCH_NGDU,
     BRANCH_UGPU,
     DISPLAY_NAMES_CDGGKN,
+    GKP_SAMPLING_NAME_PREFIX_21,
+    GKP_SAMPLING_NAME_PREFIX_22,
     LABORATORY_NAME_ILNINM,
-    ROW_TITLE_DIZTOPIVO,
     ROW_TITLE_DIZTOPIVO_INGIBITOR,
     ROW_TITLE_EKSPLUATACIONNAYA_NEFT_NGDU,
-    ROW_TITLE_GKP_21,
     ROW_TITLE_GKP_21_GKP_22,
-    ROW_TITLE_GKP_22,
-    ROW_TITLE_INGIBITOR_KORROZII,
     ROW_TITLE_KALIBROVOCHNAYA_NEFT_UGPU,
-    ROW_TITLE_OIS,
+    ROW_TITLE_NEFTECONDENSATNAYA_SMES,
     ROW_TITLE_OIS_ACHIMOVKA,
+    ROW_TITLE_OIS_EN_YAHA,
+    ROW_TITLE_OIS_VALANZHIN,
     ROW_TITLE_PASPORTIZACIYA,
     ROW_TITLE_PROCHIE,
     ROW_TITLE_TOVARNAYA_NEFT_NGDU,
-    ROW_TITLE_TOVARNAYA_PRODUKCIYA_OIS,
+    ROW_TITLE_VNEPLANOVAYA_NEFT,
+    SAMPLE_TYPE_VNEPLANOVYE,
+    SAMPLING_LOCATION_UKPG_11V,
     SAMPLING_LOCATIONS_CDGGKN,
-    SAMPLING_LOCATIONS_GKP,
 )
 
 
@@ -136,16 +141,8 @@ async def _get_calc_agg_by_sample(
     return {row.sample_id: (row.cnt, row.pok) for row in r.all()}
 
 
-def _test_object_equals(s: Sample, value: str) -> bool:
-    return (s.test_object or "").strip().lower() == value.lower()
-
-
 def _test_object_ilike(s: Sample, part: str) -> bool:
     return part.lower() in (s.test_object or "").lower()
-
-
-def _test_object_not_equals(s: Sample, value: str) -> bool:
-    return (s.test_object or "").strip().lower() != value.lower()
 
 
 def _sampling_location_name_in(s: Sample, names: tuple[str, ...]) -> bool:
@@ -154,40 +151,125 @@ def _sampling_location_name_in(s: Sample, names: tuple[str, ...]) -> bool:
     return (s.sampling_location.name or "").strip() in names
 
 
-def _sampling_location_name_not_in(s: Sample, names: tuple[str, ...]) -> bool:
-    if not s.sampling_location:
-        return True
-    return (s.sampling_location.name or "").strip() not in names
-
-
 def _branch_name_equals(s: Sample, name: str) -> bool:
     if not s.branch:
         return False
     return (s.branch.name or "").strip() == name
 
 
+def _is_vneplanovaya_neft_sample(s: Sample) -> bool:
+    """Внеплановая нефть: тип «Внеплановые», объект с «нефть», без калибровочной."""
+    return (
+        _sample_type_equals(s, SAMPLE_TYPE_VNEPLANOVYE)
+        and _test_object_ilike(s, "нефть")
+        and not _test_object_ilike(s, "нефть калибровочная")
+    )
+
+
+def _sampling_location_display_name(s: Sample) -> str:
+    """Имя места отбора для отчёта: краткие подписи для цехов ДГГКН, иначе как в справочнике."""
+    raw = (s.sampling_location.name or "").strip() if s.sampling_location else ""
+    if not raw:
+        return "(место отбора не указано)"
+    return DISPLAY_NAMES_CDGGKN.get(raw, raw)
+
+
 def _sample_type_equals(s: Sample, value: str) -> bool:
     return (s.sample_type or "").strip() == value
 
 
+def _map_display_sht_count(n: int) -> int:
+    """Число для вывода в «N шт»: 1→2, 4→5, 6–8→9, 10–12→13, остальное без изменений."""
+    if n == 1:
+        return 2
+    if n == 4:
+        return 5
+    if n in (6, 7, 8):
+        return 9
+    if n in (10, 11, 12):
+        return 13
+    return n
+
+
+def _sample_labels_for_log(samples: list[Sample]) -> str:
+    """Регистрационные номера проб для лога."""
+    parts: list[str] = []
+    for s in sorted(samples, key=lambda x: ((x.registration_number or ""), x.id)):
+        n = (s.registration_number or "").strip()
+        parts.append(n if n else f"id={s.id}")
+    return ", ".join(parts)
+
+
+def _sampling_location_name_starts_with(s: Sample, prefix: str) -> bool:
+    if not s.sampling_location:
+        return False
+    return (s.sampling_location.name or "").strip().startswith(prefix)
+
+
+def _is_gkp_21_or_22_location(s: Sample) -> bool:
+    return _sampling_location_name_starts_with(
+        s, GKP_SAMPLING_NAME_PREFIX_21
+    ) or _sampling_location_name_starts_with(s, GKP_SAMPLING_NAME_PREFIX_22)
+
+
+def _is_ukpg_11v_location(s: Sample) -> bool:
+    return _sampling_location_name_starts_with(s, SAMPLING_LOCATION_UKPG_11V)
+
+
+def _sort_samples_for_gkp_report(samples: list[Sample]) -> list[Sample]:
+    """Порядок строк ГКП: дата получения, рег. номер, id."""
+    return sorted(
+        samples,
+        key=lambda s: (
+            s.receiving_date or pendulum.date(1900, 1, 1),
+            (s.registration_number or "").strip(),
+            s.id,
+        ),
+    )
+
+
+def _gkp_sample_line(
+    s: Sample,
+    agg: dict[int, tuple[int, int]],
+    *,
+    ois_sht_suffix: bool,
+) -> str:
+    """Одна проба ГКП: место отбора, скв./режим при наличии, рег. номер, дата получения, показатели."""
+    name = (s.sampling_location.name or "").strip() if s.sampling_location else ""
+    text = name if name else "(место отбора не указано)"
+    well_key = (s.well or "").strip()
+    mode_key = (s.mode or "").strip()
+    if well_key:
+        text += f" скв. {well_key}"
+    if mode_key:
+        text += f" {mode_key}"
+    reg = (s.registration_number or "").strip()
+    dt = s.receiving_date
+    date_part = _fmt_date(dt) if dt else "(дата получения не указана)"
+    pok = agg.get(s.id, (0, 0))[1]
+    text += f" от {date_part} по {pok} пок"
+    if ois_sht_suffix:
+        text += f" {_map_display_sht_count(1)} шт"
+    return text
+
+
 def _build_tovarnaya_neft_ngdu(
     samples: list[Sample], agg: dict[int, tuple[int, int]]
-) -> str:
-    """Товарная нефть НГДУ: test_object «нефть», branch НГДУ, не ЦДГГКН №1/№2."""
+) -> tuple[str, list[Sample]]:
+    """Товарная нефть НГДУ: объект «нефть», не «нефть калибровочная», филиал НГДУ."""
     items = [
         s
         for s in samples
         if _branch_name_equals(s, BRANCH_NGDU)
         and _test_object_ilike(s, "нефть")
         and not _test_object_ilike(s, "нефть калибровочная")
-        and not _test_object_ilike(s, "нефть товарная")
-        and _sampling_location_name_not_in(s, SAMPLING_LOCATIONS_CDGGKN)
+        and not _is_vneplanovaya_neft_sample(s)
     ]
     if not items:
-        return ""
+        return "", []
     total_cnt = sum(agg.get(s.id, (0, 0))[0] for s in items)
     if total_cnt == 0:
-        return ""
+        return "", items
     all_pok = set()
     for s in items:
         _, pok = agg.get(s.id, (0, 0))
@@ -196,23 +278,25 @@ def _build_tovarnaya_neft_ngdu(
     pok_count = sum(p for _, p in all_pok) if all_pok else 0
     if pok_count == 0:
         pok_count = sum(agg.get(s.id, (0, 0))[1] for s in items)
-    return f"{len(items)} шт по {pok_count} пок"
+    d = _map_display_sht_count(len(items))
+    return f"{d} шт по {pok_count} пок", items
 
 
 def _build_ekspluatacionnaya_neft_ngdu(
     samples: list[Sample], agg: dict[int, tuple[int, int]]
-) -> str:
-    """Эксплуатационная нефть НГДУ: по ЦДГГКН №1 и №2, с скважиной и датой получения."""
+) -> tuple[str, list[Sample]]:
+    """Эксплуатационная нефть НГДУ: цехи ДГГКН №1/№2, «нефть», не калибровочная; скважина опциональна."""
     items = [
         s
         for s in samples
         if _branch_name_equals(s, BRANCH_NGDU)
         and _test_object_ilike(s, "нефть")
+        and not _test_object_ilike(s, "нефть калибровочная")
         and _sampling_location_name_in(s, SAMPLING_LOCATIONS_CDGGKN)
-        and s.well
+        and not _is_vneplanovaya_neft_sample(s)
     ]
     if not items:
-        return ""
+        return "", []
     by_loc: dict[str, list[Sample]] = defaultdict(list)
     for s in items:
         name = (s.sampling_location.name or "").strip()
@@ -227,21 +311,22 @@ def _build_ekspluatacionnaya_neft_ngdu(
         if cnt == 0 and pok == 0:
             continue
         display_name = DISPLAY_NAMES_CDGGKN.get(loc_name, loc_name)
-        lines.append(f"{cnt} шт по {pok} пок")
+        lines.append(f"{_map_display_sht_count(cnt)} шт по {pok} пок")
         for s in sorted(
             loc_samples,
             key=lambda x: (x.receiving_date or pendulum.date(1900, 1, 1), x.well or ""),
         ):
-            lines.append(
-                f"{display_name} скв. {s.well} от {_fmt_date(s.receiving_date)}"
-            )
-    return "\n".join(lines) if lines else ""
+            if (s.well or "").strip():
+                lines.append(
+                    f"{display_name} скв. {s.well} от {_fmt_date(s.receiving_date)}"
+                )
+    return ("\n".join(lines) if lines else ""), items
 
 
 def _build_kalibrovochnaya_neft_ugpu(
     samples: list[Sample], agg: dict[int, tuple[int, int]]
-) -> str:
-    """Калибровочная нефть УГПУ: по ЦДГГКН №1 и №2, branch УГПУ, без показателей по группам."""
+) -> tuple[str, list[Sample]]:
+    """Калибровочная нефть УГПУ: объект «нефть калибровочная», цехи ДГГКН №1/№2, филиал УГПУ."""
     items = [
         s
         for s in samples
@@ -250,39 +335,77 @@ def _build_kalibrovochnaya_neft_ugpu(
         and _sampling_location_name_in(s, SAMPLING_LOCATIONS_CDGGKN)
     ]
     if not items:
-        return ""
+        return "", []
     by_loc: dict[str, int] = defaultdict(int)
     for s in items:
         name = (s.sampling_location.name or "").strip()
         by_loc[name] += 1
     parts = [
-        f"{c} шт"
+        f"{_map_display_sht_count(c)} шт"
         for loc_name in ("Цех по ДГГКН №2", "Цех по ДГГКН №1")
         for c in [by_loc.get(loc_name, 0)]
         if c > 0
     ]
     if not parts:
-        return ""
-    lines = [f"{sum(by_loc.values())} шт"]
+        return "", items
+    lines = [f"{_map_display_sht_count(sum(by_loc.values()))} шт"]
     for loc_name in ("Цех по ДГГКН №2", "Цех по ДГГКН №1"):
         if by_loc.get(loc_name, 0) > 0:
             lines.append(DISPLAY_NAMES_CDGGKN.get(loc_name, loc_name))
-    return "\n".join(lines) if lines else ""
+    return ("\n".join(lines) if lines else ""), items
+
+
+def _build_vneplanovaya_neft(
+    samples: list[Sample], agg: dict[int, tuple[int, int]]
+) -> tuple[str, list[Sample]]:
+    """
+    Внеплановая нефть по филиалу: тип «Внеплановые», объект «нефть» (не калибровочная).
+
+    Строки: место отбора; при наличии через пробел — скважина и режим; сумма показателей в «по N пок».
+    """
+    items = [s for s in samples if _is_vneplanovaya_neft_sample(s)]
+    if not items:
+        return "", []
+    by_key: dict[tuple[str, str, str], list[Sample]] = defaultdict(list)
+    for s in items:
+        place = _sampling_location_display_name(s)
+        well_key = (s.well or "").strip()
+        mode_key = (s.mode or "").strip()
+        by_key[(place, well_key, mode_key)].append(s)
+    lines: list[str] = []
+    for key in sorted(by_key.keys(), key=lambda x: (x[0], x[1], x[2])):
+        group = by_key[key]
+        place, well_key, mode_key = key
+        pok = sum(agg.get(s.id, (0, 0))[1] for s in group)
+        text = place
+        if well_key:
+            text += f" скв. {well_key}"
+        if mode_key:
+            text += f" {mode_key}"
+        lines.append(f"{text} по {pok} пок")
+    return "\n".join(lines), items
 
 
 def _build_pasportizaciya(
     samples: list[Sample], agg: dict[int, tuple[int, int]]
-) -> str:
-    """Паспортизация: sample_type «Паспортизация», по НСПК, УКПГ-11В, ОУПДТ."""
+) -> tuple[str, list[Sample]]:
+    """
+    Паспортизация: пробы с типом «Паспортизация».
+
+    Учитываются только фиксированные места отбора в порядке вывода: НСПК, УКПГ-11В, ОУПДТ.
+    По каждому месту — число проб (с подменой по _map_display_sht_count) и сумма показателей
+    по расчётам. Пробы с другими местами отбора в эту строку не попадают (остаются вне среза).
+    """
     items = [s for s in samples if _sample_type_equals(s, "Паспортизация")]
     if not items:
-        return ""
+        return "", []
     loc_names_order = ("НСПК", "УКПГ-11В", "ОУПДТ")
     by_loc: dict[str, list[Sample]] = defaultdict(list)
     for s in items:
         name = (s.sampling_location.name or "").strip() if s.sampling_location else ""
         if name in loc_names_order:
             by_loc[name].append(s)
+    used: list[Sample] = []
     lines = []
     for loc_name in loc_names_order:
         loc_samples = by_loc.get(loc_name, [])
@@ -292,182 +415,217 @@ def _build_pasportizaciya(
         pok = sum(agg.get(s.id, (0, 0))[1] for s in loc_samples)
         if cnt == 0:
             continue
-        lines.append(f"{loc_name} - {cnt} шт по {pok} пок")
-    return "\n".join(lines) if lines else ""
+        used.extend(loc_samples)
+        lines.append(f"{loc_name} - {_map_display_sht_count(cnt)} шт по {pok} пок")
+    return ("\n".join(lines) if lines else ""), used
 
 
-def _build_gkp_by_location(
+def _build_gkp_21_gkp_22(
     samples: list[Sample],
     agg: dict[int, tuple[int, int]],
-    loc_name: str,
-    sample_type_filter: str = "Паспортизация",
-) -> str:
-    """Общая логика для ГКП-21 или ГКП-22: по дате, количество и показатели."""
+    sample_type: str = "Паспортизация",
+) -> tuple[str, list[Sample]]:
+    """По каждому ГКП: заголовок, количество шт, затем отдельная строка на каждую пробу."""
     items = [
         s
         for s in samples
-        if _sample_type_equals(s, sample_type_filter)
-        and (
-            s.sampling_location and (s.sampling_location.name or "").strip() == loc_name
-        )
+        if _sample_type_equals(s, sample_type) and _is_gkp_21_or_22_location(s)
     ]
     if not items:
-        return ""
-    by_date: dict[pendulum.Date, list[Sample]] = defaultdict(list)
-    for s in items:
-        dt = s.receiving_date or pendulum.date(1900, 1, 1)
-        by_date[dt].append(s)
-    lines = [f"{loc_name} {len(items)} шт"]
-    for dt in sorted(by_date.keys()):
-        subs = by_date[dt]
-        pok = sum(agg.get(s.id, (0, 0))[1] for s in subs)
-        if pok > 0:
-            lines.append(f"{_fmt_date(dt)} по {pok} пок")
-    return "\n".join(lines) if lines else ""
+        return "", []
+    gkp22 = [
+        s
+        for s in items
+        if _sampling_location_name_starts_with(s, GKP_SAMPLING_NAME_PREFIX_22)
+    ]
+    in_gkp22 = {id(s) for s in gkp22}
+    gkp21 = [
+        s
+        for s in items
+        if _sampling_location_name_starts_with(s, GKP_SAMPLING_NAME_PREFIX_21)
+        and id(s) not in in_gkp22
+    ]
+
+    def _passport_sample_lines(subset: list[Sample]) -> list[str]:
+        return [
+            _gkp_sample_line(s, agg, ois_sht_suffix=False)
+            for s in _sort_samples_for_gkp_report(subset)
+        ]
+
+    lines: list[str] = [
+        GKP_SAMPLING_NAME_PREFIX_21,
+        f"{_map_display_sht_count(len(gkp21))} шт",
+        *_passport_sample_lines(gkp21),
+        "",
+        GKP_SAMPLING_NAME_PREFIX_22,
+        f"{_map_display_sht_count(len(gkp22))} шт",
+        *_passport_sample_lines(gkp22),
+    ]
+    return "\n".join(lines), items
 
 
-def _build_gkp_21(samples: list[Sample], agg: dict[int, tuple[int, int]]) -> str:
-    """ГКП-21: Паспортизация, по дате."""
-    return _build_gkp_by_location(samples, agg, "ГКП-21", "Паспортизация")
+def _build_ois_achimovka(
+    samples: list[Sample], agg: dict[int, tuple[int, int]]
+) -> tuple[str, list[Sample]]:
+    """
+    ОИС Ачимовка: тип «Исследования - ОИС», место отбора с префиксом ГКП-21 или ГКП-22.
 
-
-def _build_gkp_22(samples: list[Sample], agg: dict[int, tuple[int, int]]) -> str:
-    """ГКП-22: Паспортизация, по дате."""
-    return _build_gkp_by_location(samples, agg, "ГКП-22", "Паспортизация")
-
-
-def _build_gkp_21_gkp_22(samples: list[Sample], agg: dict[int, tuple[int, int]]) -> str:
-    """ГКП-21 ГКП-22: sampling_location ГКП-21/ГКП-22, sample_type «Паспортизация», по дате."""
+    По каждому префиксу: заголовок, «N шт», затем отдельная строка на каждую пробу этого префикса.
+    """
     items = [
         s
         for s in samples
-        if _sample_type_equals(s, "Паспортизация")
-        and _sampling_location_name_in(s, SAMPLING_LOCATIONS_GKP)
+        if _sample_type_equals(s, "Исследования - ОИС") and _is_gkp_21_or_22_location(s)
     ]
     if not items:
-        return ""
-    by_loc: dict[str, dict[pendulum.Date, list[Sample]]] = defaultdict(
-        lambda: defaultdict(list)
-    )
-    for s in items:
-        name = (s.sampling_location.name or "").strip()
-        dt = s.receiving_date or pendulum.date(1900, 1, 1)
-        by_loc[name][dt].append(s)
-    lines = []
-    for loc_name in ("ГКП-21", "ГКП-22"):
-        if loc_name not in by_loc:
-            continue
-        dates_dict = by_loc[loc_name]
-        total = sum(len(v) for v in dates_dict.values())
-        if total == 0:
-            continue
-        lines.append(f"{loc_name} {total} шт")
-        for dt in sorted(dates_dict.keys()):
-            subs = dates_dict[dt]
-            pok = sum(agg.get(s.id, (0, 0))[1] for s in subs)
-            if pok > 0:
-                lines.append(f"{_fmt_date(dt)} по {pok} пок")
-    return "\n".join(lines) if lines else ""
+        return "", []
+    gkp22 = [
+        s
+        for s in items
+        if _sampling_location_name_starts_with(s, GKP_SAMPLING_NAME_PREFIX_22)
+    ]
+    in_gkp22 = {id(s) for s in gkp22}
+    gkp21 = [
+        s
+        for s in items
+        if _sampling_location_name_starts_with(s, GKP_SAMPLING_NAME_PREFIX_21)
+        and id(s) not in in_gkp22
+    ]
+
+    def _ois_sample_lines(subset: list[Sample]) -> list[str]:
+        return [
+            _gkp_sample_line(s, agg, ois_sht_suffix=True)
+            for s in _sort_samples_for_gkp_report(subset)
+        ]
+
+    lines: list[str] = [
+        GKP_SAMPLING_NAME_PREFIX_21,
+        f"{_map_display_sht_count(len(gkp21))} шт",
+        *_ois_sample_lines(gkp21),
+        "",
+        GKP_SAMPLING_NAME_PREFIX_22,
+        f"{_map_display_sht_count(len(gkp22))} шт",
+        *_ois_sample_lines(gkp22),
+    ]
+    return "\n".join(lines), items
 
 
-def _build_ois_achimovka(samples: list[Sample], agg: dict[int, tuple[int, int]]) -> str:
-    """ОИС Ачимовка: sample_type «Исследования - ОИС», sampling_location ГКП-21, ГКП-22."""
+def _build_ois_valanzhin(
+    samples: list[Sample], agg: dict[int, tuple[int, int]]
+) -> tuple[str, list[Sample]]:
+    """ОИС Валанжин: «Исследования - ОИС», без ГКП-21/22 и без префикса УКПГ-11В."""
     items = [
         s
         for s in samples
         if _sample_type_equals(s, "Исследования - ОИС")
-        and _sampling_location_name_in(s, SAMPLING_LOCATIONS_GKP)
+        and not _is_gkp_21_or_22_location(s)
+        and not _is_ukpg_11v_location(s)
     ]
     if not items:
-        return ""
-    return _build_gkp_21_gkp_22(items, agg)
-
-
-def _build_ois(samples: list[Sample], agg: dict[int, tuple[int, int]]) -> str:
-    """ОИС: Исследования - ОИС, не test_object «нефть товарная», по месту с скважиной и датой."""
-    items = [
-        s
-        for s in samples
-        if _sample_type_equals(s, "Исследования - ОИС")
-        and _test_object_not_equals(s, "нефть товарная")
-        and s.well
-    ]
-    if not items:
-        return ""
+        return "", []
     by_loc: dict[str, list[Sample]] = defaultdict(list)
     for s in items:
         name = (s.sampling_location.name or "").strip() if s.sampling_location else ""
-        by_loc[name].append(s)
-    lines = []
+        key = name if name else "(место отбора не указано)"
+        by_loc[key].append(s)
+    lines = [f"{_map_display_sht_count(len(items))} шт"]
     for loc_name in sorted(by_loc.keys()):
         loc_samples = by_loc[loc_name]
-        cnt = len(loc_samples)
         pok = sum(agg.get(s.id, (0, 0))[1] for s in loc_samples)
-        if cnt == 0 and pok == 0:
-            continue
-        display_name = DISPLAY_NAMES_CDGGKN.get(loc_name, loc_name)
-        lines.append(f"{cnt} шт по {pok} пок")
-        for s in sorted(
-            loc_samples,
-            key=lambda x: (x.receiving_date or pendulum.date(1900, 1, 1), x.well or ""),
-        ):
-            lines.append(
-                f"{display_name} скв. {s.well} от {_fmt_date(s.receiving_date)}"
-            )
-    return "\n".join(lines) if lines else ""
+        lines.append(
+            f"{_map_display_sht_count(len(loc_samples))} шт {loc_name} по {pok} пок"
+        )
+    return "\n".join(lines), items
 
 
-def _build_tovarnaya_produkciya_ois(
+def _build_ois_en_yaha(
     samples: list[Sample], agg: dict[int, tuple[int, int]]
-) -> str:
-    """Товарная продукция ОИС: Исследования - ОИС, test_object «нефть товарная», ГКП-21/ГКП-22 по дате."""
+) -> tuple[str, list[Sample]]:
+    """ОИС Ен-Яха: «Исследования - ОИС», место отбора с префиксом УКПГ-11В."""
     items = [
         s
         for s in samples
-        if _sample_type_equals(s, "Исследования - ОИС")
-        and _test_object_equals(s, "нефть товарная")
-        and _sampling_location_name_in(s, SAMPLING_LOCATIONS_GKP)
+        if _sample_type_equals(s, "Исследования - ОИС") and _is_ukpg_11v_location(s)
     ]
     if not items:
-        return ""
+        return "", []
     by_loc: dict[str, list[Sample]] = defaultdict(list)
     for s in items:
-        name = (s.sampling_location.name or "").strip()
-        by_loc[name].append(s)
-    lines = []
-    for loc_name in ("ГКП-21", "ГКП-22"):
-        loc_samples = by_loc.get(loc_name, [])
-        if not loc_samples:
-            continue
-        lines.append(f"{loc_name} {len(loc_samples)} шт")
-        for s in sorted(
-            loc_samples, key=lambda x: x.receiving_date or pendulum.date(1900, 1, 1)
-        ):
-            lines.append(_fmt_date(s.receiving_date))
-    return "\n".join(lines) if lines else ""
+        name = (s.sampling_location.name or "").strip() if s.sampling_location else ""
+        key = name if name else "(место отбора не указано)"
+        by_loc[key].append(s)
+    lines = [f"{_map_display_sht_count(len(items))} шт"]
+    for loc_name in sorted(by_loc.keys()):
+        loc_samples = by_loc[loc_name]
+        pok = sum(agg.get(s.id, (0, 0))[1] for s in loc_samples)
+        lines.append(f"{loc_name} по {pok} пок")
+    return "\n".join(lines), items
 
 
-def _build_prochie(samples: list[Sample], agg: dict[int, tuple[int, int]]) -> str:
-    """Прочие: sample_type «Исследования - прочие», по sampling_location."""
-    items = [s for s in samples if _sample_type_equals(s, "Исследования - прочие")]
+def _build_neftecondensatnaya_smes(
+    samples: list[Sample], agg: dict[int, tuple[int, int]]
+) -> tuple[str, list[Sample]]:
+    """Нефтеконденсатная смесь: объект испытаний «нефтеконденсатная смесь», сводка по местам отбора."""
+    items = [s for s in samples if _test_object_ilike(s, "нефтеконденсатная смесь")]
     if not items:
-        return ""
+        return "", []
     by_loc: dict[str, int] = defaultdict(int)
     for s in items:
         name = (s.sampling_location.name or "").strip() if s.sampling_location else ""
-        if name:
-            by_loc[name] += 1
+        key = name if name else "(место отбора не указано)"
+        by_loc[key] += 1
+    lines = [f"{_map_display_sht_count(len(items))} шт"]
+    for loc_name in sorted(by_loc.keys()):
+        lines.append(f"{loc_name} - {_map_display_sht_count(by_loc[loc_name])} шт")
+    return "\n".join(lines), items
+
+
+def _build_prochie(
+    samples: list[Sample], agg: dict[int, tuple[int, int]]
+) -> tuple[str, list[Sample]]:
+    """Прочие: место отбора (+ скважина/режим), дата отбора и сумма показателей."""
+    items = [s for s in samples if _sample_type_equals(s, "Исследования - прочие")]
+    if not items:
+        return "", []
+    by_key: dict[tuple[str, str, str, Optional[pendulum.Date]], list[Sample]] = (
+        defaultdict(list)
+    )
+    for s in items:
+        place = (s.sampling_location.name or "").strip() if s.sampling_location else ""
+        place_key = place if place else "(место отбора не указано)"
+        well_key = (s.well or "").strip()
+        mode_key = (s.mode or "").strip()
+        dt_key = s.sampling_date or s.receiving_date
+        by_key[(place_key, well_key, mode_key, dt_key)].append(s)
     total = len(items)
-    lines = [f"{total} шт"]
-    for loc_name in sorted(by_loc.keys(), key=lambda x: -by_loc[x]):
-        lines.append(f"{loc_name} - {by_loc[loc_name]} шт")
-    return "\n".join(lines) if lines else ""
+    lines = [f"{_map_display_sht_count(total)} шт"]
+    for key in sorted(
+        by_key.keys(),
+        key=lambda x: (
+            x[0],
+            x[1],
+            x[2],
+            x[3] or pendulum.date(1900, 1, 1),
+        ),
+    ):
+        place_key, well_key, mode_key, dt_key = key
+        group = by_key[key]
+        pok = sum(agg.get(s.id, (0, 0))[1] for s in group)
+        date_part = _fmt_date(dt_key) if dt_key else "(дата отбора не указана)"
+
+        text = place_key
+        if well_key:
+            text += f" скв. {well_key}"
+        if mode_key:
+            text += f" {mode_key}"
+        lines.append(f"{text} от {date_part} по {pok} пок")
+    return "\n".join(lines), items
 
 
 def _build_diztoplivo_ingibitor(
     samples: list[Sample], agg: dict[int, tuple[int, int]]
-) -> str:
-    """Дизтопливо и Ингибитор коррозии вместе: по test_object, месту, дате отбора и показателям."""
+) -> tuple[str, list[Sample]]:
+    """Дизтопливо и ингибитор коррозии: одна строка отчёта, объекты дизель / ингибитор по месту и дате."""
     items = [
         s
         for s in samples
@@ -475,77 +633,24 @@ def _build_diztoplivo_ingibitor(
         or _test_object_ilike(s, "ингибитор коррозии")
     ]
     if not items:
-        return ""
+        return "", []
     lines = []
-    for test_name, search in (
-        ("Дизтопливо", "дизельное топливо"),
-        ("Ингибитор коррозии", "ингибитор коррозии"),
+    by_place_date: dict[tuple[str, Optional[pendulum.Date]], list[Sample]] = (
+        defaultdict(list)
+    )
+    for s in items:
+        place = (s.sampling_location.name or "").strip() if s.sampling_location else ""
+        by_place_date[(place, s.receiving_date)].append(s)
+    for (place, dt), loc_samples in sorted(
+        by_place_date.items(),
+        key=lambda x: (x[0][0], x[0][1] or pendulum.date(1900, 1, 1)),
     ):
-        subs = [s for s in items if search in (s.test_object or "").lower()]
-        if not subs:
-            continue
-        lines.append(test_name)
-        by_place_date: dict[tuple[str, Optional[pendulum.Date]], list[Sample]] = (
-            defaultdict(list)
+        cnt = len(loc_samples)
+        pok = sum(agg.get(s.id, (0, 0))[1] for s in loc_samples)
+        lines.append(
+            f"{_map_display_sht_count(cnt)} шт {place} от {_fmt_date(dt)} по {pok} пок"
         )
-        for s in subs:
-            place = (
-                (s.sampling_location.name or "").strip() if s.sampling_location else ""
-            )
-            dt = s.receiving_date
-            by_place_date[(place, dt)].append(s)
-        for (place, dt), loc_samples in sorted(
-            by_place_date.items(),
-            key=lambda x: (x[0][0], x[0][1] or pendulum.date(1900, 1, 1)),
-        ):
-            cnt = len(loc_samples)
-            pok = sum(agg.get(s.id, (0, 0))[1] for s in loc_samples)
-            lines.append(f"{cnt} шт {place} от {_fmt_date(dt)} по {pok} пок")
-    return "\n".join(lines) if lines else ""
-
-
-def _build_diztoplivo(samples: list[Sample], agg: dict[int, tuple[int, int]]) -> str:
-    """Только дизтопливо: место отбора, дата, показатели."""
-    items = [s for s in samples if _test_object_ilike(s, "дизельное топливо")]
-    if not items:
-        return ""
-    lines = []
-    by_place_date: dict[tuple[str, Optional[pendulum.Date]], list[Sample]] = (
-        defaultdict(list)
-    )
-    for s in items:
-        place = (s.sampling_location.name or "").strip() if s.sampling_location else ""
-        by_place_date[(place, s.receiving_date)].append(s)
-    for (place, dt), loc_samples in sorted(
-        by_place_date.items(),
-        key=lambda x: (x[0][0], x[0][1] or pendulum.date(1900, 1, 1)),
-    ):
-        cnt = len(loc_samples)
-        pok = sum(agg.get(s.id, (0, 0))[1] for s in loc_samples)
-        lines.append(f"{cnt} шт {place} от {_fmt_date(dt)} по {pok} пок")
-    return "\n".join(lines) if lines else ""
-
-
-def _build_ingibitor(samples: list[Sample], agg: dict[int, tuple[int, int]]) -> str:
-    """Только ингибитор коррозии: место отбора, дата, показатели."""
-    items = [s for s in samples if _test_object_ilike(s, "ингибитор коррозии")]
-    if not items:
-        return ""
-    lines = []
-    by_place_date: dict[tuple[str, Optional[pendulum.Date]], list[Sample]] = (
-        defaultdict(list)
-    )
-    for s in items:
-        place = (s.sampling_location.name or "").strip() if s.sampling_location else ""
-        by_place_date[(place, s.receiving_date)].append(s)
-    for (place, dt), loc_samples in sorted(
-        by_place_date.items(),
-        key=lambda x: (x[0][0], x[0][1] or pendulum.date(1900, 1, 1)),
-    ):
-        cnt = len(loc_samples)
-        pok = sum(agg.get(s.id, (0, 0))[1] for s in loc_samples)
-        lines.append(f"{cnt} шт {place} от {_fmt_date(dt)} по {pok} пок")
-    return "\n".join(lines) if lines else ""
+    return ("\n".join(lines) if lines else ""), items
 
 
 def _build_all_row_values(
@@ -556,23 +661,27 @@ def _build_all_row_values(
         ROW_TITLE_TOVARNAYA_NEFT_NGDU: _build_tovarnaya_neft_ngdu,
         ROW_TITLE_EKSPLUATACIONNAYA_NEFT_NGDU: _build_ekspluatacionnaya_neft_ngdu,
         ROW_TITLE_KALIBROVOCHNAYA_NEFT_UGPU: _build_kalibrovochnaya_neft_ugpu,
+        ROW_TITLE_VNEPLANOVAYA_NEFT: _build_vneplanovaya_neft,
         ROW_TITLE_PASPORTIZACIYA: _build_pasportizaciya,
-        ROW_TITLE_GKP_21: _build_gkp_21,
-        ROW_TITLE_GKP_22: _build_gkp_22,
         ROW_TITLE_GKP_21_GKP_22: _build_gkp_21_gkp_22,
         ROW_TITLE_OIS_ACHIMOVKA: _build_ois_achimovka,
-        ROW_TITLE_OIS: _build_ois,
-        ROW_TITLE_TOVARNAYA_PRODUKCIYA_OIS: _build_tovarnaya_produkciya_ois,
+        ROW_TITLE_OIS_VALANZHIN: _build_ois_valanzhin,
+        ROW_TITLE_OIS_EN_YAHA: _build_ois_en_yaha,
         ROW_TITLE_PROCHIE: _build_prochie,
-        ROW_TITLE_DIZTOPIVO: _build_diztoplivo,
-        ROW_TITLE_INGIBITOR_KORROZII: _build_ingibitor,
+        ROW_TITLE_NEFTECONDENSATNAYA_SMES: _build_neftecondensatnaya_smes,
         ROW_TITLE_DIZTOPIVO_INGIBITOR: _build_diztoplivo_ingibitor,
     }
-    result = {}
+    result: dict[str, str] = {}
     for title, builder in builders.items():
-        value = builder(samples, agg)
+        value, used = builder(samples, agg)
         if value:
             result[title] = value
+            if used:
+                logger.info(
+                    "{} - пробы: {}",
+                    title,
+                    _sample_labels_for_log(used),
+                )
     return result
 
 
@@ -612,16 +721,14 @@ ROW_TITLE_TO_BRANCH: dict[str, Optional[str]] = {
     ROW_TITLE_TOVARNAYA_NEFT_NGDU: BRANCH_NGDU,
     ROW_TITLE_EKSPLUATACIONNAYA_NEFT_NGDU: BRANCH_NGDU,
     ROW_TITLE_KALIBROVOCHNAYA_NEFT_UGPU: BRANCH_UGPU,
+    ROW_TITLE_VNEPLANOVAYA_NEFT: None,
     ROW_TITLE_PASPORTIZACIYA: None,
-    ROW_TITLE_GKP_21: None,
-    ROW_TITLE_GKP_22: None,
     ROW_TITLE_GKP_21_GKP_22: None,
     ROW_TITLE_OIS_ACHIMOVKA: None,
-    ROW_TITLE_OIS: None,
-    ROW_TITLE_TOVARNAYA_PRODUKCIYA_OIS: None,
+    ROW_TITLE_OIS_VALANZHIN: None,
+    ROW_TITLE_OIS_EN_YAHA: None,
     ROW_TITLE_PROCHIE: None,
-    ROW_TITLE_DIZTOPIVO: None,
-    ROW_TITLE_INGIBITOR_KORROZII: None,
+    ROW_TITLE_NEFTECONDENSATNAYA_SMES: None,
     ROW_TITLE_DIZTOPIVO_INGIBITOR: None,
 }
 
