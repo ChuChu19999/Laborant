@@ -14,7 +14,7 @@
   padding-right: 15px;
 }
 
-.fixtures-section {
+.method-prefill-section {
   margin-bottom: 10px;
   padding-top: 5px;
   padding-left: 10px;
@@ -24,8 +24,12 @@
   border: 1px solid #e8e8e8;
 }
 
-.fixtures-controls {
+.method-prefill-controls {
   margin-bottom: 10px;
+}
+
+.method-prefill-tree-select {
+  width: 100%;
 }
 
 .fixture-files {

@@ -18,7 +18,9 @@
     "jsx": "react-jsx",
     "allowJs": true,
     "rootDir": ".",
-    "baseUrl": ".",
+    "paths": {
+      "*": ["./*"]
+    },
 
     /* Linting */
     "strict": true,

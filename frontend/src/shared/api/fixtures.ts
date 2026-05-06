@@ -53,12 +53,57 @@ export interface FixtureData {
   rounding_decimal?: number;
 }
 
+export interface FixtureDirectoryEntry {
+  path: string;
+  label: string;
+}
+
+export interface SavedMethodEntry {
+  id: number;
+  name: string;
+  nd_code: string;
+  group_name?: string | null;
+}
+
+export interface SavedDepartmentBlock {
+  department_id: number;
+  department_name: string;
+  methods: SavedMethodEntry[];
+}
+
+export interface SavedLaboratoryBlock {
+  laboratory_id: number | null;
+  laboratory_name: string;
+  departments: SavedDepartmentBlock[];
+  methods_without_department: SavedMethodEntry[];
+}
+
+export interface SavedMethodsTreeResponse {
+  laboratories: SavedLaboratoryBlock[];
+}
+
 export const fixturesApi = {
   getFixtures: async (params?: {
     laboratory_name?: string;
     department_name?: string;
   }): Promise<{ fixtures: string[] }> => {
     const response = await axiosInstance.get('/api/fixtures/', { params });
+    return response.data;
+  },
+
+  getFixtureDirectories: async (
+    laboratoryName: string
+  ): Promise<{
+    directories: FixtureDirectoryEntry[];
+  }> => {
+    const response = await axiosInstance.get('/api/fixtures/meta/directories/', {
+      params: { laboratory_name: laboratoryName },
+    });
+    return response.data;
+  },
+
+  getSavedMethodsTree: async (): Promise<SavedMethodsTreeResponse> => {
+    const response = await axiosInstance.get('/api/fixtures/meta/saved-methods-tree/');
     return response.data;
   },
 

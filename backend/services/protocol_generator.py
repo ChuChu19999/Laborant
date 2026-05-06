@@ -888,7 +888,6 @@ def add_standalone_method(
         elif "{name_method}" in value:
             method_name = calc.research_method.name
             cell.value = value.replace("{name_method}", method_name)
-            adjust_cell_height_if_needed(current_sheet, current_row, col, method_name)
         elif "{unit}" in value:
             cell.value = value.replace("{unit}", calc.unit or "-")
         elif "{result}" in value:
@@ -966,7 +965,6 @@ def add_group_methods(
             cell.value = value.replace("{id_method}", str(idx))
         elif "{name_method}" in value:
             cell.value = value.replace("{name_method}", group_name)
-            adjust_cell_height_if_needed(current_sheet, current_row, col, group_name)
         elif "{unit}" in value:
             cell.value = value.replace("{unit}", common_unit or "-")
         elif "{measurement_method}" in value:
@@ -1040,9 +1038,6 @@ def add_group_methods(
                 elif method_name:
                     method_name = method_name[0].lower() + method_name[1:]
                     cell.value = method_name
-                    adjust_cell_height_if_needed(
-                        current_sheet, current_row, col, method_name
-                    )
                 else:
                     cell.value = ""
             elif "{result}" in value:
@@ -1338,6 +1333,20 @@ def process_fractional_composition_condensate(
             f"Не удалось распарсить результат для фракционного состава: {str(e)}"
         )
         return current_row, current_sheet
+
+    if isinstance(result_data, dict):
+        normalized_data = {}
+        for key, value in result_data.items():
+            normalized_key = key.strip() if isinstance(key, str) else key
+            if isinstance(normalized_key, str):
+                if normalized_key.lower().startswith("температура н"):
+                    normalized_key = "Температура н.к."
+                else:
+                    normalized_key = normalized_key.replace(
+                        "Температура н,к.", "Температура н.к."
+                    )
+            normalized_data[normalized_key] = value
+        result_data = normalized_data
 
     fractional_fields = [
         "Температура н.к.",

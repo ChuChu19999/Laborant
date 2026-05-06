@@ -1,70 +1,114 @@
 {
-    "name": "При 50 ℃",
-    "sample_type": ["oil", "condensate", "diesel_fuel", "spent_oil_products", "corrosion_inhibitor"],
-    "formula": "νср",
+    "name": "Массовая доля асфальтенов",
+    "sample_type": ["oil", "condensate"],
+    "formula": "1*Xср",
     "measurement_error": {
         "type": "formula",
-        "value": "νср*0.51/100"
+        "value": "1*delta"
     },
-    "unit": "мм²/с",
-    "measurement_method": "ГОСТ 33",
-    "nd_code": "ГОСТ 33-2016",
-    "nd_name": "Нефтепродукты. Прозрачные и непрозрачные жидкости. Определение кинематической и динамической вязкости",
+    "unit": "%",
+    "measurement_method": "СТО 05751745-198-2025",
+    "nd_code": "СТО 05751745-198-2025",
+    "nd_name": "Конденсат газовый дегазированный, нефть. Определение асфальтенов, смол, парафина. Методика измерения",
     "input_data": {
         "fields": [
             {
-                "name": "t₁",
-                "unit": "с",
+                "name": "M₁₀",
+                "unit": "г",
                 "card_index": 1,
-                "description": "Время истечения нефтепродукта в вискозиметре для первой параллели"
+                "description": "Масса пустого бюкса для первой параллели"
             },
             {
-                "name": "C₁",
-                "unit": "мм/с²",
+                "name": "M₁₁",
+                "unit": "г",
                 "card_index": 1,
-                "description": "Постоянная вискозиметра для первой параллели"
+                "description": "Масса бюкса с асфальтенами для первой параллели"
             },
             {
-                "name": "t₂",
-                "unit": "с",
-                "card_index": 2,
-                "description": "Время истечения нефтепродукта в вискозиметре для второй параллели"
+                "name": "M₁",
+                "unit": "г",
+                "card_index": 1,
+                "description": "Масса навески для первой параллели"
             },
             {
-                "name": "C₂",
-                "unit": "мм/с²",
+                "name": "M₂₀",
+                "unit": "г",
                 "card_index": 2,
-                "description": "Постоянная вискозиметра для второй параллели"
+                "description": "Масса пустого бюкса для второй параллели"
+            },
+            {
+                "name": "M₂₁",
+                "unit": "г",
+                "card_index": 2,
+                "description": "Масса бюкса с асфальтенами для второй параллели"
+            },
+            {
+                "name": "M₂",
+                "unit": "г",
+                "card_index": 2,
+                "description": "Масса навески для второй параллели"
             }
         ]
     },
     "intermediate_data": {
         "fields": [
             {
-                "name": "ν₁",
+                "name": "X₁",
                 "unit": "%",
-                "formula": "C₁*t₁*1.0017",
-                "description": "Первый расчет содержания компонента",
+                "formula": "(M₁₁-M₁₀)/M₁*100",
+                "description": "Первый расчет массовой доли асфальтенов",
                 "show_calculation": true,
                 "range_calculation": null,
                 "use_multiple_rounding": false
             },
             {
-                "name": "ν₂",
+                "name": "X₂",
                 "unit": "%",
-                "formula": "C₂*t₂*1.0017",
-                "description": "Второй расчет содержания компонента",
+                "formula": "(M₂₁-M₂₀)/M₂*100",
+                "description": "Второй расчет массовой доли асфальтенов",
                 "show_calculation": true,
                 "range_calculation": null,
                 "use_multiple_rounding": false
             },
             {
-                "name": "νср",
+                "name": "Xср",
                 "unit": "%",
-                "formula": "(ν₁+ν₂)/2",
-                "description": "Среднее значение содержания компонента",
+                "formula": "(X₁+X₂)/2",
+                "description": "Среднее значение массовой доли асфальтенов",
                 "show_calculation": false,
                 "range_calculation": null,
+                "use_multiple_rounding": false
+            },
+            {
+                "name": "delta",
+                "unit": "%",
+                "formula": "0",
+                "description": "Δ",
+                "show_calculation": true,
+                "range_calculation": {
+                    "ranges": [
+                        {
+                            "formula": "Xср*(0.123/Xср+5.74)*0.01",
+                            "condition": "(Xср>=0.01) and (Xср<=0.5)"
+                        }
+                    ]
+                },
+                "use_multiple_rounding": false
+            },
+            {
+                "name": "r",
+                "unit": "%",
+                "formula": "0",
+                "description": "Повторяемость",
+                "show_calculation": true,
+                "range_calculation": {
+                    "ranges": [
+                        {
+                            "formula": "2.77*(1.64+0.089/Xср)*Xср*0.01",
+                            "condition": "(Xср>=0.01) and (Xср<=0.5)"
+                        }
+                    ]
+                },
                 "use_multiple_rounding": false
             }
         ]
@@ -72,19 +116,20 @@
     "convergence_conditions": {
         "formulas": [
             {
-                "formula": "abs(ν₁-ν₂)<=νср*0.35/100",
+                "formula": "abs(X₁-X₂)<=r",
                 "convergence_value": "satisfactory"
             },
             {
-                "formula": "abs(ν₁-ν₂)>νср*0.35/100",
+                "formula": "abs(X₁-X₂)>r",
                 "convergence_value": "unsatisfactory"
             }
         ]
     },
     "is_deleted": false,
-    "rounding_type": "significant",
-    "rounding_decimal": 4,
+    "rounding_type": "decimal",
+    "rounding_decimal": 3,
     "is_active": true,
     "is_group_member": false,
-    "group_name": "Вязкость кинематическая"
+    "groups": [],
+    "group_name": ""
 }

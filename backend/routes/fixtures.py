@@ -1,14 +1,50 @@
 from typing import Optional
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+from core.database import get_db
 from core.exceptions import NotFoundError
 from core.security import IsAuthenticated
 from services.fixtures import (
     get_available_fixtures,
     get_fixture_data,
     list_fixture_files,
+    list_fixture_subdirectories,
 )
+from services.saved_methods_tree import build_saved_methods_tree
 
 router = APIRouter()
+
+
+@router.get(
+    "/fixtures/meta/directories/",
+    summary="Дерево каталогов фикстур лаборатории",
+    description=(
+        "Все подкаталоги с JSON для выбранной лаборатории (например 26 съезд, нетипичные пробы). "
+        "Используется для построения дерева без привязки только к текущему подразделению."
+    ),
+    responses={200: {"description": "Список каталогов"}},
+)
+# @IsAuthenticated
+async def get_fixture_directories(
+    laboratory_name: str = Query(..., description="Название лаборатории"),
+):
+    """Возвращает подкаталоги фикстур для лаборатории."""
+    return {"directories": list_fixture_subdirectories(laboratory_name)}
+
+
+@router.get(
+    "/fixtures/meta/saved-methods-tree/",
+    summary="Расчётные методы, применяемые в лабораториях (по подразделениям)",
+    description=(
+        "Методы исследования из базы (включая входящие в группы), по лаборатории "
+        "и подразделению (если указано). Для дерева выбора шаблона на фронтенде."
+    ),
+    responses={200: {"description": "Дерево методов"}},
+)
+# @IsAuthenticated
+async def get_saved_methods_tree(db: AsyncSession = Depends(get_db)):
+    """Возвращает методы из базы, сгруппированные по лаборатории и подразделению."""
+    return await build_saved_methods_tree(db)
 
 
 @router.get(

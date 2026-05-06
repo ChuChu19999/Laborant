@@ -88,6 +88,8 @@ const SamplesTable: React.FC<SamplesTableProps> = ({
       'test_object',
       'test_objects',
       'sampling_location',
+      'protocols',
+      'added_by',
       'sampling_date_from',
       'sampling_date_to',
       'receiving_date_from',
@@ -131,6 +133,12 @@ const SamplesTable: React.FC<SamplesTableProps> = ({
     }
     if (urlFilters.sampling_location && typeof urlFilters.sampling_location === 'string') {
       columnFilters.push({ id: 'sampling_location', value: urlFilters.sampling_location });
+    }
+    if (urlFilters.protocols && typeof urlFilters.protocols === 'string') {
+      columnFilters.push({ id: 'protocols', value: urlFilters.protocols });
+    }
+    if (urlFilters.added_by && typeof urlFilters.added_by === 'string') {
+      columnFilters.push({ id: 'added_by', value: urlFilters.added_by });
     }
 
     const samplingFrom = urlFilters.sampling_date_from;
@@ -444,7 +452,7 @@ const SamplesTable: React.FC<SamplesTableProps> = ({
           const employee = employeesMap[addedBy];
           return employee?.fullName || '-';
         },
-        enableSorting: true,
+        enableSorting: false,
         enableColumnFilter: true,
         size: 200,
       },

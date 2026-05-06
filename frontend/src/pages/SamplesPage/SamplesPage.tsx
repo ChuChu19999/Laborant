@@ -235,6 +235,10 @@ const SamplesPage: React.FC = () => {
           }
         } else if (filter.id === 'sampling_location' && filterValue) {
           newFilters.sampling_location = String(filterValue);
+        } else if (filter.id === 'protocols' && filterValue) {
+          newFilters.protocols = String(filterValue);
+        } else if (filter.id === 'added_by' && filterValue) {
+          newFilters.added_by = String(filterValue);
         } else if (filter.id === 'sampling_date' && filterValue) {
           if (Array.isArray(filterValue) && filterValue.length === 2) {
             const [start, end] = filterValue as [Dayjs | null, Dayjs | null];

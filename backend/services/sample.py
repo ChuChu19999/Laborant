@@ -16,8 +16,14 @@ from schemas.sample import (
     SelectionConditionsCreate,
     SelectionConditionsUpdate,
 )
+from services.employees import search_employees_by_fio
 from utils.filters import add_date_range_filter, add_text_search_filter
 from utils.pagination import apply_pagination, calculate_total_pages, get_total_count
+from utils.protocol_search_filter import sample_has_protocol_display_ilike
+from utils.sample_sort import (
+    protocols_sort_scalar_subquery,
+    registration_number_sort_columns,
+)
 from utils.sorting import build_order_by
 
 
@@ -49,6 +55,8 @@ async def get_samples(
     page_size: Optional[int] = None,
     search: Optional[str] = None,
     search_sampling_location: Optional[str] = None,
+    search_protocols: Optional[str] = None,
+    search_added_by: Optional[str] = None,
     sample_type: Optional[str] = None,
     sample_types: Optional[List[str]] = None,
     test_object: Optional[str] = None,
@@ -81,6 +89,29 @@ async def get_samples(
         conditions.append(Sample.department_id == department_id)
     if search:
         conditions.append(Sample.registration_number.ilike(f"%{search}%"))
+
+    if search_protocols and search_protocols.strip():
+        conditions.append(sample_has_protocol_display_ilike(search_protocols))
+
+    if search_added_by:
+        normalized_added_by = search_added_by.strip()
+        if normalized_added_by:
+            matching_hashes = []
+            if len(normalized_added_by) >= 3:
+                employees = await search_employees_by_fio(
+                    normalized_added_by, include_photo=False
+                )
+                matching_hashes = [
+                    employee.get("hashMd5")
+                    for employee in employees
+                    if isinstance(employee, dict) and employee.get("hashMd5")
+                ]
+
+            if matching_hashes:
+                conditions.append(Sample.added_by.in_(matching_hashes))
+            else:
+                conditions.append(Sample.id == -1)
+
     if sample_types:
         conditions.append(Sample.sample_type.in_(sample_types))
     elif sample_type:
@@ -128,7 +159,6 @@ async def get_samples(
         query = query.where(*conditions)
 
     sort_mapping = {
-        "registration_number": Sample.registration_number,
         "sample_type": Sample.sample_type,
         "test_object": Sample.test_object,
         "sampling_date": Sample.sampling_date,
@@ -151,6 +181,18 @@ async def get_samples(
             query = query.order_by(sampling_location_sort.asc())
         else:
             query = query.order_by(sampling_location_sort.desc())
+    elif sort_by == "registration_number":
+        reg_num, reg_year = registration_number_sort_columns()
+        if sort_order == "asc":
+            query = query.order_by(reg_num.asc(), reg_year.asc(), Sample.id.asc())
+        else:
+            query = query.order_by(reg_num.desc(), reg_year.desc(), Sample.id.desc())
+    elif sort_by == "protocols":
+        protocol_sort = protocols_sort_scalar_subquery()
+        if sort_order == "asc":
+            query = query.order_by(protocol_sort.asc().nulls_last(), Sample.id.asc())
+        else:
+            query = query.order_by(protocol_sort.desc().nulls_first(), Sample.id.desc())
     else:
         order_by = build_order_by(sort_by, sort_order, sort_mapping, Sample.created_at)
         query = query.order_by(order_by)
@@ -165,6 +207,29 @@ async def get_samples(
         count_conditions.append(Sample.department_id == department_id)
     if search:
         count_conditions.append(Sample.registration_number.ilike(f"%{search}%"))
+
+    if search_protocols and search_protocols.strip():
+        count_conditions.append(sample_has_protocol_display_ilike(search_protocols))
+
+    if search_added_by:
+        normalized_added_by = search_added_by.strip()
+        if normalized_added_by:
+            matching_hashes = []
+            if len(normalized_added_by) >= 3:
+                employees = await search_employees_by_fio(
+                    normalized_added_by, include_photo=False
+                )
+                matching_hashes = [
+                    employee.get("hashMd5")
+                    for employee in employees
+                    if isinstance(employee, dict) and employee.get("hashMd5")
+                ]
+
+            if matching_hashes:
+                count_conditions.append(Sample.added_by.in_(matching_hashes))
+            else:
+                count_conditions.append(Sample.id == -1)
+
     if sample_types:
         count_conditions.append(Sample.sample_type.in_(sample_types))
     elif sample_type:

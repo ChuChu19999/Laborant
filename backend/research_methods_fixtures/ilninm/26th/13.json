@@ -1,237 +1,135 @@
 {
-    "name": "Массовая концентрация хлористых солей",
-    "sample_type": ["oil", "condensate", "liquid_hydrocarbons_mixture"],
+    "name": "Массовая доля механических примесей",
+    "sample_type": ["oil", "condensate", "oil_condensate_mixture", "diesel_fuel", "spent_oil_products", "liquid_hydrocarbons_mixture"],
     "formula": "1*Xср",
     "measurement_error": {
         "type": "formula",
         "value": "1*delta"
     },
-    "unit": "мг/дм³",
-    "measurement_method": "ГОСТ 21534 (метод А)",
-    "nd_code": "ГОСТ 21534-2021",
-    "nd_name": "Нефть. Методы определения хлористых солей",
+    "unit": "%",
+    "measurement_method": "ГОСТ 6370",
+    "nd_code": "ГОСТ 6370-2018",
+    "nd_name": "Нефть, нефтепродукты и присадки. Метод определения механических примесей",
     "input_data": {
         "fields": [
             {
-                "name": "Vр₁₁",
-                "unit": "см³",
+                "name": "M₁₀",
+                "unit": "г",
                 "card_index": 1,
-                "description": "Первый объем раствора азотнокислой ртути, израсходованной на титрование водной вытяжки для первой параллели"
+                "description": "Масса бюкса без мехпримесей для первой параллели"
             },
             {
-                "name": "Vр₁₂",
-                "unit": "см³",
+                "name": "M₁₁",
+                "unit": "г",
                 "card_index": 1,
-                "description": "Второй объем раствора азотнокислой ртути, израсходованной на титрование водной вытяжки для первой параллели"
+                "description": "Масса бюкса с мехпримесями для первой параллели"
             },
             {
-                "name": "Vр₁₃",
-                "unit": "см³",
+                "name": "M₁",
+                "unit": "г",
                 "card_index": 1,
-                "description": "Третий объем раствора азотнокислой ртути, израсходованной на титрование водной вытяжки для первой параллели"
+                "description": "Масса пробы для первой параллели"
             },
             {
-                "name": "Vр₂₁",
-                "unit": "см³",
+                "name": "M₂₀",
+                "unit": "г",
                 "card_index": 2,
-                "description": "Первый объем раствора азотнокислой ртути, израсходованной на титрование водной вытяжки для второй параллели"
+                "description": "Масса бюкса без мехпримесей для второй параллели"
             },
             {
-                "name": "Vр₂₂",
-                "unit": "см³",
+                "name": "M₂₁",
+                "unit": "г",
                 "card_index": 2,
-                "description": "Второй объем раствора азотнокислой ртути, израсходованной на титрование водной вытяжки для второй параллели"
+                "description": "Масса бюкса с мехпримесями для второй параллели"
             },
             {
-                "name": "Vр₂₃",
-                "unit": "см³",
+                "name": "M₂",
+                "unit": "г",
                 "card_index": 2,
-                "description": "Третий объем раствора азотнокислой ртути, израсходованной на титрование водной вытяжки для второй параллели"
-            },
-            {
-                "name": "T",
-                "unit": "мг/см³",
-                "card_index": 3,
-                "description": "Титр"
-            },
-            {
-                "name": "V₀",
-                "unit": "см³",
-                "card_index": 3,
-                "description": "Объем раствора азотнокислой ртути, израсходованной на холостую пробу"
-            },
-            {
-                "name": "Vпр",
-                "unit": "см³",
-                "card_index": 3,
-                "description": "Объем пробы, взятой для анализа"
+                "description": "Масса пробы для второй параллели"
             }
         ]
     },
     "intermediate_data": {
         "fields": [
             {
-                "name": "X₁₁",
-                "unit": "мг/дм³",
-                "formula": "0",
-                "description": "X₁,₁",
-                "show_calculation": true,
-                "range_calculation": {
-                    "ranges": [
-                        {
-                            "formula": "0",
-                            "condition": "Vр₁₁=0"
-                        },
-                        {
-                            "formula": "(Vр₁₁-V₀)*T*1000/Vпр",
-                            "condition": "(Vр₁₁>0) or (Vр₁₁<0)"
-                        }
-                    ]
-                },
-                "use_multiple_rounding": false
-            },
-            {
-                "name": "X₁₂",
-                "unit": "мг/дм³",
-                "formula": "0",
-                "description": "X₁,₂",
-                "show_calculation": true,
-                "range_calculation": {
-                    "ranges": [
-                        {
-                            "formula": "0",
-                            "condition": "Vр₁₂=0"
-                        },
-                        {
-                            "formula": "(Vр₁₂-V₀)*T*1000/Vпр",
-                            "condition": "(Vр₁₂>0) or (Vр₁₂<0)"
-                        }
-                    ]
-                },
-                "use_multiple_rounding": false
-            },
-            {
-                "name": "X₁₃",
-                "unit": "мг/дм³",
-                "formula": "0",
-                "description": "X₁,₃",
-                "show_calculation": true,
-                "range_calculation": {
-                    "ranges": [
-                        {
-                            "formula": "0",
-                            "condition": "Vр₁₃=0"
-                        },
-                        {
-                            "formula": "(Vр₁₃-V₀)*T*1000/Vпр",
-                            "condition": "(Vр₁₃>0) or (Vр₁₃<0)"
-                        }
-                    ]
-                },
-                "use_multiple_rounding": false
-            },
-            {
-                "name": "X₂₁",
-                "unit": "мг/дм³",
-                "formula": "0",
-                "description": "X₂,₁",
-                "show_calculation": true,
-                "range_calculation": {
-                    "ranges": [
-                        {
-                            "formula": "0",
-                            "condition": "Vр₂₁=0"
-                        },
-                        {
-                            "formula": "(Vр₂₁-V₀)*T*1000/Vпр",
-                            "condition": "(Vр₂₁>0) or (Vр₂₁<0)"
-                        }
-                    ]
-                },
-                "use_multiple_rounding": false
-            },
-            {
-                "name": "X₂₂",
-                "unit": "мг/дм³",
-                "formula": "0",
-                "description": "X₂,₂",
-                "show_calculation": true,
-                "range_calculation": {
-                    "ranges": [
-                        {
-                            "formula": "0",
-                            "condition": "Vр₂₂=0"
-                        },
-                        {
-                            "formula": "(Vр₂₂-V₀)*T*1000/Vпр",
-                            "condition": "(Vр₂₂>0) or (Vр₂₂<0)"
-                        }
-                    ]
-                },
-                "use_multiple_rounding": false
-            },
-            {
-                "name": "X₂₃",
-                "unit": "мг/дм³",
-                "formula": "0",
-                "description": "X₂,₃",
-                "show_calculation": true,
-                "range_calculation": {
-                    "ranges": [
-                        {
-                            "formula": "0",
-                            "condition": "Vр₂₃=0"
-                        },
-                        {
-                            "formula": "(Vр₂₃-V₀)*T*1000/Vпр",
-                            "condition": "(Vр₂₃>0) or (Vр₂₃<0)"
-                        }
-                    ]
-                },
-                "use_multiple_rounding": false
-            },
-            {
                 "name": "X₁",
-                "unit": "мг/дм³",
-                "formula": "X₁₁+X₁₂+X₁₃",
-                "description": "Первый расчет массовой концентрации хлористых солей",
+                "unit": "%",
+                "formula": "(M₁₁-M₁₀)/M₁*100",
+                "description": "Первый расчет массовой доли механических примесей",
                 "show_calculation": true,
                 "range_calculation": null,
                 "use_multiple_rounding": false
             },
             {
                 "name": "X₂",
-                "unit": "мг/дм³",
-                "formula": "X₂₁+X₂₂+X₂₃",
-                "description": "Второй расчет массовой концентрации хлористых солей",
+                "unit": "%",
+                "formula": "(M₂₁-M₂₀)/M₂*100",
+                "description": "Второй расчет массовой доли механических примесей",
                 "show_calculation": true,
                 "range_calculation": null,
                 "use_multiple_rounding": false
             },
             {
                 "name": "Xср",
-                "unit": "мг/дм³",
+                "unit": "%",
                 "formula": "(X₁+X₂)/2",
-                "description": "Среднее значение массовой концентрации хлористых солей",
-                "show_calculation": true,
+                "description": "Среднее значение массовой доли механических примесей",
+                "show_calculation": false,
                 "range_calculation": null,
                 "use_multiple_rounding": false
             },
             {
                 "name": "delta",
-                "unit": "мг/дм³",
+                "unit": "%",
                 "formula": "0",
                 "description": "Δ",
                 "show_calculation": true,
                 "range_calculation": {
                     "ranges": [
                         {
-                            "formula": "1*3",
-                            "condition": "(Xср>=0) and (Xср<=10)"
+                            "formula": "1.0*0.0035",
+                            "condition": "(Xср>=0.005) and (Xср<=0.01)"
                         },
                         {
-                            "formula": "1*6",
-                            "condition": "(Xср>10) and (Xср<=50)"
+                            "formula": "1.0*0.007",
+                            "condition": "(Xср>0.01) and (Xср<=0.1)"
+                        },
+                        {
+                            "formula": "1.0*0.01",
+                            "condition": "(Xср>0.01) and (Xср<=1)"
+                        },
+                                                {
+                            "formula": "1.0*0.14",
+                            "condition": "(Xср>1)"
+                        }
+                    ]
+                },
+                "use_multiple_rounding": false
+            },
+            {
+                "name": "r",
+                "unit": "%",
+                "formula": "0",
+                "description": "Повторяемость",
+                "show_calculation": true,
+                "range_calculation": {
+                    "ranges": [
+                        {
+                            "formula": "1.0*0.0025",
+                            "condition": "(Xср>=0.005) and (Xср<=0.01)"
+                        },
+                        {
+                            "formula": "1.0*0.005",
+                            "condition": "(Xср>0.01) and (Xср<=0.1)"
+                        },
+                        {
+                            "formula": "1.0*0.01",
+                            "condition": "(Xср>0.01) and (Xср<=1)"
+                        },
+                        {
+                            "formula": "1.0*0.1",
+                            "condition": "(Xср>1)"
                         }
                     ]
                 },
@@ -242,30 +140,24 @@
     "convergence_conditions": {
         "formulas": [
             {
-                "formula": "abs(X₁-X₂)<=1.5",
+                "formula": "abs(X₁-X₂)<=r",
                 "convergence_value": "satisfactory"
             },
             {
-                "formula": "Xср<1",
-                "custom_value": "менее 1,0",
-                "convergence_value": "custom"
-            },
-            {
-                "formula": "Xср>=10.1",
-                "custom_value": "более 10,0",
-                "convergence_value": "custom"
-            },
-            {
-                "formula": "abs(X₁-X₂)>1.5",
+                "formula": "abs(X₁-X₂)>r",
                 "convergence_value": "unsatisfactory"
+            },
+            {
+                "formula": "Xср<0.005",
+                "convergence_value": "absence"
             }
         ]
     },
     "is_deleted": false,
     "rounding_type": "decimal",
-    "rounding_decimal": 1,
+    "rounding_decimal": 2,
     "is_active": true,
     "is_group_member": false,
     "groups": [],
-	"group_name": ""
+    "group_name": ""
 }

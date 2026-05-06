@@ -25,6 +25,8 @@ export const useSamples = (laboratoryId?: number, departmentId?: number) => {
         'registration_number',
         'test_object',
         'sampling_location',
+        'protocols',
+        'added_by',
         'sampling_date_from',
         'sampling_date_to',
         'receiving_date_from',

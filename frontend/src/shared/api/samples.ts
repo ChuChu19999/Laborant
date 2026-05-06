@@ -75,6 +75,8 @@ export interface SampleFilters {
   test_object?: string;
   test_objects?: string[];
   sampling_location?: string;
+  protocols?: string;
+  added_by?: string;
   sampling_date_from?: string;
   sampling_date_to?: string;
   receiving_date_from?: string;
@@ -139,6 +141,14 @@ export const samplesApi = {
 
     if (filters?.sampling_location) {
       params.search_sampling_location = filters.sampling_location;
+    }
+
+    if (filters?.protocols) {
+      params.search_protocols = filters.protocols;
+    }
+
+    if (filters?.added_by) {
+      params.search_added_by = filters.added_by;
     }
 
     if (filters?.sampling_date_from) {

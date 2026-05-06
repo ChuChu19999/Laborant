@@ -1,5 +1,5 @@
 {
-    "name": "Массовая доля смол",
+    "name": "Массовая доля парафина",
     "sample_type": ["oil", "condensate"],
     "formula": "1*Xср",
     "measurement_error": {
@@ -22,7 +22,7 @@
                 "name": "M₁₁",
                 "unit": "г",
                 "card_index": 1,
-                "description": "Масса бюкса со смолами для первой параллели"
+                "description": "Масса бюкса с парафином для первой параллели"
             },
             {
                 "name": "M₁",
@@ -40,7 +40,7 @@
                 "name": "M₂₁",
                 "unit": "г",
                 "card_index": 2,
-                "description": "Масса бюкса со смолами для второй параллели"
+                "description": "Масса бюкса с парафином для второй параллели"
             },
             {
                 "name": "M₂",
@@ -56,7 +56,7 @@
                 "name": "X₁",
                 "unit": "%",
                 "formula": "(M₁₁-M₁₀)/M₁*100",
-                "description": "Первый расчет массовой доли смол",
+                "description": "Первый расчет массовой доли парафина",
                 "show_calculation": true,
                 "range_calculation": null,
                 "use_multiple_rounding": false
@@ -65,7 +65,7 @@
                 "name": "X₂",
                 "unit": "%",
                 "formula": "(M₂₁-M₂₀)/M₂*100",
-                "description": "Второй расчет массовой доли смол",
+                "description": "Второй расчет массовой доли парафина",
                 "show_calculation": true,
                 "range_calculation": null,
                 "use_multiple_rounding": false
@@ -73,8 +73,8 @@
             {
                 "name": "Xср",
                 "unit": "%",
-                "formula": "(X₁+X₂)/2",
-                "description": "Среднее значение массовой доли смол",
+                "formula": "((X₁+X₂)/2)",
+                "description": "Среднее значение массовой доли парафина",
                 "show_calculation": false,
                 "range_calculation": null,
                 "use_multiple_rounding": false
@@ -88,7 +88,7 @@
                 "range_calculation": {
                     "ranges": [
                         {
-                            "formula": "Xср*(3.17/Xср+5.4)*0.01",
+                            "formula": "Xср*(8.17/Xср+3.08)*0.01",
                             "condition": "(Xср>=0.1) and (Xср<=5)"
                         }
                     ]
@@ -104,7 +104,7 @@
                 "range_calculation": {
                     "ranges": [
                         {
-                            "formula": "2.77*(0.655+2.625/Xср)*Xср*0.01",
+                            "formula": "2.77*(2.07+2.36/Xср)*Xср*0.01",
                             "condition": "(Xср>=0.1) and (Xср<=5)"
                         }
                     ]
@@ -124,8 +124,13 @@
                 "convergence_value": "unsatisfactory"
             },
             {
-                "formula": "Xср<0.1",
-                "custom_value": "менее 0,1",
+                "formula": "Xср>=10.1",
+                "custom_value": "более 10,0",
+                "convergence_value": "custom"
+            },
+            {
+                "formula": "Xср<0.5",
+                "custom_value": "менее 0,5",
                 "convergence_value": "custom"
             }
         ]
@@ -135,6 +140,5 @@
     "rounding_decimal": 2,
     "is_active": true,
     "is_group_member": false,
-    "groups": [],
     "group_name": ""
 }

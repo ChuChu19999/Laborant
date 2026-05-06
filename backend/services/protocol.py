@@ -17,6 +17,12 @@ from schemas.protocol import (
 from utils.filters import add_date_range_filter
 from utils.pagination import apply_pagination, calculate_total_pages, get_total_count
 from utils.protocol_formatting import format_protocol_number
+from utils.protocol_search_filter import protocol_list_row_matches_display_ilike
+from utils.protocol_sort import (
+    protocol_row_sort_combined,
+    protocols_list_samples_registration_sort_subquery,
+    sampling_act_number_sort_expression,
+)
 from utils.sorting import build_order_by
 
 
@@ -77,7 +83,8 @@ async def get_protocols(
     # Поиск по номеру и дате протокола
     if search and search_date:
         # Если указаны и номер, и дата - ищем по обоим одновременно (AND)
-        conditions.append(Protocol.test_protocol_number.ilike(f"%{search}%"))
+        if search.strip():
+            conditions.append(protocol_list_row_matches_display_ilike(search))
         try:
             search_date_parsed = pendulum.parse(search_date)
             if search_date_parsed:
@@ -86,13 +93,8 @@ async def get_protocols(
                 )
         except Exception:
             pass
-    elif search:
-        # Если указан только номер - ищем по номеру ИЛИ дате (OR)
-        search_conditions = [Protocol.test_protocol_number.ilike(f"%{search}%")]
-        search_conditions.append(
-            func.to_char(Protocol.test_protocol_date, "DD.MM.YYYY").ilike(f"%{search}%")
-        )
-        conditions.append(or_(*search_conditions))
+    elif search and search.strip():
+        conditions.append(protocol_list_row_matches_display_ilike(search))
     elif search_date:
         # Если указана только дата - ищем по дате
         try:
@@ -141,14 +143,35 @@ async def get_protocols(
         query = query.where(*conditions)
 
     sort_mapping = {
-        "test_protocol_number": Protocol.test_protocol_number,
         "test_protocol_date": Protocol.test_protocol_date,
-        "sampling_act_number": Protocol.sampling_act_number,
         "is_accredited": Protocol.is_accredited,
         "created_at": Protocol.created_at,
     }
-    order_by = build_order_by(sort_by, sort_order, sort_mapping, Protocol.created_at)
-    query = query.order_by(order_by)
+    if sort_by == "test_protocol_number":
+        sort_expr = protocol_row_sort_combined()
+        if sort_order == "asc":
+            query = query.order_by(sort_expr.asc(), Protocol.id.asc())
+        else:
+            query = query.order_by(sort_expr.desc(), Protocol.id.desc())
+    elif sort_by == "samples_data":
+        samples_sort = protocols_list_samples_registration_sort_subquery()
+        if sort_order == "asc":
+            query = query.order_by(samples_sort.asc().nulls_last(), Protocol.id.asc())
+        else:
+            query = query.order_by(
+                samples_sort.desc().nulls_first(), Protocol.id.desc()
+            )
+    elif sort_by == "sampling_act_number":
+        act_sort = sampling_act_number_sort_expression()
+        if sort_order == "asc":
+            query = query.order_by(act_sort.asc(), Protocol.id.asc())
+        else:
+            query = query.order_by(act_sort.desc(), Protocol.id.desc())
+    else:
+        order_by = build_order_by(
+            sort_by, sort_order, sort_mapping, Protocol.created_at
+        )
+        query = query.order_by(order_by)
 
     count_query = select(func.count()).select_from(Protocol)
     if not include_deleted:
@@ -163,8 +186,8 @@ async def get_protocols(
 
     # Поиск по номеру и дате протокола (та же логика, что и в основном запросе)
     if search and search_date:
-        # Если указаны и номер, и дата - ищем по обоим одновременно (AND)
-        count_conditions.append(Protocol.test_protocol_number.ilike(f"%{search}%"))
+        if search.strip():
+            count_conditions.append(protocol_list_row_matches_display_ilike(search))
         try:
             search_date_parsed = pendulum.parse(search_date)
             if search_date_parsed:
@@ -173,13 +196,8 @@ async def get_protocols(
                 )
         except Exception:
             pass
-    elif search:
-        # Если указан только номер - ищем по номеру ИЛИ дате (OR)
-        search_conditions = [Protocol.test_protocol_number.ilike(f"%{search}%")]
-        search_conditions.append(
-            func.to_char(Protocol.test_protocol_date, "DD.MM.YYYY").ilike(f"%{search}%")
-        )
-        count_conditions.append(or_(*search_conditions))
+    elif search and search.strip():
+        count_conditions.append(protocol_list_row_matches_display_ilike(search))
     elif search_date:
         # Если указана только дата - ищем по дате
         try:

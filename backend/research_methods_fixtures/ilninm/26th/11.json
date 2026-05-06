@@ -1,143 +1,69 @@
 {
-    "name": "Массовая доля парафина",
+    "name": "Температура плавления парафина",
     "sample_type": ["oil", "condensate"],
-    "formula": "1*Xср",
+    "formula": "(T₁+T₂)/2",
     "measurement_error": {
-        "type": "formula",
-        "value": "1*delta"
+        "type": "fixed",
+        "value": "0.3"
     },
-    "unit": "%",
-    "measurement_method": "СТО 05751745-198-2025",
-    "nd_code": "СТО 05751745-198-2025",
-    "nd_name": "Конденсат газовый дегазированный, нефть. Определение асфальтенов, смол, парафина. Методика измерения",
+    "unit": "°C",
+    "measurement_method": "ГОСТ 4255",
+    "nd_code": "ГОСТ 4255-75",
+    "nd_name": "Нефтепродукты. Метод определения температуры плавления по Жукову",
     "input_data": {
         "fields": [
             {
-                "name": "M₁₀",
-                "unit": "г",
+                "name": "T₁",
+                "unit": "℃",
                 "card_index": 1,
-                "description": "Масса пустого бюкса для первой параллели"
+                "description": "Первая температура плавления"
             },
             {
-                "name": "M₁₁",
-                "unit": "г",
+                "name": "T₂",
+                "unit": "℃",
                 "card_index": 1,
-                "description": "Масса бюкса с парафином для первой параллели"
-            },
-            {
-                "name": "M₁",
-                "unit": "г",
-                "card_index": 1,
-                "description": "Масса навески для первой параллели"
-            },
-            {
-                "name": "M₂₀",
-                "unit": "г",
-                "card_index": 2,
-                "description": "Масса пустого бюкса для второй параллели"
-            },
-            {
-                "name": "M₂₁",
-                "unit": "г",
-                "card_index": 2,
-                "description": "Масса бюкса с парафином для второй параллели"
-            },
-            {
-                "name": "M₂",
-                "unit": "г",
-                "card_index": 2,
-                "description": "Масса навески для второй параллели"
+                "description": "Вторая температура плавления"
             }
         ]
     },
     "intermediate_data": {
         "fields": [
             {
-                "name": "X₁",
-                "unit": "%",
-                "formula": "(M₁₁-M₁₀)/M₁*100",
-                "description": "Первый расчет массовой доли парафина",
-                "show_calculation": true,
-                "range_calculation": null,
-                "use_multiple_rounding": false
-            },
-            {
-                "name": "X₂",
-                "unit": "%",
-                "formula": "(M₂₁-M₂₀)/M₂*100",
-                "description": "Второй расчет массовой доли парафина",
-                "show_calculation": true,
-                "range_calculation": null,
-                "use_multiple_rounding": false
-            },
-            {
-                "name": "Xср",
-                "unit": "%",
-                "formula": "((X₁+X₂)/2)",
-                "description": "Среднее значение массовой доли парафина",
-                "show_calculation": false,
-                "range_calculation": null,
-                "use_multiple_rounding": false
-            },
-            {
-                "name": "delta",
-                "unit": "%",
-                "formula": "0",
-                "description": "Δ",
-                "show_calculation": true,
-                "range_calculation": {
-                    "ranges": [
-                        {
-                            "formula": "Xср*(8.17/Xср+3.08)*0.01",
-                            "condition": "(Xср>=0.1) and (Xср<=5)"
-                        }
-                    ]
-                },
-                "use_multiple_rounding": false
-            },
-            {
-                "name": "r",
-                "unit": "%",
-                "formula": "0",
-                "description": "Повторяемость",
-                "show_calculation": true,
-                "range_calculation": {
-                    "ranges": [
-                        {
-                            "formula": "2.77*(2.07+2.36/Xср)*Xср*0.01",
-                            "condition": "(Xср>=0.1) and (Xср<=5)"
-                        }
-                    ]
-                },
-                "use_multiple_rounding": false
+                    "name": "",
+                    "unit": "",
+                    "formula": "",
+                    "description": "",
+                    "multiple_value": "",
+                    "show_calculation": false,
+                    "use_multiple_rounding": false
             }
         ]
     },
     "convergence_conditions": {
         "formulas": [
             {
-                "formula": "abs(X₁-X₂)<=r",
+                "formula": "abs(T₁-T₂)<=0.2",
                 "convergence_value": "satisfactory"
             },
             {
-                "formula": "abs(X₁-X₂)>r",
+                "formula": "abs(T₁-T₂)>0.2",
                 "convergence_value": "unsatisfactory"
             },
-            {
-                "formula": "Xср>=10.1",
-                "custom_value": "более 10,0",
+                        {
+                "formula": "(T₁+T₂)/2>65",
+                "custom_value": "более 65",
                 "convergence_value": "custom"
             },
             {
-                "formula": "Xср<0.5",
-                "custom_value": "менее 0,5",
+                "formula": "(T₁+T₂)/2<45",
+                "custom_value": "менее 45",
                 "convergence_value": "custom"
             }
         ]
     },
     "is_deleted": false,
     "rounding_type": "decimal",
-    "rounding_decimal": 2,
+    "rounding_decimal": 1,
     "is_active": true,
     "is_group_member": false,
     "group_name": ""

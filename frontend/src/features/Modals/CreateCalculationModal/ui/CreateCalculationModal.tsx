@@ -1,13 +1,17 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { LoadingOutlined } from '@ant-design/icons';
-import { Checkbox, Spin, message } from 'antd';
+import { Checkbox, Spin, TreeSelect, message } from 'antd';
 import { FormulaKeyboard } from '../../../../entities/FormulaKeyboard';
-import { fixturesApi, type FixtureData } from '../../../../shared/api/fixtures';
+import {
+  fixturesApi,
+  type FixtureData,
+  type SavedMethodsTreeResponse,
+} from '../../../../shared/api/fixtures';
 import { researchApi } from '../../../../shared/api/research';
 import { Input, Select } from '../../../../shared/ui/FormItems';
 import { Modal } from '../../../../shared/ui/Modal';
 import type { ResearchMethod, ResearchMethodCreate } from '../../../../shared/api/research';
-import type { InputRef } from 'antd';
+import type { InputRef, TreeSelectProps } from 'antd';
 import './CreateCalculationModal.css';
 
 const { Option } = Select;
@@ -31,6 +35,8 @@ const SAMPLE_TYPE_OPTIONS = [
   { value: 'liquid_hydrocarbons_mixture', label: 'Смесь жидких углеводородов' },
   { value: 'corrosion_inhibitor', label: 'Ингибитор коррозии' },
 ];
+
+type FixtureTreeNode = NonNullable<TreeSelectProps['treeData']>[number];
 
 interface CreateCalculationModalProps {
   isOpen: boolean;
@@ -90,6 +96,96 @@ function methodToFormData(method: ResearchMethod) {
   };
 }
 
+/** Подпись пункта в дереве. */
+function formatFixtureTreeTitle(fixture: FixtureData, fallbackKey: string): string {
+  const methodName = fixture.name || fallbackKey;
+  const isFractionalComposition = methodName.toLowerCase().startsWith('фракционный состав');
+  const displayName =
+    fixture.group_name && fixture.name && !isFractionalComposition
+      ? `${fixture.group_name} ${fixture.name.charAt(0).toLowerCase()}${fixture.name.slice(1)}`
+      : methodName;
+  const ndCode = fixture.nd_code || '';
+  return `${displayName} (${ndCode})`;
+}
+
+function formatSavedMethodTreeTitle(method: {
+  name: string;
+  nd_code: string;
+  group_name?: string | null;
+}): string {
+  const isFractionalComposition = method.name.toLowerCase().startsWith('фракционный состав');
+  const displayName =
+    method.group_name && method.name && !isFractionalComposition
+      ? `${method.group_name} ${method.name.charAt(0).toLowerCase()}${method.name.slice(1)}`
+      : method.name;
+  return `${displayName} (${method.nd_code})`;
+}
+
+function savedLaboratoryKey(id: number | null): string {
+  return id === null ? 'none' : String(id);
+}
+
+/** Корень дерева «лаборатория → подразделение → методы» для подстановки из базы. */
+function buildSavedMethodsTreeRoot(data: SavedMethodsTreeResponse): FixtureTreeNode | null {
+  if (!data.laboratories?.length) {
+    return null;
+  }
+
+  return {
+    title: 'Расчётные методы, применяемые в лабораториях',
+    value: 'root-saved',
+    key: 'root-saved',
+    selectable: false,
+    children: data.laboratories.map(lab => {
+      const lk = savedLaboratoryKey(lab.laboratory_id);
+      const underDept: FixtureTreeNode[] = lab.departments.map(d => ({
+        title: d.department_name,
+        value: `dept:${lk}:${d.department_id}`,
+        key: `dept:${lk}:${d.department_id}`,
+        selectable: false,
+        children: d.methods.map(m => ({
+          title: formatSavedMethodTreeTitle(m),
+          value: `method:${m.id}`,
+          key: `method:${m.id}`,
+          isLeaf: true,
+        })),
+      }));
+      const withoutDept: FixtureTreeNode[] = lab.methods_without_department.map(m => ({
+        title: formatSavedMethodTreeTitle(m),
+        value: `method:${m.id}`,
+        key: `method:${m.id}`,
+        isLeaf: true,
+      }));
+      return {
+        title: lab.laboratory_name,
+        value: `lab:${lk}`,
+        key: `lab:${lk}`,
+        selectable: false,
+        children: [...underDept, ...withoutDept],
+      };
+    }),
+  };
+}
+
+function updateFixtureTreeChildren(
+  list: FixtureTreeNode[],
+  key: React.Key,
+  children: FixtureTreeNode[]
+): FixtureTreeNode[] {
+  return list.map(node => {
+    if (node.key === key) {
+      return { ...node, children };
+    }
+    if (node.children && node.children.length > 0) {
+      return {
+        ...node,
+        children: updateFixtureTreeChildren(node.children as FixtureTreeNode[], key, children),
+      };
+    }
+    return node;
+  });
+}
+
 const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
   isOpen,
   onClose,
@@ -97,7 +193,6 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
   laboratoryId,
   departmentId,
   laboratoryName,
-  departmentName,
   editMethodId,
 }) => {
   const spinnerIndicator = <LoadingOutlined style={{ fontSize: 24, color: '#1677ff' }} spin />;
@@ -212,7 +307,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
   }>({ individual_methods: [], groups: [] });
   const [isLoadingMethods, setIsLoadingMethods] = useState(false);
 
-  const [fixtures, setFixtures] = useState<Record<string, FixtureData>>({});
+  const [fixtureTreeData, setFixtureTreeData] = useState<FixtureTreeNode[]>([]);
   const [selectedFixture, setSelectedFixture] = useState<string>('');
   const [isLoadingFixtures, setIsLoadingFixtures] = useState(false);
 
@@ -246,139 +341,201 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
     }
   }, [laboratoryId, departmentId]);
 
-  const loadFixtures = useCallback(async () => {
-    if (!laboratoryName) {
-      setFixtures({});
-      return;
-    }
+  const applyFixtureDataToForm = useCallback((fixtureData: FixtureData) => {
+    setFormData({
+      name: fixtureData.name || '',
+      sample_type: Array.isArray(fixtureData.sample_type)
+        ? fixtureData.sample_type
+        : fixtureData.sample_type
+          ? [fixtureData.sample_type]
+          : ['condensate'],
+      formula: fixtureData.formula || '',
+      measurement_error: {
+        type: (fixtureData.measurement_error?.type || 'fixed') as 'fixed' | 'formula',
+        value: fixtureData.measurement_error?.value || '',
+        ranges: fixtureData.measurement_error?.ranges || [],
+      },
+      unit: fixtureData.unit || '',
+      measurement_method: fixtureData.measurement_method || '',
+      nd_code: fixtureData.nd_code || '',
+      nd_name: fixtureData.nd_name || '',
+      input_data: fixtureData.input_data || {
+        fields: [{ name: '', description: '', unit: '', card_index: 1 }],
+      },
+      intermediate_data: {
+        fields: fixtureData.intermediate_data?.fields
+          ? fixtureData.intermediate_data.fields.map(field => ({
+              ...field,
+              use_multiple_rounding: field.use_multiple_rounding ?? false,
+              multiple_value: field.multiple_value ?? '',
+            }))
+          : [
+              {
+                name: '',
+                formula: '',
+                description: '',
+                unit: '',
+                show_calculation: true,
+                use_multiple_rounding: false,
+                multiple_value: '',
+              },
+            ],
+      },
+      convergence_conditions: fixtureData.convergence_conditions || {
+        formulas: [
+          {
+            formula: '',
+            convergence_value: 'satisfactory',
+          },
+        ],
+      },
+      rounding_type: fixtureData.rounding_type || 'decimal',
+      rounding_decimal: fixtureData.rounding_decimal || 0,
+    });
 
+    message.success('Поля заполнены по типовому описанию из справочника');
+  }, []);
+
+  const applyTemplateSelection = useCallback(
+    async (rawValue: string | undefined) => {
+      const value = rawValue ?? '';
+      setSelectedFixture(value);
+      if (!value) {
+        return;
+      }
+      if (
+        value === 'root-fixtures' ||
+        value === 'root-saved' ||
+        value.startsWith('dir:') ||
+        value.startsWith('lab:') ||
+        value.startsWith('dept:')
+      ) {
+        return;
+      }
+      if (value.startsWith('fixture:')) {
+        const path = value.slice('fixture:'.length);
+        try {
+          const fixtureData = await fixturesApi.getFixture(path);
+          applyFixtureDataToForm(fixtureData);
+        } catch (err) {
+          console.error('Ошибка при загрузке типового описания:', err);
+          message.error('Не удалось загрузить выбранный типовой метод из справочника');
+        }
+        return;
+      }
+      if (value.startsWith('method:')) {
+        const id = parseInt(value.slice('method:'.length), 10);
+        if (Number.isNaN(id)) {
+          message.error('Некорректный идентификатор метода');
+          return;
+        }
+        try {
+          const method = await researchApi.getResearchMethod(id);
+          setFormData(methodToFormData(method));
+          message.success('Подставлены данные выбранного метода лаборатории');
+        } catch (err) {
+          console.error('Ошибка при загрузке метода:', err);
+          message.error('Не удалось загрузить метод');
+        }
+      }
+    },
+    [applyFixtureDataToForm]
+  );
+
+  const loadFixtureFilesForDirectory = useCallback(
+    async (dataNode: Parameters<NonNullable<TreeSelectProps['loadData']>>[0]) => {
+      const keyStr = String(dataNode.key ?? '');
+      if (!keyStr.startsWith('dir:')) {
+        return;
+      }
+      if (dataNode.children && dataNode.children.length > 0) {
+        return;
+      }
+      const dirPath = keyStr.slice('dir:'.length);
+      const nodeKey = dataNode.key;
+      if (nodeKey === undefined || nodeKey === null) {
+        return;
+      }
+      try {
+        const { files } = await fixturesApi.listFixtureFiles(dirPath);
+        const children: FixtureTreeNode[] = await Promise.all(
+          files.map(async fn => {
+            const fullPath = `${dirPath}/${fn}`;
+            const fallback = fn.replace(/\.json$/i, '');
+            let title = fallback;
+            try {
+              const data = await fixturesApi.getFixture(fullPath);
+              title = formatFixtureTreeTitle(data, fallback);
+            } catch {
+              title = fallback;
+            }
+            return {
+              title,
+              value: `fixture:${fullPath}`,
+              key: `fixture:${fullPath}`,
+              isLeaf: true,
+            };
+          })
+        );
+        setFixtureTreeData(prev => updateFixtureTreeChildren(prev, nodeKey, children));
+      } catch (err) {
+        console.error(`Ошибка при загрузке списка методов раздела ${dirPath}:`, err);
+        message.error('Не удалось загрузить список методов в выбранном разделе');
+      }
+    },
+    []
+  );
+
+  const loadFixtureTemplateTree = useCallback(async () => {
     try {
       setIsLoadingFixtures(true);
 
-      // Для ИЛНиНМ и 26 съезда КПСС предзагружаем все JSON файлы из ilninm/26th
-      if (laboratoryName === 'ИЛНиНМ' && departmentName === '26 съезда КПСС') {
-        const fixturePath = 'ilninm/26th';
+      const savedData = await fixturesApi.getSavedMethodsTree();
+
+      let directories: Awaited<
+        ReturnType<typeof fixturesApi.getFixtureDirectories>
+      >['directories'] = [];
+      if (laboratoryName != null && laboratoryName.trim() !== '') {
         try {
-          const filesResponse = await fixturesApi.listFixtureFiles(fixturePath);
-          const fixturesData: Record<string, FixtureData> = {};
-
-          // Предзагружаем все JSON файлы
-          for (const fileName of filesResponse.files) {
-            try {
-              const fixtureData = await fixturesApi.getFixture(`${fixturePath}/${fileName}`);
-              if (fixtureData) {
-                fixturesData[`${fixturePath}/${fileName}`] = fixtureData;
-              }
-            } catch (err) {
-              console.error(`Ошибка при загрузке фикстуры ${fixturePath}/${fileName}:`, err);
-            }
-          }
-
-          setFixtures(fixturesData);
+          const dirResponse = await fixturesApi.getFixtureDirectories(laboratoryName);
+          directories = dirResponse.directories;
         } catch (err) {
-          console.error(`Ошибка при загрузке фикстур для ${fixturePath}:`, err);
-          setFixtures({});
+          console.error('Ошибка при загрузке разделов типового справочника:', err);
         }
-      } else {
-        // Для других лабораторий используем стандартную логику
-        const response = await fixturesApi.getFixtures({
-          laboratory_name: laboratoryName,
-          department_name: departmentName,
-        });
-
-        const fixturesData: Record<string, FixtureData> = {};
-
-        for (const fixturePath of response.fixtures) {
-          try {
-            const filesResponse = await fixturesApi.listFixtureFiles(fixturePath);
-
-            // Предзагружаем первый файл из каждой директории
-            if (filesResponse.files.length > 0) {
-              const firstFile = filesResponse.files[0];
-              const fixtureData = await fixturesApi.getFixture(`${fixturePath}/${firstFile}`);
-              if (fixtureData) {
-                fixturesData[`${fixturePath}/${firstFile}`] = fixtureData;
-              }
-            }
-          } catch (err) {
-            console.error(`Ошибка при загрузке списка файлов фикстуры ${fixturePath}:`, err);
-          }
-        }
-
-        setFixtures(fixturesData);
       }
+
+      const tree: FixtureTreeNode[] = [];
+
+      if (directories.length > 0) {
+        tree.push({
+          title: 'Типовые методы расчёта по разделам',
+          value: 'root-fixtures',
+          key: 'root-fixtures',
+          selectable: false,
+          children: directories.map(d => ({
+            title: d.label,
+            value: `dir:${d.path}`,
+            key: `dir:${d.path}`,
+            selectable: false,
+            isLeaf: false,
+          })),
+        });
+      }
+
+      const savedRoot = buildSavedMethodsTreeRoot(savedData);
+      if (savedRoot) {
+        tree.push(savedRoot);
+      }
+
+      setFixtureTreeData(tree);
     } catch (err) {
-      console.error('Ошибка при загрузке фикстур:', err);
-      setFixtures({});
+      console.error('Ошибка при построении справочника методов:', err);
+      setFixtureTreeData([]);
+      message.error('Не удалось загрузить справочник методов');
     } finally {
       setIsLoadingFixtures(false);
     }
-  }, [laboratoryName, departmentName]);
-
-  const applyFixture = useCallback(
-    (fixtureKey: string) => {
-      if (!fixtures[fixtureKey]) {
-        message.error('Фикстура не найдена');
-        return;
-      }
-
-      const fixtureData = fixtures[fixtureKey];
-
-      setFormData({
-        name: fixtureData.name || '',
-        sample_type: Array.isArray(fixtureData.sample_type)
-          ? fixtureData.sample_type
-          : fixtureData.sample_type
-            ? [fixtureData.sample_type]
-            : ['condensate'],
-        formula: fixtureData.formula || '',
-        measurement_error: {
-          type: (fixtureData.measurement_error?.type || 'fixed') as 'fixed' | 'formula',
-          value: fixtureData.measurement_error?.value || '',
-          ranges: fixtureData.measurement_error?.ranges || [],
-        },
-        unit: fixtureData.unit || '',
-        measurement_method: fixtureData.measurement_method || '',
-        nd_code: fixtureData.nd_code || '',
-        nd_name: fixtureData.nd_name || '',
-        input_data: fixtureData.input_data || {
-          fields: [{ name: '', description: '', unit: '', card_index: 1 }],
-        },
-        intermediate_data: {
-          fields: fixtureData.intermediate_data?.fields
-            ? fixtureData.intermediate_data.fields.map(field => ({
-                ...field,
-                use_multiple_rounding: field.use_multiple_rounding ?? false,
-                multiple_value: field.multiple_value ?? '',
-              }))
-            : [
-                {
-                  name: '',
-                  formula: '',
-                  description: '',
-                  unit: '',
-                  show_calculation: true,
-                  use_multiple_rounding: false,
-                  multiple_value: '',
-                },
-              ],
-        },
-        convergence_conditions: fixtureData.convergence_conditions || {
-          formulas: [
-            {
-              formula: '',
-              convergence_value: 'satisfactory',
-            },
-          ],
-        },
-        rounding_type: fixtureData.rounding_type || 'decimal',
-        rounding_decimal: fixtureData.rounding_decimal || 0,
-      });
-
-      message.success('Фикстура применена');
-    },
-    [fixtures]
-  );
+  }, [laboratoryName]);
 
   const loadMethodForEdit = useCallback(async () => {
     if (editMethodId == null) return;
@@ -398,6 +555,8 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
   useEffect(() => {
     if (!isOpen) {
       setLoadedMethod(null);
+      setFixtureTreeData([]);
+      setSelectedFixture('');
       return;
     }
     if (isEditMode && editMethodId != null) {
@@ -407,7 +566,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
     if (activeTab === 'group') {
       loadAvailableMethods();
     } else {
-      loadFixtures();
+      loadFixtureTemplateTree();
     }
   }, [
     isOpen,
@@ -416,7 +575,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
     activeTab,
     loadMethodForEdit,
     loadAvailableMethods,
-    loadFixtures,
+    loadFixtureTemplateTree,
   ]);
 
   const handleGroupDataChange = (field: string, value: unknown) => {
@@ -1263,48 +1422,36 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
         )}
 
         {showSingleForm && !isEditMode && (
-          <div className="fixtures-section">
+          <div className="method-prefill-section">
             <div className="form-group">
-              <label>Выберите готовый метод</label>
-              <div className="fixtures-controls">
+              <label>Готовые конфигурации</label>
+              <div className="method-prefill-controls">
                 {isLoadingFixtures ? (
                   <div className="loading-text create-calculation-spinner">
-                    <Spin tip="Загрузка методов..." indicator={spinnerIndicator} spinning>
+                    <Spin tip="Загрузка справочника..." indicator={spinnerIndicator} spinning>
                       <div className="create-calculation-spinner-placeholder" />
                     </Spin>
                   </div>
-                ) : Object.keys(fixtures).length > 0 ? (
-                  <Select
-                    value={selectedFixture || undefined}
-                    onChange={value => {
-                      const fixtureValue = typeof value === 'string' ? value : '';
-                      setSelectedFixture(fixtureValue);
-                      if (fixtureValue) {
-                        applyFixture(fixtureValue);
-                      }
-                    }}
-                    placeholder="Выберите метод из списка"
+                ) : fixtureTreeData.length > 0 ? (
+                  <TreeSelect
+                    className="method-prefill-tree-select"
+                    showSearch
+                    treeNodeFilterProp="title"
+                    placeholder="Выберите, чтобы подставить готовую конфигурацию"
                     allowClear
                     listHeight={350}
-                  >
-                    {Object.entries(fixtures)
-                      .map(([key, fixture]) => ({
-                        key,
-                        displayName:
-                          fixture.group_name && fixture.name
-                            ? `${fixture.group_name} ${fixture.name.charAt(0).toLowerCase()}${fixture.name.slice(1)}`
-                            : fixture.name || key,
-                        ndCode: fixture.nd_code || '',
-                      }))
-                      .sort((a, b) => a.key.localeCompare(b.key))
-                      .map(({ key, displayName, ndCode }) => (
-                        <Option key={key} value={key}>
-                          {displayName} ({ndCode})
-                        </Option>
-                      ))}
-                  </Select>
+                    treeData={fixtureTreeData}
+                    loadData={loadFixtureFilesForDirectory}
+                    value={selectedFixture || undefined}
+                    onChange={value => {
+                      void applyTemplateSelection(typeof value === 'string' ? value : undefined);
+                    }}
+                    disabled={isLoadingFixtures}
+                  />
                 ) : (
-                  <div className="loading-text">Нет доступных готовых методов</div>
+                  <div className="loading-text">
+                    Нет готовых конфигураций — заполните форму ниже вручную
+                  </div>
                 )}
               </div>
             </div>

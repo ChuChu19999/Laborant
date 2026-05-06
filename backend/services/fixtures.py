@@ -5,6 +5,11 @@ from core.logger import logger
 
 FIXTURES_BASE_PATH = Path(__file__).parent.parent / "research_methods_fixtures"
 
+FIXTURE_SUBDIR_LABELS = {
+    "26th": "Типовые методы расчёта",
+    "non-typical": "Методы расчёта с особой логикой",
+}
+
 
 def get_available_fixtures(
     laboratory_name: Optional[str] = None,
@@ -15,13 +20,6 @@ def get_available_fixtures(
 
     Фикстуры привязаны к названиям лабораторий/подразделений.
     Структура: research_methods_fixtures/{lab_name}/{fixture_type}/
-
-    Args:
-        laboratory_name: Название лаборатории (например, "ИЛНиНМ")
-        department_name: Название подразделения (например, "26 съезда КПСС")
-
-    Returns:
-        Список путей к фикстурам (например, ["ilninm/26th", "ilninm/non-typical"])
     """
     if not FIXTURES_BASE_PATH.exists():
         logger.warning(f"Директория фикстур не найдена: {FIXTURES_BASE_PATH}")
@@ -69,12 +67,6 @@ def get_available_fixtures(
 def get_fixture_data(fixture_path: str) -> Optional[Dict[str, Any]]:
     """
     Получить данные фикстуры по пути.
-
-    Args:
-        fixture_path: Путь к фикстуре (например, "ilninm/26th/01.json")
-
-    Returns:
-        Словарь с данными фикстуры или None, если файл не найден
     """
     try:
         fixture_file = FIXTURES_BASE_PATH / fixture_path
@@ -89,15 +81,32 @@ def get_fixture_data(fixture_path: str) -> Optional[Dict[str, Any]]:
         return None
 
 
+def list_fixture_subdirectories(laboratory_name: str) -> List[Dict[str, str]]:
+    """
+    Подкаталоги лаборатории с JSON-фикстурами для дерева выбора на фронтенде.
+
+    Возвращает подкаталоги с JSON; отображаемое название берётся из FIXTURE_SUBDIR_LABELS (имя каталога на диске не меняется).
+    """
+    lab_name_normalized = _normalize_name(laboratory_name)
+    lab_path = FIXTURES_BASE_PATH / lab_name_normalized
+    if not lab_path.exists() or not lab_path.is_dir():
+        return []
+
+    entries: List[Dict[str, str]] = []
+    for fixture_type_dir in sorted(lab_path.iterdir(), key=lambda p: p.name):
+        if fixture_type_dir.is_dir() and _has_json_files(fixture_type_dir):
+            rel = f"{lab_name_normalized}/{fixture_type_dir.name}"
+            label = FIXTURE_SUBDIR_LABELS.get(
+                fixture_type_dir.name,
+                fixture_type_dir.name.replace("-", " ").replace("_", " "),
+            )
+            entries.append({"path": rel, "label": label})
+    return entries
+
+
 def list_fixture_files(fixture_path: str) -> List[str]:
     """
     Получить список файлов в директории фикстуры.
-
-    Args:
-        fixture_path: Путь к директории фикстуры (например, "ilninm/26th")
-
-    Returns:
-        Список имен файлов JSON
     """
     try:
         fixture_dir = FIXTURES_BASE_PATH / fixture_path
