@@ -27,7 +27,7 @@ import { useQueryStore } from '../../shared/model/stores';
 import Button from '../../shared/ui/Button/Button';
 import { Select } from '../../shared/ui/FormItems';
 import Layout from '../../shared/ui/Layout/Layout';
-import { formatNumberForDisplay } from '../../shared/utils/numberFormatting';
+import { buildCalculationFormPrefill } from '../../shared/utils/calculationFormPrefill';
 import { CalculationPanel } from '../../widgets/CalculationPanel';
 import { MethodsPanel } from '../../widgets/MethodsPanel';
 import { NavigationBar } from '../../widgets/NavigationBar';
@@ -538,6 +538,24 @@ const AdminPage: React.FC = () => {
     }));
   };
 
+  const handleLaboratoryActivityDateChange = useCallback(
+    (date: Dayjs | null) => {
+      setLastCalculationResult(prev => {
+        if (!currentMethod) return prev;
+        const existing = prev[currentMethod.id];
+        if (!existing) return prev;
+        return {
+          ...prev,
+          [currentMethod.id]: {
+            ...existing,
+            laboratory_activity_date: date,
+          },
+        };
+      });
+    },
+    [currentMethod]
+  );
+
   const handleOpenSaveModal = () => {
     if (!currentMethod) {
       return;
@@ -665,94 +683,11 @@ const AdminPage: React.FC = () => {
         );
       }
 
-      const initialValues: Record<string, string> = {};
-
-      // Обработка для фракционного состава
-      if (
-        currentMethod.name === 'Фракционный состав (конденсат)' ||
-        currentMethod.name === 'Фракционный состав (нефть)'
-      ) {
-        // Проверяем, есть ли данные в _fractional_data
-        const inputData = targetCalculation.input_data as Record<string, unknown>;
-        if (inputData._fractional_data) {
-          const fractionalData = inputData._fractional_data as {
-            card1?: Record<string, unknown>;
-            card2?: Record<string, unknown>;
-          };
-
-          // Заполняем данные для card1
-          if (fractionalData.card1) {
-            Object.entries(fractionalData.card1).forEach(([fieldName, value]) => {
-              const formFieldName = `${currentMethod.id}_${fieldName}`;
-              initialValues[formFieldName] =
-                value && (typeof value === 'string' || typeof value === 'number')
-                  ? formatNumberForDisplay(value)
-                  : '';
-            });
-          }
-
-          // Заполняем данные для card2
-          if (fractionalData.card2) {
-            Object.entries(fractionalData.card2).forEach(([fieldName, value]) => {
-              const formFieldName = `${currentMethod.id}_${fieldName}_card_2`;
-              initialValues[formFieldName] =
-                value && (typeof value === 'string' || typeof value === 'number')
-                  ? formatNumberForDisplay(value)
-                  : '';
-            });
-          }
-        } else {
-          // Если не фракционный состав, используем обычную обработку
-          Object.entries(targetCalculation.input_data).forEach(([fieldName, value]) => {
-            const field = currentMethod.input_data.fields.find(f => f.name === fieldName);
-            const cardIndex = field?.card_index || 1;
-
-            const formFieldName =
-              cardIndex > 1
-                ? `${currentMethod.id}_${fieldName}_card_${cardIndex}`
-                : `${currentMethod.id}_${fieldName}`;
-
-            initialValues[formFieldName] =
-              value && (typeof value === 'string' || typeof value === 'number')
-                ? formatNumberForDisplay(value)
-                : '';
-          });
-        }
-      } else {
-        // Обычная обработка для других методов
-        Object.entries(targetCalculation.input_data).forEach(([fieldName, value]) => {
-          // Находим поле в текущем методе для определения card_index
-          const field = currentMethod.input_data.fields.find(f => f.name === fieldName);
-          const cardIndex = field?.card_index || 1;
-
-          // Для поля "Цвет" в методе "Массовая доля нефти" используем специальную логику
-          const isColorField = currentMethod.name === 'Массовая доля нефти' && fieldName === 'Цвет';
-          const formFieldName = isColorField
-            ? `${currentMethod.id}_${fieldName}`
-            : cardIndex > 1
-              ? `${currentMethod.id}_${fieldName}_card_${cardIndex}`
-              : `${currentMethod.id}_${fieldName}`;
-
-          initialValues[formFieldName] =
-            value && (typeof value === 'string' || typeof value === 'number')
-              ? formatNumberForDisplay(value)
-              : '';
-        });
-      }
-
-      // Устанавливаем дату лабораторной деятельности
-      let laboratoryActivityDate: Dayjs | null = null;
-      if (targetCalculation.laboratory_activity_date) {
-        const dayjs = (await import('dayjs')).default;
-        const date = dayjs(targetCalculation.laboratory_activity_date);
-        if (date.isValid()) {
-          laboratoryActivityDate = date;
-        }
-      }
+      const prefill = buildCalculationFormPrefill(currentMethod, targetCalculation);
 
       dataLoadedCallback({
-        initialValues,
-        laboratoryActivityDate,
+        initialValues: prefill.initialValues,
+        laboratoryActivityDate: prefill.laboratoryActivityDate,
       });
 
       message.success('Данные успешно загружены');
@@ -888,6 +823,7 @@ const AdminPage: React.FC = () => {
         onCalculate={handleCalculate}
         onSave={handleOpenSaveModal}
         lastCalculationResult={currentMethod ? lastCalculationResult[currentMethod.id] : undefined}
+        onLaboratoryActivityDateChange={handleLaboratoryActivityDateChange}
         laboratoryId={labId}
         departmentId={deptId}
         onLoadRegistrationData={handleRegistrationDataLoader}

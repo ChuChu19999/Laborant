@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef } from 'react';
 import { Input } from '../../../shared/ui/FormItems';
 import { formatNumberForDisplay } from '../../../shared/utils/numberFormatting';
 import type { SelectionConditionsField } from '../../../shared/api/samples';
@@ -15,6 +15,13 @@ const SelectionConditionsForm: React.FC<SelectionConditionsFormProps> = ({
   values,
   onChange,
 }) => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  const getInputElements = useCallback((): HTMLInputElement[] => {
+    if (!containerRef.current) return [];
+    return Array.from(containerRef.current.querySelectorAll<HTMLInputElement>('input'));
+  }, []);
+
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>, name: string) => {
       let value = e.target.value;
@@ -53,13 +60,42 @@ const SelectionConditionsForm: React.FC<SelectionConditionsFormProps> = ({
     [onChange]
   );
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    const allowedKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab'];
-    const allowedChars = /[-,\d]/;
-    if (!allowedKeys.includes(e.key) && !allowedChars.test(e.key) && !e.ctrlKey && !e.metaKey) {
-      e.preventDefault();
-    }
-  }, []);
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      // `Enter` в форме должен переключать фокус между полями условий отбора.
+      // Иначе он попадает под текущую фильтрацию клавиш и не даёт “переход по условиям”.
+      if (
+        e.code === 'Enter' ||
+        e.key === 'Enter' ||
+        e.code === 'NumpadEnter' ||
+        e.key === 'NumpadEnter'
+      ) {
+        const inputs = getInputElements();
+        const current = e.currentTarget;
+        const currentIndex = inputs.findIndex(el => el === current);
+
+        if (currentIndex !== -1 && currentIndex + 1 < inputs.length) {
+          e.preventDefault();
+          e.stopPropagation();
+          inputs[currentIndex + 1].focus();
+          return;
+        }
+
+        // Если это последнее поле — просто не обрабатываем “как символы ввода”.
+        if (currentIndex !== -1) {
+          e.stopPropagation();
+          return;
+        }
+      }
+
+      const allowedKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab'];
+      const allowedChars = /[-,\d]/;
+      if (!allowedKeys.includes(e.key) && !allowedChars.test(e.key) && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+      }
+    },
+    [getInputElements]
+  );
 
   const formatValue = useCallback((value: string | undefined): string => {
     if (!value || value === '') return '';
@@ -71,7 +107,7 @@ const SelectionConditionsForm: React.FC<SelectionConditionsFormProps> = ({
   }
 
   return (
-    <div className="selection-conditions-form">
+    <div ref={containerRef} className="selection-conditions-form">
       <div className="form-group">
         <label>Условия отбора</label>
         <div className="conditions-grid">

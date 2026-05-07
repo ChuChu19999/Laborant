@@ -4,6 +4,7 @@ LABORATORY_NAME_ILNINM = "ИЛНиНМ"
 # Названия филиалов для фильтрации по branch.name.
 BRANCH_NGDU = "НГДУ"
 BRANCH_UGPU = "УГПУ"
+BRANCH_GPU_PRAO = "ГПУпРАО"
 
 # Места отбора: цехи ДГГКН (для товарной/эксплуатационной/калибровочной нефти).
 SAMPLING_LOCATION_CDGGKN_1 = "Цех по ДГГКН №1"

@@ -15,6 +15,40 @@ from services.fractional import (
 )
 
 
+SPECIAL_GROUP_KEYWORDS = ("Плотность при температуре 20 ℃",)
+SPECIAL_K_VARIABLES = {"K₁", "K₂"}
+
+
+def _is_density_20_group_method(research_method: Dict[str, Any]) -> bool:
+    group_name = str(research_method.get("group_name") or "")
+    if any(keyword in group_name for keyword in SPECIAL_GROUP_KEYWORDS):
+        return True
+
+    groups = research_method.get("groups") or []
+    for group in groups:
+        candidate_name = ""
+        if isinstance(group, dict):
+            candidate_name = str(group.get("name") or "")
+        else:
+            candidate_name = str(group)
+
+        if any(keyword in candidate_name for keyword in SPECIAL_GROUP_KEYWORDS):
+            return True
+
+    return False
+
+
+def _get_special_k_decimal_places(
+    research_method: Dict[str, Any], field_name: str
+) -> Optional[int]:
+    if (
+        _is_density_20_group_method(research_method)
+        and field_name in SPECIAL_K_VARIABLES
+    ):
+        return 6
+    return None
+
+
 def _round_value(
     value,
     rounding_type=None,
@@ -93,12 +127,20 @@ def _round_value(
         elif rounding_type == "multiple":
             if not rounding_decimal:
                 return value
-            return round(value / rounding_decimal) * rounding_decimal
+            d = Decimal(str(value))
+            step = Decimal(str(rounding_decimal))
+            quotient = (d / step).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+            return float(quotient * step)
 
         elif rounding_type == "decimal":
             if rounding_decimal is None:
                 return value
-            return round(value, rounding_decimal)
+            d = Decimal(str(value))
+            return float(
+                d.quantize(
+                    Decimal("0.1") ** int(rounding_decimal), rounding=ROUND_HALF_UP
+                )
+            )
 
         return value
 
@@ -284,8 +326,16 @@ async def calculate_result(
                     intermediate_value, (int, float, Decimal)
                 ):
                     d = Decimal(str(float(intermediate_value)))
+                    field_decimal_places = _get_special_k_decimal_places(
+                        research_method, field["name"]
+                    )
                     value_for_next = d.quantize(
-                        Decimal("0.1") ** intermediate_decimal_places,
+                        Decimal("0.1")
+                        ** (
+                            field_decimal_places
+                            if field_decimal_places is not None
+                            else intermediate_decimal_places
+                        ),
                         rounding=ROUND_HALF_UP,
                     )
                     variables[field["name"]] = value_for_next
@@ -365,8 +415,17 @@ async def calculate_result(
             for field_name, unrounded_value in intermediate_results_unrounded.items():
                 if isinstance(unrounded_value, (int, float, Decimal)):
                     d = Decimal(str(float(unrounded_value)))
+                    field_decimal_places = _get_special_k_decimal_places(
+                        research_method, field_name
+                    )
                     rounded_value = d.quantize(
-                        Decimal("0.1") ** result_decimal_places, rounding=ROUND_HALF_UP
+                        Decimal("0.1")
+                        ** (
+                            field_decimal_places
+                            if field_decimal_places is not None
+                            else result_decimal_places
+                        ),
+                        rounding=ROUND_HALF_UP,
                     )
                     variables_rounded[field_name] = rounded_value
                     logger.info(
@@ -488,14 +547,27 @@ async def calculate_result(
                 ) in intermediate_results_unrounded.items():
                     if isinstance(unrounded_value, (int, float, Decimal)):
                         d = Decimal(str(float(unrounded_value)))
+                        field_decimal_places = _get_special_k_decimal_places(
+                            research_method, field_name
+                        )
+                        value_places = (
+                            field_decimal_places
+                            if field_decimal_places is not None
+                            else result_decimal_places
+                        )
+                        reference_places = (
+                            value_places + 1
+                            if field_decimal_places is not None
+                            else result_decimal_places + 1
+                        )
                         # Основное округление (до N знаков)
                         rounded_value = d.quantize(
-                            Decimal("0.1") ** result_decimal_places,
+                            Decimal("0.1") ** value_places,
                             rounding=ROUND_HALF_UP,
                         )
                         # Справочное округление (до N+1 знаков)
                         reference_value = d.quantize(
-                            Decimal("0.1") ** (result_decimal_places + 1),
+                            Decimal("0.1") ** reference_places,
                             rounding=ROUND_HALF_UP,
                         )
                         intermediate_results_rounded[field_name] = {
@@ -551,13 +623,26 @@ async def calculate_result(
                     and result_decimal_places is not None
                 ):
                     d = Decimal(str(float(unrounded_value)))
+                    field_decimal_places = _get_special_k_decimal_places(
+                        research_method, field_name
+                    )
+                    value_places = (
+                        field_decimal_places
+                        if field_decimal_places is not None
+                        else result_decimal_places
+                    )
+                    reference_places = (
+                        value_places + 1
+                        if field_decimal_places is not None
+                        else result_decimal_places + 1
+                    )
                     # Основное округление (до N знаков)
                     rounded_value = d.quantize(
-                        Decimal("0.1") ** result_decimal_places, rounding=ROUND_HALF_UP
+                        Decimal("0.1") ** value_places, rounding=ROUND_HALF_UP
                     )
                     # Справочное округление (до N+1 знаков)
                     reference_value = d.quantize(
-                        Decimal("0.1") ** (result_decimal_places + 1),
+                        Decimal("0.1") ** reference_places,
                         rounding=ROUND_HALF_UP,
                     )
                     intermediate_results_rounded[field_name] = {
@@ -628,8 +713,9 @@ async def calculate_result(
 
                 # Округляем погрешность до того же количества знаков после запятой, что и результат
                 if measurement_error is not None:
-                    measurement_error = round(
-                        Decimal(str(measurement_error)), result_decimal_places
+                    measurement_error = Decimal(str(measurement_error)).quantize(
+                        Decimal("0.1") ** int(result_decimal_places),
+                        rounding=ROUND_HALF_UP,
                     )
                     logger.info(f"Погрешность после округления: {measurement_error}")
 

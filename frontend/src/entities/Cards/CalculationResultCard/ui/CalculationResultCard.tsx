@@ -122,6 +122,10 @@ const CalculationResultCard: React.FC<CalculationResultCardProps> = ({ result, c
   };
 
   const getIntermediateUnit = (name: string): string | undefined => {
+    if (name === 'Объемная доля потерь') {
+      return '%';
+    }
+
     const field = currentMethod?.intermediate_data?.fields?.find(f => f.name === name);
     if (field?.unit) {
       return field.unit;

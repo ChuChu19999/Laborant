@@ -44,6 +44,15 @@ interface CalculationPanelProps {
       laboratoryActivityDate: Dayjs | null;
     }) => void
   ) => void;
+  /** Предзаполнение формы из сохранённого расчёта (редактирование). */
+  calculationFormPrefill?: {
+    methodId: number;
+    initialValues: Record<string, string>;
+    laboratoryActivityDate: Dayjs | null;
+    waxPrecipitation?: boolean;
+  } | null;
+  /** Синхронизация даты с родителем после «Рассчитать», если пользователь меняет дату перед сохранением. */
+  onLaboratoryActivityDateChange?: (date: Dayjs | null) => void;
 }
 
 const CalculationPanel: React.FC<CalculationPanelProps> = ({
@@ -56,6 +65,8 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
   onSave,
   lastCalculationResult,
   onLoadRegistrationData,
+  calculationFormPrefill,
+  onLaboratoryActivityDateChange,
 }) => {
   const [form] = Form.useForm();
   const [formValues, setFormValues] = useState<Record<string, string | number | undefined>>({});
@@ -80,6 +91,9 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
 
   useEffect(() => {
     if (selectedMethodId && currentMethod) {
+      if (calculationFormPrefill && calculationFormPrefill.methodId === selectedMethodId) {
+        return;
+      }
       form.resetFields();
       setFormValues({});
       setWaxPrecipitation(false);
@@ -93,7 +107,33 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
       setFormValues({});
       setWaxPrecipitation(false);
     }
-  }, [selectedMethodId, currentMethod, form]);
+  }, [selectedMethodId, currentMethod, form, calculationFormPrefill]);
+
+  useEffect(() => {
+    if (
+      !calculationFormPrefill ||
+      !selectedMethodId ||
+      calculationFormPrefill.methodId !== selectedMethodId ||
+      !currentMethod
+    ) {
+      return;
+    }
+
+    form.setFieldsValue(calculationFormPrefill.initialValues);
+    setFormValues(prev => ({
+      ...prev,
+      ...calculationFormPrefill.initialValues,
+    }));
+
+    if (calculationFormPrefill.laboratoryActivityDate) {
+      setLaboratoryActivityDate(calculationFormPrefill.laboratoryActivityDate);
+      setDateError('');
+    } else {
+      setLaboratoryActivityDate(null);
+    }
+
+    setWaxPrecipitation(calculationFormPrefill.waxPrecipitation === true);
+  }, [calculationFormPrefill, selectedMethodId, currentMethod, form]);
 
   useEffect(() => {
     if (onLoadRegistrationData) {
@@ -366,6 +406,7 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
                 onChange={date => {
                   setLaboratoryActivityDate(date);
                   setDateError('');
+                  onLaboratoryActivityDateChange?.(date);
                 }}
                 placeholder="Введите дату лабораторной деятельности"
                 showToday

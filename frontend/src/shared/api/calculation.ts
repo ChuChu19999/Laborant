@@ -162,7 +162,55 @@ export const calculationApi = {
     return response.data;
   },
 
+  replaceCalculation: async (
+    calculationId: number,
+    data: {
+      sample_id: number;
+      laboratory_id: number;
+      department_id?: number;
+      research_method_id: number;
+      input_data: Record<string, unknown>;
+      equipment_data?: number[];
+      result: string;
+      executor: string;
+      measurement_error?: string;
+      unit?: string;
+      laboratory_activity_date: string;
+    }
+  ): Promise<Calculation> => {
+    const response = await axiosInstance.post<Calculation>(
+      `/api/calculations/${calculationId}/replace/`,
+      data
+    );
+    return response.data;
+  },
+
   deleteCalculation: async (id: number): Promise<void> => {
     await axiosInstance.delete(`/api/calculations/${id}/`);
+  },
+
+  getCalculation: async (id: number): Promise<Calculation> => {
+    const response = await axiosInstance.get<Calculation>(`/api/calculations/${id}/`);
+    return response.data;
+  },
+
+  updateCalculation: async (
+    id: number,
+    data: {
+      input_data?: Record<string, unknown>;
+      equipment_data?: number[];
+      result?: string;
+      executor?: string;
+      measurement_error?: string;
+      unit?: string;
+      laboratory_activity_date?: string;
+      sample_id?: number;
+      laboratory_id?: number;
+      department_id?: number;
+      research_method_id?: number;
+    }
+  ): Promise<Calculation> => {
+    const response = await axiosInstance.patch<Calculation>(`/api/calculations/${id}/`, data);
+    return response.data;
   },
 };

@@ -152,6 +152,10 @@ export default function App() {
                       }
                     />
                     <Route path="/samples" element={<SamplesPage />} />
+                    <Route
+                      path="/samples/laboratory/:laboratoryId/calculations"
+                      element={<CalculationsPage />}
+                    />
                     <Route path="/samples/laboratory/:laboratoryId" element={<SamplesPage />} />
                     <Route
                       path="/samples/laboratory/:laboratoryId/department/:departmentId"

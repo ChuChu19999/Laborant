@@ -34,13 +34,13 @@ from utils.protocol_generator_utils import (
     get_cell_width,
 )
 
-# Шаблон: «N шт» или «N шт по M пок» — только эти фрагменты выделяются жирным.
-_RE_BOLD_COUNTS = re.compile(r"\d+\s+шт(?:\s+по\s+\d+\s+пок)?")
+# Шаблоны для жирного выделения: «N шт», «N пок», «N шт по M пок».
+_RE_BOLD_COUNTS = re.compile(r"\d+\s+шт(?:\s+по\s+\d+\s+пок)?|\d+\s+пок")
 
 
 def _cell_value_with_bold_counts(value: str) -> str | CellRichText:
     """
-    Возвращает значение для ячейки C: все вхождения «N шт» и «N шт по M пок» — жирным.
+    Возвращает значение для ячейки C: «N шт», «N пок» и «N шт по M пок» — жирным.
     """
     if not value or value == "—":
         return value
@@ -49,38 +49,20 @@ def _cell_value_with_bold_counts(value: str) -> str | CellRichText:
         return value
     bold_font = InlineFont(b=True)
     plain_font = InlineFont(b=False)
-    parts: list[str | TextBlock] = []
+    parts: list[TextBlock] = []
     last_end = 0
     for m in matches:
         if m.start() > last_end:
             mid = value[last_end : m.start()]
-            # `CellRichText` может “съедать” переходы строк в строковых сегментах.
-            # Поэтому перевод строки кладём отдельным `TextBlock`, чтобы строки не склеивались.
             if mid:
                 normalized = mid.replace("\r\n", "\n").replace("\r", "\n")
-                if "\n" in normalized:
-                    segments = normalized.split("\n")
-                    for i, seg in enumerate(segments):
-                        if seg:
-                            parts.append(seg)
-                        if i < len(segments) - 1:
-                            parts.append(TextBlock(plain_font, "\n"))
-                else:
-                    parts.append(mid)
+                parts.append(TextBlock(plain_font, normalized))
         parts.append(TextBlock(bold_font, m.group(0)))
         last_end = m.end()
     if last_end < len(value):
         tail = value[last_end:]
         normalized_tail = tail.replace("\r\n", "\n").replace("\r", "\n")
-        if "\n" in normalized_tail:
-            segments = normalized_tail.split("\n")
-            for i, seg in enumerate(segments):
-                if seg:
-                    parts.append(seg)
-                if i < len(segments) - 1:
-                    parts.append(TextBlock(plain_font, "\n"))
-        else:
-            parts.append(tail)
+        parts.append(TextBlock(plain_font, normalized_tail))
     return CellRichText(*parts)
 
 
@@ -169,7 +151,7 @@ async def build_sample_count_excel(
     receiving_date_from: Optional[Any],
     receiving_date_to: Optional[Any],
     department_id: Optional[int] = None,
-) -> bytes:
+) -> tuple[bytes, bytes]:
     """
     Строит Excel-файл отчёта «Количество проб»: для каждого branch копируется
     блок шаблона (категории в столбце B), в столбец C подставляются данные.
@@ -181,7 +163,10 @@ async def build_sample_count_excel(
     template_ws = template_wb.active
     data_rows = _find_template_data_rows(template_ws)
     if not data_rows:
-        return template_bytes.getvalue()
+        empty_txt = (
+            "Диагностика не сформирована: в шаблоне не найдены строки категорий.\n"
+        )
+        return template_bytes.getvalue(), empty_txt.encode("utf-8")
 
     report_data = await get_sample_count_report_data(
         db,
@@ -191,6 +176,7 @@ async def build_sample_count_excel(
         department_id=department_id,
     )
     by_branch = report_data.get("by_branch") or []
+    diagnostics_txt = (report_data.get("diagnostics_txt") or "").encode("utf-8")
 
     new_wb = openpyxl.Workbook()
     new_ws = new_wb.active
@@ -229,7 +215,10 @@ async def build_sample_count_excel(
             value_c = match_row_title_to_value(cell_b_value, row_values)
             cell_c_value = value_c if value_c else "—"
             cell_c = new_ws.cell(row=current_row, column=3)
-            cell_c.value = _cell_value_with_bold_counts(cell_c_value)
+            if "\n" in cell_c_value:
+                cell_c.value = cell_c_value
+            else:
+                cell_c.value = _cell_value_with_bold_counts(cell_c_value)
             old_align = cell_c.alignment
             cell_c.alignment = Alignment(
                 wrap_text=True,
@@ -286,4 +275,4 @@ async def build_sample_count_excel(
 
     out = BytesIO()
     new_wb.save(out)
-    return out.getvalue()
+    return out.getvalue(), diagnostics_txt

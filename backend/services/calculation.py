@@ -23,7 +23,8 @@ async def get_calculation_by_id(
         select(Calculation)
         .where(Calculation.id == calculation_id)
         .options(
-            selectinload(Calculation.sample),
+            selectinload(Calculation.sample).selectinload(Sample.laboratory),
+            selectinload(Calculation.sample).selectinload(Sample.department),
             selectinload(Calculation.laboratory),
             selectinload(Calculation.department),
             selectinload(Calculation.research_method),
@@ -291,9 +292,47 @@ async def delete_calculation(db: AsyncSession, calculation_id: int) -> None:
     await db.flush()
 
 
+async def replace_calculation(
+    db: AsyncSession,
+    calculation_id: int,
+    calculation_data: CalculationCreate,
+) -> Calculation:
+    """Мягко удаляет расчёт по id и создаёт новую запись с теми же пробой и методом."""
+    old = await get_calculation_by_id(db, calculation_id)
+    if not old:
+        raise NotFoundError("Расчет не найден")
+
+    if calculation_data.sample_id != old.sample_id:
+        raise ValidationError("При замене расчёта нельзя менять пробу")
+    if calculation_data.research_method_id != old.research_method_id:
+        raise ValidationError("При замене расчёта нельзя менять метод исследования")
+    if calculation_data.laboratory_id != old.laboratory_id:
+        raise ValidationError("При замене расчёта нельзя менять лабораторию")
+
+    old_department = old.department_id if old.department_id is not None else None
+    new_department = (
+        calculation_data.department_id
+        if calculation_data.department_id is not None
+        else None
+    )
+    if old_department != new_department:
+        raise ValidationError("При замене расчёта нельзя менять подразделение")
+
+    old.soft_delete()
+    await db.flush()
+    return await create_calculation(db, calculation_data)
+
+
 # ============================================================================
 # Функции для работы с формулами, округлениями и повторяемостью
 # ============================================================================
+
+
+def _round_half_up(value, ndigits=0):
+    """Округляет число по правилу 0.5 вверх."""
+    decimal_value = Decimal(str(float(value)))
+    quant = Decimal("1") if ndigits == 0 else Decimal("0.1") ** int(ndigits)
+    return float(decimal_value.quantize(quant, rounding=ROUND_HALF_UP))
 
 
 def _round_to_significant_figures(number, significant_figures):
@@ -333,7 +372,8 @@ def _round_to_multiple(number, multiple):
     try:
         d = Decimal(str(float(number)))
         m = Decimal(str(float(multiple)))
-        return Decimal(round(d / m) * m)
+        quotient = (d / m).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+        return quotient * m
     except Exception as e:
         raise ValueError(f"Ошибка при округлении до кратного: {str(e)}")
 
@@ -424,7 +464,7 @@ def evaluate_formula(
                 "__builtins__": {},
                 "abs": abs,
                 "pow": pow,
-                "round": round,
+                "round": _round_half_up,
                 "max": max,
                 "min": min,
             }
@@ -491,7 +531,7 @@ def evaluate_formula(
             "__builtins__": {},
             "abs": abs,
             "pow": pow,
-            "round": round,
+            "round": _round_half_up,
             "max": max,
             "min": min,
         }
@@ -597,7 +637,7 @@ def calculate_convergence_steps(formula, variables):
         safe_dict = {
             "abs": abs,
             "pow": pow,
-            "round": round,
+            "round": _round_half_up,
             "max": max,
             "min": min,
         }
@@ -844,10 +884,16 @@ async def calculate_mass_fraction_from_refraction(
                     c_result = c1 + (c2 - c1) * (n_value - n1) / (n2 - n1)
 
                 # Округляем до одной цифры после запятой
-                return round(c_result, 1)
+                return float(
+                    Decimal(str(c_result)).quantize(
+                        Decimal("0.1"), rounding=ROUND_HALF_UP
+                    )
+                )
 
         # Если не нашли интервал (не должно произойти), возвращаем последнее значение
-        return round(points[-1][0], 1)
+        return float(
+            Decimal(str(points[-1][0])).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+        )
 
     except Exception as e:
         logger.error(f"Ошибка при расчете массовой доли нефти: {str(e)}")

@@ -180,7 +180,52 @@
 
 .calculations-table-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  gap: 8px;
+}
+
+.calculations-table-edit-button,
+.calculations-table-edit-button.ant-btn,
+.calculations-table-edit-button.ant-btn-text {
+  color: #1890ff !important;
+  font-family: 'HeliosCondC';
+  font-size: 14px;
+}
+
+.calculations-table-edit-button span,
+.calculations-table-edit-button.ant-btn span,
+.calculations-table-edit-button.ant-btn-text span {
+  color: #1890ff !important;
+}
+
+.calculations-table-edit-button .anticon,
+.calculations-table-edit-button.ant-btn .anticon,
+.calculations-table-edit-button.ant-btn-text .anticon {
+  color: #1890ff !important;
+}
+
+.calculations-table-edit-button:hover,
+.calculations-table-edit-button.ant-btn:hover,
+.calculations-table-edit-button.ant-btn-text:hover {
+  background-color: rgba(24, 144, 255, 0.1) !important;
+  color: #1890ff !important;
+}
+
+.calculations-table-edit-button:focus,
+.calculations-table-edit-button.ant-btn:focus,
+.calculations-table-edit-button.ant-btn-text:focus {
+  background-color: rgba(24, 144, 255, 0.1) !important;
+  color: #1890ff !important;
+}
+
+.calculations-table-edit-button:hover span,
+.calculations-table-edit-button.ant-btn:hover span,
+.calculations-table-edit-button.ant-btn-text:hover span,
+.calculations-table-edit-button:focus span,
+.calculations-table-edit-button.ant-btn:focus span,
+.calculations-table-edit-button.ant-btn-text:focus span {
+  color: #1890ff !important;
 }
 
 .calculations-table-delete-button,

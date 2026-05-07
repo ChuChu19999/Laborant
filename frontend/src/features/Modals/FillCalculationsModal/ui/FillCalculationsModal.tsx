@@ -45,13 +45,49 @@ const FillCalculationsModal: React.FC<FillCalculationsModalProps> = ({ open, onC
     onClose();
   }, [onClose]);
 
+  const buildCalculationsPath = useCallback(
+    (
+      labId: number,
+      departmentId: number | undefined | null,
+      sampleId: number,
+      editCalculationId?: number
+    ) => {
+      const base =
+        departmentId != null
+          ? `/samples/laboratory/${labId}/department/${departmentId}/calculations`
+          : `/samples/laboratory/${labId}/calculations`;
+      const query = new URLSearchParams({ sampleId: String(sampleId) });
+      if (editCalculationId != null) {
+        query.set('editCalculationId', String(editCalculationId));
+      }
+      return `${base}?${query.toString()}`;
+    },
+    []
+  );
+
   const handleAddCalculation = useCallback(() => {
-    if (sample.laboratory_id && sample.department_id) {
-      const path = `/samples/laboratory/${sample.laboratory_id}/department/${sample.department_id}/calculations?sampleId=${sample.id}`;
-      navigate(path);
+    const labId = sample.laboratory_id;
+    if (!labId) {
+      message.error('Не удалось определить лабораторию для расчёта');
+      return;
     }
+    navigate(buildCalculationsPath(labId, sample.department_id ?? undefined, sample.id));
     onClose();
-  }, [navigate, sample, onClose]);
+  }, [navigate, sample, onClose, buildCalculationsPath]);
+
+  const handleEditCalculation = useCallback(
+    (calculation: Calculation) => {
+      const labId = calculation.laboratory_id ?? sample.laboratory_id;
+      if (!labId) {
+        message.error('Не удалось определить лабораторию для расчёта');
+        return;
+      }
+      const deptId = calculation.department_id ?? sample.department_id ?? undefined;
+      navigate(buildCalculationsPath(labId, deptId, sample.id, calculation.id));
+      onClose();
+    },
+    [navigate, onClose, sample, buildCalculationsPath]
+  );
 
   const handleDelete = useCallback((calculationId: number) => {
     setDeleteConfirmation({
@@ -114,6 +150,7 @@ const FillCalculationsModal: React.FC<FillCalculationsModalProps> = ({ open, onC
               data={calculations || []}
               loading={isLoading}
               onDelete={handleDelete}
+              onEdit={handleEditCalculation}
             />
           )}
         </div>

@@ -1496,15 +1496,7 @@ def process_fractional_composition_condensate(
                 if "температура" in field.lower():
                     cell.value = "°C"
                 elif "% отгона при температуре" in field:
-                    is_first_percent_field = not any(
-                        "% отгона при температуре" in prev_field
-                        for prev_field in fractional_fields[:i]
-                        if result_data.get(prev_field) not in [None, "", "-"]
-                    )
-                    if is_first_percent_field:
-                        cell.value = "°C"
-                    else:
-                        cell.value = ""
+                    cell.value = "°C"
                 elif "доля" in field.lower():
                     cell.value = "%"
                 else:

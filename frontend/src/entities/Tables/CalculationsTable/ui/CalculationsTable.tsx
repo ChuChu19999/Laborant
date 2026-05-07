@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { DeleteOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { useReactTable, getCoreRowModel, flexRender, type ColumnDef } from '@tanstack/react-table';
 import { LoadingCard } from '../../../../features/Cards';
 import { type Calculation } from '../../../../shared/api/calculation';
@@ -17,6 +17,7 @@ interface CalculationsTableProps {
   data: Calculation[];
   loading?: boolean;
   onDelete?: (calculationId: number) => void;
+  onEdit?: (calculation: Calculation) => void;
 }
 
 // Функция для замены минуса на слово "минус"
@@ -339,6 +340,7 @@ const CalculationsTable: React.FC<CalculationsTableProps> = ({
   data,
   loading = false,
   onDelete,
+  onEdit,
 }) => {
   const [employeesMap, setEmployeesMap] = useState<Record<string, { fullName: string }>>({});
   const [methodDisplayNames, setMethodDisplayNames] = useState<Record<number, string>>({});
@@ -673,6 +675,17 @@ const CalculationsTable: React.FC<CalculationsTableProps> = ({
         header: 'Действия',
         cell: ({ row }) => (
           <div className="calculations-table-actions">
+            {onEdit && (
+              <Button
+                type="text"
+                size="small"
+                icon={<EditOutlined />}
+                onClick={() => onEdit(row.original)}
+                className="calculations-table-edit-button"
+              >
+                Редактировать
+              </Button>
+            )}
             {onDelete && (
               <Button
                 type="text"
@@ -688,10 +701,10 @@ const CalculationsTable: React.FC<CalculationsTableProps> = ({
           </div>
         ),
         enableSorting: false,
-        size: 95,
+        size: 180,
       },
     ],
-    [employeesMap, methodDisplayNames, methodsById, onDelete]
+    [employeesMap, methodDisplayNames, methodsById, onDelete, onEdit]
   );
 
   const table = useReactTable<Calculation>({

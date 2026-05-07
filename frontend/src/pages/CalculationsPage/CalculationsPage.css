@@ -159,3 +159,12 @@
   width: 470px;
   margin-bottom: 12px;
 }
+
+.calculations-page-split-edit-mode .split-panel-left {
+  display: none;
+}
+
+.calculations-page-split-edit-mode .split-panel-right {
+  flex: 1;
+  max-width: 100%;
+}

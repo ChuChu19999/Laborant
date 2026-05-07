@@ -39,16 +39,16 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
     }
     setLoading(true);
     try {
-      const blob = await reportsApi.generateSampleCountReport({
+      const reportFile = await reportsApi.generateSampleCountReport({
         laboratory_id: laboratoryId,
         department_id: departmentId,
         date_from: dateRange[0].format('YYYY-MM-DD'),
         date_to: dateRange[1].format('YYYY-MM-DD'),
       });
-      const url = window.URL.createObjectURL(blob);
+      const url = window.URL.createObjectURL(reportFile.blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `Количество_проб_${dateRange[0].format('YYYY-MM-DD')}_${dateRange[1].format('YYYY-MM-DD')}.xlsx`;
+      a.download = reportFile.filename;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);

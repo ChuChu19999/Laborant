@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Typography, message } from 'antd';
 import { UserPicker, type Employee } from '../../../../entities/UserPicker';
 import { calculationApi } from '../../../../shared/api/calculation';
+import { employeesApi } from '../../../../shared/api/employees';
 import { equipmentApi } from '../../../../shared/api/equipment';
 import { laboratoriesApi } from '../../../../shared/api/laboratories';
 import { researchApi } from '../../../../shared/api/research';
@@ -31,6 +32,11 @@ interface SaveCalculationModalProps {
   departmentId?: number;
   researchMethodId: number;
   equipment_data?: number[];
+  editingCalculationId?: number;
+  /** ID приборов из сохранённого расчёта (включая обязательные); для выбора необязательных при редактировании. */
+  existingEquipmentData?: number[];
+  /** hashMd5 исполнителя из заменяемого расчёта — подставить в форму при открытии. */
+  previousExecutorHash?: string | null;
 }
 
 const SaveCalculationModal: React.FC<SaveCalculationModalProps> = ({
@@ -44,6 +50,9 @@ const SaveCalculationModal: React.FC<SaveCalculationModalProps> = ({
   departmentId,
   researchMethodId,
   equipment_data,
+  editingCalculationId,
+  existingEquipmentData,
+  previousExecutorHash,
 }) => {
   const [executor, setExecutor] = useState<Employee | null>(null);
   const [executorError, setExecutorError] = useState('');
@@ -141,14 +150,41 @@ const SaveCalculationModal: React.FC<SaveCalculationModalProps> = ({
   useEffect(() => {
     if (open) {
       setSelectedSampleId(sampleId);
-      setExecutor(null);
+      if (!previousExecutorHash) {
+        setExecutor(null);
+      }
       setExecutorError('');
       setSampleError('');
-      if (researchMethod?.equipment_data_default) {
+      if (!editingCalculationId && researchMethod?.equipment_data_default) {
         setSelectedEquipment([]);
       }
     }
-  }, [open, sampleId, researchMethod]);
+  }, [open, sampleId, researchMethod, editingCalculationId, previousExecutorHash]);
+
+  useEffect(() => {
+    if (!open || !previousExecutorHash?.trim()) {
+      return;
+    }
+    let cancelled = false;
+    void employeesApi.getByHash(previousExecutorHash.trim(), false).then(data => {
+      if (!cancelled && data && typeof data === 'object' && 'hashMd5' in data) {
+        setExecutor(data as Employee);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, previousExecutorHash]);
+
+  useEffect(() => {
+    if (!open || !researchMethod || !editingCalculationId) {
+      return;
+    }
+    const rawIds = existingEquipmentData ?? [];
+    const requiredIds = researchMethod.equipment_data_default || [];
+    const optionalOnly = rawIds.filter(id => !requiredIds.includes(id));
+    setSelectedEquipment(optionalOnly);
+  }, [open, editingCalculationId, existingEquipmentData, researchMethod]);
 
   const handleSave = async () => {
     const finalSampleId = sampleId ?? selectedSampleId;
@@ -174,21 +210,41 @@ const SaveCalculationModal: React.FC<SaveCalculationModalProps> = ({
     setSampleError('');
 
     try {
-      await calculationApi.createCalculation({
-        sample_id: finalSampleId,
-        laboratory_id: laboratoryId,
-        department_id: departmentId,
-        research_method_id: researchMethodId,
-        input_data: calculationData.input_data,
-        equipment_data: allSelectedEquipment.length > 0 ? allSelectedEquipment : equipment_data,
-        result: calculationData.result,
-        executor: executor.hashMd5,
-        measurement_error: calculationData.measurement_error,
-        unit: calculationData.unit,
-        laboratory_activity_date: laboratoryActivityDate.format('YYYY-MM-DD'),
-      });
+      const resolvedEquipment =
+        allSelectedEquipment.length > 0 ? allSelectedEquipment : equipment_data;
 
-      message.success('Результат расчета успешно сохранен');
+      if (editingCalculationId) {
+        await calculationApi.replaceCalculation(editingCalculationId, {
+          sample_id: finalSampleId,
+          laboratory_id: laboratoryId,
+          department_id: departmentId,
+          research_method_id: researchMethodId,
+          input_data: calculationData.input_data,
+          equipment_data: resolvedEquipment,
+          result: calculationData.result,
+          executor: executor.hashMd5,
+          measurement_error: calculationData.measurement_error,
+          unit: calculationData.unit,
+          laboratory_activity_date: laboratoryActivityDate.format('YYYY-MM-DD'),
+        });
+        message.success('Сохранена новая версия расчёта; предыдущая помечена удалена');
+      } else {
+        await calculationApi.createCalculation({
+          sample_id: finalSampleId,
+          laboratory_id: laboratoryId,
+          department_id: departmentId,
+          research_method_id: researchMethodId,
+          input_data: calculationData.input_data,
+          equipment_data: resolvedEquipment,
+          result: calculationData.result,
+          executor: executor.hashMd5,
+          measurement_error: calculationData.measurement_error,
+          unit: calculationData.unit,
+          laboratory_activity_date: laboratoryActivityDate.format('YYYY-MM-DD'),
+        });
+
+        message.success('Результат расчета успешно сохранен');
+      }
       setExecutor(null);
       onSuccess();
       onClose();
@@ -210,12 +266,14 @@ const SaveCalculationModal: React.FC<SaveCalculationModalProps> = ({
   return (
     <div className="save-calculation-modal-wrapper">
       <Modal
-        header="Сохранение результата расчета"
+        header={
+          editingCalculationId ? 'Сохранение новой версии расчёта' : 'Сохранение результата расчета'
+        }
         onClose={handleCancel}
         onCancel={handleCancel}
         onSave={handleSave}
         modalWidth="550"
-        saveButtonText="Сохранить"
+        saveButtonText={editingCalculationId ? 'Сохранить как новый расчёт' : 'Сохранить'}
       >
         <div className="save-calculation-modal-content">
           {!sampleId && (

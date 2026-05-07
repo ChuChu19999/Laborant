@@ -1,3 +1,5 @@
+import zipfile
+from io import BytesIO
 from typing import Optional
 from urllib.parse import quote
 import pendulum
@@ -8,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from core.database import get_db
 from core.exceptions import NotFoundError, ValidationError
+from core.security import IsAuthenticated
 from models.laboratory import Laboratory
 from models.report import ReportTemplate, ReportType
 from schemas.pagination import PaginatedResponse
@@ -317,7 +320,7 @@ async def generate_sample_count_report(
     except Exception:
         raise ValidationError("Некорректный формат дат (ожидается YYYY-MM-DD)")
 
-    file_bytes = await build_sample_count_excel(
+    excel_bytes, txt_bytes = await build_sample_count_excel(
         db,
         template_file_base64=template.file,
         laboratory_id=body.laboratory_id,
@@ -326,11 +329,22 @@ async def generate_sample_count_report(
         department_id=body.department_id,
     )
 
-    filename = f"Количество_проб_{body.date_from}_{body.date_to}.xlsx"
+    zip_buffer = BytesIO()
+    with zipfile.ZipFile(zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(
+            f"Количество_проб_{body.date_from}_{body.date_to}.xlsx",
+            excel_bytes,
+        )
+        zf.writestr(
+            f"Количество_проб_{body.date_from}_{body.date_to}.txt",
+            txt_bytes,
+        )
+
+    filename = f"Количество_проб_{body.date_from}_{body.date_to}.zip"
     encoded_filename = quote(filename, safe="")
     content_disposition = f"attachment; filename*=UTF-8''{encoded_filename}"
     return Response(
-        content=file_bytes,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        content=zip_buffer.getvalue(),
+        media_type="application/zip",
         headers={"Content-Disposition": content_disposition},
     )

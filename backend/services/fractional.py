@@ -1,3 +1,4 @@
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Any, Dict
 import orjson
 from core.logger import logger
@@ -28,9 +29,24 @@ def round_to_half(value):
 def round_to_one_decimal(value):
     """Округляет до 1 знака после запятой"""
     try:
-        val = float(str(value).replace(",", "."))
-        return round(val, 1)
-    except (ValueError, TypeError):
+        normalized_value = str(value).replace(",", ".")
+        rounded = Decimal(normalized_value).quantize(
+            Decimal("0.1"), rounding=ROUND_HALF_UP
+        )
+        return float(rounded)
+    except (ValueError, TypeError, InvalidOperation):
+        return value
+
+
+def round_half_up_to_int(value):
+    """Округляет до целого по правилу 0.5 вверх."""
+    try:
+        normalized_value = str(value).replace(",", ".")
+        rounded = Decimal(normalized_value).quantize(
+            Decimal("1"), rounding=ROUND_HALF_UP
+        )
+        return int(rounded)
+    except (ValueError, TypeError, InvalidOperation):
         return value
 
 
@@ -250,21 +266,21 @@ def calculate_fractional_composition(input_data: Dict[str, Any]) -> Dict[str, An
                     val1_float = float(str(val1).replace(",", "."))
                     val2_float = float(str(val2).replace(",", "."))
                     avg_val = (val1_float + val2_float) / 2
-                    rounded_val = round(avg_val)
+                    rounded_val = round_half_up_to_int(avg_val)
                     average_temps[field_name] = rounded_val
                 except (ValueError, TypeError):
                     average_temps[field_name] = val1
             elif val1 and val1 != "0" and str(val1).strip():
                 try:
                     val1_float = float(str(val1).replace(",", "."))
-                    rounded_val = round(val1_float)
+                    rounded_val = round_half_up_to_int(val1_float)
                     average_temps[field_name] = rounded_val
                 except (ValueError, TypeError):
                     average_temps[field_name] = val1
             elif val2 and val2 != "0" and str(val2).strip():
                 try:
                     val2_float = float(str(val2).replace(",", "."))
-                    rounded_val = round(val2_float)
+                    rounded_val = round_half_up_to_int(val2_float)
                     average_temps[field_name] = rounded_val
                 except (ValueError, TypeError):
                     average_temps[field_name] = val2
@@ -520,21 +536,21 @@ def calculate_fractional_composition_oil(input_data: Dict[str, Any]) -> Dict[str
                     val1_float = float(str(val1).replace(",", "."))
                     val2_float = float(str(val2).replace(",", "."))
                     avg_val = (val1_float + val2_float) / 2
-                    rounded_val = round(avg_val)
+                    rounded_val = round_half_up_to_int(avg_val)
                     average_temps[field_name] = rounded_val
                 except (ValueError, TypeError):
                     average_temps[field_name] = val1
             elif val1 and val1 != "0" and str(val1).strip():
                 try:
                     val1_float = float(str(val1).replace(",", "."))
-                    rounded_val = round(val1_float)
+                    rounded_val = round_half_up_to_int(val1_float)
                     average_temps[field_name] = rounded_val
                 except (ValueError, TypeError):
                     average_temps[field_name] = val1
             elif val2 and val2 != "0" and str(val2).strip():
                 try:
                     val2_float = float(str(val2).replace(",", "."))
-                    rounded_val = round(val2_float)
+                    rounded_val = round_half_up_to_int(val2_float)
                     average_temps[field_name] = rounded_val
                 except (ValueError, TypeError):
                     average_temps[field_name] = val2
@@ -552,20 +568,20 @@ def calculate_fractional_composition_oil(input_data: Dict[str, Any]) -> Dict[str
                         float(str(val1).replace(",", "."))
                         + float(str(val2).replace(",", "."))
                     ) / 2
-                    average_outputs[field_name] = round(avg_val, 1)
+                    average_outputs[field_name] = round_to_one_decimal(avg_val)
                 except (ValueError, TypeError):
                     average_outputs[field_name] = val1
             elif val1 and val1 != "0" and str(val1).strip():
                 try:
-                    average_outputs[field_name] = round(
-                        float(str(val1).replace(",", ".")), 1
+                    average_outputs[field_name] = round_to_one_decimal(
+                        float(str(val1).replace(",", "."))
                     )
                 except (ValueError, TypeError):
                     average_outputs[field_name] = val1
             elif val2 and val2 != "0" and str(val2).strip():
                 try:
-                    average_outputs[field_name] = round(
-                        float(str(val2).replace(",", ".")), 1
+                    average_outputs[field_name] = round_to_one_decimal(
+                        float(str(val2).replace(",", "."))
                     )
                 except (ValueError, TypeError):
                     average_outputs[field_name] = val2

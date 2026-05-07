@@ -24,6 +24,7 @@ from services.calculation import (
     get_calculation_by_id,
     get_calculations,
     get_calculations_by_sample,
+    replace_calculation,
     update_calculation,
 )
 from services.calculator import calculate_result
@@ -31,6 +32,30 @@ from services.equipment import get_equipment_by_id
 from services.research import get_research_method_by_id
 
 router = APIRouter()
+
+
+def _calculation_to_flat_response_dict(calculation: Calculation) -> dict:
+    """Скалярные поля расчёта без ORM sample/research_method (иначе pydantic ждёт dict)."""
+    return {
+        "id": calculation.id,
+        "sample_id": calculation.sample_id,
+        "laboratory_id": calculation.laboratory_id,
+        "department_id": calculation.department_id,
+        "research_method_id": calculation.research_method_id,
+        "input_data": calculation.input_data,
+        "equipment_data": calculation.equipment_data,
+        "result": calculation.result,
+        "executor": calculation.executor,
+        "measurement_error": calculation.measurement_error,
+        "unit": calculation.unit,
+        "laboratory_activity_date": calculation.laboratory_activity_date,
+        "created_at": calculation.created_at,
+        "updated_at": calculation.updated_at,
+        "deleted_at": calculation.deleted_at,
+        "sample": None,
+        "research_method": None,
+        "equipment": None,
+    }
 
 
 @router.get(
@@ -313,7 +338,9 @@ async def get_calculation(
     calculation = await get_calculation_by_id(db, calculation_id)
     if not calculation:
         raise NotFoundError("Расчет не найден")
-    calc_dict = CalculationResponse.model_validate(calculation).model_dump()
+    calc_dict = CalculationResponse.model_validate(
+        _calculation_to_flat_response_dict(calculation)
+    ).model_dump()
 
     if calculation.equipment_data:
         equipment_list = []
@@ -329,6 +356,10 @@ async def get_calculation(
 
     if hasattr(calculation, "sample") and calculation.sample:
         sample_dict = SampleResponse.model_validate(calculation.sample).model_dump()
+        if hasattr(calculation.sample, "laboratory") and calculation.sample.laboratory:
+            sample_dict["laboratory_name"] = calculation.sample.laboratory.name
+        if hasattr(calculation.sample, "department") and calculation.sample.department:
+            sample_dict["department_name"] = calculation.sample.department.name
         calc_dict["sample"] = sample_dict
 
     if hasattr(calculation, "research_method") and calculation.research_method:
@@ -363,7 +394,9 @@ async def update_calculation_endpoint(
     """Обновляет существующий расчет. Можно обновить только указанные поля."""
     calculation = await update_calculation(db, calculation_id, calculation_data)
     await db.commit()
-    calc_dict = CalculationResponse.model_validate(calculation).model_dump()
+    calc_dict = CalculationResponse.model_validate(
+        _calculation_to_flat_response_dict(calculation)
+    ).model_dump()
 
     if calculation.equipment_data:
         equipment_list = []
@@ -404,6 +437,95 @@ async def delete_calculation_endpoint(
 
 
 @router.post(
+    "/calculations/{calculation_id}/replace/",
+    response_model=CalculationResponse,
+    status_code=201,
+    summary="Замена расчёта новой версией",
+    description=(
+        "Помечает указанный расчёт как удалённый (мягкое удаление) и создаёт новую запись "
+        "для той же пробы и того же метода исследования."
+    ),
+    responses={
+        201: {
+            "description": "Новый расчёт создан, предыдущая версия помечена удалённой"
+        },
+        400: {"description": "Некорректные данные или попытка сменить пробу или метод"},
+        404: {"description": "Расчёт не найден"},
+    },
+)
+async def replace_calculation_endpoint(
+    calculation_id: int,
+    calculation_data: CalculationCreate,
+    db: AsyncSession = Depends(get_db),
+):
+    """Мягко удаляет старый расчёт и сохраняет новый с теми же пробой и методом."""
+    calculation = await replace_calculation(db, calculation_id, calculation_data)
+    await db.commit()
+
+    reloaded = await db.execute(
+        select(Calculation)
+        .where(Calculation.id == calculation.id)
+        .options(
+            selectinload(Calculation.sample).selectinload(Sample.laboratory),
+            selectinload(Calculation.sample).selectinload(Sample.department),
+            selectinload(Calculation.research_method),
+        )
+    )
+    calculation = reloaded.scalar_one()
+
+    calc_data = {
+        "id": calculation.id,
+        "input_data": calculation.input_data,
+        "equipment_data": calculation.equipment_data,
+        "result": calculation.result,
+        "executor": calculation.executor,
+        "measurement_error": calculation.measurement_error,
+        "unit": calculation.unit,
+        "laboratory_activity_date": calculation.laboratory_activity_date,
+        "sample_id": calculation.sample_id,
+        "laboratory_id": calculation.laboratory_id,
+        "department_id": calculation.department_id,
+        "research_method_id": calculation.research_method_id,
+        "created_at": calculation.created_at,
+        "updated_at": calculation.updated_at,
+        "deleted_at": calculation.deleted_at,
+        "sample": None,
+        "research_method": None,
+        "equipment": None,
+    }
+    calc_dict = CalculationResponse.model_validate(calc_data).model_dump()
+
+    if calculation.equipment_data:
+        equipment_list = []
+        for eq_id in calculation.equipment_data:
+            if isinstance(eq_id, dict):
+                eq_id = eq_id.get("id", eq_id)
+            equipment = await get_equipment_by_id(db, eq_id, include_deleted=True)
+            if equipment:
+                equipment_list.append(
+                    EquipmentBrief.model_validate(equipment).model_dump()
+                )
+        calc_dict["equipment"] = equipment_list
+
+    if hasattr(calculation, "sample") and calculation.sample:
+        sample_dict = SampleResponse.model_validate(calculation.sample).model_dump()
+        if hasattr(calculation.sample, "laboratory") and calculation.sample.laboratory:
+            sample_dict["laboratory_name"] = calculation.sample.laboratory.name
+        if hasattr(calculation.sample, "department") and calculation.sample.department:
+            sample_dict["department_name"] = calculation.sample.department.name
+        calc_dict["sample"] = sample_dict
+
+    if hasattr(calculation, "research_method") and calculation.research_method:
+        calc_dict["research_method"] = {
+            "id": calculation.research_method.id,
+            "name": calculation.research_method.name,
+            "unit": calculation.research_method.unit,
+        }
+
+    return CalculationResponse(**calc_dict)
+
+
+@router.post(
     "/calculate/",
     summary="Выполнение расчета",
     description=(
@@ -441,6 +563,16 @@ async def calculate_endpoint(
             "rounding_decimal": research_method_obj.rounding_decimal,
             "intermediate_data": research_method_obj.intermediate_data,
             "convergence_conditions": research_method_obj.convergence_conditions,
+            "groups": [
+                {"id": group.id, "name": group.name}
+                for group in (research_method_obj.groups or [])
+            ],
+            "group_name": (
+                research_method_obj.groups[0].name
+                if getattr(research_method_obj, "groups", None)
+                and len(research_method_obj.groups) > 0
+                else ""
+            ),
         }
 
         # Выполняем расчет

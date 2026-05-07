@@ -1,18 +1,26 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Spin, message } from 'antd';
 import { LoadingCard } from '../../features/Cards';
 import { SaveCalculationModal } from '../../features/Modals';
+import {
+  calculationApi,
+  type Calculation,
+  type CalculationResult,
+} from '../../shared/api/calculation';
 import { laboratoriesApi } from '../../shared/api/laboratories';
 import { researchApi } from '../../shared/api/research';
 import { samplesApi, type Sample } from '../../shared/api/samples';
 import { useAutoRefetchQuery } from '../../shared/model/lib/useQuery';
 import { Select } from '../../shared/ui/FormItems';
 import Layout from '../../shared/ui/Layout/Layout';
+import {
+  buildAvailableMethodsFromResearchMethod,
+  buildCalculationFormPrefill,
+} from '../../shared/utils/calculationFormPrefill';
 import { CalculationPanel } from '../../widgets/CalculationPanel';
 import { NavigationBar } from '../../widgets/NavigationBar';
 import { SplitPanel } from '../../widgets/SplitPanel';
-import type { CalculationResult } from '../../shared/api/calculation';
 import type { ResearchMethod } from '../../shared/api/research';
 import type { Dayjs } from 'dayjs';
 import './CalculationsPage.css';
@@ -86,6 +94,15 @@ const CalculationsPage: React.FC = () => {
       ? parseInt(searchParams.get('sampleId')!, 10)
       : undefined;
 
+  const editCalculationIdRaw = searchParams.get('editCalculationId');
+  const editCalculationId =
+    editCalculationIdRaw !== null && editCalculationIdRaw !== ''
+      ? parseInt(editCalculationIdRaw, 10)
+      : undefined;
+  const isEditMode = typeof editCalculationId === 'number' && !Number.isNaN(editCalculationId);
+
+  const [editCalculation, setEditCalculation] = useState<Calculation | null>(null);
+
   const { data: sample, isLoading: isLoadingSample } = useAutoRefetchQuery<Sample>(
     ['sample', sampleIdNum],
     () => samplesApi.getSample(sampleIdNum!),
@@ -111,7 +128,13 @@ const CalculationsPage: React.FC = () => {
   );
 
   useEffect(() => {
-    const fetchAvailableMethods = async () => {
+    if (!isEditMode) {
+      setEditCalculation(null);
+    }
+  }, [isEditMode]);
+
+  useEffect(() => {
+    const fetchMethodsOrEditCalculation = async () => {
       if (!labId || !sampleIdNum) {
         setIsLoading(false);
         return;
@@ -119,6 +142,38 @@ const CalculationsPage: React.FC = () => {
 
       try {
         setIsLoading(true);
+        setError(null);
+
+        if (isEditMode && typeof editCalculationId === 'number') {
+          const calculation = await calculationApi.getCalculation(editCalculationId);
+
+          if (calculation.sample_id !== sampleIdNum) {
+            setError('Расчёт не относится к выбранной пробе');
+            return;
+          }
+          if (calculation.laboratory_id !== labId) {
+            setError('Расчёт не относится к выбранной лаборатории');
+            return;
+          }
+          if (
+            deptId !== undefined &&
+            calculation.department_id != null &&
+            calculation.department_id !== deptId
+          ) {
+            setError('Расчёт не относится к выбранному подразделению');
+            return;
+          }
+
+          const fullMethod = await researchApi.getResearchMethod(calculation.research_method_id);
+          setAvailableMethods(buildAvailableMethodsFromResearchMethod(fullMethod));
+          setSelectedMethodId(fullMethod.id);
+          setCurrentMethod(fullMethod);
+          setEditCalculation(calculation);
+          // Результат не показываем до «Рассчитать»: префилл только формы через calculationFormPrefill.
+          setLastCalculationResult({});
+          return;
+        }
+
         const response = await researchApi.getAvailableResearchMethods({
           laboratory_id: labId,
           department_id: deptId,
@@ -126,19 +181,17 @@ const CalculationsPage: React.FC = () => {
         });
 
         setAvailableMethods(response.methods || []);
+        setEditCalculation(null);
 
-        // Выбираем первый доступный метод
         if (response.methods && response.methods.length > 0) {
           const firstMethod = response.methods[0];
           if (firstMethod.is_group && firstMethod.methods && firstMethod.methods.length > 0) {
             const firstGroupMethod = firstMethod.methods[0];
             setSelectedMethodId(firstGroupMethod.id);
-            // Загружаем полные данные метода
             const fullMethod = await researchApi.getResearchMethod(firstGroupMethod.id);
             setCurrentMethod(fullMethod);
           } else if (!firstMethod.is_group && typeof firstMethod.id === 'number') {
             setSelectedMethodId(firstMethod.id);
-            // Загружаем полные данные метода
             const fullMethod = await researchApi.getResearchMethod(firstMethod.id);
             setCurrentMethod(fullMethod);
           }
@@ -155,8 +208,21 @@ const CalculationsPage: React.FC = () => {
       }
     };
 
-    fetchAvailableMethods();
-  }, [labId, deptId, sampleIdNum]);
+    void fetchMethodsOrEditCalculation();
+  }, [labId, deptId, sampleIdNum, isEditMode, editCalculationId]);
+
+  const calculationFormPrefill = useMemo(() => {
+    if (!isEditMode || !editCalculation || !currentMethod) {
+      return null;
+    }
+    if (editCalculation.research_method_id !== currentMethod.id) {
+      return null;
+    }
+    return {
+      methodId: currentMethod.id,
+      ...buildCalculationFormPrefill(currentMethod, editCalculation),
+    };
+  }, [isEditMode, editCalculation, currentMethod]);
 
   const handleMethodClick = async (methodId: number) => {
     try {
@@ -185,10 +251,33 @@ const CalculationsPage: React.FC = () => {
         unit: result.unit,
         convergence: result.convergence,
         laboratory_activity_date: laboratoryActivityDate,
-        equipment_data: currentMethod.equipment_data_default,
+        equipment_data:
+          isEditMode && typeof editCalculationId === 'number'
+            ? (prev[currentMethod.id]?.equipment_data ??
+              editCalculation?.equipment_data ??
+              currentMethod.equipment_data_default)
+            : currentMethod.equipment_data_default,
       },
     }));
   };
+
+  const handleLaboratoryActivityDateChange = useCallback(
+    (date: Dayjs | null) => {
+      setLastCalculationResult(prev => {
+        if (!currentMethod) return prev;
+        const existing = prev[currentMethod.id];
+        if (!existing) return prev;
+        return {
+          ...prev,
+          [currentMethod.id]: {
+            ...existing,
+            laboratory_activity_date: date,
+          },
+        };
+      });
+    },
+    [currentMethod]
+  );
 
   const handleOpenSaveModal = () => {
     if (!currentMethod) {
@@ -208,7 +297,15 @@ const CalculationsPage: React.FC = () => {
   const handleSaveSuccess = async () => {
     setIsSaveModalOpen(false);
 
-    // Очищаем результаты
+    if (isEditMode && labId) {
+      if (deptId !== undefined) {
+        navigate(`/samples/laboratory/${labId}/department/${deptId}`);
+      } else {
+        navigate(`/samples/laboratory/${labId}`);
+      }
+      return;
+    }
+
     if (currentMethod) {
       setLastCalculationResult(prev => {
         const newResult = { ...prev };
@@ -217,7 +314,6 @@ const CalculationsPage: React.FC = () => {
       });
     }
 
-    // Обновляем список доступных методов
     if (labId && sampleIdNum) {
       try {
         const response = await researchApi.getAvailableResearchMethods({
@@ -458,6 +554,7 @@ const CalculationsPage: React.FC = () => {
           selectedMethodId={selectedMethodId}
           methods={methods}
           groups={groups}
+          calculationFormPrefill={calculationFormPrefill}
           groupSelector={
             shouldShowGroupSelector ? (
               <Select
@@ -481,6 +578,7 @@ const CalculationsPage: React.FC = () => {
           onCalculate={handleCalculate}
           onSave={handleOpenSaveModal}
           lastCalculationResult={lastCalculationResult[currentMethod.id]}
+          onLaboratoryActivityDateChange={handleLaboratoryActivityDateChange}
         />
       )}
     </div>
@@ -504,12 +602,18 @@ const CalculationsPage: React.FC = () => {
     );
   }
 
-  const title = sample ? `Проба № ${sample.registration_number}` : 'Расчеты';
+  const title = sample
+    ? isEditMode
+      ? `Редактирование расчёта — проба № ${sample.registration_number}`
+      : `Проба № ${sample.registration_number}`
+    : 'Расчеты';
 
   return (
     <Layout title={title}>
       <NavigationBar breadcrumbs={breadcrumbs} onBack={handleBack} showBack={true} />
-      <SplitPanel leftPanel={leftPanel} rightPanel={rightPanel} />
+      <div className={isEditMode ? 'calculations-page-split-edit-mode' : undefined}>
+        <SplitPanel leftPanel={leftPanel} rightPanel={rightPanel} />
+      </div>
 
       {currentMethod && lastCalculationResult[currentMethod.id] && (
         <SaveCalculationModal
@@ -528,6 +632,9 @@ const CalculationsPage: React.FC = () => {
           departmentId={deptId}
           researchMethodId={currentMethod.id}
           equipment_data={lastCalculationResult[currentMethod.id].equipment_data}
+          editingCalculationId={isEditMode ? editCalculationId : undefined}
+          existingEquipmentData={editCalculation?.equipment_data}
+          previousExecutorHash={isEditMode ? editCalculation?.executor : undefined}
         />
       )}
     </Layout>

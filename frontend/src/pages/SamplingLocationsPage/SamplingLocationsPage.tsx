@@ -6,6 +6,7 @@ import {
   DeleteOutlined,
   BankOutlined,
   EnvironmentOutlined,
+  DashboardOutlined,
 } from '@ant-design/icons';
 import AddIcon from '@mui/icons-material/Add';
 import { IconButton } from '@mui/material';
@@ -565,6 +566,9 @@ const SamplingLocationsPage: React.FC = () => {
                     {wellModes.map(wellMode => (
                       <div key={wellMode.id} className="sampling-locations-item">
                         <div className="sampling-locations-item-main">
+                          <div className="sampling-locations-item-icon">
+                            <DashboardOutlined />
+                          </div>
                           <div>
                             <div className="sampling-locations-item-name">{wellMode.name}</div>
                           </div>

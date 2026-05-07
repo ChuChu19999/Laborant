@@ -22,6 +22,7 @@ from models.laboratory import Branch, SamplingLocation
 from models.sample import Sample
 from utils.filters import add_date_range_filter
 from .constants import (
+    BRANCH_GPU_PRAO,
     BRANCH_NGDU,
     BRANCH_UGPU,
     DISPLAY_NAMES_CDGGKN,
@@ -33,12 +34,14 @@ from .constants import (
     ROW_TITLE_GKP_21_GKP_22,
     ROW_TITLE_KALIBROVOCHNAYA_NEFT_UGPU,
     ROW_TITLE_NEFTECONDENSATNAYA_SMES,
+    ROW_TITLE_OIS,
     ROW_TITLE_OIS_ACHIMOVKA,
     ROW_TITLE_OIS_EN_YAHA,
     ROW_TITLE_OIS_VALANZHIN,
     ROW_TITLE_PASPORTIZACIYA,
     ROW_TITLE_PROCHIE,
     ROW_TITLE_TOVARNAYA_NEFT_NGDU,
+    ROW_TITLE_TOVARNAYA_PRODUKCIYA_OIS,
     ROW_TITLE_VNEPLANOVAYA_NEFT,
     SAMPLE_TYPE_VNEPLANOVYE,
     SAMPLING_LOCATION_UKPG_11V,
@@ -178,6 +181,10 @@ def _sample_type_equals(s: Sample, value: str) -> bool:
     return (s.sample_type or "").strip() == value
 
 
+def _well_contains_tovarnaya_produkciya(s: Sample) -> bool:
+    return "товарная продукция" in (s.well or "").lower()
+
+
 def _map_display_sht_count(n: int) -> int:
     """Число для вывода в «N шт»: 1→2, 4→5, 6–8→9, 10–12→13, остальное без изменений."""
     if n == 1:
@@ -247,22 +254,24 @@ def _gkp_sample_line(
     dt = s.receiving_date
     date_part = _fmt_date(dt) if dt else "(дата получения не указана)"
     pok = agg.get(s.id, (0, 0))[1]
-    text += f" от {date_part} по {pok} пок"
     if ois_sht_suffix:
-        text += f" {_map_display_sht_count(1)} шт"
+        text += f" от {date_part} по {pok} пок {_map_display_sht_count(1)} шт"
+    else:
+        text += f" от {date_part} по {pok} пок"
     return text
 
 
 def _build_tovarnaya_neft_ngdu(
     samples: list[Sample], agg: dict[int, tuple[int, int]]
 ) -> tuple[str, list[Sample]]:
-    """Товарная нефть НГДУ: объект «нефть», не «нефть калибровочная», филиал НГДУ."""
+    """Товарная нефть НГДУ: объект «нефть», без калибровочной, филиал НГДУ, без скважины."""
     items = [
         s
         for s in samples
         if _branch_name_equals(s, BRANCH_NGDU)
         and _test_object_ilike(s, "нефть")
         and not _test_object_ilike(s, "нефть калибровочная")
+        and not (s.well or "").strip()
         and not _is_vneplanovaya_neft_sample(s)
     ]
     if not items:
@@ -285,7 +294,7 @@ def _build_tovarnaya_neft_ngdu(
 def _build_ekspluatacionnaya_neft_ngdu(
     samples: list[Sample], agg: dict[int, tuple[int, int]]
 ) -> tuple[str, list[Sample]]:
-    """Эксплуатационная нефть НГДУ: цехи ДГГКН №1/№2, «нефть», не калибровочная; скважина опциональна."""
+    """Эксплуатационная нефть НГДУ: цехи ДГГКН №1/№2, «нефть», не калибровочная; скважина обязательна."""
     items = [
         s
         for s in samples
@@ -293,6 +302,7 @@ def _build_ekspluatacionnaya_neft_ngdu(
         and _test_object_ilike(s, "нефть")
         and not _test_object_ilike(s, "нефть калибровочная")
         and _sampling_location_name_in(s, SAMPLING_LOCATIONS_CDGGKN)
+        and (s.well or "").strip()
         and not _is_vneplanovaya_neft_sample(s)
     ]
     if not items:
@@ -425,7 +435,7 @@ def _build_gkp_21_gkp_22(
     agg: dict[int, tuple[int, int]],
     sample_type: str = "Паспортизация",
 ) -> tuple[str, list[Sample]]:
-    """По каждому ГКП: заголовок, количество шт, затем отдельная строка на каждую пробу."""
+    """По каждому ГКП: заголовок с количеством в одной строке, затем строки по пробам."""
     items = [
         s
         for s in samples
@@ -453,12 +463,10 @@ def _build_gkp_21_gkp_22(
         ]
 
     lines: list[str] = [
-        GKP_SAMPLING_NAME_PREFIX_21,
-        f"{_map_display_sht_count(len(gkp21))} шт",
+        f"{GKP_SAMPLING_NAME_PREFIX_21} {_map_display_sht_count(len(gkp21))} шт",
         *_passport_sample_lines(gkp21),
         "",
-        GKP_SAMPLING_NAME_PREFIX_22,
-        f"{_map_display_sht_count(len(gkp22))} шт",
+        f"{GKP_SAMPLING_NAME_PREFIX_22} {_map_display_sht_count(len(gkp22))} шт",
         *_passport_sample_lines(gkp22),
     ]
     return "\n".join(lines), items
@@ -470,12 +478,14 @@ def _build_ois_achimovka(
     """
     ОИС Ачимовка: тип «Исследования - ОИС», место отбора с префиксом ГКП-21 или ГКП-22.
 
-    По каждому префиксу: заголовок, «N шт», затем отдельная строка на каждую пробу этого префикса.
+    По каждому префиксу: заголовок с «N шт» в одной строке, затем строка на каждую пробу.
     """
     items = [
         s
         for s in samples
-        if _sample_type_equals(s, "Исследования - ОИС") and _is_gkp_21_or_22_location(s)
+        if _sample_type_equals(s, "Исследования - ОИС")
+        and _is_gkp_21_or_22_location(s)
+        and not _well_contains_tovarnaya_produkciya(s)
     ]
     if not items:
         return "", []
@@ -499,12 +509,10 @@ def _build_ois_achimovka(
         ]
 
     lines: list[str] = [
-        GKP_SAMPLING_NAME_PREFIX_21,
-        f"{_map_display_sht_count(len(gkp21))} шт",
+        f"{GKP_SAMPLING_NAME_PREFIX_21} {_map_display_sht_count(len(gkp21))} шт",
         *_ois_sample_lines(gkp21),
         "",
-        GKP_SAMPLING_NAME_PREFIX_22,
-        f"{_map_display_sht_count(len(gkp22))} шт",
+        f"{GKP_SAMPLING_NAME_PREFIX_22} {_map_display_sht_count(len(gkp22))} шт",
         *_ois_sample_lines(gkp22),
     ]
     return "\n".join(lines), items
@@ -520,6 +528,7 @@ def _build_ois_valanzhin(
         if _sample_type_equals(s, "Исследования - ОИС")
         and not _is_gkp_21_or_22_location(s)
         and not _is_ukpg_11v_location(s)
+        and not _well_contains_tovarnaya_produkciya(s)
     ]
     if not items:
         return "", []
@@ -528,14 +537,14 @@ def _build_ois_valanzhin(
         name = (s.sampling_location.name or "").strip() if s.sampling_location else ""
         key = name if name else "(место отбора не указано)"
         by_loc[key].append(s)
-    lines = [f"{_map_display_sht_count(len(items))} шт"]
+    lines: list[str] = []
     for loc_name in sorted(by_loc.keys()):
         loc_samples = by_loc[loc_name]
         pok = sum(agg.get(s.id, (0, 0))[1] for s in loc_samples)
         lines.append(
             f"{_map_display_sht_count(len(loc_samples))} шт {loc_name} по {pok} пок"
         )
-    return "\n".join(lines), items
+    return "\n\n".join(lines), items
 
 
 def _build_ois_en_yaha(
@@ -545,7 +554,9 @@ def _build_ois_en_yaha(
     items = [
         s
         for s in samples
-        if _sample_type_equals(s, "Исследования - ОИС") and _is_ukpg_11v_location(s)
+        if _sample_type_equals(s, "Исследования - ОИС")
+        and _is_ukpg_11v_location(s)
+        and not _well_contains_tovarnaya_produkciya(s)
     ]
     if not items:
         return "", []
@@ -559,6 +570,100 @@ def _build_ois_en_yaha(
         loc_samples = by_loc[loc_name]
         pok = sum(agg.get(s.id, (0, 0))[1] for s in loc_samples)
         lines.append(f"{loc_name} по {pok} пок")
+    return "\n".join(lines), items
+
+
+def _build_ois(
+    samples: list[Sample], agg: dict[int, tuple[int, int]]
+) -> tuple[str, list[Sample]]:
+    """ОИС: «Исследования - ОИС», цехи ДГГКН №1/№2, филиалы НГДУ/УГПУ/ГПУпРАО, скважина обязательна."""
+    allowed_branches = (BRANCH_NGDU, BRANCH_UGPU, BRANCH_GPU_PRAO)
+    items = [
+        s
+        for s in samples
+        if _sample_type_equals(s, "Исследования - ОИС")
+        and _sampling_location_name_in(s, SAMPLING_LOCATIONS_CDGGKN)
+        and any(_branch_name_equals(s, branch_name) for branch_name in allowed_branches)
+        and (s.well or "").strip()
+        and not _well_contains_tovarnaya_produkciya(s)
+    ]
+    if not items:
+        return "", []
+    by_loc: dict[str, list[Sample]] = defaultdict(list)
+    for s in items:
+        name = (s.sampling_location.name or "").strip() if s.sampling_location else ""
+        by_loc[name].append(s)
+    lines: list[str] = []
+    for loc_name in SAMPLING_LOCATIONS_CDGGKN:
+        loc_samples = by_loc.get(loc_name, [])
+        if not loc_samples:
+            continue
+        pok = sum(agg.get(s.id, (0, 0))[1] for s in loc_samples)
+        lines.append(f"{_map_display_sht_count(len(loc_samples))} шт по {pok} пок")
+        display_name = DISPLAY_NAMES_CDGGKN.get(loc_name, loc_name)
+        for s in sorted(
+            loc_samples,
+            key=lambda x: (
+                x.receiving_date or pendulum.date(1900, 1, 1),
+                (x.well or "").strip(),
+                x.id,
+            ),
+        ):
+            well_key = (s.well or "").strip()
+            date_part = (
+                _fmt_date(s.receiving_date)
+                if s.receiving_date
+                else "(дата получения не указана)"
+            )
+            lines.append(f"{display_name} скв. {well_key} от {date_part}")
+        lines.append("")
+    if lines and lines[-1] == "":
+        lines.pop()
+    return "\n".join(lines), items
+
+
+def _build_tovarnaya_produkciya_ois(
+    samples: list[Sample], agg: dict[int, tuple[int, int]]
+) -> tuple[str, list[Sample]]:
+    """Товарная продукция ОИС: ОИС по ГКП-21/22, в скважине есть «товарная продукция», вывод — даты."""
+    del agg
+    allowed_branches = (BRANCH_NGDU, BRANCH_UGPU, BRANCH_GPU_PRAO)
+    items = [
+        s
+        for s in samples
+        if _sample_type_equals(s, "Исследования - ОИС")
+        and _is_gkp_21_or_22_location(s)
+        and any(_branch_name_equals(s, branch_name) for branch_name in allowed_branches)
+        and "товарная продукция" in (s.well or "").lower()
+    ]
+    if not items:
+        return "", []
+    gkp21 = [
+        s
+        for s in items
+        if _sampling_location_name_starts_with(s, GKP_SAMPLING_NAME_PREFIX_21)
+    ]
+    gkp22 = [
+        s
+        for s in items
+        if _sampling_location_name_starts_with(s, GKP_SAMPLING_NAME_PREFIX_22)
+    ]
+    lines: list[str] = []
+    for title, subset in (
+        (GKP_SAMPLING_NAME_PREFIX_21, gkp21),
+        (GKP_SAMPLING_NAME_PREFIX_22, gkp22),
+    ):
+        if not subset:
+            continue
+        lines.append(title)
+        for s in sorted(
+            subset, key=lambda x: (x.receiving_date or pendulum.date(1900, 1, 1), x.id)
+        ):
+            lines.append(
+                _fmt_date(s.receiving_date)
+                if s.receiving_date
+                else "(дата получения не указана)"
+            )
     return "\n".join(lines), items
 
 
@@ -584,7 +689,14 @@ def _build_prochie(
     samples: list[Sample], agg: dict[int, tuple[int, int]]
 ) -> tuple[str, list[Sample]]:
     """Прочие: место отбора (+ скважина/режим), дата отбора и сумма показателей."""
-    items = [s for s in samples if _sample_type_equals(s, "Исследования - прочие")]
+    items = [
+        s
+        for s in samples
+        if _sample_type_equals(s, "Исследования - прочие")
+        and not _test_object_ilike(s, "дизельное топливо")
+        and not _test_object_ilike(s, "ингибитор коррозии")
+        and not _test_object_ilike(s, "нефтеконденсатная смесь")
+    ]
     if not items:
         return "", []
     by_key: dict[tuple[str, str, str, Optional[pendulum.Date]], list[Sample]] = (
@@ -625,7 +737,7 @@ def _build_prochie(
 def _build_diztoplivo_ingibitor(
     samples: list[Sample], agg: dict[int, tuple[int, int]]
 ) -> tuple[str, list[Sample]]:
-    """Дизтопливо и ингибитор коррозии: одна строка отчёта, объекты дизель / ингибитор по месту и дате."""
+    """Дизтопливо и ингибитор: отдельные блоки по объекту, затем как сейчас — шт/место/дата/пок."""
     items = [
         s
         for s in samples
@@ -634,23 +746,35 @@ def _build_diztoplivo_ingibitor(
     ]
     if not items:
         return "", []
-    lines = []
-    by_place_date: dict[tuple[str, Optional[pendulum.Date]], list[Sample]] = (
-        defaultdict(list)
-    )
-    for s in items:
-        place = (s.sampling_location.name or "").strip() if s.sampling_location else ""
-        by_place_date[(place, s.receiving_date)].append(s)
-    for (place, dt), loc_samples in sorted(
-        by_place_date.items(),
-        key=lambda x: (x[0][0], x[0][1] or pendulum.date(1900, 1, 1)),
-    ):
-        cnt = len(loc_samples)
-        pok = sum(agg.get(s.id, (0, 0))[1] for s in loc_samples)
-        lines.append(
-            f"{_map_display_sht_count(cnt)} шт {place} от {_fmt_date(dt)} по {pok} пок"
+    groups: list[tuple[str, str]] = [
+        ("Дизтопливо", "дизельное топливо"),
+        ("Ингибитор коррозии", "ингибитор коррозии"),
+    ]
+    sections: list[str] = []
+    for title, object_key in groups:
+        object_samples = [s for s in items if _test_object_ilike(s, object_key)]
+        if not object_samples:
+            continue
+        by_place_date: dict[tuple[str, Optional[pendulum.Date]], list[Sample]] = (
+            defaultdict(list)
         )
-    return ("\n".join(lines) if lines else ""), items
+        for s in object_samples:
+            place = (
+                (s.sampling_location.name or "").strip() if s.sampling_location else ""
+            )
+            by_place_date[(place, s.receiving_date)].append(s)
+        section_lines: list[str] = [title]
+        for (place, dt), loc_samples in sorted(
+            by_place_date.items(),
+            key=lambda x: (x[0][0], x[0][1] or pendulum.date(1900, 1, 1)),
+        ):
+            cnt = len(loc_samples)
+            pok = sum(agg.get(s.id, (0, 0))[1] for s in loc_samples)
+            section_lines.append(
+                f"{_map_display_sht_count(cnt)} шт {place} от {_fmt_date(dt)} по {pok} пок"
+            )
+        sections.append("\n".join(section_lines))
+    return ("\n\n".join(sections) if sections else ""), items
 
 
 def _build_all_row_values(
@@ -664,6 +788,8 @@ def _build_all_row_values(
         ROW_TITLE_VNEPLANOVAYA_NEFT: _build_vneplanovaya_neft,
         ROW_TITLE_PASPORTIZACIYA: _build_pasportizaciya,
         ROW_TITLE_GKP_21_GKP_22: _build_gkp_21_gkp_22,
+        ROW_TITLE_OIS: _build_ois,
+        ROW_TITLE_TOVARNAYA_PRODUKCIYA_OIS: _build_tovarnaya_produkciya_ois,
         ROW_TITLE_OIS_ACHIMOVKA: _build_ois_achimovka,
         ROW_TITLE_OIS_VALANZHIN: _build_ois_valanzhin,
         ROW_TITLE_OIS_EN_YAHA: _build_ois_en_yaha,
@@ -683,6 +809,121 @@ def _build_all_row_values(
                     _sample_labels_for_log(used),
                 )
     return result
+
+
+def _sample_debug_label(s: Sample) -> str:
+    reg = (s.registration_number or "").strip() or "-"
+    place = (s.sampling_location.name or "").strip() if s.sampling_location else "-"
+    well = (s.well or "").strip() or "-"
+    dt = _fmt_date(s.receiving_date) if s.receiving_date else "-"
+    test_object = (s.test_object or "").strip() or "-"
+    sample_type = (s.sample_type or "").strip() or "-"
+    return (
+        f"рег. номер={reg}; "
+        f"тип пробы={sample_type}; "
+        f"объект испытания={test_object}; "
+        f"место отбора={place}; "
+        f"скважина={well}; "
+        f"дата получения={dt}"
+    )
+
+
+def _build_sample_count_diagnostics_text(
+    samples: list[Sample],
+    agg: dict[int, tuple[int, int]],
+    row_titles_for_branch: dict[str, Optional[str]],
+) -> str:
+    """Формирует TXT-диагностику по попаданию проб в строки отчёта."""
+    lines: list[str] = []
+    all_total = len(samples)
+    lines.append("Диагностика формирования отчёта «Количество проб»")
+    lines.append(f"Всего проб за период по дате получения: {all_total}")
+    lines.append("")
+
+    included_global: set[int] = set()
+
+    branches_seen: dict[int, tuple[int, str]] = {}
+    for s in samples:
+        if s.branch_id and s.branch:
+            branches_seen[s.branch_id] = (s.branch_id, (s.branch.name or "").strip())
+
+    builders = {
+        ROW_TITLE_TOVARNAYA_NEFT_NGDU: _build_tovarnaya_neft_ngdu,
+        ROW_TITLE_EKSPLUATACIONNAYA_NEFT_NGDU: _build_ekspluatacionnaya_neft_ngdu,
+        ROW_TITLE_KALIBROVOCHNAYA_NEFT_UGPU: _build_kalibrovochnaya_neft_ugpu,
+        ROW_TITLE_VNEPLANOVAYA_NEFT: _build_vneplanovaya_neft,
+        ROW_TITLE_PASPORTIZACIYA: _build_pasportizaciya,
+        ROW_TITLE_GKP_21_GKP_22: _build_gkp_21_gkp_22,
+        ROW_TITLE_OIS: _build_ois,
+        ROW_TITLE_TOVARNAYA_PRODUKCIYA_OIS: _build_tovarnaya_produkciya_ois,
+        ROW_TITLE_OIS_ACHIMOVKA: _build_ois_achimovka,
+        ROW_TITLE_OIS_VALANZHIN: _build_ois_valanzhin,
+        ROW_TITLE_OIS_EN_YAHA: _build_ois_en_yaha,
+        ROW_TITLE_PROCHIE: _build_prochie,
+        ROW_TITLE_NEFTECONDENSATNAYA_SMES: _build_neftecondensatnaya_smes,
+        ROW_TITLE_DIZTOPIVO_INGIBITOR: _build_diztoplivo_ingibitor,
+    }
+
+    for _, branch_name in branches_seen.values():
+        branch_samples = [
+            s
+            for s in samples
+            if s.branch and (s.branch.name or "").strip() == branch_name
+        ]
+        lines.append(f"=== Филиал: {branch_name} ===")
+        lines.append(f"Всего проб филиала за период: {len(branch_samples)}")
+        branch_included: set[int] = set()
+        usage_by_sample: dict[int, set[str]] = defaultdict(set)
+
+        for row_title, builder in builders.items():
+            expected_branch = row_titles_for_branch.get(row_title)
+            if expected_branch is not None and expected_branch != branch_name:
+                continue
+            value, used = builder(branch_samples, agg)
+            if not value or not used:
+                continue
+            lines.append(f"- {row_title}: {len(used)} проб")
+            for s in sorted(
+                used,
+                key=lambda x: (x.receiving_date or pendulum.date(1900, 1, 1), x.id),
+            ):
+                lines.append(f"  - {_sample_debug_label(s)}")
+                branch_included.add(s.id)
+                included_global.add(s.id)
+                usage_by_sample[s.id].add(row_title)
+
+        lines.append(f"Попало в отчёт проб: {len(branch_included)}")
+        not_included = [s for s in branch_samples if s.id not in branch_included]
+        lines.append(f"Не попало в отчёт: {len(not_included)}")
+        for s in sorted(
+            not_included,
+            key=lambda x: (x.receiving_date or pendulum.date(1900, 1, 1), x.id),
+        ):
+            lines.append(f"  - {_sample_debug_label(s)}")
+
+        repeated_rows = {
+            sid: rows for sid, rows in usage_by_sample.items() if len(rows) > 1
+        }
+        lines.append(f"Повторяются в нескольких строках отчёта: {len(repeated_rows)}")
+        for sid in sorted(repeated_rows.keys()):
+            sample = next((s for s in branch_samples if s.id == sid), None)
+            if not sample:
+                continue
+            joined_rows = ", ".join(sorted(repeated_rows[sid]))
+            lines.append(f"  - {_sample_debug_label(sample)}; rows={joined_rows}")
+        lines.append("")
+
+    lines.append("=== Итог по периоду ===")
+    lines.append(f"Всего проб за период: {all_total}")
+    lines.append(f"Попало в отчёт: {len(included_global)}")
+    not_included_global = [s for s in samples if s.id not in included_global]
+    lines.append(f"Не попало в отчёт: {len(not_included_global)}")
+    for s in sorted(
+        not_included_global,
+        key=lambda x: (x.receiving_date or pendulum.date(1900, 1, 1), x.id),
+    ):
+        lines.append(f"- {_sample_debug_label(s)}")
+    return "\n".join(lines)
 
 
 def _split_by_branch(
@@ -724,6 +965,8 @@ ROW_TITLE_TO_BRANCH: dict[str, Optional[str]] = {
     ROW_TITLE_VNEPLANOVAYA_NEFT: None,
     ROW_TITLE_PASPORTIZACIYA: None,
     ROW_TITLE_GKP_21_GKP_22: None,
+    ROW_TITLE_OIS: None,
+    ROW_TITLE_TOVARNAYA_PRODUKCIYA_OIS: None,
     ROW_TITLE_OIS_ACHIMOVKA: None,
     ROW_TITLE_OIS_VALANZHIN: None,
     ROW_TITLE_OIS_EN_YAHA: None,
@@ -794,4 +1037,7 @@ async def get_sample_count_report_data(
             }
             for br in by_branch
         ],
+        "diagnostics_txt": _build_sample_count_diagnostics_text(
+            samples, agg, ROW_TITLE_TO_BRANCH
+        ),
     }
