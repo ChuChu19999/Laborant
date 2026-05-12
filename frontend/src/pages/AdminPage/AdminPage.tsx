@@ -28,6 +28,7 @@ import Button from '../../shared/ui/Button/Button';
 import { Select } from '../../shared/ui/FormItems';
 import Layout from '../../shared/ui/Layout/Layout';
 import { buildCalculationFormPrefill } from '../../shared/utils/calculationFormPrefill';
+import { isMassFractionOilResearchMethod } from '../../shared/utils/massFractionOilMethod';
 import { CalculationPanel } from '../../widgets/CalculationPanel';
 import { MethodsPanel } from '../../widgets/MethodsPanel';
 import { NavigationBar } from '../../widgets/NavigationBar';
@@ -777,7 +778,7 @@ const AdminPage: React.FC = () => {
                 onClick: handleOpenEquipmentModal,
                 disabled: !currentMethod,
               },
-              ...(currentMethod && currentMethod.name === 'Массовая доля нефти'
+              ...(currentMethod && isMassFractionOilResearchMethod(currentMethod)
                 ? [
                     {
                       key: 'refraction-table',

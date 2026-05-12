@@ -8,6 +8,7 @@ import {
   roundValueForOilFractional,
   roundValueForCondensateFractional,
 } from '../../../../shared/utils/calculationUtils';
+import { isMassFractionOilResearchMethod } from '../../../../shared/utils/massFractionOilMethod';
 import './CalculationResultCard.css';
 
 interface ConditionInfo {
@@ -52,6 +53,7 @@ interface CalculationResultCardProps {
   result: CalculationResult;
   currentMethod?: {
     name?: string;
+    groups?: Array<{ name: string }>;
     intermediate_data?: {
       fields?: IntermediateField[];
     };
@@ -65,7 +67,7 @@ interface CalculationResultCardProps {
 }
 
 const CalculationResultCard: React.FC<CalculationResultCardProps> = ({ result, currentMethod }) => {
-  const isMassFractionOilMethod = currentMethod?.name === 'Массовая доля нефти';
+  const isMassFractionOilMethod = isMassFractionOilResearchMethod(currentMethod);
   const isFractionalComposition = result.is_fractional_composition;
   const csrValue = result.intermediate_results?.['Cср'];
   const csrValueStr =

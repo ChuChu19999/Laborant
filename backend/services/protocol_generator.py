@@ -9,6 +9,7 @@ import orjson
 import pendulum
 from fastapi import HTTPException, status
 from fastapi.responses import Response
+from openpyxl.styles import Border
 from openpyxl.worksheet.header_footer import _HeaderFooterPart
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,6 +37,21 @@ from utils.protocol_generator_utils import (
 )
 
 _CM_TO_INCH = 2.54
+
+MASS_FRACTION_OIL_GROUP_DISPLAY_NAME = "Массовая доля нефти"
+
+
+def _protocol_group_uses_merged_display_name(group_data: dict) -> bool:
+    """
+    В таблице протокола одна строка с названием группы (как для фракций «нефть»/«конденсат»),
+    в т.ч. для группы «Массовая доля нефти» вместо имён вроде СНЕЛ-104 / RFM 340.
+    """
+    if (group_data.get("name") or "").strip() == MASS_FRACTION_OIL_GROUP_DISPLAY_NAME:
+        return True
+    return any(
+        "нефть" in method.name.lower() or "конденсат" in method.name.lower()
+        for method in group_data["methods"]
+    )
 
 
 def set_sheet_margins(sheet):
@@ -1517,6 +1533,34 @@ def process_fractional_composition_condensate(
     return current_row, current_sheet
 
 
+def _restore_last_row_bottom_border_from_template_row(
+    template_sheet,
+    current_sheet,
+    template_row_num: int,
+    target_row: int,
+) -> None:
+    """
+    Проставляет нижнюю границу ячеек строки как в шаблонной строке данных таблицы 1.
+
+    Отдельные блоки (фракции, строки группы и т.д.) обнуляют bottom у последней строки блока;
+    если этот блок последний в таблице, снаружи пропадает нижняя линия таблицы. Одна
+    финальная правка по последней строке таблицы это исправляет без предсказания типа метода.
+    """
+    max_col = template_sheet.max_column
+    for col in range(1, max_col + 1):
+        source = template_sheet.cell(row=template_row_num, column=col)
+        target = current_sheet.cell(row=target_row, column=col)
+        src_border = source.border
+        if not src_border or src_border.bottom is None:
+            continue
+        if target.border:
+            new_border = copy(target.border)
+        else:
+            new_border = Border()
+        new_border.bottom = copy(src_border.bottom)
+        target.border = new_border
+
+
 def process_methods_table(
     protocol: Protocol,
     samples: List[Sample],
@@ -1695,9 +1739,8 @@ def process_methods_table(
             if group_methods:
                 group_id = current_group
                 group_data = grouped_calculations[group_id]
-                has_special_methods = any(
-                    "нефть" in method.name.lower() or "конденсат" in method.name.lower()
-                    for method in group_data["methods"]
+                has_special_methods = _protocol_group_uses_merged_display_name(
+                    group_data
                 )
                 if has_special_methods:
                     group_calc = copy(group_data["calculations"][0])
@@ -1746,9 +1789,8 @@ def process_methods_table(
             if group_methods:
                 group_id = current_group
                 group_data = grouped_calculations[group_id]
-                has_special_methods = any(
-                    "нефть" in method.name.lower() or "конденсат" in method.name.lower()
-                    for method in group_data["methods"]
+                has_special_methods = _protocol_group_uses_merged_display_name(
+                    group_data
                 )
                 if has_special_methods:
                     group_calc = copy(group_data["calculations"][0])
@@ -1798,9 +1840,8 @@ def process_methods_table(
                 group_id = current_group
                 group_data = grouped_calculations[group_id]
 
-                has_special_methods = any(
-                    "нефть" in method.name.lower() or "конденсат" in method.name.lower()
-                    for method in group_data["methods"]
+                has_special_methods = _protocol_group_uses_merged_display_name(
+                    group_data
                 )
 
                 if has_special_methods:
@@ -1858,9 +1899,8 @@ def process_methods_table(
             else:
                 group_data = grouped_calculations[current_group]
 
-                has_special_methods = any(
-                    "нефть" in method.name.lower() or "конденсат" in method.name.lower()
-                    for method in group_data["methods"]
+                has_special_methods = _protocol_group_uses_merged_display_name(
+                    group_data
                 )
 
                 if has_special_methods:
@@ -1901,10 +1941,7 @@ def process_methods_table(
     if group_methods:
         group_data = grouped_calculations[current_group]
 
-        has_special_methods = any(
-            "нефть" in method.name.lower() or "конденсат" in method.name.lower()
-            for method in group_data["methods"]
-        )
+        has_special_methods = _protocol_group_uses_merged_display_name(group_data)
 
         if has_special_methods:
             group_calc = copy(group_data["calculations"][0])
@@ -1936,6 +1973,15 @@ def process_methods_table(
                 merged_cells_map,
                 idx,
             )
+
+    last_table_row = current_row - 1
+    if last_table_row >= 1:
+        _restore_last_row_bottom_border_from_template_row(
+            template_sheet,
+            current_sheet,
+            template_row_num,
+            last_table_row,
+        )
 
     return current_sheet
 

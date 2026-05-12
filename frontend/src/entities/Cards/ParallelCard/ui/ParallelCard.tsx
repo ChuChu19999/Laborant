@@ -6,6 +6,7 @@ import { Input } from '../../../../shared/ui/FormItems';
 import Tooltip from '../../../../shared/ui/Tooltip/Tooltip';
 import { getCardParallelLabel as getCardParallelLabelUtil } from '../../../../shared/utils/calculationUtils';
 import { validateNumericInputWithComma } from '../../../../shared/utils/inputValidation';
+import { isMassFractionOilResearchMethod } from '../../../../shared/utils/massFractionOilMethod';
 import type { FormInstance, InputRef } from 'antd';
 import './ParallelCard.css';
 
@@ -32,6 +33,7 @@ interface ParallelCardProps {
   inputRefs: RefObject<Record<string, InputRef | null>>;
   currentMethod?: {
     name?: string;
+    groups?: Array<{ name: string }>;
   };
   lockedMethods?: Record<string | number, boolean>;
 }
@@ -162,7 +164,7 @@ const ParallelCard: React.FC<ParallelCardProps> = ({
   };
 
   const parallelLabel = getCardParallelLabelUtil(fields);
-  const isMassFractionOilMethod = currentMethod?.name === 'Массовая доля нефти';
+  const isMassFractionOilMethod = isMassFractionOilResearchMethod(currentMethod);
 
   return (
     <div className="parallel-card">

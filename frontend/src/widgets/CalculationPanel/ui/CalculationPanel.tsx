@@ -8,6 +8,7 @@ import Button from '../../../shared/ui/Button/Button';
 import { DatePicker } from '../../../shared/ui/DatePicker';
 import { Select } from '../../../shared/ui/FormItems';
 import Tooltip from '../../../shared/ui/Tooltip/Tooltip';
+import { isMassFractionOilResearchMethod } from '../../../shared/utils/massFractionOilMethod';
 import { formatNumberForDisplay } from '../../../shared/utils/numberFormatting';
 import type { CalculationResult } from '../../../shared/api/calculation';
 import type { ResearchMethod, ResearchMethodGroup } from '../../../shared/api/research';
@@ -202,7 +203,7 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
       };
     } else {
       method.input_data.fields.forEach(field => {
-        const isColorField = method.name === 'Массовая доля нефти' && field.name === 'Цвет';
+        const isColorField = isMassFractionOilResearchMethod(method) && field.name === 'Цвет';
         const fieldKey = isColorField
           ? `${method.id}_${field.name}`
           : field.card_index && field.card_index > 1
@@ -293,7 +294,7 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
 
       const finalInputData = inputData;
 
-      if (currentMethod.name === 'Массовая доля нефти' && response.updated_input_data) {
+      if (isMassFractionOilResearchMethod(currentMethod) && response.updated_input_data) {
         const updatedInputData = response.updated_input_data;
         const updatedValues: Record<string, string> = {};
 
@@ -370,7 +371,7 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
   }
 
   const fields = currentMethod.input_data?.fields || [];
-  const isMassFractionOilMethod = currentMethod.name === 'Массовая доля нефти';
+  const isMassFractionOilMethod = isMassFractionOilResearchMethod(currentMethod);
   const isTemperature20Method = currentMethod.name === 'При 20 ℃';
   const colorField = isMassFractionOilMethod ? fields.find(field => field.name === 'Цвет') : null;
   const fieldsWithoutColor = isMassFractionOilMethod

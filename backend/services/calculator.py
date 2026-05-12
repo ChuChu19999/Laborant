@@ -14,9 +14,31 @@ from services.fractional import (
     calculate_fractional_composition_oil,
 )
 
-
 SPECIAL_GROUP_KEYWORDS = ("Плотность при температуре 20 ℃",)
 SPECIAL_K_VARIABLES = {"K₁", "K₂"}
+
+MASS_FRACTION_OIL_GROUP_NAME = "Массовая доля нефти"
+
+
+def _has_mass_fraction_oil_group(research_method: Dict[str, Any]) -> bool:
+    gn = str(research_method.get("group_name") or "").strip()
+    if gn == MASS_FRACTION_OIL_GROUP_NAME:
+        return True
+    for group in research_method.get("groups") or []:
+        if isinstance(group, dict):
+            if str(group.get("name") or "").strip() == MASS_FRACTION_OIL_GROUP_NAME:
+                return True
+    return False
+
+
+def _is_mass_fraction_oil_method(research_method: Dict[str, Any]) -> bool:
+    """
+    Логика массовой доли нефти: по группе «Массовая доля нефти» или по имени метода.
+    Если группа другая — учитывается только имя метода.
+    """
+    if str(research_method.get("name") or "").strip() == MASS_FRACTION_OIL_GROUP_NAME:
+        return True
+    return _has_mass_fraction_oil_group(research_method)
 
 
 def _is_density_20_group_method(research_method: Dict[str, Any]) -> bool:
@@ -181,9 +203,9 @@ async def calculate_result(
 
         input_data = processed_input_data
 
-        # Обработка для метода "Массовая доля нефти"
-        if research_method.get("name") == "Массовая доля нефти":
-            logger.info("Обработка метода: Массовая доля нефти")
+        # Обработка массовой доли нефти (группа «Массовая доля нефти» или имя метода)
+        if _is_mass_fraction_oil_method(research_method):
+            logger.info("Обработка метода массовой доли нефти")
             try:
                 method_id = research_method.get("id")
                 if not method_id:
@@ -600,8 +622,8 @@ async def calculate_result(
                 "conditions_info": conditions_info,
             }
 
-            # Для метода "Массовая доля нефти" возвращаем обновленные input_data с рассчитанными C1 и C2
-            if research_method.get("name") == "Массовая доля нефти":
+            # Для массовой доли нефти возвращаем обновленные input_data с рассчитанными C1 и C2
+            if _is_mass_fraction_oil_method(research_method):
                 response_data_early["updated_input_data"] = input_data
 
             return response_data_early
@@ -740,8 +762,8 @@ async def calculate_result(
             "conditions_info": conditions_info,
         }
 
-        # Для метода "Массовая доля нефти" возвращаем обновленные input_data с рассчитанными C1 и C2
-        if research_method.get("name") == "Массовая доля нефти":
+        # Для массовой доли нефти возвращаем обновленные input_data с рассчитанными C1 и C2
+        if _is_mass_fraction_oil_method(research_method):
             response_data["updated_input_data"] = input_data
 
         logger.info(f"Подготовлен ответ: {response_data}")

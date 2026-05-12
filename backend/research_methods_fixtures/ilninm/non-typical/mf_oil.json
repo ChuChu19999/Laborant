@@ -1,6 +1,6 @@
 {
     "name": "Массовая доля нефти",
-    "sample_type": ["oil_condensate_mixture"],
+    "sample_type": ["oil_condensate_mixture", "condensate"],
     "formula": "Cср",
     "measurement_error": {
         "type": "formula",

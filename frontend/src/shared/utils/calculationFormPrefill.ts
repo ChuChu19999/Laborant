@@ -1,4 +1,5 @@
 import dayjs from 'dayjs';
+import { isMassFractionOilResearchMethod } from './massFractionOilMethod';
 import { formatNumberForDisplay } from './numberFormatting';
 import type { Calculation } from '../api/calculation';
 import type { ResearchMethod } from '../api/research';
@@ -66,7 +67,7 @@ export function buildCalculationFormPrefill(
       const field = currentMethod.input_data.fields.find(f => f.name === fieldName);
       const cardIndex = field?.card_index || 1;
 
-      const isColorField = currentMethod.name === 'Массовая доля нефти' && fieldName === 'Цвет';
+      const isColorField = isMassFractionOilResearchMethod(currentMethod) && fieldName === 'Цвет';
       const formFieldName = isColorField
         ? `${currentMethod.id}_${fieldName}`
         : cardIndex > 1
