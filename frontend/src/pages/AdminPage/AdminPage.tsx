@@ -782,7 +782,7 @@ const AdminPage: React.FC = () => {
                 ? [
                     {
                       key: 'refraction-table',
-                      label: 'Справочник массовой доли нефти',
+                      label: 'Градуировочный график',
                       onClick: handleOpenRefractionTableModal,
                     },
                   ]

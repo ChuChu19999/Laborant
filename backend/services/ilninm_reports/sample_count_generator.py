@@ -27,11 +27,9 @@ from services.ilninm_reports.sample_count import (
     match_row_title_to_value,
 )
 from utils.protocol_generator_utils import (
-    calculate_text_height,
     copy_cell_style,
     copy_column_dimensions,
     copy_row_formatting,
-    get_cell_width,
 )
 
 # Шаблоны для жирного выделения: «N шт», «N пок», «N шт по M пок».
@@ -251,27 +249,6 @@ async def build_sample_count_excel(
         new_ws.cell(row=row_idx, column=1).alignment = alignment_center
 
     copy_column_dimensions(template_ws, new_ws)
-
-    # Автовысота строк по содержимому столбца C (col=3 — целое число для get_cell_width).
-    PIXELS_TO_POINTS = 0.75
-    HEIGHT_FACTOR = (
-        0.98  # Уменьшаем расчётную высоту, формула из утилиты даёт завышение.
-    )
-    for row_idx in range(1, new_ws.max_row + 1):
-        cell = new_ws.cell(row=row_idx, column=3)
-        text = str(cell.value) if cell.value else ""
-        if not text or text == "—":
-            continue
-        width_px = get_cell_width(new_ws, row_idx, 3)
-        required_px = calculate_text_height(text, width_px)
-        required_pt = max(15, required_px * PIXELS_TO_POINTS * HEIGHT_FACTOR)
-        if row_idx not in new_ws.row_dimensions:
-            new_ws.row_dimensions[row_idx] = openpyxl.worksheet.dimensions.RowDimension(
-                new_ws, row_idx
-            )
-        current_pt = new_ws.row_dimensions[row_idx].height
-        if current_pt is None or required_pt > current_pt:
-            new_ws.row_dimensions[row_idx].height = required_pt
 
     out = BytesIO()
     new_wb.save(out)

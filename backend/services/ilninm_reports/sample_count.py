@@ -9,6 +9,7 @@
 Число в «N шт» подменяется по правилам (_map_display_sht_count).
 """
 
+import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any, Optional
@@ -44,8 +45,16 @@ from .constants import (
     ROW_TITLE_TOVARNAYA_PRODUKCIYA_OIS,
     ROW_TITLE_VNEPLANOVAYA_NEFT,
     SAMPLE_TYPE_VNEPLANOVYE,
+    SAMPLING_LOCATION_PREFIXES_VALANZHIN_UKPG,
     SAMPLING_LOCATION_UKPG_11V,
     SAMPLING_LOCATIONS_CDGGKN,
+)
+
+# УКПГ-1АВ, УКПГ-1В, УКПГ-2В, УКПГ-5В, УКПГ-8В в названии места отбора: с начала или после пробела/запятой,
+# затем снова пробел, запятая или конец строки — чтобы сработало к примеру на «УКПГ-2В НСПК УУКГН», и вхождение в длинную строку.
+_VALANZHIN_UKPG_RE = tuple(
+    re.compile(rf"(?:^|[\s,;]){re.escape(p)}(?=[\s,;]|$)")
+    for p in SAMPLING_LOCATION_PREFIXES_VALANZHIN_UKPG
 )
 
 
@@ -169,6 +178,29 @@ def _is_vneplanovaya_neft_sample(s: Sample) -> bool:
     )
 
 
+def _matches_tovarnaya_neft_ngdu_criteria(s: Sample) -> bool:
+    """Те же критерии отбора, что для строки «Товарная нефть НГДУ»."""
+    return (
+        _branch_name_equals(s, BRANCH_NGDU)
+        and _test_object_ilike(s, "нефть")
+        and not _test_object_ilike(s, "нефть калибровочная")
+        and not (s.well or "").strip()
+        and not _is_vneplanovaya_neft_sample(s)
+    )
+
+
+def _matches_ekspluatacionnaya_neft_ngdu_criteria(s: Sample) -> bool:
+    """Те же критерии отбора, что для строки «Эксплуатационная нефть НГДУ»."""
+    return (
+        _branch_name_equals(s, BRANCH_NGDU)
+        and _test_object_ilike(s, "нефть")
+        and not _test_object_ilike(s, "нефть калибровочная")
+        and _sampling_location_name_in(s, SAMPLING_LOCATIONS_CDGGKN)
+        and (s.well or "").strip()
+        and not _is_vneplanovaya_neft_sample(s)
+    )
+
+
 def _sampling_location_display_name(s: Sample) -> str:
     """Имя места отбора для отчёта: краткие подписи для цехов ДГГКН, иначе как в справочнике."""
     raw = (s.sampling_location.name or "").strip() if s.sampling_location else ""
@@ -181,8 +213,15 @@ def _sample_type_equals(s: Sample, value: str) -> bool:
     return (s.sample_type or "").strip() == value
 
 
-def _well_contains_tovarnaya_produkciya(s: Sample) -> bool:
-    return "товарная продукция" in (s.well or "").lower()
+def _sample_indicates_tovarnaya_produkciya(s: Sample) -> bool:
+    """
+    Признак товарной продукции: подстрока «товарная продукция» в режиме.
+
+    Скважина учитывается для совместимости со старыми записями, где признак могли указать там.
+    """
+    mode = (s.mode or "").lower()
+    well = (s.well or "").lower()
+    return "товарная продукция" in mode or "товарная продукция" in well
 
 
 def _map_display_sht_count(n: int) -> int:
@@ -221,6 +260,20 @@ def _is_gkp_21_or_22_location(s: Sample) -> bool:
 
 def _is_ukpg_11v_location(s: Sample) -> bool:
     return _sampling_location_name_starts_with(s, SAMPLING_LOCATION_UKPG_11V)
+
+
+def _is_valanzhin_ukpg_sampling_location(s: Sample) -> bool:
+    """
+    Место отбора с УКПГ-1АВ, УКПГ-1В, УКПГ-2В, УКПГ-5В или УКПГ-8В — в «ОИС Валанжин»,
+    в прочие строки ОИС не входит. Допускается запись с продолжением (например «УКПГ-2В НСПК УУКГН»)
+    и то же обозначение в середине длинного названия (отделено пробелом или запятой).
+    """
+    if not s.sampling_location:
+        return False
+    name = (s.sampling_location.name or "").strip()
+    if not name:
+        return False
+    return any(rx.search(name) for rx in _VALANZHIN_UKPG_RE)
 
 
 def _sort_samples_for_gkp_report(samples: list[Sample]) -> list[Sample]:
@@ -265,15 +318,7 @@ def _build_tovarnaya_neft_ngdu(
     samples: list[Sample], agg: dict[int, tuple[int, int]]
 ) -> tuple[str, list[Sample]]:
     """Товарная нефть НГДУ: объект «нефть», без калибровочной, филиал НГДУ, без скважины."""
-    items = [
-        s
-        for s in samples
-        if _branch_name_equals(s, BRANCH_NGDU)
-        and _test_object_ilike(s, "нефть")
-        and not _test_object_ilike(s, "нефть калибровочная")
-        and not (s.well or "").strip()
-        and not _is_vneplanovaya_neft_sample(s)
-    ]
+    items = [s for s in samples if _matches_tovarnaya_neft_ngdu_criteria(s)]
     if not items:
         return "", []
     total_cnt = sum(agg.get(s.id, (0, 0))[0] for s in items)
@@ -295,16 +340,7 @@ def _build_ekspluatacionnaya_neft_ngdu(
     samples: list[Sample], agg: dict[int, tuple[int, int]]
 ) -> tuple[str, list[Sample]]:
     """Эксплуатационная нефть НГДУ: цехи ДГГКН №1/№2, «нефть», не калибровочная; скважина обязательна."""
-    items = [
-        s
-        for s in samples
-        if _branch_name_equals(s, BRANCH_NGDU)
-        and _test_object_ilike(s, "нефть")
-        and not _test_object_ilike(s, "нефть калибровочная")
-        and _sampling_location_name_in(s, SAMPLING_LOCATIONS_CDGGKN)
-        and (s.well or "").strip()
-        and not _is_vneplanovaya_neft_sample(s)
-    ]
+    items = [s for s in samples if _matches_ekspluatacionnaya_neft_ngdu_criteria(s)]
     if not items:
         return "", []
     by_loc: dict[str, list[Sample]] = defaultdict(list)
@@ -402,32 +438,27 @@ def _build_pasportizaciya(
     """
     Паспортизация: пробы с типом «Паспортизация».
 
-    Учитываются только фиксированные места отбора в порядке вывода: НСПК, УКПГ-11В, ОУПДТ.
-    По каждому месту — число проб (с подменой по _map_display_sht_count) и сумма показателей
-    по расчётам. Пробы с другими местами отбора в эту строку не попадают (остаются вне среза).
+    Места отбора с префиксом ГКП-21 и ГКП-22 сюда не входят — они только в «ГКП-21 ГКП-22».
     """
-    items = [s for s in samples if _sample_type_equals(s, "Паспортизация")]
+    items = [
+        s
+        for s in samples
+        if _sample_type_equals(s, "Паспортизация") and not _is_gkp_21_or_22_location(s)
+    ]
     if not items:
         return "", []
-    loc_names_order = ("НСПК", "УКПГ-11В", "ОУПДТ")
     by_loc: dict[str, list[Sample]] = defaultdict(list)
     for s in items:
         name = (s.sampling_location.name or "").strip() if s.sampling_location else ""
-        if name in loc_names_order:
-            by_loc[name].append(s)
-    used: list[Sample] = []
-    lines = []
-    for loc_name in loc_names_order:
-        loc_samples = by_loc.get(loc_name, [])
-        if not loc_samples:
-            continue
+        key = name if name else "(место отбора не указано)"
+        by_loc[key].append(s)
+    lines: list[str] = []
+    for loc_name in sorted(by_loc.keys()):
+        loc_samples = by_loc[loc_name]
         cnt = len(loc_samples)
         pok = sum(agg.get(s.id, (0, 0))[1] for s in loc_samples)
-        if cnt == 0:
-            continue
-        used.extend(loc_samples)
         lines.append(f"{loc_name} - {_map_display_sht_count(cnt)} шт по {pok} пок")
-    return ("\n".join(lines) if lines else ""), used
+    return "\n".join(lines), items
 
 
 def _build_gkp_21_gkp_22(
@@ -478,6 +509,10 @@ def _build_ois_achimovka(
     """
     ОИС Ачимовка: тип «Исследования - ОИС», место отбора с префиксом ГКП-21 или ГКП-22.
 
+    УКПГ-1АВ, УКПГ-1В, УКПГ-2В, УКПГ-5В, УКПГ-8В сюда не включаются — только «ОИС Валанжин».
+
+    Без признака «товарная продукция» в режиме (для старых записей — и в скважине).
+
     По каждому префиксу: заголовок с «N шт» в одной строке, затем строка на каждую пробу.
     """
     items = [
@@ -485,7 +520,8 @@ def _build_ois_achimovka(
         for s in samples
         if _sample_type_equals(s, "Исследования - ОИС")
         and _is_gkp_21_or_22_location(s)
-        and not _well_contains_tovarnaya_produkciya(s)
+        and not _sample_indicates_tovarnaya_produkciya(s)
+        and not _is_valanzhin_ukpg_sampling_location(s)
     ]
     if not items:
         return "", []
@@ -521,14 +557,16 @@ def _build_ois_achimovka(
 def _build_ois_valanzhin(
     samples: list[Sample], agg: dict[int, tuple[int, int]]
 ) -> tuple[str, list[Sample]]:
-    """ОИС Валанжин: «Исследования - ОИС», без ГКП-21/22 и без префикса УКПГ-11В."""
+    """
+    ОИС Валанжин: только «Исследования - ОИС» с местом отбора по УКПГ-1АВ, УКПГ-1В, УКПГ-2В, УКПГ-5В, УКПГ-8В
+    (в т.ч. с продолжением в названии, например «УКПГ-2В НСПК УУКГН»), без признака товарной продукции в режиме или скважине.
+    """
     items = [
         s
         for s in samples
         if _sample_type_equals(s, "Исследования - ОИС")
-        and not _is_gkp_21_or_22_location(s)
-        and not _is_ukpg_11v_location(s)
-        and not _well_contains_tovarnaya_produkciya(s)
+        and _is_valanzhin_ukpg_sampling_location(s)
+        and not _sample_indicates_tovarnaya_produkciya(s)
     ]
     if not items:
         return "", []
@@ -550,13 +588,14 @@ def _build_ois_valanzhin(
 def _build_ois_en_yaha(
     samples: list[Sample], agg: dict[int, tuple[int, int]]
 ) -> tuple[str, list[Sample]]:
-    """ОИС Ен-Яха: «Исследования - ОИС», место отбора с префиксом УКПГ-11В."""
+    """ОИС Ен-Яха: «Исследования - ОИС», место отбора с префиксом УКПГ-11В; УКПГ-1АВ, УКПГ-1В, УКПГ-2В, УКПГ-5В, УКПГ-8В сюда не входят — только «ОИС Валанжин»."""
     items = [
         s
         for s in samples
         if _sample_type_equals(s, "Исследования - ОИС")
         and _is_ukpg_11v_location(s)
-        and not _well_contains_tovarnaya_produkciya(s)
+        and not _sample_indicates_tovarnaya_produkciya(s)
+        and not _is_valanzhin_ukpg_sampling_location(s)
     ]
     if not items:
         return "", []
@@ -576,7 +615,7 @@ def _build_ois_en_yaha(
 def _build_ois(
     samples: list[Sample], agg: dict[int, tuple[int, int]]
 ) -> tuple[str, list[Sample]]:
-    """ОИС: «Исследования - ОИС», цехи ДГГКН №1/№2, филиалы НГДУ/УГПУ/ГПУпРАО, скважина обязательна."""
+    """ОИС: «Исследования - ОИС», цехи ДГГКН №1/№2, филиалы НГДУ/УГПУ/ГПУпРАО, скважина обязательна; без товарной продукции в режиме или скважине; УКПГ-1АВ, УКПГ-1В, УКПГ-2В, УКПГ-5В, УКПГ-8В сюда не входят — только «ОИС Валанжин»."""
     allowed_branches = (BRANCH_NGDU, BRANCH_UGPU, BRANCH_GPU_PRAO)
     items = [
         s
@@ -585,7 +624,8 @@ def _build_ois(
         and _sampling_location_name_in(s, SAMPLING_LOCATIONS_CDGGKN)
         and any(_branch_name_equals(s, branch_name) for branch_name in allowed_branches)
         and (s.well or "").strip()
-        and not _well_contains_tovarnaya_produkciya(s)
+        and not _sample_indicates_tovarnaya_produkciya(s)
+        and not _is_valanzhin_ukpg_sampling_location(s)
     ]
     if not items:
         return "", []
@@ -625,7 +665,7 @@ def _build_ois(
 def _build_tovarnaya_produkciya_ois(
     samples: list[Sample], agg: dict[int, tuple[int, int]]
 ) -> tuple[str, list[Sample]]:
-    """Товарная продукция ОИС: ОИС по ГКП-21/22, в скважине есть «товарная продукция», вывод — даты."""
+    """Товарная продукция ОИС: ОИС по ГКП-21/22, в режиме (или в скважине — старые данные) есть «товарная продукция», вывод — даты; УКПГ-1АВ, УКПГ-1В, УКПГ-2В, УКПГ-5В, УКПГ-8В сюда не входят — только «ОИС Валанжин»."""
     del agg
     allowed_branches = (BRANCH_NGDU, BRANCH_UGPU, BRANCH_GPU_PRAO)
     items = [
@@ -634,7 +674,8 @@ def _build_tovarnaya_produkciya_ois(
         if _sample_type_equals(s, "Исследования - ОИС")
         and _is_gkp_21_or_22_location(s)
         and any(_branch_name_equals(s, branch_name) for branch_name in allowed_branches)
-        and "товарная продукция" in (s.well or "").lower()
+        and _sample_indicates_tovarnaya_produkciya(s)
+        and not _is_valanzhin_ukpg_sampling_location(s)
     ]
     if not items:
         return "", []
@@ -688,7 +729,11 @@ def _build_neftecondensatnaya_smes(
 def _build_prochie(
     samples: list[Sample], agg: dict[int, tuple[int, int]]
 ) -> tuple[str, list[Sample]]:
-    """Прочие: место отбора (+ скважина/режим), дата отбора и сумма показателей."""
+    """
+    Прочие: место отбора (+ скважина/режим), дата отбора и сумма показателей.
+
+    У филиала НГДУ не включаем пробы, которые попадают в «Товарная нефть НГДУ» или «Эксплуатационная нефть НГДУ».
+    """
     items = [
         s
         for s in samples
@@ -696,6 +741,8 @@ def _build_prochie(
         and not _test_object_ilike(s, "дизельное топливо")
         and not _test_object_ilike(s, "ингибитор коррозии")
         and not _test_object_ilike(s, "нефтеконденсатная смесь")
+        and not _matches_tovarnaya_neft_ngdu_criteria(s)
+        and not _matches_ekspluatacionnaya_neft_ngdu_criteria(s)
     ]
     if not items:
         return "", []
@@ -815,6 +862,7 @@ def _sample_debug_label(s: Sample) -> str:
     reg = (s.registration_number or "").strip() or "-"
     place = (s.sampling_location.name or "").strip() if s.sampling_location else "-"
     well = (s.well or "").strip() or "-"
+    mode = (s.mode or "").strip() or "-"
     dt = _fmt_date(s.receiving_date) if s.receiving_date else "-"
     test_object = (s.test_object or "").strip() or "-"
     sample_type = (s.sample_type or "").strip() or "-"
@@ -824,6 +872,7 @@ def _sample_debug_label(s: Sample) -> str:
         f"объект испытания={test_object}; "
         f"место отбора={place}; "
         f"скважина={well}; "
+        f"режим={mode}; "
         f"дата получения={dt}"
     )
 
@@ -838,9 +887,15 @@ def _build_sample_count_diagnostics_text(
     all_total = len(samples)
     lines.append("Диагностика формирования отчёта «Количество проб»")
     lines.append(f"Всего проб за период по дате получения: {all_total}")
+    lines.append(
+        "Признак «товарная продукция» для строк ОИС: ищется в поле «режим»; "
+        "поле «скважина» проверяется для совместимости со старыми данными."
+    )
     lines.append("")
 
     included_global: set[int] = set()
+    usage_global: dict[int, set[str]] = defaultdict(set)
+    samples_by_id = {s.id: s for s in samples}
 
     branches_seen: dict[int, tuple[int, str]] = {}
     for s in samples:
@@ -904,7 +959,11 @@ def _build_sample_count_diagnostics_text(
         repeated_rows = {
             sid: rows for sid, rows in usage_by_sample.items() if len(rows) > 1
         }
-        lines.append(f"Повторяются в нескольких строках отчёта: {len(repeated_rows)}")
+        for sid, row_titles in usage_by_sample.items():
+            usage_global[sid].update(row_titles)
+        lines.append(
+            f"Повторяются в нескольких строках отчёта (по филиалу): {len(repeated_rows)}"
+        )
         for sid in sorted(repeated_rows.keys()):
             sample = next((s for s in branch_samples if s.id == sid), None)
             if not sample:
@@ -923,6 +982,18 @@ def _build_sample_count_diagnostics_text(
         key=lambda x: (x.receiving_date or pendulum.date(1900, 1, 1), x.id),
     ):
         lines.append(f"- {_sample_debug_label(s)}")
+    repeated_period = {
+        sid: titles for sid, titles in usage_global.items() if len(titles) > 1
+    }
+    lines.append(
+        f"Повторяются в нескольких строках отчёта (сводка за период): {len(repeated_period)}"
+    )
+    for sid in sorted(repeated_period.keys()):
+        sample = samples_by_id.get(sid)
+        if not sample:
+            continue
+        joined_rows = ", ".join(sorted(repeated_period[sid]))
+        lines.append(f"- {_sample_debug_label(sample)}; rows={joined_rows}")
     return "\n".join(lines)
 
 

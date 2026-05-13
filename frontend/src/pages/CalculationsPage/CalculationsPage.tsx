@@ -397,7 +397,11 @@ const CalculationsPage: React.FC = () => {
     availableMethods.forEach(method => {
       if (method.is_group && method.methods) {
         method.methods.forEach(m => {
-          // Создаем объект ResearchMethod из данных группы
+          // Создаем объект ResearchMethod из данных группы.
+          // Нужна связка groups, иначе CalculationPanel не распознает метод как «массовую долю нефти»
+          // (селект Цвет, блокировка C₁/C₂) — там currentMethod берётся из этого массива, а не из GET по id.
+          const groupMeta =
+            method.group_id != null ? [{ id: method.group_id, name: method.name }] : [];
           result.push({
             id: m.id,
             name: m.name,
@@ -414,6 +418,7 @@ const CalculationsPage: React.FC = () => {
             rounding_type: 'decimal',
             rounding_decimal: 0,
             is_group_member: true,
+            groups: groupMeta,
             created_at: '',
             updated_at: '',
           });

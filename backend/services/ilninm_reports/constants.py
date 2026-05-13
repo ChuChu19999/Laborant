@@ -23,8 +23,19 @@ DISPLAY_NAMES_CDGGKN = {
 GKP_SAMPLING_NAME_PREFIX_21 = "ГКП-21"
 GKP_SAMPLING_NAME_PREFIX_22 = "ГКП-22"
 
-# Место отбора для строки «ОИС Валанжин».
+# Место отбора для строки «ОИС Ен-Яха» (префикс имени).
 SAMPLING_LOCATION_UKPG_11V = "УКПГ-11В"
+
+# Строка «ОИС Валанжин» — только пробы с местом отбора по УКПГ-1АВ, УКПГ-1В, УКПГ-2В, УКПГ-5В, УКПГ-8В;
+# в прочие строки ОИС они не включаются. Длинные названия (например «УКПГ-2В НСПК УУКГН»)
+# — в sample_count._is_valanzhin_ukpg_sampling_location.
+SAMPLING_LOCATION_PREFIXES_VALANZHIN_UKPG = (
+    "УКПГ-1АВ",
+    "УКПГ-1В",
+    "УКПГ-2В",
+    "УКПГ-5В",
+    "УКПГ-8В",
+)
 
 # Совместимость префиксов ГКП.
 SAMPLING_LOCATION_GKP_21 = GKP_SAMPLING_NAME_PREFIX_21

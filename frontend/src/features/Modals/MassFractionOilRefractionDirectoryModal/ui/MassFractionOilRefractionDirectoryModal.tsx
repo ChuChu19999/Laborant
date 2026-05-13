@@ -262,7 +262,7 @@ const MassFractionOilRefractionDirectoryModal: React.FC<
 
   return (
     <Modal
-      header={`Справочник массовой доли нефти`}
+      header={`Градуировочный график`}
       onClose={onClose}
       onCancel={handleCancel}
       showEditButton={false}
