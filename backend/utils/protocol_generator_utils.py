@@ -46,6 +46,50 @@ def format_decimal_ru(value) -> str:
         return str(value)
 
 
+MASS_FRACTION_OIL_DISPLAY_NAME = "Массовая доля нефти"
+MFOIL_PROTOCOL_BELOW_TEXT = "менее 0,1"
+
+
+def format_protocol_calculation_result(calc) -> str:
+    """
+    Для массовой доли нефти: при сохранённых нулях C и метках в input_data итог < 0,1
+    в протоколе показываем как «менее 0,1» (согласовано с интерфейсом).
+    """
+    base = format_decimal_ru(calc.result)
+    rm = getattr(calc, "research_method", None)
+    if rm is None:
+        return base
+    method_name = (getattr(rm, "name", None) or "").strip()
+    in_mf_oil = method_name == MASS_FRACTION_OIL_DISPLAY_NAME
+    if not in_mf_oil:
+        for g in getattr(rm, "groups", None) or []:
+            if (
+                getattr(g, "name", None) or ""
+            ).strip() == MASS_FRACTION_OIL_DISPLAY_NAME:
+                in_mf_oil = True
+                break
+    if not in_mf_oil:
+        return base
+    inp = getattr(calc, "input_data", None)
+    if not isinstance(inp, dict):
+        return base
+    if not inp.get("_mf_oil_display_labels"):
+        return base
+    raw = getattr(calc, "result", None)
+    if raw is None:
+        return base
+    try:
+        s = str(raw).strip().replace(",", ".")
+        if "±" in s:
+            s = s.split("±", 1)[0].strip()
+        r = float(s)
+    except (ValueError, TypeError):
+        return base
+    if r < 0.1:
+        return MFOIL_PROTOCOL_BELOW_TEXT
+    return base
+
+
 def copy_cell_style(source_cell, target_cell):
     """
     Безопасное копирование стилей из одной ячейки в другую

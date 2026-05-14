@@ -33,6 +33,7 @@ from utils.protocol_generator_utils import (
     copy_row_formatting,
     copy_row_with_styles,
     format_decimal_ru,
+    format_protocol_calculation_result,
     map_test_object_to_suffix,
 )
 
@@ -907,7 +908,9 @@ def add_standalone_method(
         elif "{unit}" in value:
             cell.value = value.replace("{unit}", calc.unit or "-")
         elif "{result}" in value:
-            cell.value = value.replace("{result}", format_decimal_ru(calc.result))
+            cell.value = value.replace(
+                "{result}", format_protocol_calculation_result(calc)
+            )
         elif "{measurement_error}" in value:
             error_value = calc.measurement_error
             formatted_error = (
@@ -992,7 +995,7 @@ def add_group_methods(
         elif "{result}" in value:
             if matching_calc:
                 cell.value = value.replace(
-                    "{result}", format_decimal_ru(matching_calc.result)
+                    "{result}", format_protocol_calculation_result(matching_calc)
                 )
             else:
                 cell.value = value.replace("{result}", "")
@@ -1057,7 +1060,9 @@ def add_group_methods(
                 else:
                     cell.value = ""
             elif "{result}" in value:
-                cell.value = value.replace("{result}", format_decimal_ru(calc.result))
+                cell.value = value.replace(
+                    "{result}", format_protocol_calculation_result(calc)
+                )
             elif "{measurement_error}" in value:
                 error_value = calc.measurement_error
                 formatted_error = (

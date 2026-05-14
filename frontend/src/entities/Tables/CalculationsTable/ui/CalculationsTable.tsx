@@ -136,7 +136,7 @@ const formatInputData = (
     return 'Фракционный состав';
   }
 
-  const entries = Object.entries(inputData);
+  const entries = Object.entries(inputData).filter(([key]) => !key.startsWith('_'));
   if (entries.length === 0) return '-';
 
   return (

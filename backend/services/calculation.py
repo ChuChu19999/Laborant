@@ -1,5 +1,5 @@
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, NamedTuple, Optional
 from sqlalchemy import Float, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -812,9 +812,21 @@ def get_temperature_correction(temperature, patm):
         return 0
 
 
+class MassFractionFromRefractionOutcome(NamedTuple):
+    """numeric — формулы; stored_display — в input_data (сохранение); ниже ПНР — «0,00»."""
+
+    numeric: float
+    stored_display: str
+    below_detection_limit: bool
+
+
+def _mf_oil_display_from_float(value: float) -> str:
+    return str(value).replace(".", ",")
+
+
 async def calculate_mass_fraction_from_refraction(
     db: AsyncSession, n_value: float, research_method_id: int
-):
+) -> MassFractionFromRefractionOutcome:
     """
     Вычисляет массовую долю нефти (C) по показателю преломления (n) с использованием линейной интерполяции.
     Использует данные из MassFractionOilRefractionTable для указанного метода исследования.
@@ -839,7 +851,22 @@ async def calculate_mass_fraction_from_refraction(
             logger.warning(
                 f"Не найдено активных записей в таблице для метода {research_method_id}"
             )
-            return 0.0
+            return MassFractionFromRefractionOutcome(0.0, "0", False)
+
+        n_at_c_zero: List[float] = []
+        for entry in table_entries:
+            try:
+                c_raw = float(str(entry.c_value).replace(",", "."))
+                n_raw = float(str(entry.n_value).replace(",", "."))
+            except (ValueError, TypeError):
+                continue
+            if abs(c_raw) < 1e-12:
+                n_at_c_zero.append(n_raw)
+
+        if n_at_c_zero:
+            n_ref = min(n_at_c_zero)
+            if n_value < n_ref:
+                return MassFractionFromRefractionOutcome(0.0, "0,00", True)
 
         # Обрабатываем повторяющиеся значения n_value, добавляя 0.005 для каждого следующего
         points = []
@@ -867,9 +894,9 @@ async def calculate_mass_fraction_from_refraction(
         max_n = points[-1][1]
 
         if n_value < min_n:
-            return 0.0
+            return MassFractionFromRefractionOutcome(0.0, "0", False)
         if n_value > max_n:
-            return 100.0
+            return MassFractionFromRefractionOutcome(100.0, "100", False)
 
         # Ищем две ближайшие точки для интерполяции
         for i in range(len(points) - 1):
@@ -884,17 +911,23 @@ async def calculate_mass_fraction_from_refraction(
                     c_result = c1 + (c2 - c1) * (n_value - n1) / (n2 - n1)
 
                 # Округляем до одной цифры после запятой
-                return float(
+                rounded = float(
                     Decimal(str(c_result)).quantize(
                         Decimal("0.1"), rounding=ROUND_HALF_UP
                     )
                 )
+                return MassFractionFromRefractionOutcome(
+                    rounded, _mf_oil_display_from_float(rounded), False
+                )
 
         # Если не нашли интервал (не должно произойти), возвращаем последнее значение
-        return float(
+        rounded = float(
             Decimal(str(points[-1][0])).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+        )
+        return MassFractionFromRefractionOutcome(
+            rounded, _mf_oil_display_from_float(rounded), False
         )
 
     except Exception as e:
         logger.error(f"Ошибка при расчете массовой доли нефти: {str(e)}")
-        return 0.0
+        return MassFractionFromRefractionOutcome(0.0, "0", False)

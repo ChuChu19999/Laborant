@@ -17,6 +17,18 @@ from services.fractional import (
 SPECIAL_GROUP_KEYWORDS = ("Плотность при температуре 20 ℃",)
 SPECIAL_K_VARIABLES = {"K₁", "K₂"}
 
+MF_OIL_DISPLAY_LABELS_KEY = "_mf_oil_display_labels"
+
+
+def _variables_from_input_data(input_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Поля вроде _mf_oil_* не участвуют в формулах."""
+    return {
+        k: v
+        for k, v in input_data.items()
+        if k != "Цвет" and not (isinstance(k, str) and k.startswith("_mf_oil"))
+    }
+
+
 MASS_FRACTION_OIL_GROUP_NAME = "Массовая доля нефти"
 
 
@@ -39,6 +51,61 @@ def _is_mass_fraction_oil_method(research_method: Dict[str, Any]) -> bool:
     if str(research_method.get("name") or "").strip() == MASS_FRACTION_OIL_GROUP_NAME:
         return True
     return _has_mass_fraction_oil_group(research_method)
+
+
+def _mf_oil_c1_c2_both_zero(variables: Dict[str, Any]) -> bool:
+    """Оба значения C₁ и C₂ считаются нулевыми (после округления в variables)."""
+
+    def _to_float(x: Any) -> float:
+        if x is None:
+            return 0.0
+        if isinstance(x, Decimal):
+            return float(x)
+        if isinstance(x, (int, float)):
+            return float(x)
+        if isinstance(x, str):
+            return float(str(x).replace(",", ".").replace(" ", ""))
+        return float(x)
+
+    try:
+        c1 = variables.get("C₁")
+        if c1 is None:
+            c1 = variables.get("C1")
+        c2 = variables.get("C₂")
+        if c2 is None:
+            c2 = variables.get("C2")
+        c1 = _to_float(c1)
+        c2 = _to_float(c2)
+    except (TypeError, ValueError):
+        return False
+    return abs(c1) < 1e-12 and abs(c2) < 1e-12
+
+
+def _mf_oil_custom_is_menee_01(custom_value: Optional[str]) -> bool:
+    """Подпись условия сходимости «менее 0,1» для mf_oil (без учёта регистра и пробелов по краям)."""
+    if not custom_value:
+        return False
+    return str(custom_value).strip().casefold() == "менее 0,1".casefold()
+
+
+def _mf_oil_skip_repeatability_div_by_sum(
+    research_method: Dict[str, Any],
+    variables: Dict[str, Any],
+    condition: Dict[str, Any],
+) -> bool:
+    """
+    Условия mf_oil с (C₁+C₂) в знаменателе при C₁=C₂=0 не вычисляем — деление на ноль.
+    Для convergence_value «satisfactory» считаем условие выполненным (повторяемость пройдена).
+    """
+    if not _is_mass_fraction_oil_method(research_method):
+        return False
+    if not _mf_oil_c1_c2_both_zero(variables):
+        return False
+    formula = str(condition.get("formula") or "")
+    if "(C₁+C₂)" not in formula and "(C1+C2)" not in formula:
+        return False
+    cv = condition.get("convergence_value")
+    return cv in ("satisfactory", "unsatisfactory")
 
 
 def _is_density_20_group_method(research_method: Dict[str, Any]) -> bool:
@@ -206,6 +273,8 @@ async def calculate_result(
         # Обработка массовой доли нефти (группа «Массовая доля нефти» или имя метода)
         if _is_mass_fraction_oil_method(research_method):
             logger.info("Обработка метода массовой доли нефти")
+            input_data.pop(MF_OIL_DISPLAY_LABELS_KEY, None)
+            mf_oil_display_labels: Dict[str, str] = {}
             try:
                 method_id = research_method.get("id")
                 if not method_id:
@@ -217,20 +286,32 @@ async def calculate_result(
                 # Если есть n1, всегда пересчитываем C1
                 if n1_value and (n1_value != "0" and str(n1_value).strip()):
                     c1_key = "C₁" if "C₁" in input_data else "C1"
-                    c1_result = await calculate_mass_fraction_from_refraction(
+                    c1_out = await calculate_mass_fraction_from_refraction(
                         db, n1_value, method_id
                     )
-                    input_data[c1_key] = str(c1_result).replace(".", ",")
-                    logger.info(f"Рассчитано C1={c1_result} для n1={n1_value}")
+                    input_data[c1_key] = c1_out.stored_display
+                    if c1_out.below_detection_limit:
+                        mf_oil_display_labels[c1_key] = "менее 0,1"
+                    logger.info(
+                        f"Рассчитано C1: stored={c1_out.stored_display}, numeric={c1_out.numeric}, "
+                        f"below_dl={c1_out.below_detection_limit} для n1={n1_value}"
+                    )
 
                 # Если есть n2, всегда пересчитываем C2
                 if n2_value and (n2_value != "0" and str(n2_value).strip()):
                     c2_key = "C₂" if "C₂" in input_data else "C2"
-                    c2_result = await calculate_mass_fraction_from_refraction(
+                    c2_out = await calculate_mass_fraction_from_refraction(
                         db, n2_value, method_id
                     )
-                    input_data[c2_key] = str(c2_result).replace(".", ",")
-                    logger.info(f"Рассчитано C2={c2_result} для n2={n2_value}")
+                    input_data[c2_key] = c2_out.stored_display
+                    if c2_out.below_detection_limit:
+                        mf_oil_display_labels[c2_key] = "менее 0,1"
+                    logger.info(
+                        f"Рассчитано C2: stored={c2_out.stored_display}, numeric={c2_out.numeric}, "
+                        f"below_dl={c2_out.below_detection_limit} для n2={n2_value}"
+                    )
+                if mf_oil_display_labels:
+                    input_data[MF_OIL_DISPLAY_LABELS_KEY] = mf_oil_display_labels
             except Exception as e:
                 logger.error(
                     f"Ошибка при расчете C1/C2 для массовой доли нефти: {str(e)}"
@@ -260,7 +341,7 @@ async def calculate_result(
         intermediate_results = {}
         intermediate_results_unrounded = {}  # Сохраняем неокругленные значения
         # Исключаем поле "Цвет" из переменных для вычисления формул (это строка, не число)
-        variables = {k: v for k, v in input_data.items() if k != "Цвет"}
+        variables = _variables_from_input_data(input_data)
 
         # Количество знаков для подстановки промежуточных в следующие формулы
         intermediate_decimal_places = None
@@ -429,7 +510,7 @@ async def calculate_result(
                 result_decimal_places = research_method.get("rounding_decimal", 3)
 
         # Округляем промежуточные результаты до количества знаков результата
-        variables_rounded = {k: v for k, v in input_data.items() if k != "Цвет"}
+        variables_rounded = _variables_from_input_data(input_data)
         if result_decimal_places is not None:
             logger.info(
                 f"Округление промежуточных результатов до {result_decimal_places} знаков"
@@ -464,6 +545,16 @@ async def calculate_result(
 
         for condition in research_method["convergence_conditions"]["formulas"]:
             try:
+                if _mf_oil_skip_repeatability_div_by_sum(
+                    research_method, variables_rounded, condition
+                ):
+                    if condition["convergence_value"] == "satisfactory":
+                        satisfied_conditions.append("satisfactory")
+                        logger.info(
+                            "Массовая доля нефти: C₁=C₂=0 — удовлетворительная повторяемость "
+                            "принята без вычисления формулы с (C₁+C₂) в знаменателе."
+                        )
+                    continue
                 logger.info(f"Проверка условия: {condition['formula']}")
                 condition_result = evaluate_formula(
                     condition["formula"], variables_rounded, is_condition=True
@@ -518,6 +609,18 @@ async def calculate_result(
         for condition in research_method["convergence_conditions"]["formulas"]:
             if condition["convergence_value"] == convergence_result:
                 try:
+                    if _mf_oil_skip_repeatability_div_by_sum(
+                        research_method, variables_rounded, condition
+                    ):
+                        conditions_info.append(
+                            {
+                                "formula": condition["formula"],
+                                "satisfied": True,
+                                "convergence_value": condition["convergence_value"],
+                                "calculation_steps": [],
+                            }
+                        )
+                        continue
                     condition_result = evaluate_formula(
                         condition["formula"], variables_rounded, is_condition=True
                     )
@@ -611,6 +714,27 @@ async def calculate_result(
                         "value": value_str,
                         "reference": value_str,
                     }
+
+            if (
+                _is_mass_fraction_oil_method(research_method)
+                and convergence_result == "custom"
+                and _mf_oil_custom_is_menee_01(custom_value)
+            ):
+                csr_entry = intermediate_results_rounded.get("Cср")
+                if isinstance(csr_entry, dict) and csr_entry.get("value") is not None:
+                    result_text = str(csr_entry["value"]).replace(".", ",")
+                elif research_method.get("rounding_type") == "decimal":
+                    places = research_method.get("rounding_decimal")
+                    if places is not None:
+                        zero_d = Decimal("0").quantize(
+                            Decimal("0.1") ** int(places),
+                            rounding=ROUND_HALF_UP,
+                        )
+                        result_text = str(zero_d).replace(".", ",")
+                    else:
+                        result_text = "0"
+                else:
+                    result_text = "0"
 
             response_data_early = {
                 "convergence": convergence_result,

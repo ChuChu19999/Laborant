@@ -9,13 +9,17 @@ import {
 } from '@tanstack/react-table';
 import { LoadingCard } from '../../../../features/Cards';
 import Button from '../../../../shared/ui/Button/Button';
-import { formatNumberForDisplay } from '../../../../shared/utils/numberFormatting';
 import './MassFractionOilRefractionDirectoryTable.css';
+
+/** В модалке градуировки — русский разделитель в ячейках. */
+function formatRefractionCellForDisplay(v: string): string {
+  return String(v).replace(/\./g, ',');
+}
 
 interface EntryRow {
   id: string;
-  c_value: number;
-  n_value: number;
+  c_value: string;
+  n_value: string;
   table_id?: number;
 }
 
@@ -38,20 +42,14 @@ const MassFractionOilRefractionDirectoryTable: React.FC<
         header: 'Массовая доля нефти (C), %',
         enableSorting: false,
         size: 300,
-        cell: ({ row }) => {
-          const value = row.original.c_value;
-          return formatNumberForDisplay(value.toFixed(2));
-        },
+        cell: ({ row }) => formatRefractionCellForDisplay(row.original.c_value),
       },
       {
         accessorKey: 'n_value',
         header: 'Показатель преломления (n)',
         enableSorting: false,
         size: 300,
-        cell: ({ row }) => {
-          const value = row.original.n_value;
-          return formatNumberForDisplay(value.toFixed(3));
-        },
+        cell: ({ row }) => formatRefractionCellForDisplay(row.original.n_value),
       },
       {
         id: 'actions',

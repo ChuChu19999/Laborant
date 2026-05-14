@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { PlusOutlined } from '@ant-design/icons';
 import { message } from 'antd';
 import { MassFractionOilRefractionDirectoryTable } from '../../../../entities/Tables/MassFractionOilRefractionDirectoryTable';
@@ -8,7 +8,6 @@ import { useAutoRefetchQuery } from '../../../../shared/model/lib/useQuery';
 import Button from '../../../../shared/ui/Button/Button';
 import { Input } from '../../../../shared/ui/FormItems';
 import { Modal } from '../../../../shared/ui/Modal';
-import { formatNumberForDisplay } from '../../../../shared/utils/numberFormatting';
 import './MassFractionOilRefractionDirectoryModal.css';
 
 interface MassFractionOilRefractionDirectoryModalProps {
@@ -20,9 +19,35 @@ interface MassFractionOilRefractionDirectoryModalProps {
 
 interface EntryRow {
   id: string;
-  c_value: number;
-  n_value: number;
+  c_value: string;
+  n_value: string;
   table_id?: number;
+}
+
+/** Сравнение по стабильному ключу строки (id из БД или временный id), без порядка в таблице. */
+function refractionEntriesShallowEqual(a: EntryRow[], b: EntryRow[]): boolean {
+  if (a.length !== b.length) return false;
+  const toMap = (arr: EntryRow[]) => {
+    const m = new Map<string, { c: string; n: string }>();
+    for (const e of arr) {
+      const key = e.table_id != null ? `t:${e.table_id}` : e.id;
+      m.set(key, { c: e.c_value.trim(), n: e.n_value.trim() });
+    }
+    return m;
+  };
+  const ma = toMap(a);
+  const mb = toMap(b);
+  if (ma.size !== mb.size) return false;
+  for (const [key, va] of ma) {
+    const vb = mb.get(key);
+    if (!vb) return false;
+    if (va.c !== vb.c || va.n !== vb.n) return false;
+  }
+  return true;
+}
+
+function toApiDecimalString(v: string): string {
+  return String(v).trim().replace(/\s+/g, '').replace(/,/g, '.');
 }
 
 const MassFractionOilRefractionDirectoryModal: React.FC<
@@ -32,6 +57,10 @@ const MassFractionOilRefractionDirectoryModal: React.FC<
   const [originalEntries, setOriginalEntries] = useState<EntryRow[]>([]);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [newEntry, setNewEntry] = useState({ c_value: '', n_value: '' });
+
+  /** Пока true — не подменять entries из react-query (иначе фоновый refetch затирает правки до «Сохранить»). */
+  const hasLocalEditsRef = useRef(false);
+  const prevOpenRef = useRef(false);
 
   const bulkUpdateMutation = useBulkUpdateMassFractionOilRefractionTable();
 
@@ -55,12 +84,23 @@ const MassFractionOilRefractionDirectoryModal: React.FC<
   );
 
   useEffect(() => {
+    if (open && !prevOpenRef.current) {
+      hasLocalEditsRef.current = false;
+    }
+    prevOpenRef.current = open;
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !researchMethodId) return;
+    if (hasLocalEditsRef.current) {
+      return;
+    }
     if (tablesData?.items && tablesData.items.length > 0) {
       const activeTables = tablesData.items.filter(item => !item.deleted_at);
       const entriesList = activeTables.map(table => ({
         id: `entry-${table.id}`,
-        c_value: parseFloat(table.c_value) || 0,
-        n_value: parseFloat(table.n_value) || 0,
+        c_value: String(table.c_value),
+        n_value: String(table.n_value),
         table_id: table.id,
       }));
       setEntries(entriesList);
@@ -69,7 +109,7 @@ const MassFractionOilRefractionDirectoryModal: React.FC<
       setEntries([]);
       setOriginalEntries([]);
     }
-  }, [tablesData]);
+  }, [tablesData, open, researchMethodId]);
 
   const handleAdd = useCallback(() => {
     if (!newEntry.c_value.trim() || !newEntry.n_value.trim()) {
@@ -92,10 +132,11 @@ const MassFractionOilRefractionDirectoryModal: React.FC<
 
     const entry: EntryRow = {
       id: `entry-${Date.now()}`,
-      c_value: cValue,
-      n_value: nValue,
+      c_value: newEntry.c_value.trim(),
+      n_value: newEntry.n_value.trim(),
     };
 
+    hasLocalEditsRef.current = true;
     setEntries([...entries, entry]);
     setNewEntry({ c_value: '', n_value: '' });
   }, [newEntry, entries]);
@@ -105,8 +146,8 @@ const MassFractionOilRefractionDirectoryModal: React.FC<
       setEditingIndex(index);
       const entry = entries[index];
       setNewEntry({
-        c_value: formatNumberForDisplay(entry.c_value),
-        n_value: formatNumberForDisplay(entry.n_value),
+        c_value: entry.c_value.replace(/\./g, ','),
+        n_value: entry.n_value.replace(/\./g, ','),
       });
     },
     [entries]
@@ -136,9 +177,10 @@ const MassFractionOilRefractionDirectoryModal: React.FC<
     const updatedEntries = [...entries];
     updatedEntries[editingIndex] = {
       ...updatedEntries[editingIndex],
-      c_value: cValue,
-      n_value: nValue,
+      c_value: newEntry.c_value.trim(),
+      n_value: newEntry.n_value.trim(),
     };
+    hasLocalEditsRef.current = true;
     setEntries(updatedEntries);
     setEditingIndex(null);
     setNewEntry({ c_value: '', n_value: '' });
@@ -146,6 +188,7 @@ const MassFractionOilRefractionDirectoryModal: React.FC<
 
   const handleDelete = useCallback(
     (index: number) => {
+      hasLocalEditsRef.current = true;
       const updatedEntries = entries.filter((_, idx) => idx !== index);
       setEntries(updatedEntries);
     },
@@ -157,27 +200,9 @@ const MassFractionOilRefractionDirectoryModal: React.FC<
     setNewEntry({ c_value: '', n_value: '' });
   }, []);
 
-  const areEntriesEqual = useCallback((entries1: EntryRow[], entries2: EntryRow[]) => {
-    if (entries1.length !== entries2.length) return false;
-
-    const sorted1 = [...entries1].sort((a, b) => a.c_value - b.c_value);
-    const sorted2 = [...entries2].sort((a, b) => a.c_value - b.c_value);
-
-    for (let i = 0; i < sorted1.length; i++) {
-      if (
-        Math.abs(sorted1[i].c_value - sorted2[i].c_value) > 0.01 ||
-        Math.abs(sorted1[i].n_value - sorted2[i].n_value) > 0.001
-      ) {
-        return false;
-      }
-    }
-
-    return true;
-  }, []);
-
   const handleSave = useCallback(async () => {
     try {
-      const hasChanges = !areEntriesEqual(entries, originalEntries);
+      const hasChanges = !refractionEntriesShallowEqual(entries, originalEntries);
 
       if (!hasChanges) {
         message.info('Изменений не обнаружено');
@@ -193,25 +218,18 @@ const MassFractionOilRefractionDirectoryModal: React.FC<
       await bulkUpdateMutation.mutateAsync({
         research_method_id: researchMethodId,
         entries: entries.map(entry => ({
-          c_value: entry.c_value,
-          n_value: entry.n_value,
+          c_value: toApiDecimalString(entry.c_value),
+          n_value: toApiDecimalString(entry.n_value),
         })),
       });
 
+      hasLocalEditsRef.current = false;
       await refetch();
       onClose();
     } catch (error) {
       console.error('Ошибка при сохранении справочника:', error);
     }
-  }, [
-    entries,
-    originalEntries,
-    researchMethodId,
-    areEntriesEqual,
-    onClose,
-    bulkUpdateMutation,
-    refetch,
-  ]);
+  }, [entries, originalEntries, researchMethodId, onClose, bulkUpdateMutation, refetch]);
 
   const handleCValueChange = useCallback((value: string) => {
     const processedValue = value.replace(/\./g, ',');
@@ -244,12 +262,13 @@ const MassFractionOilRefractionDirectoryModal: React.FC<
   }, []);
 
   const hasChanges = useMemo(
-    () => !areEntriesEqual(entries, originalEntries),
-    [entries, originalEntries, areEntriesEqual]
+    () => !refractionEntriesShallowEqual(entries, originalEntries),
+    [entries, originalEntries]
   );
 
   const handleCancel = useCallback(() => {
     if (hasChanges) {
+      hasLocalEditsRef.current = false;
       setEntries(JSON.parse(JSON.stringify(originalEntries)));
       setEditingIndex(null);
       setNewEntry({ c_value: '', n_value: '' });

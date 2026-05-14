@@ -51,6 +51,7 @@ interface CalculationPanelProps {
     initialValues: Record<string, string>;
     laboratoryActivityDate: Dayjs | null;
     waxPrecipitation?: boolean;
+    massFractionOilNumericC?: Record<string, string>;
   } | null;
   /** Синхронизация даты с родителем после «Рассчитать», если пользователь меняет дату перед сохранением. */
   onLaboratoryActivityDateChange?: (date: Dayjs | null) => void;
@@ -78,6 +79,7 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
   );
   const [waxPrecipitation, setWaxPrecipitation] = useState(false);
   const inputRefs = useRef<Record<string, InputRef | null>>({});
+  const mfOilNumericCRef = useRef<Record<string, string>>({});
   const calculateMutation = useCalculate();
   const isCalculating = calculateMutation.isPending;
 
@@ -103,9 +105,11 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
         delete newResults[selectedMethodId];
         return newResults;
       });
+      mfOilNumericCRef.current = {};
     } else if (!selectedMethodId) {
       form.resetFields();
       setFormValues({});
+      mfOilNumericCRef.current = {};
       setWaxPrecipitation(false);
     }
   }, [selectedMethodId, currentMethod, form, calculationFormPrefill]);
@@ -125,6 +129,11 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
       ...prev,
       ...calculationFormPrefill.initialValues,
     }));
+    if (calculationFormPrefill.massFractionOilNumericC) {
+      mfOilNumericCRef.current = { ...calculationFormPrefill.massFractionOilNumericC };
+    } else {
+      mfOilNumericCRef.current = {};
+    }
 
     if (calculationFormPrefill.laboratoryActivityDate) {
       setLaboratoryActivityDate(calculationFormPrefill.laboratoryActivityDate);
@@ -212,7 +221,15 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
 
         const value = form.getFieldValue(fieldKey);
 
-        if (isColorField) {
+        const isMfC =
+          isMassFractionOilResearchMethod(method) &&
+          (field.name === 'C₁' ||
+            field.name === 'C₂' ||
+            field.name === 'C1' ||
+            field.name === 'C2');
+        if (isMfC && mfOilNumericCRef.current[fieldKey]) {
+          inputData[field.name] = mfOilNumericCRef.current[fieldKey];
+        } else if (isColorField) {
           inputData[field.name] = value || '';
         } else {
           const cleanedValue = value ? value.toString().trim().replace(',', '.') : '';
@@ -292,11 +309,14 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
           : undefined,
       };
 
-      const finalInputData = inputData;
+      const finalInputData: Record<string, unknown> = { ...inputData };
 
       if (isMassFractionOilResearchMethod(currentMethod) && response.updated_input_data) {
-        const updatedInputData = response.updated_input_data;
+        const updatedInputData = response.updated_input_data as Record<string, unknown>;
         const updatedValues: Record<string, string> = {};
+        const labels = updatedInputData._mf_oil_display_labels as
+          | Record<string, string>
+          | undefined;
 
         currentMethod.input_data.fields.forEach(field => {
           if (
@@ -312,11 +332,22 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
 
             const updatedValue = updatedInputData[field.name];
             if (updatedValue !== undefined && updatedValue !== null) {
-              updatedValues[fieldKey] = formatNumberForDisplay(updatedValue);
+              const storedStr = String(updatedValue);
+              mfOilNumericCRef.current[fieldKey] = storedStr.replace(',', '.');
+              const displayStr = labels?.[field.name]
+                ? labels[field.name]
+                : formatNumberForDisplay(String(updatedValue));
+              updatedValues[fieldKey] = displayStr;
               finalInputData[field.name] = updatedValue;
             }
           }
         });
+
+        if (labels && typeof labels === 'object') {
+          finalInputData['_mf_oil_display_labels'] = { ...labels };
+        } else {
+          delete finalInputData['_mf_oil_display_labels'];
+        }
 
         if (Object.keys(updatedValues).length > 0) {
           form.setFieldsValue(updatedValues);

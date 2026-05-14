@@ -13,8 +13,11 @@ export function buildCalculationFormPrefill(
   initialValues: Record<string, string>;
   laboratoryActivityDate: Dayjs | null;
   waxPrecipitation?: boolean;
+  /** Числовые C₁/C₂ для повторной отправки на расчёт (точка как разделитель). */
+  massFractionOilNumericC?: Record<string, string>;
 } {
   const initialValues: Record<string, string> = {};
+  const massFractionOilNumericC: Record<string, string> = {};
 
   if (
     currentMethod.name === 'Фракционный состав (конденсат)' ||
@@ -48,6 +51,9 @@ export function buildCalculationFormPrefill(
       }
     } else {
       Object.entries(targetCalculation.input_data).forEach(([fieldName, value]) => {
+        if (fieldName.startsWith('_')) {
+          return;
+        }
         const field = currentMethod.input_data.fields.find(f => f.name === fieldName);
         const cardIndex = field?.card_index || 1;
 
@@ -63,7 +69,14 @@ export function buildCalculationFormPrefill(
       });
     }
   } else {
+    const labels = (targetCalculation.input_data as Record<string, unknown>)[
+      '_mf_oil_display_labels'
+    ] as Record<string, string> | undefined;
+
     Object.entries(targetCalculation.input_data).forEach(([fieldName, value]) => {
+      if (fieldName.startsWith('_')) {
+        return;
+      }
       const field = currentMethod.input_data.fields.find(f => f.name === fieldName);
       const cardIndex = field?.card_index || 1;
 
@@ -74,10 +87,25 @@ export function buildCalculationFormPrefill(
           ? `${currentMethod.id}_${fieldName}_card_${cardIndex}`
           : `${currentMethod.id}_${fieldName}`;
 
-      initialValues[formFieldName] =
-        value && (typeof value === 'string' || typeof value === 'number')
-          ? formatNumberForDisplay(value)
-          : '';
+      const isMfC =
+        isMassFractionOilResearchMethod(currentMethod) &&
+        (fieldName === 'C₁' || fieldName === 'C₂' || fieldName === 'C1' || fieldName === 'C2');
+
+      if (
+        value !== undefined &&
+        value !== null &&
+        (typeof value === 'string' || typeof value === 'number')
+      ) {
+        const rawStr = String(value).trim();
+        if (isMfC) {
+          massFractionOilNumericC[formFieldName] = rawStr.replace(',', '.');
+        }
+        const displayStr =
+          isMfC && labels?.[fieldName] ? labels[fieldName] : formatNumberForDisplay(value);
+        initialValues[formFieldName] = displayStr;
+      } else {
+        initialValues[formFieldName] = '';
+      }
     });
   }
 
@@ -92,11 +120,20 @@ export function buildCalculationFormPrefill(
   const waxPrecipitation =
     currentMethod.name === 'При 20 ℃' && targetCalculation.result === 'выпадение парафина';
 
-  return {
+  const out: {
+    initialValues: Record<string, string>;
+    laboratoryActivityDate: Dayjs | null;
+    waxPrecipitation?: boolean;
+    massFractionOilNumericC?: Record<string, string>;
+  } = {
     initialValues,
     laboratoryActivityDate,
     ...(waxPrecipitation ? { waxPrecipitation: true } : {}),
   };
+  if (Object.keys(massFractionOilNumericC).length > 0) {
+    out.massFractionOilNumericC = massFractionOilNumericC;
+  }
+  return out;
 }
 
 /** Одна запись списка методов для CalculationsPage при редактировании существующего расчёта. */
