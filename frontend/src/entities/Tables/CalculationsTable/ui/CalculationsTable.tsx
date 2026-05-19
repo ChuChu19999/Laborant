@@ -235,6 +235,20 @@ const formatFractionalResult = (result: string, methodName?: string): React.Reac
   }
 };
 
+const getCondensateKkMeasurementError = (rawValue: unknown): string => {
+  const strVal = String(rawValue ?? '')
+    .trim()
+    .toLowerCase();
+  if (strVal === 'выше 360') {
+    return '-';
+  }
+  const num = parseFloat(String(rawValue).replace(',', '.'));
+  if (!isNaN(num) && num > 360) {
+    return '-';
+  }
+  return '±7';
+};
+
 // Функция для форматирования погрешности фракционного состава
 const formatFractionalError = (
   measurementError: string | null | undefined,
@@ -269,6 +283,8 @@ const formatFractionalError = (
                 errorMap[correctedKey] = '±5';
               } else if (correctedKey === 'Объемная доля остатка') {
                 errorMap[correctedKey] = '±0,3';
+              } else if (correctedKey === 'Температура к.к.') {
+                errorMap[correctedKey] = getCondensateKkMeasurementError(parsedResult[key]);
               } else {
                 errorMap[correctedKey] = '-';
               }

@@ -1511,7 +1511,10 @@ def process_fractional_composition_condensate(
                 else:
                     cell.value = str(field_value).replace(".", ",")
             elif "{measurement_error}" in value:
-                error_value = error_map.get(field, "-")
+                if field == "Температура к.к.":
+                    error_value = _condensate_kk_measurement_error(field_value)
+                else:
+                    error_value = error_map.get(field, "-")
                 cell.value = error_value
             elif "{unit}" in value:
                 if "температура" in field.lower():
@@ -1536,6 +1539,21 @@ def process_fractional_composition_condensate(
         current_row += 1
 
     return current_row, current_sheet
+
+
+def _condensate_kk_measurement_error(field_value) -> str:
+    """Погрешность температуры к.к.: ±7, если результат не «выше 360»."""
+    if isinstance(field_value, str) and field_value.strip().lower() == "выше 360":
+        return "-"
+    try:
+        numeric_value = (
+            float(field_value) if isinstance(field_value, str) else field_value
+        )
+        if isinstance(numeric_value, (int, float)) and numeric_value > 360:
+            return "-"
+    except (ValueError, TypeError):
+        pass
+    return "±7"
 
 
 def _restore_last_row_bottom_border_from_template_row(
