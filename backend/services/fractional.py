@@ -6,11 +6,18 @@ from services.calculation import get_temperature_correction
 
 
 def round_to_half(value):
-    """Округляет по специальной логике для объемной доли отгона:
-    - если дробная часть >= 0.25 и < 0.75, то округляем до 0.5
-    - если дробная часть >= 0.75, то округляем до следующего целого числа
-    - иначе округляем до ближайшего целого числа
-    """
+    """Округляет до ближайшего 0,5 математически (0,5 вверх на границе)."""
+    try:
+        normalized_value = str(value).replace(",", ".")
+        decimal_value = Decimal(normalized_value)
+        rounded = (decimal_value * 2).quantize(Decimal("1"), rounding=ROUND_HALF_UP) / 2
+        return float(rounded)
+    except (ValueError, TypeError, InvalidOperation):
+        return value
+
+
+def round_condensate_distillate_volume(value):
+    """Округление объемной доли отгона в фракционке конденсата."""
     try:
         val = float(str(value).replace(",", "."))
         integer_part = int(val)
@@ -18,10 +25,9 @@ def round_to_half(value):
 
         if fractional_part >= 0.75:
             return integer_part + 1
-        elif fractional_part >= 0.25:
+        if fractional_part >= 0.25:
             return integer_part + 0.5
-        else:
-            return integer_part
+        return integer_part
     except (ValueError, TypeError):
         return value
 
@@ -302,9 +308,11 @@ def calculate_fractional_composition(input_data: Dict[str, Any]) -> Dict[str, An
                     and str(volume_distillate2).strip()
                 ):
                     val2 = float(str(volume_distillate2).replace(",", "."))
-                    average_volume_distillate = round_to_half((val1 + val2) / 2)
+                    average_volume_distillate = round_condensate_distillate_volume(
+                        (val1 + val2) / 2
+                    )
                 else:
-                    average_volume_distillate = round_to_half(val1)
+                    average_volume_distillate = round_condensate_distillate_volume(val1)
             except (ValueError, TypeError):
                 pass
 
@@ -568,19 +576,19 @@ def calculate_fractional_composition_oil(input_data: Dict[str, Any]) -> Dict[str
                         float(str(val1).replace(",", "."))
                         + float(str(val2).replace(",", "."))
                     ) / 2
-                    average_outputs[field_name] = round_to_one_decimal(avg_val)
+                    average_outputs[field_name] = round_to_half(avg_val)
                 except (ValueError, TypeError):
                     average_outputs[field_name] = val1
             elif val1 and val1 != "0" and str(val1).strip():
                 try:
-                    average_outputs[field_name] = round_to_one_decimal(
+                    average_outputs[field_name] = round_to_half(
                         float(str(val1).replace(",", "."))
                     )
                 except (ValueError, TypeError):
                     average_outputs[field_name] = val1
             elif val2 and val2 != "0" and str(val2).strip():
                 try:
-                    average_outputs[field_name] = round_to_one_decimal(
+                    average_outputs[field_name] = round_to_half(
                         float(str(val2).replace(",", "."))
                     )
                 except (ValueError, TypeError):
@@ -608,7 +616,9 @@ def calculate_fractional_composition_oil(input_data: Dict[str, Any]) -> Dict[str
 
         for field_name, value in average_outputs.items():
             if value and value != "0" and str(value).strip():
-                intermediate_results[f"Выход фракций до {field_name}"] = str(value)
+                intermediate_results[f"Выход фракций до {field_name}"] = (
+                    f"{float(str(value).replace(',', '.')):.1f}"
+                )
 
         result_json = orjson.dumps(
             intermediate_results, option=orjson.OPT_NON_STR_KEYS
