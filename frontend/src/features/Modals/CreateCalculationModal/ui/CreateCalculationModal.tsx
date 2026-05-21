@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { LoadingOutlined } from '@ant-design/icons';
-import { Checkbox, Spin, TreeSelect, message } from 'antd';
+import { Checkbox, Radio, Spin, TreeSelect, message } from 'antd';
 import { FormulaKeyboard } from '../../../../entities/FormulaKeyboard';
 import {
   fixturesApi,
@@ -23,6 +23,98 @@ const CONVERGENCE_OPTIONS = [
   { value: 'absence', label: 'Отсутствие' },
   { value: 'traces', label: 'Следы' },
 ];
+
+type IntermediateFieldForm = {
+  name: string;
+  formula: string;
+  description: string;
+  unit?: string;
+  show_calculation: boolean;
+  use_multiple_rounding: boolean;
+  multiple_value: string;
+  use_result_rounding?: boolean;
+  rounding_type?: 'decimal' | 'significant' | 'multiple';
+  rounding_decimal?: number;
+  range_calculation?: {
+    ranges: Array<{ condition: string; formula: string }>;
+  };
+  use_threshold_table?: boolean;
+  threshold_table_values?: {
+    target_variable: string;
+    higher_variable: string;
+    lower_variable: string;
+  };
+};
+
+type IntermediateFieldApi = {
+  name: string;
+  formula: string;
+  description: string;
+  unit?: string;
+  show_calculation: boolean;
+  use_multiple_rounding?: boolean;
+  multiple_value?: string;
+  use_result_rounding?: boolean;
+  rounding_type?: 'decimal' | 'significant' | 'multiple';
+  rounding_decimal?: number;
+  range_calculation?: IntermediateFieldForm['range_calculation'];
+  use_threshold_table?: boolean;
+  threshold_table_values?: IntermediateFieldForm['threshold_table_values'];
+};
+
+function mapIntermediateFieldFromApi(
+  field: IntermediateFieldForm & Record<string, unknown>
+): IntermediateFieldForm {
+  const useMultiple = Boolean(field.use_multiple_rounding);
+  const useThreshold = Boolean(field.use_threshold_table);
+  const rt = field.rounding_type;
+  const hasLegacyCustom =
+    !useMultiple &&
+    !useThreshold &&
+    field.use_result_rounding !== true &&
+    (rt === 'decimal' || rt === 'significant') &&
+    field.rounding_decimal != null;
+  const useResultRounding = hasLegacyCustom ? false : field.use_result_rounding !== false;
+
+  return {
+    name: field.name ?? '',
+    formula: field.formula ?? '',
+    description: field.description ?? '',
+    unit: field.unit ?? '',
+    show_calculation: field.show_calculation ?? true,
+    use_multiple_rounding: useMultiple,
+    multiple_value: field.multiple_value ?? '',
+    use_result_rounding: useResultRounding,
+    rounding_type: rt === 'significant' ? 'significant' : 'decimal',
+    rounding_decimal: field.rounding_decimal ?? 0,
+    range_calculation: field.range_calculation,
+    use_threshold_table: field.use_threshold_table,
+    threshold_table_values: field.threshold_table_values,
+  };
+}
+
+function serializeIntermediateFieldForApi(field: IntermediateFieldForm): IntermediateFieldApi {
+  const payload: IntermediateFieldApi = {
+    name: field.name,
+    formula: field.use_threshold_table ? '0' : field.range_calculation ? '0' : field.formula,
+    description: field.description,
+    unit: field.unit,
+    show_calculation: field.show_calculation,
+    use_multiple_rounding: field.use_multiple_rounding,
+    multiple_value: field.multiple_value,
+    range_calculation: field.range_calculation,
+    use_threshold_table: field.use_threshold_table,
+    threshold_table_values: field.threshold_table_values,
+  };
+
+  if (field.use_result_rounding === false) {
+    payload.use_result_rounding = false;
+    payload.rounding_type = field.rounding_type ?? 'decimal';
+    payload.rounding_decimal = field.rounding_decimal ?? 0;
+  }
+
+  return payload;
+}
 
 const SAMPLE_TYPE_OPTIONS = [
   { value: 'oil', label: 'Нефть' },
@@ -75,18 +167,9 @@ function methodToFormData(method: ResearchMethod) {
       fields: [{ name: '', description: '', unit: '', card_index: 1 }],
     },
     intermediate_data: {
-      fields: (method.intermediate_data?.fields ?? []).map(f => ({
-        name: f.name ?? '',
-        formula: f.formula ?? '',
-        description: f.description ?? '',
-        unit: f.unit ?? '',
-        show_calculation: f.show_calculation ?? true,
-        use_multiple_rounding: f.use_multiple_rounding ?? false,
-        multiple_value: f.multiple_value ?? '',
-        range_calculation: f.range_calculation,
-        use_threshold_table: f.use_threshold_table,
-        threshold_table_values: f.threshold_table_values,
-      })),
+      fields: (method.intermediate_data?.fields ?? []).map(f =>
+        mapIntermediateFieldFromApi(f as IntermediateFieldForm & Record<string, unknown>)
+      ),
     },
     convergence_conditions: method.convergence_conditions?.formulas?.length
       ? method.convergence_conditions
@@ -225,24 +308,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
       }>;
     };
     intermediate_data: {
-      fields: Array<{
-        name: string;
-        formula: string;
-        description: string;
-        unit?: string;
-        show_calculation: boolean;
-        use_multiple_rounding: boolean;
-        multiple_value: string;
-        range_calculation?: {
-          ranges: Array<{ condition: string; formula: string }>;
-        };
-        use_threshold_table?: boolean;
-        threshold_table_values?: {
-          target_variable: string;
-          higher_variable: string;
-          lower_variable: string;
-        };
-      }>;
+      fields: IntermediateFieldForm[];
     };
     convergence_conditions: {
       formulas: Array<{
@@ -279,6 +345,9 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
           show_calculation: true,
           use_multiple_rounding: false,
           multiple_value: '',
+          use_result_rounding: true,
+          rounding_type: 'decimal',
+          rounding_decimal: 0,
         },
       ],
     },
@@ -364,11 +433,9 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
       },
       intermediate_data: {
         fields: fixtureData.intermediate_data?.fields
-          ? fixtureData.intermediate_data.fields.map(field => ({
-              ...field,
-              use_multiple_rounding: field.use_multiple_rounding ?? false,
-              multiple_value: field.multiple_value ?? '',
-            }))
+          ? fixtureData.intermediate_data.fields.map(field =>
+              mapIntermediateFieldFromApi(field as IntermediateFieldForm & Record<string, unknown>)
+            )
           : [
               {
                 name: '',
@@ -378,6 +445,9 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                 show_calculation: true,
                 use_multiple_rounding: false,
                 multiple_value: '',
+                use_result_rounding: true,
+                rounding_type: 'decimal' as const,
+                rounding_decimal: 0,
               },
             ],
       },
@@ -629,6 +699,53 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
     }));
   };
 
+  const getIntermediateRoundingMode = (
+    field: IntermediateFieldForm
+  ): 'result' | 'custom' | 'multiple' => {
+    if (field.use_multiple_rounding) {
+      return 'multiple';
+    }
+    if (field.use_result_rounding === false) {
+      return 'custom';
+    }
+    return 'result';
+  };
+
+  const applyIntermediateRoundingMode = (index: number, mode: 'result' | 'custom' | 'multiple') => {
+    setFormData(prev => {
+      const fields = [...prev.intermediate_data.fields];
+      const field = { ...fields[index] };
+
+      if (mode === 'multiple') {
+        field.use_multiple_rounding = true;
+        field.use_result_rounding = true;
+        field.rounding_type = 'multiple';
+        if (!field.multiple_value) {
+          field.multiple_value = '10';
+        }
+      } else {
+        field.use_multiple_rounding = false;
+        field.use_result_rounding = mode === 'result';
+        if (mode === 'custom') {
+          field.rounding_type =
+            field.rounding_type === 'multiple' || !field.rounding_type
+              ? 'decimal'
+              : field.rounding_type;
+          field.rounding_decimal = field.rounding_decimal ?? 0;
+        }
+      }
+
+      fields[index] = field;
+      return {
+        ...prev,
+        intermediate_data: {
+          ...prev.intermediate_data,
+          fields,
+        },
+      };
+    });
+  };
+
   const handleConvergenceChange = (index: number, field: string, value: unknown) => {
     const updatedData = { ...formData };
     if (!updatedData.convergence_conditions) {
@@ -702,6 +819,9 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
             show_calculation: true,
             use_multiple_rounding: false,
             multiple_value: '',
+            use_result_rounding: true,
+            rounding_type: 'decimal',
+            rounding_decimal: 0,
           },
         ],
       },
@@ -1216,10 +1336,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
     nd_name: formData.nd_name,
     input_data: formData.input_data,
     intermediate_data: {
-      fields: formData.intermediate_data.fields.map(field => ({
-        ...field,
-        formula: field.use_threshold_table ? '0' : field.range_calculation ? '0' : field.formula,
-      })),
+      fields: formData.intermediate_data.fields.map(serializeIntermediateFieldForApi),
     },
     convergence_conditions:
       formData.convergence_conditions.formulas.length > 0 &&
@@ -1358,6 +1475,9 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                 show_calculation: true,
                 use_multiple_rounding: false,
                 multiple_value: '',
+                use_result_rounding: true,
+                rounding_type: 'decimal',
+                rounding_decimal: 0,
               },
             ],
           },
@@ -1844,37 +1964,81 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                           placeholder="Введите единицу измерения"
                         />
                       </div>
-                      <div>
-                        <Checkbox
-                          checked={field.use_multiple_rounding || false}
-                          onChange={e =>
-                            handleIntermediateDataChange(
-                              index,
-                              'use_multiple_rounding',
-                              e.target.checked
-                            )
-                          }
-                        >
-                          Округлять до ближайшего кратного
-                        </Checkbox>
-                        {field.use_multiple_rounding && (
-                          <div className="form-group-spacing">
-                            <Input
-                              type="number"
-                              value={field.multiple_value || ''}
-                              onChange={e =>
-                                handleIntermediateDataChange(
-                                  index,
-                                  'multiple_value',
-                                  e.target.value
-                                )
-                              }
-                              placeholder="Введите число для округления (например: 10)"
-                              min="0"
-                            />
+                      {!field.use_threshold_table && (
+                        <div className="intermediate-rounding-section">
+                          <div className="intermediate-rounding-title">
+                            Округление промежуточного значения
                           </div>
-                        )}
-                      </div>
+                          <Radio.Group
+                            className="intermediate-rounding-modes"
+                            value={getIntermediateRoundingMode(field)}
+                            onChange={e =>
+                              applyIntermediateRoundingMode(
+                                index,
+                                e.target.value as 'result' | 'custom' | 'multiple'
+                              )
+                            }
+                          >
+                            <Radio value="result">Как у результата</Radio>
+                            <Radio value="custom">Задать своё</Radio>
+                            <Radio value="multiple">Округлять до ближайшего кратного</Radio>
+                          </Radio.Group>
+                          {getIntermediateRoundingMode(field) === 'custom' && (
+                            <div className="intermediate-rounding-nested">
+                              <div className="form-group">
+                                <label>Тип округления</label>
+                                <Select
+                                  value={field.rounding_type ?? 'decimal'}
+                                  onChange={value =>
+                                    handleIntermediateDataChange(index, 'rounding_type', value)
+                                  }
+                                  placeholder="Выберите тип округления"
+                                  listHeight={100}
+                                >
+                                  <Option value="decimal">До десятичного знака</Option>
+                                  <Option value="significant">До значащей цифры</Option>
+                                </Select>
+                              </div>
+                              <div className="form-group">
+                                <label>Количество знаков округления</label>
+                                <Input
+                                  type="number"
+                                  value={field.rounding_decimal ?? 0}
+                                  onChange={e =>
+                                    handleIntermediateDataChange(
+                                      index,
+                                      'rounding_decimal',
+                                      parseInt(e.target.value, 10) || 0
+                                    )
+                                  }
+                                  min={0}
+                                  placeholder="Количество знаков"
+                                />
+                              </div>
+                            </div>
+                          )}
+                          {getIntermediateRoundingMode(field) === 'multiple' && (
+                            <div className="intermediate-rounding-nested">
+                              <div className="form-group">
+                                <label>Кратное значение</label>
+                                <Input
+                                  type="number"
+                                  value={field.multiple_value || ''}
+                                  onChange={e =>
+                                    handleIntermediateDataChange(
+                                      index,
+                                      'multiple_value',
+                                      e.target.value
+                                    )
+                                  }
+                                  placeholder="Например: 10"
+                                  min="0"
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                       <div>
                         <Checkbox
                           checked={field.use_threshold_table || false}

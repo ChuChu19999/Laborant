@@ -606,15 +606,32 @@ def evaluate_formula(
             # Применяем округление, если заданы параметры
             if rounding_params:
                 if rounding_params.get("use_multiple_rounding"):
-                    if rounding_params.get("rounding_type") == "multiple":
-                        multiple = float(rounding_params.get("multiple_value", "1"))
+                    multiple_raw = rounding_params.get("multiple_value")
+                    rounding_type = rounding_params.get("rounding_type")
+                    if rounding_type == "multiple" or multiple_raw not in (None, ""):
+                        multiple = float(multiple_raw or "1")
                         result = _round_to_multiple(result, multiple)
-                    else:
+                    elif rounding_type in ("decimal", "significant") and (
+                        rounding_params.get("rounding_decimal") is not None
+                    ):
                         result = round_result(
                             result,
-                            rounding_params.get("rounding_type"),
+                            rounding_type,
                             rounding_params.get("rounding_decimal"),
                         )
+                elif (
+                    rounding_params.get("rounding_type")
+                    in (
+                        "decimal",
+                        "significant",
+                    )
+                    and rounding_params.get("rounding_decimal") is not None
+                ):
+                    result = round_result(
+                        result,
+                        rounding_params.get("rounding_type"),
+                        rounding_params.get("rounding_decimal"),
+                    )
 
             return result
 

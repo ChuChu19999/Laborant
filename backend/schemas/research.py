@@ -137,6 +137,34 @@ class ResearchMethodBase(BaseModel):
                 raise ValueError(
                     "Поле show_calculation должно быть логическим значением"
                 )
+            use_result_rounding = field.get("use_result_rounding", True)
+            if use_result_rounding is not False and use_result_rounding is not True:
+                raise ValueError(
+                    "Поле use_result_rounding должно быть логическим значением"
+                )
+            if field.get("use_result_rounding") is False:
+                if field.get("use_multiple_rounding") or field.get(
+                    "use_threshold_table"
+                ):
+                    raise ValueError(
+                        "Своё округление нельзя задавать вместе с кратным или табличным"
+                    )
+                rounding_type = field.get("rounding_type")
+                valid_types = [e.value for e in RoundingType]
+                if rounding_type not in valid_types:
+                    raise ValueError(
+                        f"Неверный тип округления промежуточного поля. "
+                        f"Допустимые значения: {', '.join(valid_types)}"
+                    )
+                if "rounding_decimal" not in field:
+                    raise ValueError("Для своего округления укажите rounding_decimal")
+                if (
+                    not isinstance(field["rounding_decimal"], int)
+                    or field["rounding_decimal"] < 0
+                ):
+                    raise ValueError(
+                        "rounding_decimal должно быть неотрицательным целым"
+                    )
         return v
 
     @field_validator("convergence_conditions", mode="before")

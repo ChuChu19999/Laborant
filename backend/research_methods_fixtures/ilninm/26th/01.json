@@ -93,7 +93,10 @@
                 "multiple_value": "",
                 "show_calculation": true,
                 "range_calculation": null,
-                "use_multiple_rounding": false
+                "use_multiple_rounding": false,
+                "use_result_rounding": false,
+                "rounding_type": "decimal",
+                "rounding_decimal": 6
             },
             {
                 "name": "ρt₁",
@@ -195,7 +198,10 @@
                 "multiple_value": "",
                 "show_calculation": true,
                 "range_calculation": null,
-                "use_multiple_rounding": false
+                "use_multiple_rounding": false,
+                "use_result_rounding": false,
+                "rounding_type": "decimal",
+                "rounding_decimal": 6
             },
             {
                 "name": "ρt₂",

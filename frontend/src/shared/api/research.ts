@@ -31,6 +31,9 @@ export interface ResearchMethod {
       show_calculation: boolean;
       use_multiple_rounding?: boolean;
       multiple_value?: string;
+      use_result_rounding?: boolean;
+      rounding_type?: 'decimal' | 'significant';
+      rounding_decimal?: number;
       range_calculation?: {
         ranges: Array<{ condition: string; formula: string }>;
       };
@@ -92,6 +95,9 @@ export interface ResearchMethodCreate {
       show_calculation: boolean;
       use_multiple_rounding?: boolean;
       multiple_value?: string;
+      use_result_rounding?: boolean;
+      rounding_type?: 'decimal' | 'significant';
+      rounding_decimal?: number;
       range_calculation?: {
         ranges: Array<{ condition: string; formula: string }>;
       };

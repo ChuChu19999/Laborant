@@ -14,9 +14,6 @@ from services.fractional import (
     calculate_fractional_composition_oil,
 )
 
-SPECIAL_GROUP_KEYWORDS = ("Плотность при температуре 20 ℃",)
-SPECIAL_K_VARIABLES = {"K₁", "K₂"}
-
 MF_OIL_DISPLAY_LABELS_KEY = "_mf_oil_display_labels"
 
 
@@ -108,34 +105,110 @@ def _mf_oil_skip_repeatability_div_by_sum(
     return cv in ("satisfactory", "unsatisfactory")
 
 
-def _is_density_20_group_method(research_method: Dict[str, Any]) -> bool:
-    group_name = str(research_method.get("group_name") or "")
-    if any(keyword in group_name for keyword in SPECIAL_GROUP_KEYWORDS):
-        return True
-
-    groups = research_method.get("groups") or []
-    for group in groups:
-        candidate_name = ""
-        if isinstance(group, dict):
-            candidate_name = str(group.get("name") or "")
-        else:
-            candidate_name = str(group)
-
-        if any(keyword in candidate_name for keyword in SPECIAL_GROUP_KEYWORDS):
-            return True
-
-    return False
+def _intermediate_field_by_name(
+    research_method: Dict[str, Any],
+) -> Dict[str, Dict[str, Any]]:
+    fields = (research_method.get("intermediate_data") or {}).get("fields") or []
+    return {str(f["name"]): f for f in fields if isinstance(f, dict) and f.get("name")}
 
 
-def _get_special_k_decimal_places(
-    research_method: Dict[str, Any], field_name: str
-) -> Optional[int]:
-    if (
-        _is_density_20_group_method(research_method)
-        and field_name in SPECIAL_K_VARIABLES
-    ):
-        return 6
+def _field_uses_custom_rounding(field: Optional[Dict[str, Any]]) -> bool:
+    """Своё округление промежуточного поля (не как итог)."""
+    if not field:
+        return False
+    if field.get("use_multiple_rounding") or field.get("use_threshold_table"):
+        return False
+    return field.get("use_result_rounding") is False
+
+
+def _quantize_decimal_places(value: Any, decimal_places: int) -> Decimal:
+    d = Decimal(str(float(value)))
+    return d.quantize(
+        Decimal("0.1") ** int(decimal_places),
+        rounding=ROUND_HALF_UP,
+    )
+
+
+def _resolve_intermediate_rounding(
+    field: Optional[Dict[str, Any]],
+    research_method: Dict[str, Any],
+    result_decimal_places: Optional[int],
+) -> Optional[tuple[str, int]]:
+    """
+    Правило округления для подстановки и отображения.
+    ("decimal", N) или ("significant", N); None — не округлять здесь.
+    """
+    if _field_uses_custom_rounding(field):
+        rounding_type = field.get("rounding_type") or "decimal"
+        rounding_decimal = field.get("rounding_decimal")
+        if rounding_decimal is None:
+            rounding_decimal = research_method.get("rounding_decimal", 0)
+        if rounding_type == "significant":
+            return ("significant", int(rounding_decimal))
+        return ("decimal", int(rounding_decimal))
+
+    if result_decimal_places is not None:
+        return ("decimal", int(result_decimal_places))
+
+    if research_method.get("rounding_type") == "decimal":
+        method_places = research_method.get("rounding_decimal")
+        if method_places is not None:
+            return ("decimal", int(method_places))
+    elif research_method.get("rounding_type") == "significant":
+        return (
+            "significant",
+            int(research_method.get("rounding_decimal", 3)),
+        )
     return None
+
+
+def _apply_intermediate_rounding(
+    value: Any,
+    rounding: Optional[tuple[str, int]],
+) -> Any:
+    if rounding is None or not isinstance(value, (int, float, Decimal)):
+        return value
+    kind, param = rounding
+    if kind == "decimal":
+        return _quantize_decimal_places(value, param)
+    if kind == "significant":
+        return round_result(value, "significant", param)
+    return value
+
+
+def _format_intermediate_value_reference(
+    unrounded_value: Any,
+    field: Optional[Dict[str, Any]],
+    research_method: Dict[str, Any],
+    result_decimal_places: Optional[int],
+) -> Dict[str, str]:
+    """value и reference (+1 знак для decimal, +1 значащая для significant)."""
+    if not isinstance(unrounded_value, (int, float, Decimal)):
+        text = str(unrounded_value)
+        return {"value": text, "reference": text}
+
+    rounding = _resolve_intermediate_rounding(
+        field, research_method, result_decimal_places
+    )
+    if rounding is None:
+        text = str(unrounded_value)
+        return {"value": text, "reference": text}
+
+    kind, param = rounding
+    if kind == "significant":
+        rounded_value = round_result(unrounded_value, "significant", param)
+        reference_value = round_result(unrounded_value, "significant", param + 1)
+        return {
+            "value": str(rounded_value),
+            "reference": str(reference_value),
+        }
+
+    rounded_value = _apply_intermediate_rounding(unrounded_value, rounding)
+    reference_value = _quantize_decimal_places(unrounded_value, param + 1)
+    return {
+        "value": str(rounded_value),
+        "reference": str(reference_value),
+    }
 
 
 def _round_value(
@@ -343,12 +416,7 @@ async def calculate_result(
         # Исключаем поле "Цвет" из переменных для вычисления формул (это строка, не число)
         variables = _variables_from_input_data(input_data)
 
-        # Количество знаков для подстановки промежуточных в следующие формулы
-        intermediate_decimal_places = None
-        if research_method["rounding_type"] == "decimal":
-            intermediate_decimal_places = research_method.get("rounding_decimal")
-        elif research_method["rounding_type"] == "significant":
-            intermediate_decimal_places = research_method.get("rounding_decimal", 3)
+        intermediate_fields_by_name = _intermediate_field_by_name(research_method)
 
         for field in research_method["intermediate_data"]["fields"]:
             # Пропускаем поля с пустыми именами или формулами
@@ -425,23 +493,15 @@ async def calculate_result(
                 if field.get("show_calculation", True):
                     intermediate_results[field["name"]] = str(intermediate_value)
                 # В переменные для последующих формул подставляем округленное значение (как на экране)
-                if intermediate_decimal_places is not None and isinstance(
+                chain_rounding = _resolve_intermediate_rounding(
+                    field, research_method, None
+                )
+                if chain_rounding is not None and isinstance(
                     intermediate_value, (int, float, Decimal)
                 ):
-                    d = Decimal(str(float(intermediate_value)))
-                    field_decimal_places = _get_special_k_decimal_places(
-                        research_method, field["name"]
+                    variables[field["name"]] = _apply_intermediate_rounding(
+                        intermediate_value, chain_rounding
                     )
-                    value_for_next = d.quantize(
-                        Decimal("0.1")
-                        ** (
-                            field_decimal_places
-                            if field_decimal_places is not None
-                            else intermediate_decimal_places
-                        ),
-                        rounding=ROUND_HALF_UP,
-                    )
-                    variables[field["name"]] = value_for_next
                 else:
                     variables[field["name"]] = intermediate_value
             except Exception as e:
@@ -509,36 +569,26 @@ async def calculate_result(
                 )
                 result_decimal_places = research_method.get("rounding_decimal", 3)
 
-        # Округляем промежуточные результаты до количества знаков результата
+        # Округляем промежуточные для проверки повторяемости (как итог или по настройке поля)
         variables_rounded = _variables_from_input_data(input_data)
-        if result_decimal_places is not None:
-            logger.info(
-                f"Округление промежуточных результатов до {result_decimal_places} знаков"
+        logger.info("Округление промежуточных для проверки повторяемости")
+        for field_name, unrounded_value in intermediate_results_unrounded.items():
+            field_cfg = intermediate_fields_by_name.get(field_name)
+            repeat_rounding = _resolve_intermediate_rounding(
+                field_cfg, research_method, result_decimal_places
             )
-            for field_name, unrounded_value in intermediate_results_unrounded.items():
-                if isinstance(unrounded_value, (int, float, Decimal)):
-                    d = Decimal(str(float(unrounded_value)))
-                    field_decimal_places = _get_special_k_decimal_places(
-                        research_method, field_name
-                    )
-                    rounded_value = d.quantize(
-                        Decimal("0.1")
-                        ** (
-                            field_decimal_places
-                            if field_decimal_places is not None
-                            else result_decimal_places
-                        ),
-                        rounding=ROUND_HALF_UP,
-                    )
-                    variables_rounded[field_name] = rounded_value
-                    logger.info(
-                        f"Промежуточный результат {field_name}: {unrounded_value} -> {rounded_value}"
-                    )
-                else:
-                    variables_rounded[field_name] = unrounded_value
-        else:
-            # Если не удалось определить количество знаков, используем неокругленные значения
-            variables_rounded = variables
+            if repeat_rounding is not None and isinstance(
+                unrounded_value, (int, float, Decimal)
+            ):
+                rounded_value = _apply_intermediate_rounding(
+                    unrounded_value, repeat_rounding
+                )
+                variables_rounded[field_name] = rounded_value
+                logger.info(
+                    f"Промежуточный результат {field_name}: {unrounded_value} -> {rounded_value}"
+                )
+            else:
+                variables_rounded[field_name] = unrounded_value
 
         logger.info("Начало проверки условий повторяемости с округленными значениями")
         satisfied_conditions = []
@@ -657,63 +707,23 @@ async def calculate_result(
             elif convergence_result == "unsatisfactory":
                 result_text = "неудовлетворительно"
 
-            # Округляем промежуточные результаты до количества знаков из настроек метода
-            # (используем rounding_decimal из метода исследования)
-            intermediate_results_rounded = {}
+            early_result_places = None
             if research_method["rounding_type"] == "decimal":
-                result_decimal_places = research_method["rounding_decimal"]
-                logger.info(
-                    f"Округление промежуточных результатов до {result_decimal_places} знаков (из настроек метода)"
-                )
-
-                for (
-                    field_name,
+                early_result_places = research_method["rounding_decimal"]
+            intermediate_results_rounded = {}
+            for field_name, unrounded_value in intermediate_results_unrounded.items():
+                field_cfg = intermediate_fields_by_name.get(field_name)
+                formatted = _format_intermediate_value_reference(
                     unrounded_value,
-                ) in intermediate_results_unrounded.items():
-                    if isinstance(unrounded_value, (int, float, Decimal)):
-                        d = Decimal(str(float(unrounded_value)))
-                        field_decimal_places = _get_special_k_decimal_places(
-                            research_method, field_name
-                        )
-                        value_places = (
-                            field_decimal_places
-                            if field_decimal_places is not None
-                            else result_decimal_places
-                        )
-                        reference_places = (
-                            value_places + 1
-                            if field_decimal_places is not None
-                            else result_decimal_places + 1
-                        )
-                        # Основное округление (до N знаков)
-                        rounded_value = d.quantize(
-                            Decimal("0.1") ** value_places,
-                            rounding=ROUND_HALF_UP,
-                        )
-                        # Справочное округление (до N+1 знаков)
-                        reference_value = d.quantize(
-                            Decimal("0.1") ** reference_places,
-                            rounding=ROUND_HALF_UP,
-                        )
-                        intermediate_results_rounded[field_name] = {
-                            "value": str(rounded_value),
-                            "reference": str(reference_value),
-                        }
-                        logger.info(
-                            f"Промежуточный результат {field_name}: {rounded_value} (справка (с точностью +1 знак): {reference_value})"
-                        )
-                    else:
-                        intermediate_results_rounded[field_name] = {
-                            "value": str(unrounded_value),
-                            "reference": str(unrounded_value),
-                        }
-            else:
-                # Для significant округления используем старый формат
-                for field_name, value_str in intermediate_results.items():
-                    intermediate_results_rounded[field_name] = {
-                        "value": value_str,
-                        "reference": value_str,
-                    }
+                    field_cfg,
+                    research_method,
+                    early_result_places,
+                )
+                intermediate_results_rounded[field_name] = formatted
+                logger.info(
+                    f"Промежуточный результат {field_name}: {formatted['value']} "
+                    f"(справка: {formatted['reference']})"
+                )
 
             if (
                 _is_mass_fraction_oil_method(research_method)
@@ -764,45 +774,18 @@ async def calculate_result(
             # Формируем округленные промежуточные результаты для ответа
             intermediate_results_rounded = {}
             for field_name, unrounded_value in intermediate_results_unrounded.items():
-                if (
-                    isinstance(unrounded_value, (int, float, Decimal))
-                    and result_decimal_places is not None
-                ):
-                    d = Decimal(str(float(unrounded_value)))
-                    field_decimal_places = _get_special_k_decimal_places(
-                        research_method, field_name
-                    )
-                    value_places = (
-                        field_decimal_places
-                        if field_decimal_places is not None
-                        else result_decimal_places
-                    )
-                    reference_places = (
-                        value_places + 1
-                        if field_decimal_places is not None
-                        else result_decimal_places + 1
-                    )
-                    # Основное округление (до N знаков)
-                    rounded_value = d.quantize(
-                        Decimal("0.1") ** value_places, rounding=ROUND_HALF_UP
-                    )
-                    # Справочное округление (до N+1 знаков)
-                    reference_value = d.quantize(
-                        Decimal("0.1") ** reference_places,
-                        rounding=ROUND_HALF_UP,
-                    )
-                    intermediate_results_rounded[field_name] = {
-                        "value": str(rounded_value),
-                        "reference": str(reference_value),
-                    }
-                    logger.info(
-                        f"Промежуточный результат {field_name}: {rounded_value} (справка: {reference_value})"
-                    )
-                else:
-                    intermediate_results_rounded[field_name] = {
-                        "value": str(unrounded_value),
-                        "reference": str(unrounded_value),
-                    }
+                field_cfg = intermediate_fields_by_name.get(field_name)
+                formatted = _format_intermediate_value_reference(
+                    unrounded_value,
+                    field_cfg,
+                    research_method,
+                    result_decimal_places,
+                )
+                intermediate_results_rounded[field_name] = formatted
+                logger.info(
+                    f"Промежуточный результат {field_name}: {formatted['value']} "
+                    f"(справка: {formatted['reference']})"
+                )
 
             # Вычисляем основной результат с округленными промежуточными значениями
             try:

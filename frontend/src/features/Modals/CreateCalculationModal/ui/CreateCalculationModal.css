@@ -1,3 +1,43 @@
+.intermediate-rounding-section {
+  margin-top: 20px;
+  margin-bottom: 20px;
+  padding: 16px;
+  background-color: #fafafa;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+}
+
+.intermediate-rounding-title {
+  margin-bottom: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.88);
+}
+
+.intermediate-rounding-modes {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.intermediate-rounding-modes .ant-radio-wrapper {
+  margin-inline-end: 0;
+}
+
+.intermediate-rounding-nested {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed #e8e8e8;
+}
+
+.intermediate-rounding-nested .form-group {
+  margin-bottom: 12px;
+}
+
+.intermediate-rounding-nested .form-group:last-child {
+  margin-bottom: 0;
+}
+
 .add-calculation-form {
   min-height: 300px;
   transition: min-height 0.3s ease;

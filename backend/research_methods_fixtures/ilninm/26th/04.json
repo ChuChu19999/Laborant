@@ -50,7 +50,7 @@
                     "convergence_value": "unsatisfactory"
                 },
                 {
-                    "formula": "Xср<-57",
+                    "formula": "Tср<-57",
                     "custom_value": "ниже минус 57",
                     "convergence_value": "custom"
                 }
