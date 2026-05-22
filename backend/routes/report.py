@@ -25,8 +25,10 @@ from services.ilninm_reports.sample_count_generator import build_sample_count_ex
 from services.report import (
     create_report_template,
     delete_report_template,
+    get_latest_report_template,
     get_report_template_by_id,
     get_report_templates,
+    require_active_report_template,
     update_report_template,
 )
 
@@ -297,22 +299,19 @@ async def generate_sample_count_report(
         if template.laboratory_id != body.laboratory_id:
             raise ValidationError("Шаблон не принадлежит выбранной лаборатории")
     else:
-        templates, _, _ = await get_report_templates(
+        template = await get_latest_report_template(
             db,
             laboratory_id=body.laboratory_id,
-            include_deleted=False,
-            sort_by="version",
-            sort_order="desc",
+            report_type=ReportType.SAMPLE_COUNT.value,
+            department_id=body.department_id,
         )
-        template = None
-        for t in templates:
-            if t.report_type == ReportType.SAMPLE_COUNT.value:
-                template = t
-                break
         if not template:
             raise NotFoundError(
                 "Не найден шаблон отчёта «Количество проб» для данной лаборатории"
+                + (" и подразделения" if body.department_id is not None else "")
             )
+
+    require_active_report_template(template)
 
     try:
         date_from = pendulum.parse(body.date_from).start_of("day")

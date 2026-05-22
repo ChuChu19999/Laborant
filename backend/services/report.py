@@ -9,6 +9,24 @@ from schemas.report import ReportTemplateCreate, ReportTemplateUpdate
 from utils.pagination import apply_pagination, calculate_total_pages, get_total_count
 from utils.sorting import build_order_by
 
+_REPORT_TEMPLATE_VERSION_NUM = text(
+    "CAST(REGEXP_REPLACE(REGEXP_REPLACE(version, '^[vV]', ''), '[^0-9]', '', 'g') AS INTEGER)"
+)
+
+
+def _order_report_templates_by_version_desc(query):
+    """Сортировка версий v1, v2, …, v10 по числу, а не как строк."""
+    return query.order_by(
+        desc(_REPORT_TEMPLATE_VERSION_NUM), ReportTemplate.created_at.desc()
+    )
+
+
+def require_active_report_template(template: ReportTemplate) -> ReportTemplate:
+    """Отклоняет мягко удалённый шаблон (deleted_at не NULL)."""
+    if template.deleted_at is not None:
+        raise NotFoundError("Шаблон отчёта удалён")
+    return template
+
 
 async def get_report_template_by_id(
     db: AsyncSession, template_id: int, include_deleted: bool = False
@@ -24,6 +42,36 @@ async def get_report_template_by_id(
     )
     if not include_deleted:
         query = query.where(ReportTemplate.deleted_at.is_(None))
+    result = await db.execute(query)
+    return result.scalar_one_or_none()
+
+
+async def get_latest_report_template(
+    db: AsyncSession,
+    *,
+    laboratory_id: int,
+    report_type: str,
+    department_id: Optional[int] = None,
+) -> Optional[ReportTemplate]:
+    """Последняя неудалённая версия шаблона для лаборатории и (опционально) подразделения."""
+    conditions = [
+        ReportTemplate.laboratory_id == laboratory_id,
+        ReportTemplate.report_type == report_type,
+        ReportTemplate.deleted_at.is_(None),
+    ]
+    if department_id is not None:
+        conditions.append(ReportTemplate.department_id == department_id)
+    else:
+        conditions.append(ReportTemplate.department_id.is_(None))
+
+    query = _order_report_templates_by_version_desc(
+        select(ReportTemplate)
+        .where(*conditions)
+        .options(
+            selectinload(ReportTemplate.laboratory),
+            selectinload(ReportTemplate.department),
+        )
+    ).limit(1)
     result = await db.execute(query)
     return result.scalar_one_or_none()
 
@@ -61,13 +109,8 @@ async def get_report_templates(
         "created_at": ReportTemplate.created_at,
     }
 
-    # Если сортировка не указана, сортируем по версии по убыванию (последние версии первыми)
-    # Используем числовую сортировку версий: извлекаем число из строки "v1", "v2" и т.д.
-    if not sort_by:
-        version_num_expr = text(
-            "CAST(REGEXP_REPLACE(REGEXP_REPLACE(version, '^[vV]', ''), '[^0-9]', '', 'g') AS INTEGER)"
-        )
-        query = query.order_by(desc(version_num_expr), ReportTemplate.created_at.desc())
+    if not sort_by or sort_by == "version":
+        query = _order_report_templates_by_version_desc(query)
     else:
         order_by = build_order_by(
             sort_by, sort_order, sort_mapping, ReportTemplate.created_at
@@ -122,14 +165,14 @@ async def create_report_template(
             )
 
     latest = await db.execute(
-        select(ReportTemplate)
-        .where(
-            ReportTemplate.report_type == template_data.report_type,
-            ReportTemplate.laboratory_id == template_data.laboratory_id,
-            ReportTemplate.department_id == template_data.department_id,
-            ReportTemplate.deleted_at.is_(None),
-        )
-        .order_by(ReportTemplate.version.desc())
+        _order_report_templates_by_version_desc(
+            select(ReportTemplate).where(
+                ReportTemplate.report_type == template_data.report_type,
+                ReportTemplate.laboratory_id == template_data.laboratory_id,
+                ReportTemplate.department_id == template_data.department_id,
+                ReportTemplate.deleted_at.is_(None),
+            )
+        ).limit(1)
     )
     latest_template = latest.scalar_one_or_none()
 
@@ -173,14 +216,14 @@ async def update_report_template(
 
         # Получаем последнюю версию для этого типа отчёта
         latest = await db.execute(
-            select(ReportTemplate)
-            .where(
-                ReportTemplate.report_type == template.report_type,
-                ReportTemplate.laboratory_id == template.laboratory_id,
-                ReportTemplate.department_id == template.department_id,
-                ReportTemplate.deleted_at.is_(None),
-            )
-            .order_by(ReportTemplate.version.desc())
+            _order_report_templates_by_version_desc(
+                select(ReportTemplate).where(
+                    ReportTemplate.report_type == template.report_type,
+                    ReportTemplate.laboratory_id == template.laboratory_id,
+                    ReportTemplate.department_id == template.department_id,
+                    ReportTemplate.deleted_at.is_(None),
+                )
+            ).limit(1)
         )
         latest_template = latest.scalar_one_or_none()
 

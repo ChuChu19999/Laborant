@@ -14,16 +14,11 @@ from openpyxl.cell.rich_text import CellRichText, TextBlock
 from openpyxl.cell.text import InlineFont
 from openpyxl.styles import Alignment
 from sqlalchemy.ext.asyncio import AsyncSession
-from services.ilninm_reports.constants import (
-    BRANCH_NGDU,
-    BRANCH_UGPU,
-    ROW_TITLE_EKSPLUATACIONNAYA_NEFT_NGDU,
-    ROW_TITLE_KALIBROVOCHNAYA_NEFT_UGPU,
-    ROW_TITLE_TOVARNAYA_NEFT_NGDU,
-)
 from services.ilninm_reports.sample_count import (
+    ROW_TITLE_TO_BRANCH,
     _normalize_cell_a_for_match,
     get_sample_count_report_data,
+    is_sample_count_row_visible_for_branch,
     match_row_title_to_value,
 )
 from utils.protocol_generator_utils import (
@@ -64,14 +59,6 @@ def _cell_value_with_bold_counts(value: str) -> str | CellRichText:
     return CellRichText(*parts)
 
 
-# Строки, которые выводятся только в блоке соответствующего филиала.
-_ROW_TITLE_ONLY_IN_BRANCH = {
-    ROW_TITLE_TOVARNAYA_NEFT_NGDU: BRANCH_NGDU,
-    ROW_TITLE_EKSPLUATACIONNAYA_NEFT_NGDU: BRANCH_NGDU,
-    ROW_TITLE_KALIBROVOCHNAYA_NEFT_UGPU: BRANCH_UGPU,
-}
-
-
 def _get_cell_b_value(ws: openpyxl.worksheet.worksheet.Worksheet, row: int) -> Any:
     """Значение столбца B с учётом объединённых ячеек (берём верхнюю ячейку слияния)."""
     cell = ws.cell(row=row, column=2)
@@ -98,7 +85,7 @@ def _find_template_data_rows(
         "Товарная нефть НГДУ",
         "Эксплуатационная нефть НГДУ",
         "Калибровочная нефть УГПУ",
-        "Внеплановая нефть",
+        "Внеплановые",
         "Паспортизация",
         "ГКП-21 ГКП-22",
         "ОИС Ачимовка",
@@ -108,7 +95,8 @@ def _find_template_data_rows(
         "Товарная продукция ОИС",
         "Прочие",
         "Нефтеконденсатная смесь",
-        "Дизтопливо Ингибитор коррозии",
+        "Дизтопливо",
+        "Ингибитор коррозии",
     }
     result = []
     for row_idx in range(1, ws.max_row + 1):
@@ -190,9 +178,8 @@ async def build_sample_count_excel(
         block_start_row = current_row
         for template_row_idx, cell_b_value in data_rows:
             key = _normalize_cell_a_for_match(cell_b_value)
-            if (
-                key in _ROW_TITLE_ONLY_IN_BRANCH
-                and _ROW_TITLE_ONLY_IN_BRANCH[key] != branch_name
+            if key and not is_sample_count_row_visible_for_branch(
+                key, branch_name, ROW_TITLE_TO_BRANCH
             ):
                 continue
             for col in (1, 2, 3):

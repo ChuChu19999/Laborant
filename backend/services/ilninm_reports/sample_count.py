@@ -30,9 +30,10 @@ from .constants import (
     GKP_SAMPLING_NAME_PREFIX_21,
     GKP_SAMPLING_NAME_PREFIX_22,
     LABORATORY_NAME_ILNINM,
-    ROW_TITLE_DIZTOPIVO_INGIBITOR,
+    ROW_TITLE_DIZTOPIVO,
     ROW_TITLE_EKSPLUATACIONNAYA_NEFT_NGDU,
     ROW_TITLE_GKP_21_GKP_22,
+    ROW_TITLE_INGIBITOR,
     ROW_TITLE_KALIBROVOCHNAYA_NEFT_UGPU,
     ROW_TITLE_NEFTECONDENSATNAYA_SMES,
     ROW_TITLE_OIS,
@@ -43,7 +44,7 @@ from .constants import (
     ROW_TITLE_PROCHIE,
     ROW_TITLE_TOVARNAYA_NEFT_NGDU,
     ROW_TITLE_TOVARNAYA_PRODUKCIYA_OIS,
-    ROW_TITLE_VNEPLANOVAYA_NEFT,
+    ROW_TITLE_VNEPLANOVYE,
     SAMPLE_TYPE_VNEPLANOVYE,
     SAMPLING_LOCATION_PREFIXES_VALANZHIN_UKPG,
     SAMPLING_LOCATION_UKPG_11V,
@@ -169,13 +170,9 @@ def _branch_name_equals(s: Sample, name: str) -> bool:
     return (s.branch.name or "").strip() == name
 
 
-def _is_vneplanovaya_neft_sample(s: Sample) -> bool:
-    """Внеплановая нефть: тип «Внеплановые», объект с «нефть», без калибровочной."""
-    return (
-        _sample_type_equals(s, SAMPLE_TYPE_VNEPLANOVYE)
-        and _test_object_ilike(s, "нефть")
-        and not _test_object_ilike(s, "нефть калибровочная")
-    )
+def _is_vneplanovye_sample(s: Sample) -> bool:
+    """Внеплановые: тип пробы «Внеплановые», без ограничения по объекту испытаний."""
+    return _sample_type_equals(s, SAMPLE_TYPE_VNEPLANOVYE)
 
 
 def _matches_tovarnaya_neft_ngdu_criteria(s: Sample) -> bool:
@@ -185,7 +182,7 @@ def _matches_tovarnaya_neft_ngdu_criteria(s: Sample) -> bool:
         and _test_object_ilike(s, "нефть")
         and not _test_object_ilike(s, "нефть калибровочная")
         and not (s.well or "").strip()
-        and not _is_vneplanovaya_neft_sample(s)
+        and not _is_vneplanovye_sample(s)
     )
 
 
@@ -197,7 +194,7 @@ def _matches_ekspluatacionnaya_neft_ngdu_criteria(s: Sample) -> bool:
         and not _test_object_ilike(s, "нефть калибровочная")
         and _sampling_location_name_in(s, SAMPLING_LOCATIONS_CDGGKN)
         and (s.well or "").strip()
-        and not _is_vneplanovaya_neft_sample(s)
+        and not _is_vneplanovye_sample(s)
     )
 
 
@@ -401,15 +398,15 @@ def _build_kalibrovochnaya_neft_ugpu(
     return ("\n".join(lines) if lines else ""), items
 
 
-def _build_vneplanovaya_neft(
+def _build_vneplanovye(
     samples: list[Sample], agg: dict[int, tuple[int, int]]
 ) -> tuple[str, list[Sample]]:
     """
-    Внеплановая нефть по филиалу: тип «Внеплановые», объект «нефть» (не калибровочная).
+    Внеплановые по филиалу: тип пробы «Внеплановые», любой объект испытаний.
 
     Строки: место отбора; при наличии через пробел — скважина и режим; сумма показателей в «по N пок».
     """
-    items = [s for s in samples if _is_vneplanovaya_neft_sample(s)]
+    items = [s for s in samples if _is_vneplanovye_sample(s)]
     if not items:
         return "", []
     by_key: dict[tuple[str, str, str], list[Sample]] = defaultdict(list)
@@ -781,47 +778,46 @@ def _build_prochie(
     return "\n".join(lines), items
 
 
-def _build_diztoplivo_ingibitor(
-    samples: list[Sample], agg: dict[int, tuple[int, int]]
+def _build_by_test_object_place_date(
+    samples: list[Sample],
+    agg: dict[int, tuple[int, int]],
+    object_key: str,
 ) -> tuple[str, list[Sample]]:
-    """Дизтопливо и ингибитор: отдельные блоки по объекту, затем как сейчас — шт/место/дата/пок."""
-    items = [
-        s
-        for s in samples
-        if _test_object_ilike(s, "дизельное топливо")
-        or _test_object_ilike(s, "ингибитор коррозии")
-    ]
+    """Строка отчёта по объекту испытаний: шт, место отбора, дата получения, показатели."""
+    items = [s for s in samples if _test_object_ilike(s, object_key)]
     if not items:
         return "", []
-    groups: list[tuple[str, str]] = [
-        ("Дизтопливо", "дизельное топливо"),
-        ("Ингибитор коррозии", "ингибитор коррозии"),
-    ]
-    sections: list[str] = []
-    for title, object_key in groups:
-        object_samples = [s for s in items if _test_object_ilike(s, object_key)]
-        if not object_samples:
-            continue
-        by_place_date: dict[tuple[str, Optional[pendulum.Date]], list[Sample]] = (
-            defaultdict(list)
+    by_place_date: dict[tuple[str, Optional[pendulum.Date]], list[Sample]] = (
+        defaultdict(list)
+    )
+    for s in items:
+        place = (s.sampling_location.name or "").strip() if s.sampling_location else ""
+        by_place_date[(place, s.receiving_date)].append(s)
+    lines: list[str] = []
+    for (place, dt), loc_samples in sorted(
+        by_place_date.items(),
+        key=lambda x: (x[0][0], x[0][1] or pendulum.date(1900, 1, 1)),
+    ):
+        cnt = len(loc_samples)
+        pok = sum(agg.get(s.id, (0, 0))[1] for s in loc_samples)
+        lines.append(
+            f"{_map_display_sht_count(cnt)} шт {place} от {_fmt_date(dt)} по {pok} пок"
         )
-        for s in object_samples:
-            place = (
-                (s.sampling_location.name or "").strip() if s.sampling_location else ""
-            )
-            by_place_date[(place, s.receiving_date)].append(s)
-        section_lines: list[str] = [title]
-        for (place, dt), loc_samples in sorted(
-            by_place_date.items(),
-            key=lambda x: (x[0][0], x[0][1] or pendulum.date(1900, 1, 1)),
-        ):
-            cnt = len(loc_samples)
-            pok = sum(agg.get(s.id, (0, 0))[1] for s in loc_samples)
-            section_lines.append(
-                f"{_map_display_sht_count(cnt)} шт {place} от {_fmt_date(dt)} по {pok} пок"
-            )
-        sections.append("\n".join(section_lines))
-    return ("\n\n".join(sections) if sections else ""), items
+    return ("\n".join(lines) if lines else ""), items
+
+
+def _build_diztoplivo(
+    samples: list[Sample], agg: dict[int, tuple[int, int]]
+) -> tuple[str, list[Sample]]:
+    """Дизтопливо: объект испытаний «дизельное топливо»."""
+    return _build_by_test_object_place_date(samples, agg, "дизельное топливо")
+
+
+def _build_ingibitor(
+    samples: list[Sample], agg: dict[int, tuple[int, int]]
+) -> tuple[str, list[Sample]]:
+    """Ингибитор коррозии: объект испытаний «ингибитор коррозии»."""
+    return _build_by_test_object_place_date(samples, agg, "ингибитор коррозии")
 
 
 def _build_all_row_values(
@@ -832,7 +828,7 @@ def _build_all_row_values(
         ROW_TITLE_TOVARNAYA_NEFT_NGDU: _build_tovarnaya_neft_ngdu,
         ROW_TITLE_EKSPLUATACIONNAYA_NEFT_NGDU: _build_ekspluatacionnaya_neft_ngdu,
         ROW_TITLE_KALIBROVOCHNAYA_NEFT_UGPU: _build_kalibrovochnaya_neft_ugpu,
-        ROW_TITLE_VNEPLANOVAYA_NEFT: _build_vneplanovaya_neft,
+        ROW_TITLE_VNEPLANOVYE: _build_vneplanovye,
         ROW_TITLE_PASPORTIZACIYA: _build_pasportizaciya,
         ROW_TITLE_GKP_21_GKP_22: _build_gkp_21_gkp_22,
         ROW_TITLE_OIS: _build_ois,
@@ -842,7 +838,8 @@ def _build_all_row_values(
         ROW_TITLE_OIS_EN_YAHA: _build_ois_en_yaha,
         ROW_TITLE_PROCHIE: _build_prochie,
         ROW_TITLE_NEFTECONDENSATNAYA_SMES: _build_neftecondensatnaya_smes,
-        ROW_TITLE_DIZTOPIVO_INGIBITOR: _build_diztoplivo_ingibitor,
+        ROW_TITLE_DIZTOPIVO: _build_diztoplivo,
+        ROW_TITLE_INGIBITOR: _build_ingibitor,
     }
     result: dict[str, str] = {}
     for title, builder in builders.items():
@@ -906,7 +903,7 @@ def _build_sample_count_diagnostics_text(
         ROW_TITLE_TOVARNAYA_NEFT_NGDU: _build_tovarnaya_neft_ngdu,
         ROW_TITLE_EKSPLUATACIONNAYA_NEFT_NGDU: _build_ekspluatacionnaya_neft_ngdu,
         ROW_TITLE_KALIBROVOCHNAYA_NEFT_UGPU: _build_kalibrovochnaya_neft_ugpu,
-        ROW_TITLE_VNEPLANOVAYA_NEFT: _build_vneplanovaya_neft,
+        ROW_TITLE_VNEPLANOVYE: _build_vneplanovye,
         ROW_TITLE_PASPORTIZACIYA: _build_pasportizaciya,
         ROW_TITLE_GKP_21_GKP_22: _build_gkp_21_gkp_22,
         ROW_TITLE_OIS: _build_ois,
@@ -916,7 +913,8 @@ def _build_sample_count_diagnostics_text(
         ROW_TITLE_OIS_EN_YAHA: _build_ois_en_yaha,
         ROW_TITLE_PROCHIE: _build_prochie,
         ROW_TITLE_NEFTECONDENSATNAYA_SMES: _build_neftecondensatnaya_smes,
-        ROW_TITLE_DIZTOPIVO_INGIBITOR: _build_diztoplivo_ingibitor,
+        ROW_TITLE_DIZTOPIVO: _build_diztoplivo,
+        ROW_TITLE_INGIBITOR: _build_ingibitor,
     }
 
     for _, branch_name in branches_seen.values():
@@ -931,8 +929,9 @@ def _build_sample_count_diagnostics_text(
         usage_by_sample: dict[int, set[str]] = defaultdict(set)
 
         for row_title, builder in builders.items():
-            expected_branch = row_titles_for_branch.get(row_title)
-            if expected_branch is not None and expected_branch != branch_name:
+            if not is_sample_count_row_visible_for_branch(
+                row_title, branch_name, row_titles_for_branch
+            ):
                 continue
             value, used = builder(branch_samples, agg)
             if not value or not used:
@@ -1016,8 +1015,9 @@ def _split_by_branch(
         row_values = _build_all_row_values(branch_samples, agg)
         rows = []
         for row_title, value in row_values.items():
-            expected_branch = row_titles_for_branch.get(row_title)
-            if expected_branch is not None and expected_branch != branch_name:
+            if not is_sample_count_row_visible_for_branch(
+                row_title, branch_name, row_titles_for_branch
+            ):
                 continue
             if value:
                 rows.append({"label": row_title, "value": value})
@@ -1033,7 +1033,7 @@ ROW_TITLE_TO_BRANCH: dict[str, Optional[str]] = {
     ROW_TITLE_TOVARNAYA_NEFT_NGDU: BRANCH_NGDU,
     ROW_TITLE_EKSPLUATACIONNAYA_NEFT_NGDU: BRANCH_NGDU,
     ROW_TITLE_KALIBROVOCHNAYA_NEFT_UGPU: BRANCH_UGPU,
-    ROW_TITLE_VNEPLANOVAYA_NEFT: None,
+    ROW_TITLE_VNEPLANOVYE: None,
     ROW_TITLE_PASPORTIZACIYA: None,
     ROW_TITLE_GKP_21_GKP_22: None,
     ROW_TITLE_OIS: None,
@@ -1043,8 +1043,36 @@ ROW_TITLE_TO_BRANCH: dict[str, Optional[str]] = {
     ROW_TITLE_OIS_EN_YAHA: None,
     ROW_TITLE_PROCHIE: None,
     ROW_TITLE_NEFTECONDENSATNAYA_SMES: None,
-    ROW_TITLE_DIZTOPIVO_INGIBITOR: None,
+    ROW_TITLE_DIZTOPIVO: None,
+    ROW_TITLE_INGIBITOR: None,
 }
+
+# Строки, которые не выводятся в блоке указанных филиалов.
+ROW_TITLE_EXCLUDED_BRANCHES: dict[str, tuple[str, ...]] = {
+    ROW_TITLE_PASPORTIZACIYA: (BRANCH_GPU_PRAO, BRANCH_NGDU),
+    ROW_TITLE_GKP_21_GKP_22: (BRANCH_NGDU, BRANCH_UGPU),
+    ROW_TITLE_OIS_VALANZHIN: (BRANCH_GPU_PRAO, BRANCH_NGDU),
+    ROW_TITLE_OIS_EN_YAHA: (BRANCH_GPU_PRAO, BRANCH_NGDU),
+    ROW_TITLE_NEFTECONDENSATNAYA_SMES: (BRANCH_GPU_PRAO, BRANCH_NGDU),
+    ROW_TITLE_OIS_ACHIMOVKA: (BRANCH_NGDU, BRANCH_UGPU),
+    ROW_TITLE_TOVARNAYA_PRODUKCIYA_OIS: (BRANCH_NGDU, BRANCH_UGPU),
+    ROW_TITLE_OIS: (BRANCH_UGPU,),
+}
+
+
+def is_sample_count_row_visible_for_branch(
+    row_title: str,
+    branch_name: str,
+    row_titles_for_branch: dict[str, Optional[str]],
+) -> bool:
+    """Проверяет, нужно ли показывать строку отчёта в блоке филиала."""
+    only_branch = row_titles_for_branch.get(row_title)
+    if only_branch is not None and only_branch != branch_name:
+        return False
+    excluded = ROW_TITLE_EXCLUDED_BRANCHES.get(row_title)
+    if excluded and branch_name in excluded:
+        return False
+    return True
 
 
 def _normalize_cell_a_for_match(cell_value: Any) -> str:
