@@ -15,12 +15,16 @@ from models.laboratory import Laboratory
 from models.report import ReportTemplate, ReportType
 from schemas.pagination import PaginatedResponse
 from schemas.report import (
+    GeneratePhysicochemicalReportRequest,
     GenerateSampleCountReportRequest,
     ReportTemplateCreate,
     ReportTemplateResponse,
     ReportTemplateUpdate,
 )
 from services.ilninm_reports import LABORATORY_NAME_ILNINM
+from services.ilninm_reports.physicochemical_generator import (
+    build_physicochemical_excel,
+)
 from services.ilninm_reports.sample_count_generator import build_sample_count_excel
 from services.report import (
     create_report_template,
@@ -345,5 +349,94 @@ async def generate_sample_count_report(
     return Response(
         content=zip_buffer.getvalue(),
         media_type="application/zip",
+        headers={"Content-Disposition": content_disposition},
+    )
+
+
+@router.post(
+    "/report-templates/generate/physicochemical-characteristic/",
+    summary="Сформировать отчёт «Физико-химическая характеристика» (ИЛНиНМ)",
+    description=(
+        "Доступно только для лаборатории с названием ИЛНиНМ. "
+        "Возвращает Excel-файл за период по дате получения пробы для цеха ЦДГГКН №1 или №2."
+    ),
+    responses={
+        200: {"description": "Excel-файл отчёта"},
+        400: {"description": "Некорректные параметры или лаборатория не ИЛНиНМ"},
+        404: {"description": "Лаборатория или шаблон не найдены"},
+    },
+)
+# @IsAuthenticated
+async def generate_physicochemical_report(
+    body: GeneratePhysicochemicalReportRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Формирует отчёт «Физико-химическая характеристика» и возвращает Excel-файл."""
+    lab_result = await db.execute(
+        select(Laboratory).where(Laboratory.id == body.laboratory_id)
+    )
+    lab = lab_result.scalar_one_or_none()
+    if not lab:
+        raise NotFoundError("Лаборатория не найдена")
+    if lab.name != LABORATORY_NAME_ILNINM:
+        raise ValidationError(
+            f"Отчёт «Физико-химическая характеристика» доступен только "
+            f"для лаборатории «{LABORATORY_NAME_ILNINM}»"
+        )
+
+    if body.template_id:
+        template = await get_report_template_by_id(db, body.template_id)
+        if not template:
+            raise NotFoundError("Шаблон отчёта не найден")
+        if template.report_type != ReportType.PHYSICOCHEMICAL_CHARACTERISTIC.value:
+            raise ValidationError(
+                "Шаблон должен быть типа «Физико-химическая характеристика»"
+            )
+        if template.laboratory_id != body.laboratory_id:
+            raise ValidationError("Шаблон не принадлежит выбранной лаборатории")
+    else:
+        template = await get_latest_report_template(
+            db,
+            laboratory_id=body.laboratory_id,
+            report_type=ReportType.PHYSICOCHEMICAL_CHARACTERISTIC.value,
+            department_id=body.department_id,
+        )
+        if not template:
+            raise NotFoundError(
+                "Не найден шаблон отчёта «Физико-химическая характеристика» "
+                "для данной лаборатории"
+                + (" и подразделения" if body.department_id is not None else "")
+            )
+
+    require_active_report_template(template)
+
+    try:
+        date_from = pendulum.parse(body.date_from).start_of("day")
+        date_to = pendulum.parse(body.date_to).end_of("day")
+    except Exception:
+        raise ValidationError("Некорректный формат дат (ожидается YYYY-MM-DD)")
+
+    excel_bytes = await build_physicochemical_excel(
+        db,
+        template_file_base64=template.file,
+        laboratory_id=body.laboratory_id,
+        receiving_date_from=date_from,
+        receiving_date_to=date_to,
+        sampling_location=body.sampling_location,
+        department_id=body.department_id,
+    )
+
+    location_slug = body.sampling_location.replace(" ", "_")
+    filename = (
+        f"Физико_химическая_характеристика_{location_slug}_"
+        f"{body.date_from}_{body.date_to}.xlsx"
+    )
+    encoded_filename = quote(filename, safe="")
+    content_disposition = f"attachment; filename*=UTF-8''{encoded_filename}"
+    return Response(
+        content=excel_bytes,
+        media_type=(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        ),
         headers={"Content-Disposition": content_disposition},
     )

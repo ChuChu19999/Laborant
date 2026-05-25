@@ -6,7 +6,8 @@
 В отчёт попадают только неудалённые пробы (deleted_at IS NULL) и неудалённые расчёты.
 
 Места отбора с префиксами «ГКП-21» и «ГКП-22» сопоставляются по началу имени.
-Число в «N шт» подменяется по правилам (_map_display_sht_count).
+Число в «N пок» подменяется по правилам (_map_display_pok_count).
+«При 20 °C» и «При 50 °C» на одной пробе считаются одним показателем.
 """
 
 import re
@@ -14,7 +15,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any, Optional
 import pendulum
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from core.logger import logger
@@ -30,6 +31,8 @@ from .constants import (
     GKP_SAMPLING_NAME_PREFIX_21,
     GKP_SAMPLING_NAME_PREFIX_22,
     LABORATORY_NAME_ILNINM,
+    METHOD_VISCOSITY_20,
+    METHOD_VISCOSITY_50,
     ROW_TITLE_DIZTOPIVO,
     ROW_TITLE_EKSPLUATACIONNAYA_NEFT_NGDU,
     ROW_TITLE_GKP_21_GKP_22,
@@ -133,26 +136,62 @@ async def _get_samples_in_range(
     return list(result.scalars().unique().all())
 
 
+VISCOSITY_PAIR_INDICATOR_KEY = "viscosity_20_50"
+
+
+def _normalize_method_name(value: Optional[str]) -> str:
+    if not value:
+        return ""
+    text = value.strip().lower()
+    return text.replace("℃", "°c")
+
+
+def _is_viscosity_temperature_method(method_name: Optional[str]) -> bool:
+    norm = _normalize_method_name(method_name)
+    return norm in (
+        _normalize_method_name(METHOD_VISCOSITY_20),
+        _normalize_method_name(METHOD_VISCOSITY_50),
+    )
+
+
+def _indicator_key_for_calculation(calc: Calculation) -> str:
+    method = calc.research_method
+    method_id = method.id if method is not None else calc.research_method_id
+    method_name = method.name if method is not None else None
+    if _is_viscosity_temperature_method(method_name):
+        return VISCOSITY_PAIR_INDICATOR_KEY
+    return f"method:{method_id}"
+
+
+def _count_pok_for_calculations(calculations: list[Calculation]) -> int:
+    """Число показателей по пробе: вязкость при 20 и 50 °C вместе — один показатель."""
+    if not calculations:
+        return 0
+    return len({_indicator_key_for_calculation(c) for c in calculations})
+
+
 async def _get_calc_agg_by_sample(
     db: AsyncSession, sample_ids: list[int]
 ) -> dict[int, tuple[int, int]]:
-    """По каждому sample_id: (число расчётов, число уникальных показателей)."""
+    """По каждому sample_id: (число расчётов, число показателей с учётом вязкости 20/50)."""
     if not sample_ids:
         return {}
-    sub = (
-        select(
-            Calculation.sample_id,
-            func.count(Calculation.id).label("cnt"),
-            func.count(func.distinct(Calculation.research_method_id)).label("pok"),
-        )
+    query = (
+        select(Calculation)
         .where(
             Calculation.sample_id.in_(sample_ids),
             Calculation.deleted_at.is_(None),
         )
-        .group_by(Calculation.sample_id)
+        .options(selectinload(Calculation.research_method))
     )
-    r = await db.execute(sub)
-    return {row.sample_id: (row.cnt, row.pok) for row in r.all()}
+    result = await db.execute(query)
+    by_sample: dict[int, list[Calculation]] = defaultdict(list)
+    for calc in result.scalars().unique().all():
+        by_sample[calc.sample_id].append(calc)
+    return {
+        sample_id: (len(calcs), _count_pok_for_calculations(calcs))
+        for sample_id, calcs in by_sample.items()
+    }
 
 
 def _test_object_ilike(s: Sample, part: str) -> bool:
@@ -222,8 +261,8 @@ def _sample_indicates_tovarnaya_produkciya(s: Sample) -> bool:
     return "товарная продукция" in mode or "товарная продукция" in well
 
 
-def _map_display_sht_count(n: int) -> int:
-    """Число для вывода в «N шт»: 1→2, 4→5, 6–8→9, 10–12→13, остальное без изменений."""
+def _map_display_pok_count(n: int) -> int:
+    """Число для вывода в «N пок»: 1→2, 4→5, 6–8→9, 10–12→13, остальное без изменений."""
     if n == 1:
         return 2
     if n == 4:
@@ -312,9 +351,9 @@ def _gkp_sample_line(
     reg = (s.registration_number or "").strip()
     dt = s.receiving_date
     date_part = _fmt_date(dt) if dt else "(дата получения не указана)"
-    pok = agg.get(s.id, (0, 0))[1]
+    pok = _map_display_pok_count(agg.get(s.id, (0, 0))[1])
     if ois_sht_suffix:
-        text += f" от {date_part} по {pok} пок {_map_display_sht_count(1)} шт"
+        text += f" от {date_part} по {pok} пок 1 шт"
     else:
         text += f" от {date_part} по {pok} пок"
     return text
@@ -338,8 +377,7 @@ def _build_tovarnaya_neft_ngdu(
     pok_count = sum(p for _, p in all_pok) if all_pok else 0
     if pok_count == 0:
         pok_count = sum(agg.get(s.id, (0, 0))[1] for s in items)
-    d = _map_display_sht_count(len(items))
-    return f"{d} шт по {pok_count} пок", items
+    return f"{len(items)} шт по {_map_display_pok_count(pok_count)} пок", items
 
 
 def _build_ekspluatacionnaya_neft_ngdu(
@@ -363,7 +401,7 @@ def _build_ekspluatacionnaya_neft_ngdu(
         if cnt == 0 and pok == 0:
             continue
         display_name = DISPLAY_NAMES_CDGGKN.get(loc_name, loc_name)
-        lines.append(f"{_map_display_sht_count(cnt)} шт по {pok} пок")
+        lines.append(f"{cnt} шт по {_map_display_pok_count(pok)} пок")
         for s in sorted(
             loc_samples,
             key=lambda x: (x.receiving_date or pendulum.date(1900, 1, 1), x.well or ""),
@@ -393,14 +431,14 @@ def _build_kalibrovochnaya_neft_ugpu(
         name = (s.sampling_location.name or "").strip()
         by_loc[name] += 1
     parts = [
-        f"{_map_display_sht_count(c)} шт"
+        f"{c} шт"
         for loc_name in ("Цех по ДГГКН №2", "Цех по ДГГКН №1")
         for c in [by_loc.get(loc_name, 0)]
         if c > 0
     ]
     if not parts:
         return "", items
-    lines = [f"{_map_display_sht_count(sum(by_loc.values()))} шт"]
+    lines = [f"{sum(by_loc.values())} шт"]
     for loc_name in ("Цех по ДГГКН №2", "Цех по ДГГКН №1"):
         if by_loc.get(loc_name, 0) > 0:
             lines.append(DISPLAY_NAMES_CDGGKN.get(loc_name, loc_name))
@@ -434,7 +472,7 @@ def _build_vneplanovye(
             text += f" скв. {well_key}"
         if mode_key:
             text += f" {mode_key}"
-        lines.append(f"{text} по {pok} пок")
+        lines.append(f"{text} по {_map_display_pok_count(pok)} пок")
     return "\n".join(lines), items
 
 
@@ -463,7 +501,7 @@ def _build_pasportizaciya(
         loc_samples = by_loc[loc_name]
         cnt = len(loc_samples)
         pok = sum(agg.get(s.id, (0, 0))[1] for s in loc_samples)
-        lines.append(f"{loc_name} - {_map_display_sht_count(cnt)} шт по {pok} пок")
+        lines.append(f"{loc_name} - {cnt} шт по {_map_display_pok_count(pok)} пок")
     return "\n".join(lines), items
 
 
@@ -500,10 +538,10 @@ def _build_gkp_21_gkp_22(
         ]
 
     lines: list[str] = [
-        f"{GKP_SAMPLING_NAME_PREFIX_21} {_map_display_sht_count(len(gkp21))} шт",
+        f"{GKP_SAMPLING_NAME_PREFIX_21} {len(gkp21)} шт",
         *_passport_sample_lines(gkp21),
         "",
-        f"{GKP_SAMPLING_NAME_PREFIX_22} {_map_display_sht_count(len(gkp22))} шт",
+        f"{GKP_SAMPLING_NAME_PREFIX_22} {len(gkp22)} шт",
         *_passport_sample_lines(gkp22),
     ]
     return "\n".join(lines), items
@@ -551,10 +589,10 @@ def _build_ois_achimovka(
         ]
 
     lines: list[str] = [
-        f"{GKP_SAMPLING_NAME_PREFIX_21} {_map_display_sht_count(len(gkp21))} шт",
+        f"{GKP_SAMPLING_NAME_PREFIX_21} {len(gkp21)} шт",
         *_ois_sample_lines(gkp21),
         "",
-        f"{GKP_SAMPLING_NAME_PREFIX_22} {_map_display_sht_count(len(gkp22))} шт",
+        f"{GKP_SAMPLING_NAME_PREFIX_22} {len(gkp22)} шт",
         *_ois_sample_lines(gkp22),
     ]
     return "\n".join(lines), items
@@ -586,7 +624,7 @@ def _build_ois_valanzhin(
         loc_samples = by_loc[loc_name]
         pok = sum(agg.get(s.id, (0, 0))[1] for s in loc_samples)
         lines.append(
-            f"{_map_display_sht_count(len(loc_samples))} шт {loc_name} по {pok} пок"
+            f"{len(loc_samples)} шт {loc_name} по {_map_display_pok_count(pok)} пок"
         )
     return "\n\n".join(lines), items
 
@@ -610,11 +648,11 @@ def _build_ois_en_yaha(
         name = (s.sampling_location.name or "").strip() if s.sampling_location else ""
         key = name if name else "(место отбора не указано)"
         by_loc[key].append(s)
-    lines = [f"{_map_display_sht_count(len(items))} шт"]
+    lines = [f"{len(items)} шт"]
     for loc_name in sorted(by_loc.keys()):
         loc_samples = by_loc[loc_name]
         pok = sum(agg.get(s.id, (0, 0))[1] for s in loc_samples)
-        lines.append(f"{loc_name} по {pok} пок")
+        lines.append(f"{loc_name} по {_map_display_pok_count(pok)} пок")
     return "\n".join(lines), items
 
 
@@ -645,7 +683,7 @@ def _build_ois(
         if not loc_samples:
             continue
         pok = sum(agg.get(s.id, (0, 0))[1] for s in loc_samples)
-        lines.append(f"{_map_display_sht_count(len(loc_samples))} шт по {pok} пок")
+        lines.append(f"{len(loc_samples)} шт по {_map_display_pok_count(pok)} пок")
         display_name = DISPLAY_NAMES_CDGGKN.get(loc_name, loc_name)
         for s in sorted(
             loc_samples,
@@ -720,9 +758,9 @@ def _build_neftecondensatnaya_smes(
         name = (s.sampling_location.name or "").strip() if s.sampling_location else ""
         key = name if name else "(место отбора не указано)"
         by_loc[key] += 1
-    lines = [f"{_map_display_sht_count(len(items))} шт"]
+    lines = [f"{len(items)} шт"]
     for loc_name in sorted(by_loc.keys()):
-        lines.append(f"{loc_name} - {_map_display_sht_count(by_loc[loc_name])} шт")
+        lines.append(f"{loc_name} - {by_loc[loc_name]} шт")
     return "\n".join(lines), items
 
 
@@ -757,7 +795,7 @@ def _build_prochie(
         dt_key = s.sampling_date or s.receiving_date
         by_key[(place_key, well_key, mode_key, dt_key)].append(s)
     total = len(items)
-    lines = [f"{_map_display_sht_count(total)} шт"]
+    lines = [f"{total} шт"]
     for key in sorted(
         by_key.keys(),
         key=lambda x: (
@@ -777,7 +815,7 @@ def _build_prochie(
             text += f" скв. {well_key}"
         if mode_key:
             text += f" {mode_key}"
-        lines.append(f"{text} от {date_part} по {pok} пок")
+        lines.append(f"{text} от {date_part} по {_map_display_pok_count(pok)} пок")
     return "\n".join(lines), items
 
 
@@ -804,7 +842,7 @@ def _build_by_test_object_place_date(
         cnt = len(loc_samples)
         pok = sum(agg.get(s.id, (0, 0))[1] for s in loc_samples)
         lines.append(
-            f"{_map_display_sht_count(cnt)} шт {place} от {_fmt_date(dt)} по {pok} пок"
+            f"{cnt} шт {place} от {_fmt_date(dt)} по {_map_display_pok_count(pok)} пок"
         )
     return ("\n".join(lines) if lines else ""), items
 

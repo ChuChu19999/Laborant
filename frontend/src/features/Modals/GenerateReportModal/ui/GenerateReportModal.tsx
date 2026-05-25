@@ -9,7 +9,17 @@ import type { Dayjs } from 'dayjs';
 import './GenerateReportModal.css';
 
 const REPORT_TYPE_SAMPLE_COUNT = 'Количество проб';
-const REPORT_TYPES = [{ value: REPORT_TYPE_SAMPLE_COUNT, label: REPORT_TYPE_SAMPLE_COUNT }];
+const REPORT_TYPE_PHYSICOCHEMICAL = 'Физико-химическая характеристика';
+
+const REPORT_TYPES = [
+  { value: REPORT_TYPE_SAMPLE_COUNT, label: REPORT_TYPE_SAMPLE_COUNT },
+  { value: REPORT_TYPE_PHYSICOCHEMICAL, label: REPORT_TYPE_PHYSICOCHEMICAL },
+];
+
+const PHYSICOCHEMICAL_SAMPLING_LOCATIONS = [
+  { value: 'ЦДГГКН №1', label: 'ЦДГГКН №1' },
+  { value: 'ЦДГГКН №2', label: 'ЦДГГКН №2' },
+];
 
 interface GenerateReportModalProps {
   open: boolean;
@@ -25,26 +35,41 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
   departmentId,
 }) => {
   const [reportType, setReportType] = useState<string>(REPORT_TYPE_SAMPLE_COUNT);
+  const [samplingLocation, setSamplingLocation] = useState<string>('ЦДГГКН №1');
   const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
   const [loading, setLoading] = useState(false);
 
+  const isPhysicochemical = reportType === REPORT_TYPE_PHYSICOCHEMICAL;
+  const dateLabel = 'Период (дата получения пробы)';
+
   const handleGenerate = useCallback(async () => {
     if (!dateRange[0] || !dateRange[1]) {
-      message.warning('Выберите период (даты получения пробы)');
+      message.warning(`Выберите период (${dateLabel.toLowerCase()})`);
       return;
     }
-    if (reportType !== REPORT_TYPE_SAMPLE_COUNT) {
-      message.warning('Выбранный тип отчёта пока не реализован');
+    if (isPhysicochemical && !samplingLocation) {
+      message.warning('Выберите место отбора пробы');
       return;
     }
+
     setLoading(true);
     try {
-      const reportFile = await reportsApi.generateSampleCountReport({
+      const dateFrom = dateRange[0].format('YYYY-MM-DD');
+      const dateTo = dateRange[1].format('YYYY-MM-DD');
+      const baseParams = {
         laboratory_id: laboratoryId,
         department_id: departmentId,
-        date_from: dateRange[0].format('YYYY-MM-DD'),
-        date_to: dateRange[1].format('YYYY-MM-DD'),
-      });
+        date_from: dateFrom,
+        date_to: dateTo,
+      };
+
+      const reportFile = isPhysicochemical
+        ? await reportsApi.generatePhysicochemicalReport({
+            ...baseParams,
+            sampling_location: samplingLocation,
+          })
+        : await reportsApi.generateSampleCountReport(baseParams);
+
       const url = window.URL.createObjectURL(reportFile.blob);
       const a = document.createElement('a');
       a.href = url;
@@ -60,7 +85,15 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [laboratoryId, departmentId, dateRange, reportType, onClose]);
+  }, [
+    laboratoryId,
+    departmentId,
+    dateRange,
+    isPhysicochemical,
+    samplingLocation,
+    dateLabel,
+    onClose,
+  ]);
 
   if (!open) {
     return null;
@@ -88,8 +121,22 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
             style={{ width: '100%' }}
           />
         </div>
+        {isPhysicochemical && (
+          <div className="generate-report-modal-field">
+            <label className="generate-report-modal-label">Место отбора пробы</label>
+            <Select
+              placeholder="Выберите место отбора"
+              value={samplingLocation}
+              onChange={(v: unknown) =>
+                setSamplingLocation((v as string) ?? PHYSICOCHEMICAL_SAMPLING_LOCATIONS[0].value)
+              }
+              options={PHYSICOCHEMICAL_SAMPLING_LOCATIONS}
+              style={{ width: '100%' }}
+            />
+          </div>
+        )}
         <div className="generate-report-modal-field">
-          <label className="generate-report-modal-label">Период (дата получения пробы)</label>
+          <label className="generate-report-modal-label">{dateLabel}</label>
           <RangePicker
             value={dateRange}
             onChange={dates => setDateRange(dates ?? [null, null])}

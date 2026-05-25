@@ -46,21 +46,7 @@ type IntermediateFieldForm = {
   };
 };
 
-type IntermediateFieldApi = {
-  name: string;
-  formula: string;
-  description: string;
-  unit?: string;
-  show_calculation: boolean;
-  use_multiple_rounding?: boolean;
-  multiple_value?: string;
-  use_result_rounding?: boolean;
-  rounding_type?: 'decimal' | 'significant' | 'multiple';
-  rounding_decimal?: number;
-  range_calculation?: IntermediateFieldForm['range_calculation'];
-  use_threshold_table?: boolean;
-  threshold_table_values?: IntermediateFieldForm['threshold_table_values'];
-};
+type IntermediateFieldApi = ResearchMethodCreate['intermediate_data']['fields'][number];
 
 function mapIntermediateFieldFromApi(
   field: IntermediateFieldForm & Record<string, unknown>
@@ -107,9 +93,9 @@ function serializeIntermediateFieldForApi(field: IntermediateFieldForm): Interme
     threshold_table_values: field.threshold_table_values,
   };
 
-  if (field.use_result_rounding === false) {
+  if (field.use_result_rounding === false && !field.use_multiple_rounding) {
     payload.use_result_rounding = false;
-    payload.rounding_type = field.rounding_type ?? 'decimal';
+    payload.rounding_type = field.rounding_type === 'significant' ? 'significant' : 'decimal';
     payload.rounding_decimal = field.rounding_decimal ?? 0;
   }
 
