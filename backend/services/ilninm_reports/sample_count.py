@@ -49,6 +49,7 @@ from .constants import (
     SAMPLING_LOCATION_PREFIXES_VALANZHIN_UKPG,
     SAMPLING_LOCATION_UKPG_11V,
     SAMPLING_LOCATIONS_CDGGKN,
+    TOVARNAYA_PRODUKCIYA_OIS_SAMPLING_PREFIXES,
 )
 
 # УКПГ-1АВ, УКПГ-1В, УКПГ-2В, УКПГ-5В, УКПГ-8В в названии места отбора: с начала или после пробела/запятой,
@@ -253,6 +254,14 @@ def _is_gkp_21_or_22_location(s: Sample) -> bool:
     return _sampling_location_name_starts_with(
         s, GKP_SAMPLING_NAME_PREFIX_21
     ) or _sampling_location_name_starts_with(s, GKP_SAMPLING_NAME_PREFIX_22)
+
+
+def _is_tovarnaya_produkciya_ois_location(s: Sample) -> bool:
+    """Место отбора для «Товарная продукция ОИС»: ГКП-21/22 или УКПГ-21/22 с начала имени."""
+    return any(
+        _sampling_location_name_starts_with(s, prefix)
+        for prefix in TOVARNAYA_PRODUKCIYA_OIS_SAMPLING_PREFIXES
+    )
 
 
 def _is_ukpg_11v_location(s: Sample) -> bool:
@@ -662,46 +671,40 @@ def _build_ois(
 def _build_tovarnaya_produkciya_ois(
     samples: list[Sample], agg: dict[int, tuple[int, int]]
 ) -> tuple[str, list[Sample]]:
-    """Товарная продукция ОИС: ОИС по ГКП-21/22, в режиме (или в скважине — старые данные) есть «товарная продукция», вывод — даты; УКПГ-1АВ, УКПГ-1В, УКПГ-2В, УКПГ-5В, УКПГ-8В сюда не входят — только «ОИС Валанжин»."""
+    """Товарная продукция ОИС: ОИС по ГКП-21/22 или УКПГ-21/22, в режиме (или в скважине — старые данные) есть «товарная продукция», вывод — даты; УКПГ-1АВ, УКПГ-1В, УКПГ-2В, УКПГ-5В, УКПГ-8В сюда не входят — только «ОИС Валанжин»."""
     del agg
     allowed_branches = (BRANCH_NGDU, BRANCH_UGPU, BRANCH_GPU_PRAO)
     items = [
         s
         for s in samples
         if _sample_type_equals(s, "Исследования - ОИС")
-        and _is_gkp_21_or_22_location(s)
+        and _is_tovarnaya_produkciya_ois_location(s)
         and any(_branch_name_equals(s, branch_name) for branch_name in allowed_branches)
         and _sample_indicates_tovarnaya_produkciya(s)
         and not _is_valanzhin_ukpg_sampling_location(s)
     ]
     if not items:
         return "", []
-    gkp21 = [
-        s
-        for s in items
-        if _sampling_location_name_starts_with(s, GKP_SAMPLING_NAME_PREFIX_21)
-    ]
-    gkp22 = [
-        s
-        for s in items
-        if _sampling_location_name_starts_with(s, GKP_SAMPLING_NAME_PREFIX_22)
-    ]
-    lines: list[str] = []
-    for title, subset in (
-        (GKP_SAMPLING_NAME_PREFIX_21, gkp21),
-        (GKP_SAMPLING_NAME_PREFIX_22, gkp22),
-    ):
+    blocks: list[list[str]] = []
+    for title in TOVARNAYA_PRODUKCIYA_OIS_SAMPLING_PREFIXES:
+        subset = [s for s in items if _sampling_location_name_starts_with(s, title)]
         if not subset:
             continue
-        lines.append(title)
+        block = [title]
         for s in sorted(
             subset, key=lambda x: (x.receiving_date or pendulum.date(1900, 1, 1), x.id)
         ):
-            lines.append(
+            block.append(
                 _fmt_date(s.receiving_date)
                 if s.receiving_date
                 else "(дата получения не указана)"
             )
+        blocks.append(block)
+    lines: list[str] = []
+    for idx, block in enumerate(blocks):
+        if idx > 0:
+            lines.append("")
+        lines.extend(block)
     return "\n".join(lines), items
 
 
@@ -1056,7 +1059,7 @@ ROW_TITLE_EXCLUDED_BRANCHES: dict[str, tuple[str, ...]] = {
     ROW_TITLE_NEFTECONDENSATNAYA_SMES: (BRANCH_GPU_PRAO, BRANCH_NGDU),
     ROW_TITLE_OIS_ACHIMOVKA: (BRANCH_NGDU, BRANCH_UGPU),
     ROW_TITLE_TOVARNAYA_PRODUKCIYA_OIS: (BRANCH_NGDU, BRANCH_UGPU),
-    ROW_TITLE_OIS: (BRANCH_UGPU,),
+    ROW_TITLE_OIS: (BRANCH_UGPU, BRANCH_GPU_PRAO),
 }
 
 

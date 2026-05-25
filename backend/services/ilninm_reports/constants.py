@@ -23,6 +23,18 @@ DISPLAY_NAMES_CDGGKN = {
 GKP_SAMPLING_NAME_PREFIX_21 = "ГКП-21"
 GKP_SAMPLING_NAME_PREFIX_22 = "ГКП-22"
 
+# Места отбора УКПГ для строки «Товарная продукция ОИС» (по началу имени, как ГКП).
+UKPG_SAMPLING_NAME_PREFIX_21 = "УКПГ-21"
+UKPG_SAMPLING_NAME_PREFIX_22 = "УКПГ-22"
+
+# Префиксы мест отбора в «Товарная продукция ОИС»: ГКП и УКПГ-21/22.
+TOVARNAYA_PRODUKCIYA_OIS_SAMPLING_PREFIXES = (
+    GKP_SAMPLING_NAME_PREFIX_21,
+    GKP_SAMPLING_NAME_PREFIX_22,
+    UKPG_SAMPLING_NAME_PREFIX_21,
+    UKPG_SAMPLING_NAME_PREFIX_22,
+)
+
 # Место отбора для строки «ОИС Ен-Яха» (префикс имени).
 SAMPLING_LOCATION_UKPG_11V = "УКПГ-11В"
 

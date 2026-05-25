@@ -1,19 +1,25 @@
 """
 Формирование Excel-отчёта «Количество проб»: копирование шаблона по каждому branch
 с сохранением шрифтов и границ. Объединённые ячейки не копируются, чтобы при копировании
-ячеек не было смещения. Столбец C — перенос текста по словам.
-В шаблоне: столбец A — пустой (место для branch), столбец B — категории проб, столбец C — заполняемые данные.
+ячеек не было смещения.
+В шаблоне: столбец A — филиал, столбец B — категории проб, столбец C — данные.
+Шрифт на листе: Times New Roman, 12 pt.
+Каждая строка значения столбца C (разделитель — перевод строки) выводится в отдельной
+строке листа высотой 15 пунктов; столбец B объединяется на все строки категории.
 """
 
 import base64
-import re
+from copy import copy
 from io import BytesIO
 from typing import Any, Optional
 import openpyxl
-from openpyxl.cell.rich_text import CellRichText, TextBlock
-from openpyxl.cell.text import InlineFont
-from openpyxl.styles import Alignment
+from openpyxl.cell.cell import Cell
+from openpyxl.styles import Alignment, Border, Font, Side
 from sqlalchemy.ext.asyncio import AsyncSession
+from services.ilninm_reports.constants import (
+    ROW_TITLE_KALIBROVOCHNAYA_NEFT_UGPU,
+    ROW_TITLE_TOVARNAYA_NEFT_NGDU,
+)
 from services.ilninm_reports.sample_count import (
     ROW_TITLE_TO_BRANCH,
     _normalize_cell_a_for_match,
@@ -27,36 +33,102 @@ from utils.protocol_generator_utils import (
     copy_row_formatting,
 )
 
-# Шаблоны для жирного выделения: «N шт», «N пок», «N шт по M пок».
-_RE_BOLD_COUNTS = re.compile(r"\d+\s+шт(?:\s+по\s+\d+\s+пок)?|\d+\s+пок")
+# Шрифт всего отчёта.
+REPORT_FONT_NAME = "Times New Roman"
+REPORT_FONT_SIZE = 12
+
+# Высота строки с текстом в столбце C (пункты Excel).
+ROW_HEIGHT_COLUMN_C_LINES = 15
+ROW_HEIGHT_COLUMN_C_SINGLE_LINE_TALL = 30
+
+_ROW_TITLES_TALL_WHEN_SINGLE_LINE = frozenset(
+    {
+        ROW_TITLE_TOVARNAYA_NEFT_NGDU.lower(),
+        ROW_TITLE_KALIBROVOCHNAYA_NEFT_UGPU.lower(),
+    }
+)
 
 
-def _cell_value_with_bold_counts(value: str) -> str | CellRichText:
-    """
-    Возвращает значение для ячейки C: «N шт», «N пок» и «N шт по M пок» — жирным.
-    """
+def _split_column_c_lines(value: str) -> list[str]:
+    """Разбивает значение столбца C на строки листа; хвостовые пустые строки отбрасываются."""
     if not value or value == "—":
-        return value
-    matches = list(_RE_BOLD_COUNTS.finditer(value))
-    if not matches:
-        return value
-    bold_font = InlineFont(b=True)
-    plain_font = InlineFont(b=False)
-    parts: list[TextBlock] = []
-    last_end = 0
-    for m in matches:
-        if m.start() > last_end:
-            mid = value[last_end : m.start()]
-            if mid:
-                normalized = mid.replace("\r\n", "\n").replace("\r", "\n")
-                parts.append(TextBlock(plain_font, normalized))
-        parts.append(TextBlock(bold_font, m.group(0)))
-        last_end = m.end()
-    if last_end < len(value):
-        tail = value[last_end:]
-        normalized_tail = tail.replace("\r\n", "\n").replace("\r", "\n")
-        parts.append(TextBlock(plain_font, normalized_tail))
-    return CellRichText(*parts)
+        return ["—"]
+    parts = value.split("\n")
+    while parts and not parts[-1].strip():
+        parts.pop()
+    return parts if parts else ["—"]
+
+
+def _row_height_for_category(category_key: str, lines_in_category: int) -> float:
+    """30 pt для однострочных «Товарная нефть НГДУ» и «Калибровочная нефть УГПУ», иначе 15 pt."""
+    if (
+        lines_in_category == 1
+        and category_key.lower() in _ROW_TITLES_TALL_WHEN_SINGLE_LINE
+    ):
+        return ROW_HEIGHT_COLUMN_C_SINGLE_LINE_TALL
+    return ROW_HEIGHT_COLUMN_C_LINES
+
+
+def _set_fixed_row_height(
+    ws: openpyxl.worksheet.worksheet.Worksheet, row: int, height: float
+) -> None:
+    """Фиксированная высота строки для вывода текста в C."""
+    ws.row_dimensions[row].height = height
+
+
+def _apply_report_font(cell: Cell) -> None:
+    """Times New Roman 12; начертание и цвет из шаблона сохраняются."""
+    old = cell.font
+    if old:
+        cell.font = Font(
+            name=REPORT_FONT_NAME,
+            size=REPORT_FONT_SIZE,
+            bold=old.bold,
+            italic=old.italic,
+            underline=old.underline,
+            strike=old.strike,
+            color=copy(old.color) if old.color else None,
+        )
+        return
+    cell.font = Font(name=REPORT_FONT_NAME, size=REPORT_FONT_SIZE)
+
+
+def _cell_border_without_horizontal_edges(
+    cell: Cell,
+    *,
+    remove_top: bool,
+    remove_bottom: bool,
+) -> None:
+    """Снимает верхнюю и/или нижнюю границу ячейки, боковые не трогает."""
+    if not remove_top and not remove_bottom:
+        return
+    old = cell.border or Border()
+    cell.border = Border(
+        left=old.left,
+        right=old.right,
+        top=Side(style=None) if remove_top else old.top,
+        bottom=Side(style=None) if remove_bottom else old.bottom,
+    )
+
+
+def _apply_multiline_category_borders(
+    ws: openpyxl.worksheet.worksheet.Worksheet,
+    start_row: int,
+    end_row: int,
+) -> None:
+    """
+    Между строками одной категории в C убирает горизонтальные границы:
+    у первой строки — нижнюю, у последней — верхнюю, у средних — обе.
+    """
+    line_count = end_row - start_row + 1
+    if line_count <= 1:
+        return
+    for idx, row in enumerate(range(start_row, end_row + 1)):
+        _cell_border_without_horizontal_edges(
+            ws.cell(row=row, column=3),
+            remove_top=idx > 0,
+            remove_bottom=idx < line_count - 1,
+        )
 
 
 def _get_cell_b_value(ws: openpyxl.worksheet.worksheet.Worksheet, row: int) -> Any:
@@ -182,45 +254,70 @@ async def build_sample_count_excel(
                 key, branch_name, ROW_TITLE_TO_BRANCH
             ):
                 continue
-            for col in (1, 2, 3):
-                src = template_ws.cell(row=template_row_idx, column=col)
-                tgt = new_ws.cell(row=current_row, column=col)
-                copy_cell_style(src, tgt)
-            copy_row_formatting(
-                template_ws,
-                new_ws,
-                template_row_idx,
-                current_row,
-                merged_cells_map=None,
-            )
-            new_ws.cell(row=current_row, column=1).value = (
-                branch_name if current_row == block_start_row else None
-            )
-            new_ws.cell(row=current_row, column=2).value = cell_b_value
             value_c = match_row_title_to_value(cell_b_value, row_values)
-            cell_c_value = value_c if value_c else "—"
-            cell_c = new_ws.cell(row=current_row, column=3)
-            if "\n" in cell_c_value:
-                cell_c.value = cell_c_value
-            else:
-                cell_c.value = _cell_value_with_bold_counts(cell_c_value)
-            old_align = cell_c.alignment
-            cell_c.alignment = Alignment(
-                wrap_text=True,
-                horizontal=getattr(old_align, "horizontal", "general"),
-                vertical=getattr(old_align, "vertical", "top"),
-                text_rotation=getattr(old_align, "text_rotation", 0),
-                shrink_to_fit=getattr(old_align, "shrink_to_fit", False),
-                indent=getattr(old_align, "indent", 0),
+            column_c_lines = _split_column_c_lines(value_c if value_c else "—")
+            category_start_row = current_row
+            category_row_height = _row_height_for_category(
+                key or "", len(column_c_lines)
             )
-            if template_ws.max_column >= 4:
-                new_ws.merge_cells(
-                    start_row=current_row,
-                    start_column=3,
-                    end_row=current_row,
-                    end_column=4,
+
+            for line_idx, line_text in enumerate(column_c_lines):
+                out_row = current_row
+                for col in (1, 2, 3):
+                    src = template_ws.cell(row=template_row_idx, column=col)
+                    tgt = new_ws.cell(row=out_row, column=col)
+                    copy_cell_style(src, tgt)
+                copy_row_formatting(
+                    template_ws,
+                    new_ws,
+                    template_row_idx,
+                    out_row,
+                    merged_cells_map=None,
                 )
-            current_row += 1
+                for col in (1, 2, 3):
+                    _apply_report_font(new_ws.cell(row=out_row, column=col))
+                _set_fixed_row_height(new_ws, out_row, category_row_height)
+
+                new_ws.cell(row=out_row, column=1).value = (
+                    branch_name if out_row == block_start_row else None
+                )
+                if line_idx == 0:
+                    new_ws.cell(row=out_row, column=2).value = cell_b_value
+
+                cell_c = new_ws.cell(row=out_row, column=3)
+                cell_c.value = line_text
+                old_align = cell_c.alignment
+                cell_c.alignment = Alignment(
+                    wrap_text=False,
+                    horizontal=getattr(old_align, "horizontal", "general"),
+                    vertical=getattr(old_align, "vertical", "top"),
+                    text_rotation=getattr(old_align, "text_rotation", 0),
+                    shrink_to_fit=getattr(old_align, "shrink_to_fit", False),
+                    indent=getattr(old_align, "indent", 0),
+                )
+                current_row += 1
+
+            category_end_row = current_row - 1
+            _apply_multiline_category_borders(
+                new_ws, category_start_row, category_end_row
+            )
+            if category_end_row > category_start_row:
+                new_ws.merge_cells(
+                    start_row=category_start_row,
+                    start_column=2,
+                    end_row=category_end_row,
+                    end_column=2,
+                )
+                cell_b = new_ws.cell(row=category_start_row, column=2)
+                old_b_align = cell_b.alignment
+                cell_b.alignment = Alignment(
+                    wrap_text=getattr(old_b_align, "wrap_text", False),
+                    horizontal=getattr(old_b_align, "horizontal", "general"),
+                    vertical="center",
+                    text_rotation=getattr(old_b_align, "text_rotation", 0),
+                    shrink_to_fit=getattr(old_b_align, "shrink_to_fit", False),
+                    indent=getattr(old_b_align, "indent", 0),
+                )
 
         block_end_row = current_row - 1
         if block_end_row > block_start_row:
@@ -233,6 +330,8 @@ async def build_sample_count_excel(
 
     alignment_center = Alignment(horizontal="center", vertical="center")
     for row_idx in range(1, new_ws.max_row + 1):
+        for col in (1, 2, 3):
+            _apply_report_font(new_ws.cell(row=row_idx, column=col))
         new_ws.cell(row=row_idx, column=1).alignment = alignment_center
 
     copy_column_dimensions(template_ws, new_ws)
