@@ -132,3 +132,23 @@ class GenerateKgsReportRequest(BaseModel):
     date_to: str = Field(
         ..., description="Конец периода по дате отбора пробы (YYYY-MM-DD)"
     )
+
+
+class GenerateNksReportRequest(BaseModel):
+    """Параметры формирования отчёта «Результаты НКС» (ИЛНиНМ)."""
+
+    laboratory_id: int = Field(..., description="ID лаборатории")
+    department_id: Optional[int] = Field(
+        None,
+        description="ID подразделения; пробы фильтруются по laboratory_id и department_id",
+    )
+    template_id: Optional[int] = Field(
+        None,
+        description="ID шаблона; если не указан — последний для типа «Результаты НКС»",
+    )
+    date_from: str = Field(
+        ..., description="Начало периода по дате отбора пробы (YYYY-MM-DD)"
+    )
+    date_to: str = Field(
+        ..., description="Конец периода по дате отбора пробы (YYYY-MM-DD)"
+    )

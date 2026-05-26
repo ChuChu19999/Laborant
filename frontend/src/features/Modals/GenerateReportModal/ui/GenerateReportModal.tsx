@@ -11,11 +11,13 @@ import './GenerateReportModal.css';
 const REPORT_TYPE_SAMPLE_COUNT = 'Количество проб';
 const REPORT_TYPE_PHYSICOCHEMICAL = 'Физико-химическая характеристика';
 const REPORT_TYPE_KGS = 'Результаты КГС';
+const REPORT_TYPE_NKS = 'Результаты НКС';
 
 const REPORT_TYPES = [
   { value: REPORT_TYPE_SAMPLE_COUNT, label: REPORT_TYPE_SAMPLE_COUNT },
   { value: REPORT_TYPE_PHYSICOCHEMICAL, label: REPORT_TYPE_PHYSICOCHEMICAL },
   { value: REPORT_TYPE_KGS, label: REPORT_TYPE_KGS },
+  { value: REPORT_TYPE_NKS, label: REPORT_TYPE_NKS },
 ];
 
 const PHYSICOCHEMICAL_SAMPLING_LOCATIONS = [
@@ -43,7 +45,8 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
 
   const isPhysicochemical = reportType === REPORT_TYPE_PHYSICOCHEMICAL;
   const isKgs = reportType === REPORT_TYPE_KGS;
-  const usesSamplingDate = isPhysicochemical || isKgs;
+  const isNks = reportType === REPORT_TYPE_NKS;
+  const usesSamplingDate = isPhysicochemical || isKgs || isNks;
   const dateLabel = usesSamplingDate
     ? 'Период (дата отбора пробы)'
     : 'Период (дата получения пробы)';
@@ -77,6 +80,8 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
         });
       } else if (isKgs) {
         reportFile = await reportsApi.generateKgsReport(baseParams);
+      } else if (isNks) {
+        reportFile = await reportsApi.generateNksReport(baseParams);
       } else {
         reportFile = await reportsApi.generateSampleCountReport(baseParams);
       }
@@ -102,6 +107,7 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
     dateRange,
     isPhysicochemical,
     isKgs,
+    isNks,
     samplingLocation,
     dateLabel,
     onClose,

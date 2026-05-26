@@ -145,3 +145,42 @@ KGS_SAMPLING_LOCATION_PREFIXES = (
     GKP_SAMPLING_NAME_PREFIX_21,
     GKP_SAMPLING_NAME_PREFIX_22,
 )
+
+# Отчёт «Результаты НКС».
+TEST_OBJECT_NKS_MIXTURE = "нефтеконденсатная смесь"
+NKS_TEMPLATE_HEADER_LAST_ROW = 18
+NKS_TEMPLATE_DATA_ROW = 19
+NKS_PLACEHOLDER_PERIOD = "{period}"
+
+GROUP_MASS_FRACTION_OIL = "Массовая доля нефти"
+GROUP_DENSITY_20 = "Плотность при температуре 20 °C"
+METHOD_MASS_FRACTION_OIL = "Массовая доля нефти"
+METHOD_FRACTIONAL_CONDENSATE = "Фракционный состав (конденсат)"
+
+NKS_MF_OIL_COLOR_FIELD = "Цвет"
+NKS_FS_FIELD_NK = "Температура н.к."
+NKS_FS_FIELD_10 = "10% отгона при температуре"
+NKS_FS_FIELD_50 = "50% отгона при температуре"
+NKS_FS_FIELD_90 = "90% отгона при температуре"
+NKS_FS_FIELD_END_BOIL = "Температура к.к."
+NKS_FS_FIELD_DISTILLATE = "Объемная доля отгона"
+NKS_FS_FIELD_RESIDUE = "Объемная доля остатка"
+NKS_FS_FIELD_LOSSES = "Объемная доля потерь"
+
+NKS_COL_LAB_ACTIVITY = 4
+NKS_COL_PRESSURE = 5
+NKS_COL_TEMPERATURE = 6
+NKS_COL_COLOR = 7
+NKS_COL_DENSITY = 8
+NKS_COL_FS_START = 9
+NKS_COL_FS_10 = 10
+NKS_COL_FS_50 = 11
+NKS_COL_FS_90 = 12
+NKS_COL_FS_END = 13
+NKS_COL_FS_DISTILLATE = 14
+NKS_COL_FS_RESIDUE = 15
+NKS_COL_FS_LOSSES = 16
+NKS_COL_MASS_FRACTION = 17
+NKS_COL_PLUS_MINUS = 18
+NKS_COL_MEASUREMENT_ERROR = 19
+NKS_MAX_COLUMN = 19
