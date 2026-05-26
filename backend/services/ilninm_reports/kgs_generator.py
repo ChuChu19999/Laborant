@@ -180,7 +180,7 @@ async def build_kgs_excel(
     sampling_date_to: Any,
     department_id: Optional[int] = None,
 ) -> bytes:
-    """Строит Excel по шаблону: шапка с периодом, строки данных с 19-й строки."""
+    """Строит Excel по шаблону: шапка с периодом, строки данных с 18-й строки."""
     template_bytes = base64.b64decode(template_file_base64)
     wb = openpyxl.load_workbook(BytesIO(template_bytes))
     ws = wb.worksheets[0] if wb.worksheets else wb.active

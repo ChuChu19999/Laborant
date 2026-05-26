@@ -74,6 +74,11 @@ ROW_TITLE_NEFTECONDENSATNAYA_SMES = "Нефтеконденсатная смес
 ROW_TITLE_DIZTOPIVO = "Дизтопливо"
 ROW_TITLE_INGIBITOR = "Ингибитор коррозии"
 
+# Отчёт «Количество проб»: шапка (не участвует в строках категорий).
+SAMPLE_COUNT_TEMPLATE_HEADER_ROW_COUNT = 3
+SAMPLE_COUNT_PLACEHOLDER_PERIOD = "{period}"
+SAMPLE_COUNT_PLACEHOLDER_KOL_VO = "{kol-vo}"
+
 # Отчёт «Физико-химическая характеристика».
 REPORT_EMPTY_CELL_VALUE = "-"
 
@@ -128,8 +133,8 @@ SAMPLE_TYPE_PASPORTIZACIYA = "Паспортизация"
 TEST_OBJECT_DEGASSED_CONDENSATE = "дегазированный конденсат"
 
 KGS_AVERAGE_ROW_LABEL = "Среднее зн."
-KGS_TEMPLATE_HEADER_LAST_ROW = 18
-KGS_TEMPLATE_DATA_ROW = 19
+KGS_TEMPLATE_HEADER_LAST_ROW = 17
+KGS_TEMPLATE_DATA_ROW = 18
 KGS_PLACEHOLDER_PERIOD = "{period}"
 
 KGS_SAMPLING_LOCATION_PREFIXES = (

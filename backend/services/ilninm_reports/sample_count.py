@@ -321,42 +321,71 @@ def _is_valanzhin_ukpg_sampling_location(s: Sample) -> bool:
     return any(rx.search(name) for rx in _VALANZHIN_UKPG_RE)
 
 
-def _sort_samples_for_gkp_report(samples: list[Sample]) -> list[Sample]:
-    """Порядок строк ГКП: дата получения, рег. номер, id."""
-    return sorted(
-        samples,
-        key=lambda s: (
-            s.receiving_date or pendulum.date(1900, 1, 1),
-            (s.registration_number or "").strip(),
-            s.id,
-        ),
-    )
+def _split_gkp_21_22_samples(items: list[Sample]) -> tuple[list[Sample], list[Sample]]:
+    """ГКП-22 имеет приоритет: проба с префиксом 22 не попадает в блок 21."""
+    gkp22 = [
+        s
+        for s in items
+        if _sampling_location_name_starts_with(s, GKP_SAMPLING_NAME_PREFIX_22)
+    ]
+    in_gkp22 = {id(s) for s in gkp22}
+    gkp21 = [
+        s
+        for s in items
+        if _sampling_location_name_starts_with(s, GKP_SAMPLING_NAME_PREFIX_21)
+        and id(s) not in in_gkp22
+    ]
+    return gkp21, gkp22
 
 
-def _gkp_sample_line(
-    s: Sample,
+def _build_gkp_collapsed_block(
+    prefix: str,
+    subset: list[Sample],
     agg: dict[int, tuple[int, int]],
-    *,
-    ois_sht_suffix: bool,
-) -> str:
-    """Одна проба ГКП: место отбора, скв./режим при наличии, рег. номер, дата получения, показатели."""
-    name = (s.sampling_location.name or "").strip() if s.sampling_location else ""
-    text = name if name else "(место отбора не указано)"
-    well_key = (s.well or "").strip()
-    mode_key = (s.mode or "").strip()
-    if well_key:
-        text += f" скв. {well_key}"
-    if mode_key:
-        text += f" {mode_key}"
-    reg = (s.registration_number or "").strip()
-    dt = s.receiving_date
-    date_part = _fmt_date(dt) if dt else "(дата получения не указана)"
-    pok = _map_display_pok_count(agg.get(s.id, (0, 0))[1])
-    if ois_sht_suffix:
-        text += f" от {date_part} по {pok} пок 1 шт"
-    else:
-        text += f" от {date_part} по {pok} пок"
-    return text
+) -> list[str]:
+    """
+    Сводка по ГКП: заголовок с общим числом проб, затем группы по числу показателей
+    (по возрастанию), внутри — даты получения и количество проб на дату.
+    """
+    if not subset:
+        return []
+    lines: list[str] = [f"{prefix} {len(subset)} шт"]
+    by_pok: dict[int, list[Sample]] = defaultdict(list)
+    for s in subset:
+        pok = _map_display_pok_count(agg.get(s.id, (0, 0))[1])
+        by_pok[pok].append(s)
+    for pok in sorted(by_pok.keys()):
+        lines.append(f"по {pok} пок")
+        by_date: dict[Any, int] = defaultdict(int)
+        for s in by_pok[pok]:
+            by_date[s.receiving_date] += 1
+        dated = sorted(
+            ((dt, cnt) for dt, cnt in by_date.items() if dt is not None),
+            key=lambda pair: pair[0],
+        )
+        for dt, cnt in dated:
+            lines.append(f"{_fmt_date(dt)} {cnt} шт")
+        no_date_cnt = by_date.get(None, 0)
+        if no_date_cnt:
+            lines.append(f"(дата получения не указана) {no_date_cnt} шт")
+    return lines
+
+
+def _build_gkp_21_22_collapsed_lines(
+    gkp21: list[Sample],
+    gkp22: list[Sample],
+    agg: dict[int, tuple[int, int]],
+) -> list[str]:
+    lines: list[str] = []
+    block21 = _build_gkp_collapsed_block(GKP_SAMPLING_NAME_PREFIX_21, gkp21, agg)
+    block22 = _build_gkp_collapsed_block(GKP_SAMPLING_NAME_PREFIX_22, gkp22, agg)
+    if block21:
+        lines.extend(block21)
+    if block21 and block22:
+        lines.append("")
+    if block22:
+        lines.extend(block22)
+    return lines
 
 
 def _build_tovarnaya_neft_ngdu(
@@ -510,7 +539,7 @@ def _build_gkp_21_gkp_22(
     agg: dict[int, tuple[int, int]],
     sample_type: str = "Паспортизация",
 ) -> tuple[str, list[Sample]]:
-    """По каждому ГКП: заголовок с количеством в одной строке, затем строки по пробам."""
+    """Паспортизация по ГКП-21/22: сводка по показателям и датам получения."""
     items = [
         s
         for s in samples
@@ -518,32 +547,8 @@ def _build_gkp_21_gkp_22(
     ]
     if not items:
         return "", []
-    gkp22 = [
-        s
-        for s in items
-        if _sampling_location_name_starts_with(s, GKP_SAMPLING_NAME_PREFIX_22)
-    ]
-    in_gkp22 = {id(s) for s in gkp22}
-    gkp21 = [
-        s
-        for s in items
-        if _sampling_location_name_starts_with(s, GKP_SAMPLING_NAME_PREFIX_21)
-        and id(s) not in in_gkp22
-    ]
-
-    def _passport_sample_lines(subset: list[Sample]) -> list[str]:
-        return [
-            _gkp_sample_line(s, agg, ois_sht_suffix=False)
-            for s in _sort_samples_for_gkp_report(subset)
-        ]
-
-    lines: list[str] = [
-        f"{GKP_SAMPLING_NAME_PREFIX_21} {len(gkp21)} шт",
-        *_passport_sample_lines(gkp21),
-        "",
-        f"{GKP_SAMPLING_NAME_PREFIX_22} {len(gkp22)} шт",
-        *_passport_sample_lines(gkp22),
-    ]
+    gkp21, gkp22 = _split_gkp_21_22_samples(items)
+    lines = _build_gkp_21_22_collapsed_lines(gkp21, gkp22, agg)
     return "\n".join(lines), items
 
 
@@ -557,7 +562,7 @@ def _build_ois_achimovka(
 
     Без признака «товарная продукция» в режиме (для старых записей — и в скважине).
 
-    По каждому префиксу: заголовок с «N шт» в одной строке, затем строка на каждую пробу.
+    По каждому префиксу — тот же формат, что у «ГКП-21 ГКП-22»: показатели и даты.
     """
     items = [
         s
@@ -569,32 +574,8 @@ def _build_ois_achimovka(
     ]
     if not items:
         return "", []
-    gkp22 = [
-        s
-        for s in items
-        if _sampling_location_name_starts_with(s, GKP_SAMPLING_NAME_PREFIX_22)
-    ]
-    in_gkp22 = {id(s) for s in gkp22}
-    gkp21 = [
-        s
-        for s in items
-        if _sampling_location_name_starts_with(s, GKP_SAMPLING_NAME_PREFIX_21)
-        and id(s) not in in_gkp22
-    ]
-
-    def _ois_sample_lines(subset: list[Sample]) -> list[str]:
-        return [
-            _gkp_sample_line(s, agg, ois_sht_suffix=True)
-            for s in _sort_samples_for_gkp_report(subset)
-        ]
-
-    lines: list[str] = [
-        f"{GKP_SAMPLING_NAME_PREFIX_21} {len(gkp21)} шт",
-        *_ois_sample_lines(gkp21),
-        "",
-        f"{GKP_SAMPLING_NAME_PREFIX_22} {len(gkp22)} шт",
-        *_ois_sample_lines(gkp22),
-    ]
+    gkp21, gkp22 = _split_gkp_21_22_samples(items)
+    lines = _build_gkp_21_22_collapsed_lines(gkp21, gkp22, agg)
     return "\n".join(lines), items
 
 
@@ -1168,6 +1149,7 @@ async def get_sample_count_report_data(
     by_branch = _split_by_branch(samples, agg, ROW_TITLE_TO_BRANCH)
 
     return {
+        "total_samples": len(samples),
         "preliminary": [{"label": k, "value": v} for k, v in preliminary.items()],
         "by_branch": [
             {

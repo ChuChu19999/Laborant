@@ -1,7 +1,7 @@
 """
 Формирование Excel-отчёта «Количество проб»: копирование шаблона по каждому branch
-с сохранением шрифтов и границ. Объединённые ячейки не копируются, чтобы при копировании
-ячеек не было смещения.
+с сохранением шрифтов и границ. Объединения в шапке (первые 3 строки) переносятся
+из шаблона; в блоках категорий B и A объединяются при выводе.
 В шаблоне: столбец A — филиал, столбец B — категории проб, столбец C — данные.
 Шрифт на листе: Times New Roman, 12 pt.
 Каждая строка значения столбца C (разделитель — перевод строки) выводится в отдельной
@@ -13,13 +13,18 @@ from copy import copy
 from io import BytesIO
 from typing import Any, Optional
 import openpyxl
+import pendulum
 from openpyxl.cell.cell import Cell
 from openpyxl.styles import Alignment, Border, Font, Side
 from sqlalchemy.ext.asyncio import AsyncSession
 from services.ilninm_reports.constants import (
     ROW_TITLE_KALIBROVOCHNAYA_NEFT_UGPU,
     ROW_TITLE_TOVARNAYA_NEFT_NGDU,
+    SAMPLE_COUNT_PLACEHOLDER_KOL_VO,
+    SAMPLE_COUNT_PLACEHOLDER_PERIOD,
+    SAMPLE_COUNT_TEMPLATE_HEADER_ROW_COUNT,
 )
+from services.ilninm_reports.physicochemical import format_report_period
 from services.ilninm_reports.sample_count import (
     ROW_TITLE_TO_BRANCH,
     _normalize_cell_a_for_match,
@@ -131,6 +136,132 @@ def _apply_multiline_category_borders(
         )
 
 
+def _merged_cell_anchor(
+    ws: openpyxl.worksheet.worksheet.Worksheet, row: int, col: int
+) -> tuple[int, int]:
+    for merged in ws.merged_cells.ranges:
+        if (
+            merged.min_row <= row <= merged.max_row
+            and merged.min_col <= col <= merged.max_col
+        ):
+            return merged.min_row, merged.min_col
+    return row, col
+
+
+def _copy_worksheet_merged_ranges(
+    src_ws: openpyxl.worksheet.worksheet.Worksheet,
+    tgt_ws: openpyxl.worksheet.worksheet.Worksheet,
+    *,
+    min_row: int,
+    max_row: int,
+    row_offset: int = 0,
+) -> None:
+    """Копирует объединения ячеек из шаблона, полностью попадающие в диапазон строк."""
+    for merged_range in list(src_ws.merged_cells.ranges):
+        if merged_range.min_row < min_row or merged_range.max_row > max_row:
+            continue
+        tgt_ws.merge_cells(
+            start_row=merged_range.min_row + row_offset,
+            start_column=merged_range.min_col,
+            end_row=merged_range.max_row + row_offset,
+            end_column=merged_range.max_col,
+        )
+
+
+def _apply_cell_top_border_from(source: Cell, target: Cell) -> None:
+    """Верхняя граница из образца (для верхней строки блока филиала)."""
+    src_border = source.border
+    if not src_border or not src_border.top or src_border.top.style is None:
+        return
+    old = target.border or Border()
+    target.border = Border(
+        left=old.left,
+        right=old.right,
+        top=copy(src_border.top),
+        bottom=old.bottom,
+    )
+
+
+def _apply_branch_block_top_border(
+    template_ws: openpyxl.worksheet.worksheet.Worksheet,
+    new_ws: openpyxl.worksheet.worksheet.Worksheet,
+    block_start_row: int,
+    template_top_row: int,
+) -> None:
+    """Верхняя граница рамки блока филиала — как у первой строки категорий в шаблоне."""
+    for col in (1, 2, 3):
+        _apply_cell_top_border_from(
+            template_ws.cell(row=template_top_row, column=col),
+            new_ws.cell(row=block_start_row, column=col),
+        )
+
+
+def _replace_text_placeholders(text: str, period_text: str, total_samples: int) -> str:
+    updated = text
+    if SAMPLE_COUNT_PLACEHOLDER_PERIOD in updated:
+        updated = updated.replace(SAMPLE_COUNT_PLACEHOLDER_PERIOD, period_text)
+    if SAMPLE_COUNT_PLACEHOLDER_KOL_VO in updated:
+        updated = updated.replace(SAMPLE_COUNT_PLACEHOLDER_KOL_VO, str(total_samples))
+    return updated
+
+
+def _replace_sample_count_header_placeholders(
+    ws: openpyxl.worksheet.worksheet.Worksheet,
+    period_text: str,
+    total_samples: int,
+) -> None:
+    """Подставляет период и общее число проб в метки шапки шаблона."""
+    processed: set[tuple[int, int]] = set()
+    max_col = max(ws.max_column, 3)
+    for row in range(1, SAMPLE_COUNT_TEMPLATE_HEADER_ROW_COUNT + 1):
+        for col in range(1, max_col + 1):
+            anchor_row, anchor_col = _merged_cell_anchor(ws, row, col)
+            anchor = (anchor_row, anchor_col)
+            if anchor in processed:
+                continue
+            processed.add(anchor)
+            cell = ws.cell(row=anchor_row, column=anchor_col)
+            if cell.value is None:
+                continue
+            text = str(cell.value)
+            replaced = _replace_text_placeholders(text, period_text, total_samples)
+            if replaced != text:
+                cell.value = replaced
+
+
+def _copy_template_header_rows(
+    template_ws: openpyxl.worksheet.worksheet.Worksheet,
+    new_ws: openpyxl.worksheet.worksheet.Worksheet,
+    period_text: str,
+    total_samples: int,
+) -> int:
+    """
+    Копирует первые строки шаблона (шапка) в новый лист, подставляет метки.
+    Возвращает номер следующей свободной строки на листе.
+    """
+    max_col = max(template_ws.max_column, 3)
+    for row in range(1, SAMPLE_COUNT_TEMPLATE_HEADER_ROW_COUNT + 1):
+        copy_row_formatting(template_ws, new_ws, row, row, merged_cells_map=None)
+        for col in range(1, max_col + 1):
+            anchor_row, anchor_col = _merged_cell_anchor(template_ws, row, col)
+            src = template_ws.cell(row=anchor_row, column=anchor_col)
+            tgt = new_ws.cell(row=row, column=col)
+            copy_cell_style(src, tgt)
+            if row == anchor_row and col == anchor_col and src.value is not None:
+                tgt.value = _replace_text_placeholders(
+                    str(src.value), period_text, total_samples
+                )
+        if template_ws.row_dimensions[row].height is not None:
+            new_ws.row_dimensions[row].height = template_ws.row_dimensions[row].height
+    _copy_worksheet_merged_ranges(
+        template_ws,
+        new_ws,
+        min_row=1,
+        max_row=SAMPLE_COUNT_TEMPLATE_HEADER_ROW_COUNT,
+    )
+    return SAMPLE_COUNT_TEMPLATE_HEADER_ROW_COUNT + 1
+
+
 def _get_cell_b_value(ws: openpyxl.worksheet.worksheet.Worksheet, row: int) -> Any:
     """Значение столбца B с учётом объединённых ячеек (берём верхнюю ячейку слияния)."""
     cell = ws.cell(row=row, column=2)
@@ -234,13 +365,27 @@ async def build_sample_count_excel(
         department_id=department_id,
     )
     by_branch = report_data.get("by_branch") or []
+    total_samples = int(report_data.get("total_samples") or 0)
     diagnostics_txt = (report_data.get("diagnostics_txt") or "").encode("utf-8")
+
+    if receiving_date_from is not None and receiving_date_to is not None:
+        period_text = format_report_period(
+            pendulum.instance(receiving_date_from),
+            pendulum.instance(receiving_date_to),
+        )
+    else:
+        period_text = ""
 
     new_wb = openpyxl.Workbook()
     new_ws = new_wb.active
     if template_ws.title:
         new_ws.title = template_ws.title
-    current_row = 1
+
+    _replace_sample_count_header_placeholders(template_ws, period_text, total_samples)
+    current_row = _copy_template_header_rows(
+        template_ws, new_ws, period_text, total_samples
+    )
+    template_table_top_row = data_rows[0][0]
 
     for branch_block in by_branch:
         branch_name = branch_block.get("branch_name") or ""
@@ -320,12 +465,19 @@ async def build_sample_count_excel(
                 )
 
         block_end_row = current_row - 1
-        if block_end_row > block_start_row:
-            new_ws.merge_cells(
-                start_row=block_start_row,
-                start_column=1,
-                end_row=block_end_row,
-                end_column=1,
+        if block_end_row >= block_start_row:
+            if block_end_row > block_start_row:
+                new_ws.merge_cells(
+                    start_row=block_start_row,
+                    start_column=1,
+                    end_row=block_end_row,
+                    end_column=1,
+                )
+            _apply_branch_block_top_border(
+                template_ws,
+                new_ws,
+                block_start_row,
+                template_table_top_row,
             )
 
     alignment_center = Alignment(horizontal="center", vertical="center")

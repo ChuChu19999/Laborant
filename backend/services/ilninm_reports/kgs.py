@@ -40,7 +40,8 @@ from services.ilninm_reports.physicochemical import (
     format_report_period,
 )
 from utils.filters import add_date_range_filter
-from utils.protocol_generator_utils import format_decimal_ru
+
+KGS_ABSENCE_DISPLAY = "отсутствие"
 
 _KGS_LOCATION_PREFIX_RE = tuple(
     re.compile(rf"(?:^|[\s,;])({re.escape(p)})(?=[\s,;]|$)")
@@ -108,16 +109,24 @@ def resolve_kgs_sampling_location_key_and_display(
     return name, name
 
 
+def _format_kgs_one_decimal(value: float) -> str:
+    """Число в ячейке отчёта: один знак после запятой, у целых — «,0»."""
+    rounded = _round_math_one_decimal(value)
+    if rounded < 0:
+        return f"минус {abs(rounded):.1f}".replace(".", ",")
+    return f"{rounded:.1f}".replace(".", ",")
+
+
 def _format_kgs_cell_display(value: str) -> str:
     if value == REPORT_EMPTY_CELL_VALUE:
         return value
     parsed = _parse_numeric_for_average(value)
     if parsed is not None:
-        return _report_display(format_decimal_ru(parsed))
+        return _report_display(_format_kgs_one_decimal(parsed))
     text = value.strip().lower()
-    if "отсутств" in text:
-        return "отс."
-    return text
+    if text in ("отс", "отс.") or "отсутств" in text:
+        return KGS_ABSENCE_DISPLAY
+    return value.strip()
 
 
 def _parse_numeric_for_average(value: str) -> Optional[float]:
@@ -143,20 +152,12 @@ def _round_math_one_decimal(value: float) -> float:
     return float(Decimal(str(value)).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP))
 
 
-def _format_kgs_average_display(value: float) -> str:
-    """Среднее в отчёте: всегда один знак после запятой, запятая как разделитель."""
-    rounded = _round_math_one_decimal(value)
-    if rounded < 0:
-        return f"минус {abs(rounded):.1f}".replace(".", ",")
-    return f"{rounded:.1f}".replace(".", ",")
-
-
 def _average_column_values(values: list[str]) -> str:
     """
     Среднее по столбцу группы.
 
-    В расчёте только числовые результаты; пустые, «-», отс., следы не участвуют.
-    Если чисел нет — «отс.».
+    В расчёте только числовые результаты; пустые, «-», отсутствие, следы не участвуют.
+    Если чисел нет — «отсутствие».
     """
     numbers: list[float] = []
     for value in values:
@@ -164,9 +165,9 @@ def _average_column_values(values: list[str]) -> str:
         if parsed is not None:
             numbers.append(parsed)
     if not numbers:
-        return "отс."
+        return KGS_ABSENCE_DISPLAY
     mean = sum(numbers) / len(numbers)
-    return _format_kgs_average_display(mean)
+    return _format_kgs_one_decimal(mean)
 
 
 def _kgs_calculation_cell_value(calc: Calculation, spec: MethodColumnSpec) -> str:
@@ -175,7 +176,8 @@ def _kgs_calculation_cell_value(calc: Calculation, spec: MethodColumnSpec) -> st
     без подписей «менее 1,0» / «более 10,0» из input_data.
     """
     if spec.method_name == METHOD_CHLORIDE_SALTS and spec.fractional_field is None:
-        return _report_display(format_decimal_ru(calc.result))
+        raw = (calc.result or "").strip()
+        return raw if raw else REPORT_EMPTY_CELL_VALUE
     return _calculation_display_value(calc, spec)
 
 
