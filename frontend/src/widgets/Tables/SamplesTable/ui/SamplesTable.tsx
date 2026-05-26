@@ -37,6 +37,8 @@ interface SamplesTableProps {
   pagination: PaginationState;
   totalPages: number;
   totalRecords: number;
+  laboratoryId?: number;
+  departmentId?: number;
   onPaginationChange: OnChangeFn<PaginationState>;
   onFiltersChange?: (filters: ColumnFiltersState) => void;
   onSortingChange?: (sorting: SortingState) => void;
@@ -52,6 +54,8 @@ const SamplesTable: React.FC<SamplesTableProps> = ({
   pagination,
   totalPages,
   totalRecords,
+  laboratoryId,
+  departmentId,
   onPaginationChange,
   onFiltersChange,
   onSortingChange,
@@ -565,15 +569,13 @@ const SamplesTable: React.FC<SamplesTableProps> = ({
     samplesApi.getSampleTypes()
   );
 
-  const uniqueTestObjects = React.useMemo(() => {
-    const objects = new Set<string>();
-    data.forEach(sample => {
-      if (sample.test_object) {
-        objects.add(sample.test_object);
-      }
-    });
-    return Array.from(objects).sort();
-  }, [data]);
+  const { data: testObjects = [] } = useAutoRefetchQuery<string[]>(
+    ['test-objects', laboratoryId, departmentId],
+    () => samplesApi.getTestObjects(laboratoryId, departmentId),
+    {
+      enabled: !!laboratoryId,
+    }
+  );
 
   return (
     <div className="samples-table-container">
@@ -767,7 +769,7 @@ const SamplesTable: React.FC<SamplesTableProps> = ({
                                 tempTestObjectFilterRef.current = [];
                                 applyFiltersWithNewValue(header.column.id, []);
                               }}
-                              options={uniqueTestObjects.map(obj => ({
+                              options={testObjects.map(obj => ({
                                 label: obj,
                                 value: obj,
                               }))}

@@ -109,8 +109,8 @@ async def build_physicochemical_excel(
     db: AsyncSession,
     template_file_base64: str,
     laboratory_id: int,
-    receiving_date_from: Any,
-    receiving_date_to: Any,
+    sampling_date_from: Any,
+    sampling_date_to: Any,
     sampling_location: str,
     department_id: Optional[int] = None,
 ) -> bytes:
@@ -122,7 +122,7 @@ async def build_physicochemical_excel(
     wb = openpyxl.load_workbook(BytesIO(template_bytes))
     ws = wb.worksheets[0] if wb.worksheets else wb.active
 
-    period_text = format_report_period(receiving_date_from, receiving_date_to)
+    period_text = format_report_period(sampling_date_from, sampling_date_to)
     location_text = resolve_sampling_location_display(sampling_location)
     for sheet in wb.worksheets:
         _replace_header_placeholders(sheet, period_text, location_text)
@@ -131,8 +131,8 @@ async def build_physicochemical_excel(
         db,
         laboratory_id,
         department_id,
-        receiving_date_from,
-        receiving_date_to,
+        sampling_date_from,
+        sampling_date_to,
         sampling_location,
     )
 

@@ -40,6 +40,7 @@ from services.sample import (
     get_samples,
     get_selection_conditions,
     get_selection_conditions_by_id,
+    get_test_objects,
     update_mass_fraction_oil_refraction_table,
     update_sample,
     update_selection_conditions,
@@ -60,6 +61,30 @@ router = APIRouter()
 async def get_sample_types():
     """Возвращает список доступных типов проб."""
     return list(get_args(SAMPLE_TYPE_CHOICES))
+
+
+@router.get(
+    "/test-objects/",
+    response_model=List[str],
+    summary="Получение списка объектов испытаний",
+    description=(
+        "Возвращает уникальные объекты испытаний из всех проб. "
+        "Поддерживает фильтрацию по лаборатории и подразделению."
+    ),
+    responses={200: {"description": "Список объектов испытаний успешно получен"}},
+)
+# @IsAuthenticated
+async def list_test_objects(
+    laboratory_id: Optional[int] = Query(None),
+    department_id: Optional[int] = Query(None),
+    db: AsyncSession = Depends(get_db),
+):
+    """Возвращает уникальные объекты испытаний из проб."""
+    return await get_test_objects(
+        db,
+        laboratory_id=laboratory_id,
+        department_id=department_id,
+    )
 
 
 @router.get(

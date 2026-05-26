@@ -93,10 +93,10 @@ class GeneratePhysicochemicalReportRequest(BaseModel):
         ),
     )
     date_from: str = Field(
-        ..., description="Начало периода по дате получения пробы (YYYY-MM-DD)"
+        ..., description="Начало периода по дате отбора пробы (YYYY-MM-DD)"
     )
     date_to: str = Field(
-        ..., description="Конец периода по дате получения пробы (YYYY-MM-DD)"
+        ..., description="Конец периода по дате отбора пробы (YYYY-MM-DD)"
     )
     sampling_location: str = Field(
         ...,

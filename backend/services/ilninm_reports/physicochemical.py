@@ -1,7 +1,7 @@
 """
 Данные для отчёта «Физико-химическая характеристика» (ИЛНиНМ).
 
-Пробы за период по дате получения, место отбора ЦДГГКН №1/№2, объект испытаний «нефть»
+Пробы за период по дате отбора, место отбора ЦДГГКН №1/№2, объект испытаний «нефть»
 (без калибровочной), скважина обязательна. В отчёт попадают только неудалённые расчёты;
 метод может быть удалён.
 """
@@ -272,8 +272,8 @@ async def _get_samples_for_report(
     db: AsyncSession,
     laboratory_id: int,
     department_id: Optional[int],
-    receiving_date_from: pendulum.DateTime,
-    receiving_date_to: pendulum.DateTime,
+    sampling_date_from: pendulum.DateTime,
+    sampling_date_to: pendulum.DateTime,
     sampling_location_db_name: str,
 ) -> list[Sample]:
     conditions = [
@@ -282,7 +282,7 @@ async def _get_samples_for_report(
         Sample.sampling_location_id.isnot(None),
     ]
     add_date_range_filter(
-        conditions, receiving_date_from, receiving_date_to, Sample.receiving_date
+        conditions, sampling_date_from, sampling_date_to, Sample.sampling_date
     )
     if department_id is not None:
         conditions.append(Sample.department_id == department_id)
@@ -308,8 +308,8 @@ async def _get_samples_for_report(
     ]
     samples.sort(
         key=lambda s: (
-            s.receiving_date is None,
-            s.receiving_date or date.min,
+            s.sampling_date is None,
+            s.sampling_date or date.min,
             s.id,
         )
     )
@@ -362,18 +362,18 @@ async def get_physicochemical_report_rows(
     db: AsyncSession,
     laboratory_id: int,
     department_id: Optional[int],
-    receiving_date_from: pendulum.DateTime,
-    receiving_date_to: pendulum.DateTime,
+    sampling_date_from: pendulum.DateTime,
+    sampling_date_to: pendulum.DateTime,
     sampling_location: str,
 ) -> list[PhysicochemicalReportRow]:
-    """Собирает строки отчёта по пробам и расчётам за период по дате получения."""
+    """Собирает строки отчёта по пробам и расчётам за период по дате отбора."""
     db_location = resolve_sampling_location_db_name(sampling_location)
     samples = await _get_samples_for_report(
         db,
         laboratory_id,
         department_id,
-        receiving_date_from,
-        receiving_date_to,
+        sampling_date_from,
+        sampling_date_to,
         db_location,
     )
     if not samples:

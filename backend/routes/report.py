@@ -358,7 +358,7 @@ async def generate_sample_count_report(
     summary="Сформировать отчёт «Физико-химическая характеристика» (ИЛНиНМ)",
     description=(
         "Доступно только для лаборатории с названием ИЛНиНМ. "
-        "Возвращает Excel-файл за период по дате получения пробы для цеха ЦДГГКН №1 или №2."
+        "Возвращает Excel-файл за период по дате отбора пробы для цеха ЦДГГКН №1 или №2."
     ),
     responses={
         200: {"description": "Excel-файл отчёта"},
@@ -420,8 +420,8 @@ async def generate_physicochemical_report(
         db,
         template_file_base64=template.file,
         laboratory_id=body.laboratory_id,
-        receiving_date_from=date_from,
-        receiving_date_to=date_to,
+        sampling_date_from=date_from,
+        sampling_date_to=date_to,
         sampling_location=body.sampling_location,
         department_id=body.department_id,
     )

@@ -40,7 +40,9 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
   const [loading, setLoading] = useState(false);
 
   const isPhysicochemical = reportType === REPORT_TYPE_PHYSICOCHEMICAL;
-  const dateLabel = 'Период (дата получения пробы)';
+  const dateLabel = isPhysicochemical
+    ? 'Период (дата отбора пробы)'
+    : 'Период (дата получения пробы)';
 
   const handleGenerate = useCallback(async () => {
     if (!dateRange[0] || !dateRange[1]) {

@@ -287,6 +287,32 @@ async def get_samples(
     return samples, total, total_pages
 
 
+async def get_test_objects(
+    db: AsyncSession,
+    laboratory_id: Optional[int] = None,
+    department_id: Optional[int] = None,
+) -> List[str]:
+    """Получить уникальные объекты испытаний из всех проб лаборатории."""
+    query = (
+        select(Sample.test_object)
+        .where(
+            Sample.deleted_at.is_(None),
+            Sample.test_object.isnot(None),
+            Sample.test_object != "",
+        )
+        .distinct()
+        .order_by(Sample.test_object)
+    )
+
+    if laboratory_id:
+        query = query.where(Sample.laboratory_id == laboratory_id)
+    if department_id:
+        query = query.where(Sample.department_id == department_id)
+
+    result = await db.execute(query)
+    return [row[0] for row in result.all() if row[0]]
+
+
 async def create_sample(db: AsyncSession, sample_data: SampleCreate) -> Sample:
     """Добавить пробу."""
     laboratory = await db.execute(

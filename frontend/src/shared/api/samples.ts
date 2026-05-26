@@ -97,6 +97,23 @@ export const samplesApi = {
     return response.data;
   },
 
+  getTestObjects: async (laboratoryId?: number, departmentId?: number): Promise<string[]> => {
+    const params: Record<string, number> = {};
+
+    if (laboratoryId) {
+      params.laboratory_id = laboratoryId;
+    }
+
+    if (departmentId) {
+      params.department_id = departmentId;
+    }
+
+    const response = await axiosInstance.get<string[]>('/api/test-objects/', {
+      params,
+    });
+    return response.data;
+  },
+
   getSamples: async (
     page?: number,
     pageSize?: number,

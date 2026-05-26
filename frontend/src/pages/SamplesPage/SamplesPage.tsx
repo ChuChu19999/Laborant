@@ -435,6 +435,8 @@ const SamplesPage: React.FC = () => {
             pagination={pagination}
             totalPages={totalPages}
             totalRecords={totalRecords}
+            laboratoryId={effectiveLabId}
+            departmentId={effectiveDeptId}
             onPaginationChange={handlePaginationChange}
             onFiltersChange={handleFiltersChange}
             onSortingChange={handleSortingChange}
