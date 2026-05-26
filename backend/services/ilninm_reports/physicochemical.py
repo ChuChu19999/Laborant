@@ -45,6 +45,7 @@ from services.ilninm_reports.constants import (
     REPORT_EMPTY_CELL_VALUE,
     SAMPLING_LOCATIONS_CDGGKN,
 )
+from utils.calculation_result_display import format_calculation_result_for_display
 from utils.filters import add_date_range_filter
 from utils.protocol_generator_utils import format_decimal_ru
 
@@ -244,6 +245,12 @@ def _calculation_display_value(calc: Calculation, spec: MethodColumnSpec) -> str
                 val
             )
         return _fractional_field_value(normalized, spec.fractional_field)
+    method_name = (calc.research_method.name or "") if calc.research_method else ""
+    display = format_calculation_result_for_display(
+        calc.result, method_name, calc.input_data
+    )
+    if display != str(calc.result if calc.result is not None else ""):
+        return _report_display(display)
     return _report_display(format_decimal_ru(calc.result))
 
 

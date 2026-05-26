@@ -8,6 +8,11 @@ import Button from '../../../shared/ui/Button/Button';
 import { DatePicker } from '../../../shared/ui/DatePicker';
 import { Select } from '../../../shared/ui/FormItems';
 import Tooltip from '../../../shared/ui/Tooltip/Tooltip';
+import {
+  CHLORIDE_SALTS_RESULT_DISPLAY_KEY,
+  getChlorideSaltsResultDisplay,
+  isChlorideSaltsResearchMethod,
+} from '../../../shared/utils/chlorideSaltsMethod';
 import { isMassFractionOilResearchMethod } from '../../../shared/utils/massFractionOilMethod';
 import { formatNumberForDisplay } from '../../../shared/utils/numberFormatting';
 import type { CalculationResult } from '../../../shared/api/calculation';
@@ -33,6 +38,7 @@ interface CalculationPanelProps {
   lastCalculationResult?: {
     input_data: Record<string, unknown>;
     result: string;
+    result_display?: string;
     measurement_error?: string;
     unit?: string;
     convergence?: string;
@@ -284,31 +290,6 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
         equipment_data: currentMethod.equipment_data_default,
       });
 
-      const result: CalculationResult = {
-        ...response,
-        result: response.result ? formatNumberForDisplay(response.result) : undefined,
-        measurement_error: response.measurement_error
-          ? formatNumberForDisplay(response.measurement_error)
-          : undefined,
-        intermediate_results: response.intermediate_results
-          ? Object.fromEntries(
-              Object.entries(response.intermediate_results).map(([key, value]) => {
-                // Если значение - объект с value и reference, оставляем как есть
-                if (
-                  typeof value === 'object' &&
-                  value !== null &&
-                  'value' in value &&
-                  'reference' in value
-                ) {
-                  return [key, value];
-                }
-                // Иначе применяем formatNumberForDisplay (для строк и чисел)
-                return [key, formatNumberForDisplay(value as string | number)];
-              })
-            )
-          : undefined,
-      };
-
       const finalInputData: Record<string, unknown> = { ...inputData };
 
       if (isMassFractionOilResearchMethod(currentMethod) && response.updated_input_data) {
@@ -357,6 +338,47 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
           }));
         }
       }
+
+      if (isChlorideSaltsResearchMethod(currentMethod) && response.updated_input_data) {
+        const updatedInputData = response.updated_input_data as Record<string, unknown>;
+        const displayLabel = updatedInputData[CHLORIDE_SALTS_RESULT_DISPLAY_KEY];
+        if (displayLabel !== undefined && displayLabel !== null && String(displayLabel).trim()) {
+          finalInputData[CHLORIDE_SALTS_RESULT_DISPLAY_KEY] = displayLabel;
+        } else {
+          delete finalInputData[CHLORIDE_SALTS_RESULT_DISPLAY_KEY];
+        }
+      }
+
+      const resultDisplayLabel =
+        response.result_display?.trim() ||
+        getChlorideSaltsResultDisplay(finalInputData) ||
+        getChlorideSaltsResultDisplay(
+          response.updated_input_data as Record<string, unknown> | undefined
+        );
+
+      const result: CalculationResult = {
+        ...response,
+        result: response.result ? formatNumberForDisplay(response.result) : undefined,
+        result_display: resultDisplayLabel || undefined,
+        measurement_error: response.measurement_error
+          ? formatNumberForDisplay(response.measurement_error)
+          : undefined,
+        intermediate_results: response.intermediate_results
+          ? Object.fromEntries(
+              Object.entries(response.intermediate_results).map(([key, value]) => {
+                if (
+                  typeof value === 'object' &&
+                  value !== null &&
+                  'value' in value &&
+                  'reference' in value
+                ) {
+                  return [key, value];
+                }
+                return [key, formatNumberForDisplay(value as string | number)];
+              })
+            )
+          : undefined,
+      };
 
       setCalculationResults(prev => ({
         ...prev,
@@ -553,6 +575,9 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
                 <CalculationResultCard
                   result={{
                     result: lastCalculationResult.result,
+                    result_display:
+                      lastCalculationResult.result_display ||
+                      getChlorideSaltsResultDisplay(lastCalculationResult.input_data),
                     measurement_error: lastCalculationResult.measurement_error,
                     unit: lastCalculationResult.unit,
                     convergence: lastCalculationResult.convergence,

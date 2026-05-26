@@ -13,17 +13,41 @@ from services.fractional import (
     calculate_fractional_composition,
     calculate_fractional_composition_oil,
 )
+from utils.calculation_result_display import (
+    CHLORIDE_SALTS_RESULT_DISPLAY_KEY,
+    is_chloride_salts_method_name,
+)
 
 MF_OIL_DISPLAY_LABELS_KEY = "_mf_oil_display_labels"
 
 
 def _variables_from_input_data(input_data: Dict[str, Any]) -> Dict[str, Any]:
-    """Поля вроде _mf_oil_* не участвуют в формулах."""
+    """Служебные поля input_data не участвуют в формулах."""
     return {
         k: v
         for k, v in input_data.items()
-        if k != "Цвет" and not (isinstance(k, str) and k.startswith("_mf_oil"))
+        if k != "Цвет"
+        and not (isinstance(k, str) and k.startswith("_mf_oil"))
+        and k != CHLORIDE_SALTS_RESULT_DISPLAY_KEY
     }
+
+
+def _is_chloride_salts_method(research_method: Dict[str, Any]) -> bool:
+    return is_chloride_salts_method_name(research_method.get("name"))
+
+
+def _chloride_salts_xsr_display_value(
+    intermediate_results_rounded: Dict[str, Any],
+) -> Optional[str]:
+    """Округлённое Xср для сохранения в БД (запятая как разделитель)."""
+    xsr_entry = intermediate_results_rounded.get("Xср")
+    if isinstance(xsr_entry, dict):
+        val = xsr_entry.get("value")
+    else:
+        val = xsr_entry
+    if val is None:
+        return None
+    return str(val).replace(".", ",")
 
 
 MASS_FRACTION_OIL_GROUP_NAME = "Массовая доля нефти"
@@ -342,6 +366,9 @@ async def calculate_result(
                 processed_input_data[key] = value
 
         input_data = processed_input_data
+
+        if _is_chloride_salts_method(research_method):
+            input_data.pop(CHLORIDE_SALTS_RESULT_DISPLAY_KEY, None)
 
         # Обработка массовой доли нефти (группа «Массовая доля нефти» или имя метода)
         if _is_mass_fraction_oil_method(research_method):
@@ -726,6 +753,20 @@ async def calculate_result(
                 )
 
             if (
+                _is_chloride_salts_method(research_method)
+                and convergence_result == "custom"
+                and custom_value
+            ):
+                numeric_xsr = _chloride_salts_xsr_display_value(
+                    intermediate_results_rounded
+                )
+                if numeric_xsr is not None:
+                    result_text = numeric_xsr
+                    input_data[CHLORIDE_SALTS_RESULT_DISPLAY_KEY] = str(
+                        custom_value
+                    ).strip()
+
+            if (
                 _is_mass_fraction_oil_method(research_method)
                 and convergence_result == "custom"
                 and _mf_oil_custom_is_menee_01(custom_value)
@@ -756,8 +797,13 @@ async def calculate_result(
                 "conditions_info": conditions_info,
             }
 
-            # Для массовой доли нефти возвращаем обновленные input_data с рассчитанными C1 и C2
-            if _is_mass_fraction_oil_method(research_method):
+            chloride_display = input_data.get(CHLORIDE_SALTS_RESULT_DISPLAY_KEY)
+            if chloride_display is not None and str(chloride_display).strip():
+                response_data_early["result_display"] = str(chloride_display).strip()
+
+            if _is_mass_fraction_oil_method(
+                research_method
+            ) or _is_chloride_salts_method(research_method):
                 response_data_early["updated_input_data"] = input_data
 
             return response_data_early

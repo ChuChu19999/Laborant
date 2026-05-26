@@ -10,6 +10,7 @@ import {
   roundValueForOilFractional,
   roundValueForCondensateFractional,
 } from '../../../../shared/utils/calculationUtils';
+import { getChlorideSaltsResultDisplay } from '../../../../shared/utils/chlorideSaltsMethod';
 import { formatDate } from '../../../../shared/utils/dateFormatting';
 import './CalculationsTable.css';
 
@@ -540,6 +541,13 @@ const CalculationsTable: React.FC<CalculationsTableProps> = ({
 
           if (isFractional) {
             return formatFractionalResult(result.toString(), methodName);
+          }
+
+          const chlorideDisplay = getChlorideSaltsResultDisplay(
+            row.original.input_data as Record<string, unknown>
+          );
+          if (chlorideDisplay) {
+            return chlorideDisplay;
           }
 
           const formatted = result.toString().replace(/\./g, ',');

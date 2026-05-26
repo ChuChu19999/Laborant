@@ -41,6 +41,7 @@ interface IntermediateResultValue {
 interface CalculationResult {
   result?: string;
   result_reference?: string;
+  result_display?: string;
   measurement_error?: string;
   unit?: string;
   convergence?: string;
@@ -68,6 +69,7 @@ interface CalculationResultCardProps {
 
 const CalculationResultCard: React.FC<CalculationResultCardProps> = ({ result, currentMethod }) => {
   const isMassFractionOilMethod = isMassFractionOilResearchMethod(currentMethod);
+  const chlorideResultDisplay = result.result_display?.trim();
   const isFractionalComposition = result.is_fractional_composition;
   const csrValue = result.intermediate_results?.['Cср'];
   const csrValueStr =
@@ -91,6 +93,9 @@ const CalculationResultCard: React.FC<CalculationResultCardProps> = ({ result, c
 
   const getResultText = (): React.ReactNode => {
     if (result.convergence === 'custom') {
+      if (chlorideResultDisplay) {
+        return ` ${chlorideResultDisplay}`;
+      }
       return shouldShowLessThan ? ' менее 0,1' : ` ${result.result || ''}`;
     } else if (result.convergence === 'satisfactory') {
       if (shouldShowLessThan) {

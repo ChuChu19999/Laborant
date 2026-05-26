@@ -1,6 +1,7 @@
 from copy import copy
 import openpyxl
 from core.logger import logger
+from utils.calculation_result_display import get_chloride_salts_result_display
 
 DEFAULT_ROW_HEIGHT = 21  # Стандартная высота строки в пикселях
 
@@ -54,7 +55,14 @@ def format_protocol_calculation_result(calc) -> str:
     """
     Для массовой доли нефти: при сохранённых нулях C и метках в input_data итог < 0,1
     в протоколе показываем как «менее 0,1» (согласовано с интерфейсом).
+
+    Для хлористых солей: в БД число, подпись «менее 1,0» / «более 10,0» — в input_data.
     """
+    inp = getattr(calc, "input_data", None)
+    chloride_display = get_chloride_salts_result_display(inp)
+    if chloride_display:
+        return chloride_display
+
     base = format_decimal_ru(calc.result)
     rm = getattr(calc, "research_method", None)
     if rm is None:

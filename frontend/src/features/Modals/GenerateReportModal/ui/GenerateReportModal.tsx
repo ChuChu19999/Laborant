@@ -10,10 +10,12 @@ import './GenerateReportModal.css';
 
 const REPORT_TYPE_SAMPLE_COUNT = 'Количество проб';
 const REPORT_TYPE_PHYSICOCHEMICAL = 'Физико-химическая характеристика';
+const REPORT_TYPE_KGS = 'Результаты КГС';
 
 const REPORT_TYPES = [
   { value: REPORT_TYPE_SAMPLE_COUNT, label: REPORT_TYPE_SAMPLE_COUNT },
   { value: REPORT_TYPE_PHYSICOCHEMICAL, label: REPORT_TYPE_PHYSICOCHEMICAL },
+  { value: REPORT_TYPE_KGS, label: REPORT_TYPE_KGS },
 ];
 
 const PHYSICOCHEMICAL_SAMPLING_LOCATIONS = [
@@ -40,7 +42,9 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
   const [loading, setLoading] = useState(false);
 
   const isPhysicochemical = reportType === REPORT_TYPE_PHYSICOCHEMICAL;
-  const dateLabel = isPhysicochemical
+  const isKgs = reportType === REPORT_TYPE_KGS;
+  const usesSamplingDate = isPhysicochemical || isKgs;
+  const dateLabel = usesSamplingDate
     ? 'Период (дата отбора пробы)'
     : 'Период (дата получения пробы)';
 
@@ -65,12 +69,17 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
         date_to: dateTo,
       };
 
-      const reportFile = isPhysicochemical
-        ? await reportsApi.generatePhysicochemicalReport({
-            ...baseParams,
-            sampling_location: samplingLocation,
-          })
-        : await reportsApi.generateSampleCountReport(baseParams);
+      let reportFile: { blob: Blob; filename: string };
+      if (isPhysicochemical) {
+        reportFile = await reportsApi.generatePhysicochemicalReport({
+          ...baseParams,
+          sampling_location: samplingLocation,
+        });
+      } else if (isKgs) {
+        reportFile = await reportsApi.generateKgsReport(baseParams);
+      } else {
+        reportFile = await reportsApi.generateSampleCountReport(baseParams);
+      }
 
       const url = window.URL.createObjectURL(reportFile.blob);
       const a = document.createElement('a');
@@ -92,6 +101,7 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
     departmentId,
     dateRange,
     isPhysicochemical,
+    isKgs,
     samplingLocation,
     dateLabel,
     onClose,

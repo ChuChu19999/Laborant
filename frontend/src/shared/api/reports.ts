@@ -169,4 +169,32 @@ export const reportsApi = {
     }
     return { blob: response.data, filename };
   },
+
+  generateKgsReport: async (params: {
+    laboratory_id: number;
+    department_id?: number;
+    template_id?: number;
+    date_from: string;
+    date_to: string;
+  }): Promise<{ blob: Blob; filename: string }> => {
+    const response = await axiosInstance.post(
+      '/api/report-templates/generate/kgs-results/',
+      params,
+      { responseType: 'blob' }
+    );
+    let filename = `Результаты_КГС_${params.date_from}_${params.date_to}.xlsx`;
+    const contentDisposition =
+      response.headers['content-disposition'] || response.headers['Content-Disposition'] || '';
+    const utf8NameMatch = contentDisposition.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
+    const basicNameMatch = contentDisposition.match(/filename\s*=\s*"?([^"]+)"?/i);
+    const rawName = utf8NameMatch?.[1] ?? basicNameMatch?.[1];
+    if (rawName) {
+      try {
+        filename = decodeURIComponent(rawName);
+      } catch {
+        filename = rawName;
+      }
+    }
+    return { blob: response.data, filename };
+  },
 };

@@ -67,6 +67,7 @@ const CalculationsPage: React.FC = () => {
       {
         input_data: Record<string, unknown>;
         result: string;
+        result_display?: string;
         measurement_error?: string;
         unit?: string;
         convergence?: string;
@@ -247,6 +248,7 @@ const CalculationsPage: React.FC = () => {
       [currentMethod.id]: {
         input_data: inputData,
         result: result.result || '',
+        result_display: result.result_display,
         measurement_error: result.measurement_error,
         unit: result.unit,
         convergence: result.convergence,

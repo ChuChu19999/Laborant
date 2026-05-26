@@ -14,6 +14,7 @@ export interface IntermediateResultValue {
 export interface CalculationResult {
   result?: string;
   result_reference?: string;
+  result_display?: string;
   measurement_error?: string;
   unit?: string;
   convergence?: string;
@@ -34,7 +35,7 @@ export interface CalculationResult {
     convergence_value?: string;
   }>;
   is_fractional_composition?: boolean;
-  updated_input_data?: Record<string, string | number>;
+  updated_input_data?: Record<string, string | number | Record<string, string>>;
 }
 
 export interface EquipmentBrief {
