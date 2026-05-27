@@ -1,7 +1,19 @@
+from typing import Any
 from fastapi import Request, status
 from fastapi.exceptions import RequestValidationError
 from core.logger import logger
 from core.responses import ORJSONResponse
+
+
+def _json_safe_value(value: Any) -> Any:
+    """Приводит значение к виду, совместимому с orjson."""
+    if isinstance(value, BaseException):
+        return str(value)
+    if isinstance(value, dict):
+        return {key: _json_safe_value(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe_value(item) for item in value]
+    return value
 
 
 class BusinessLogicError(Exception):
@@ -44,7 +56,10 @@ async def validation_exception_handler(
     )
     return ORJSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={"detail": exc.errors(), "body": str(exc.body)},
+        content={
+            "detail": _json_safe_value(exc.errors()),
+            "body": str(exc.body),
+        },
     )
 
 

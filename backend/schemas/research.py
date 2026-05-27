@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field, field_validator
-from models.research import RoundingType, SampleType
+from models.research import RoundingType
 
 
 class ResearchMethodBase(BaseModel):
@@ -43,17 +43,6 @@ class ResearchMethodBase(BaseModel):
             raise ValueError(
                 f"Неверный тип округления. Допустимые значения: {', '.join(valid_types)}"
             )
-        return v
-
-    @field_validator("sample_type")
-    @classmethod
-    def validate_sample_type(cls, v: List[str]) -> List[str]:
-        valid_types = [e.value for e in SampleType]
-        for sample_type in v:
-            if sample_type not in valid_types:
-                raise ValueError(
-                    f"Недопустимый тип пробы: {sample_type}. Допустимые значения: {', '.join(valid_types)}"
-                )
         return v
 
     @field_validator("equipment_data_default")

@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.database import get_db
@@ -27,8 +27,22 @@ from utils.test_object_visibility import normalize_visibility_scope
 router = APIRouter()
 
 
-def _to_response(item, visibility_labels: Optional[dict] = None) -> TestObjectResponse:
-    scope = normalize_visibility_scope(item.visibility_scope)
+def _snapshot_test_object(item) -> Dict[str, Any]:
+    return {
+        "id": item.id,
+        "name": item.name,
+        "tag": item.tag,
+        "visibility_scope": normalize_visibility_scope(item.visibility_scope),
+        "created_at": item.created_at,
+        "updated_at": item.updated_at,
+        "deleted_at": item.deleted_at,
+    }
+
+
+def _to_response(
+    item_data: Dict[str, Any], visibility_labels: Optional[dict] = None
+) -> TestObjectResponse:
+    scope = normalize_visibility_scope(item_data["visibility_scope"])
     laboratories = []
     departments = []
     if visibility_labels:
@@ -41,18 +55,18 @@ def _to_response(item, visibility_labels: Optional[dict] = None) -> TestObjectRe
             for entry in visibility_labels.get("departments", [])
         ]
     return TestObjectResponse(
-        id=item.id,
-        name=item.name,
-        tag=item.tag,
+        id=item_data["id"],
+        name=item_data["name"],
+        tag=item_data["tag"],
         visibility_scope=VisibilityScope(
             laboratory_ids=scope.get("laboratory_ids", []),
             department_ids=scope.get("department_ids", []),
             laboratories=laboratories,
             departments=departments,
         ),
-        created_at=item.created_at,
-        updated_at=item.updated_at,
-        deleted_at=item.deleted_at,
+        created_at=item_data["created_at"],
+        updated_at=item_data["updated_at"],
+        deleted_at=item_data["deleted_at"],
     )
 
 
@@ -86,8 +100,10 @@ async def list_test_objects(
 
     response_items = []
     for item in items:
-        labels = await enrich_visibility_scope_labels(db, item.visibility_scope)
-        response_items.append(_to_response(item, labels))
+        await db.refresh(item)
+        item_data = _snapshot_test_object(item)
+        labels = await enrich_visibility_scope_labels(db, item_data["visibility_scope"])
+        response_items.append(_to_response(item_data, labels))
 
     return PaginatedResponse(
         items=response_items,
@@ -120,7 +136,11 @@ async def list_test_objects_for_select(
         department_id=department_id,
         for_select=True,
     )
-    return [TestObjectSelectItem(name=item.name, tag=item.tag) for item in items]
+    response_items: List[TestObjectSelectItem] = []
+    for item in items:
+        await db.refresh(item)
+        response_items.append(TestObjectSelectItem(name=item.name, tag=item.tag))
+    return response_items
 
 
 @router.get(
@@ -157,8 +177,10 @@ async def get_test_object_endpoint(
     item = await get_test_object_by_id(db, test_object_id)
     if not item:
         raise NotFoundError("Объект испытаний не найден")
-    labels = await enrich_visibility_scope_labels(db, item.visibility_scope)
-    return _to_response(item, labels)
+    await db.refresh(item)
+    item_data = _snapshot_test_object(item)
+    labels = await enrich_visibility_scope_labels(db, item_data["visibility_scope"])
+    return _to_response(item_data, labels)
 
 
 @router.post(
@@ -175,8 +197,10 @@ async def create_test_object_endpoint(
     """Создает запись в справочнике объектов испытаний."""
     item = await create_test_object(db, data)
     await db.commit()
-    labels = await enrich_visibility_scope_labels(db, item.visibility_scope)
-    return _to_response(item, labels)
+    await db.refresh(item)
+    item_data = _snapshot_test_object(item)
+    labels = await enrich_visibility_scope_labels(db, item_data["visibility_scope"])
+    return _to_response(item_data, labels)
 
 
 @router.patch(
@@ -193,8 +217,10 @@ async def update_test_object_endpoint(
     """Обновляет запись в справочнике объектов испытаний."""
     item = await update_test_object(db, test_object_id, data)
     await db.commit()
-    labels = await enrich_visibility_scope_labels(db, item.visibility_scope)
-    return _to_response(item, labels)
+    await db.refresh(item)
+    item_data = _snapshot_test_object(item)
+    labels = await enrich_visibility_scope_labels(db, item_data["visibility_scope"])
+    return _to_response(item_data, labels)
 
 
 @router.delete(

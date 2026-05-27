@@ -18,6 +18,7 @@ from schemas.research import (
     ResearchMethodUpdate,
     SortOrderBatchUpdate,
 )
+from services.test_object import validate_research_method_sample_types
 from utils.pagination import apply_pagination, calculate_total_pages, get_total_count
 from utils.sorting import build_order_by
 
@@ -178,6 +179,8 @@ async def create_research_method(
     if sort_order is not None and not method_data.is_group_member:
         await _resolve_sort_order_conflict(db, sort_order)
 
+    await validate_research_method_sample_types(db, method_data.sample_type)
+
     method = ResearchMethod(
         name=method_data.name,
         sample_type=method_data.sample_type,
@@ -210,6 +213,9 @@ async def update_research_method(
     method = await get_research_method_by_id(db, method_id)
     if not method:
         raise NotFoundError("Метод исследования не найден")
+
+    if method_data.sample_type is not None:
+        await validate_research_method_sample_types(db, method_data.sample_type)
 
     update_data = method_data.model_dump(exclude_unset=True)
     for key, value in update_data.items():

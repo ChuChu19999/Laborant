@@ -1,7 +1,7 @@
-from typing import List, Optional, Tuple
+from typing import List, Optional, Set, Tuple
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from core.exceptions import ConflictError, NotFoundError
+from core.exceptions import ConflictError, NotFoundError, ValidationError
 from models.laboratory import Department, Laboratory
 from models.test_object import TestObject
 from schemas.test_object import (
@@ -20,6 +20,40 @@ from utils.test_object_visibility import (
 def _serialize_test_object(item: TestObject) -> TestObject:
     item.visibility_scope = normalize_visibility_scope(item.visibility_scope)
     return item
+
+
+async def get_test_object_tags(db: AsyncSession) -> Set[str]:
+    """Получить теги из справочника объектов испытаний."""
+    result = await db.execute(
+        select(TestObject.tag).where(TestObject.deleted_at.is_(None)).distinct()
+    )
+    return {row[0] for row in result.all() if row[0]}
+
+
+async def validate_research_method_sample_types(
+    db: AsyncSession,
+    sample_types: List[str],
+) -> None:
+    """Проверить, что типы проб совпадают с тегами справочника объектов испытаний."""
+    if not sample_types:
+        raise ValidationError("Не указаны типы исследуемых проб")
+
+    valid_tags = await get_test_object_tags(db)
+    if not valid_tags:
+        raise ValidationError(
+            "Справочник объектов испытаний пуст. Сначала добавьте объекты испытаний."
+        )
+
+    invalid = [
+        sample_type for sample_type in sample_types if sample_type not in valid_tags
+    ]
+    if invalid:
+        raise ValidationError(
+            "Недопустимый тип пробы: "
+            f"{', '.join(invalid)}. "
+            "Допустимые теги из справочника объектов испытаний: "
+            f"{', '.join(sorted(valid_tags))}"
+        )
 
 
 async def get_test_object_by_id(
@@ -174,16 +208,19 @@ async def update_test_object(
     if not item:
         raise NotFoundError("Объект испытаний не найден")
 
-    if data.name is not None and data.name.lower() != item.name.lower():
-        existing = await db.execute(
-            select(TestObject).where(
-                func.lower(TestObject.name) == data.name.lower(),
-                TestObject.deleted_at.is_(None),
-                TestObject.id != test_object_id,
+    if data.name is not None and data.name != item.name:
+        if data.name.lower() != item.name.lower():
+            existing = await db.execute(
+                select(TestObject).where(
+                    func.lower(TestObject.name) == data.name.lower(),
+                    TestObject.deleted_at.is_(None),
+                    TestObject.id != test_object_id,
+                )
             )
-        )
-        if existing.scalar_one_or_none():
-            raise ConflictError("Объект испытаний с таким наименованием уже существует")
+            if existing.scalar_one_or_none():
+                raise ConflictError(
+                    "Объект испытаний с таким наименованием уже существует"
+                )
         item.name = data.name
 
     if data.tag is not None:
