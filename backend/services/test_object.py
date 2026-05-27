@@ -66,7 +66,15 @@ async def get_test_objects_list(
         "created_at": TestObject.created_at,
         "updated_at": TestObject.updated_at,
     }
-    order_by = build_order_by(sort_by, sort_order, sort_mapping, TestObject.name)
+    # Для справочника объектов испытаний по умолчанию сортируем по id (по возрастанию),
+    # чтобы порядок элементов был стабильным во всех селектах/фильтрах/листингах.
+    order_by = build_order_by(
+        sort_by,
+        sort_order,
+        sort_mapping,
+        TestObject.id,
+        default_order="asc",
+    )
     query = query.order_by(order_by)
 
     result = await db.execute(query)

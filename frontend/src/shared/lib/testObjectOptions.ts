@@ -16,7 +16,5 @@ export function buildSampleTypeOptionsFromCatalog(
     }
   }
 
-  return Array.from(byTag.entries())
-    .map(([value, label]) => ({ value, label }))
-    .sort((left, right) => left.label.localeCompare(right.label, 'ru'));
+  return Array.from(byTag.entries()).map(([value, label]) => ({ value, label }));
 }
