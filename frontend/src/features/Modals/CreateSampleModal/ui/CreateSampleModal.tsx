@@ -19,19 +19,6 @@ dayjs.locale('ru');
 
 const { Option } = Select;
 
-const TEST_OBJECT_OPTIONS = [
-  { value: 'дегазированный конденсат', label: 'дегазированный конденсат' },
-  { value: 'нефть', label: 'нефть' },
-  { value: 'нефть калибровочная', label: 'нефть калибровочная' },
-  { value: 'нефтеконденсатная смесь', label: 'нефтеконденсатная смесь' },
-  { value: 'дизельное топливо', label: 'дизельное топливо' },
-  { value: 'отработанные нефтепродукты', label: 'отработанные нефтепродукты' },
-  { value: 'масло турбинное', label: 'масло турбинное' },
-  { value: 'масло авиационное', label: 'масло авиационное' },
-  { value: 'смесь жидких углеводородов', label: 'смесь жидких углеводородов' },
-  { value: 'ингибитор коррозии', label: 'ингибитор коррозии' },
-];
-
 interface CreateSampleModalProps {
   open: boolean;
   onClose: () => void;
@@ -65,6 +52,14 @@ const CreateSampleModal: React.FC<CreateSampleModalProps> = ({
 
   const { data: sampleTypes = [] } = useAutoRefetchQuery<string[]>(['sample-types'], () =>
     samplesApi.getSampleTypes()
+  );
+
+  const { data: testObjectOptions = [] } = useAutoRefetchQuery(
+    ['test-objects', 'select', laboratoryId, departmentId],
+    () => samplesApi.getTestObjects(laboratoryId, departmentId),
+    {
+      enabled: open,
+    }
   );
 
   // Запрос на получение филиалов
@@ -339,9 +334,9 @@ const CreateSampleModal: React.FC<CreateSampleModalProps> = ({
             listHeight={100}
             allowClear
           >
-            {TEST_OBJECT_OPTIONS.map(option => (
-              <Option key={option.value} value={option.value}>
-                {option.label}
+            {testObjectOptions.map(name => (
+              <Option key={name} value={name}>
+                {name}
               </Option>
             ))}
           </Select>

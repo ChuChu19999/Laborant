@@ -40,9 +40,7 @@ from services.laboratory import (
 )
 from services.laboratory import delete_well_mode as delete_well_mode_service
 from services.laboratory import (
-    get_branch_by_id,
     get_branches,
-    get_department_by_id,
     get_departments,
     get_laboratories,
     get_laboratory_by_id,

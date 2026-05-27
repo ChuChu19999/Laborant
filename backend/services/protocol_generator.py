@@ -18,8 +18,8 @@ from core.exceptions import NotFoundError, ValidationError
 from core.logger import logger
 from models.calculation import Calculation
 from models.equipment import Equipment
-from models.protocol import Protocol, ProtocolTemplate
-from models.research import ResearchMethod, ResearchMethodGroup
+from models.protocol import Protocol
+from models.research import ResearchMethod
 from models.sample import Sample, SelectionConditions
 from services.employees import (
     get_employee_position_and_name,
@@ -32,7 +32,6 @@ from utils.protocol_generator_utils import (
     copy_column_dimensions,
     copy_row_formatting,
     copy_row_with_styles,
-    format_decimal_ru,
     format_protocol_calculation_result,
     map_test_object_to_suffix,
 )

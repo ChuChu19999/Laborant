@@ -23,7 +23,11 @@ from schemas.protocol import (
 )
 from schemas.sample import SampleResponse
 from services.calculation import get_calculations_by_sample
-from services.excel_template import get_excel_styles, save_excel_section
+from services.excel_template import (
+    get_excel_styles,
+    get_template_file,
+    save_excel_section,
+)
 from services.protocol import (
     create_protocol,
     create_protocol_template,
@@ -575,8 +579,6 @@ async def get_protocol_template(
         raise NotFoundError("Шаблон протокола не найден")
 
     if download:
-        from services.excel_template import get_template_file
-
         file_data = await get_template_file(template, section)
         # Правильное кодирование имени файла для поддержки не-ASCII символов (RFC 2231)
         encoded_filename = quote(template.file_name, safe="")

@@ -1,3 +1,27 @@
+.layout.calculations-page .content {
+  display: flex;
+  flex-direction: column;
+}
+
+.layout.calculations-page .content > .navigation-bar {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.calculations-page-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.calculations-page-body .split-panel {
+  flex: 1;
+  min-height: 0;
+  margin-top: 0;
+  height: auto;
+}
+
 .calculations-page-left-panel {
   display: flex;
   flex-direction: column;
@@ -119,6 +143,21 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: 0;
+}
+
+.calculations-page-right-panel .calculation-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.calculations-page-right-panel .calculation-panel-content {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+  padding-bottom: 24px;
 }
 
 .calculations-page-placeholder {

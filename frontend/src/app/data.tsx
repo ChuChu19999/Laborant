@@ -1,4 +1,4 @@
-import { BiHelpCircle, BiHomeAlt2, BiTestTube, BiFile, BiMap } from 'react-icons/bi';
+import { BiHelpCircle, BiHomeAlt2, BiTestTube, BiFile, BiMap, BiTargetLock } from 'react-icons/bi';
 import { FaFlask } from 'react-icons/fa';
 import EquipmentPage from '../pages/EquipmentPage/EquipmentPage';
 import HelpPage from '../pages/HelpPage/HelpPage';
@@ -6,6 +6,7 @@ import MainPage from '../pages/MainPage/MainPage';
 import ProtocolsPage from '../pages/ProtocolsPage/ProtocolsPage';
 import SamplesPage from '../pages/SamplesPage/SamplesPage';
 import SamplingLocationsPage from '../pages/SamplingLocationsPage/SamplingLocationsPage';
+import TestObjectsPage from '../pages/TestObjectsPage/TestObjectsPage';
 
 export const routersData = [
   {
@@ -37,6 +38,12 @@ export const routersData = [
     path: '/sampling-locations',
     icon: <BiMap size={20} />,
     element: <SamplingLocationsPage />,
+  },
+  {
+    label: 'Объекты испытаний',
+    path: '/test-objects',
+    icon: <BiTargetLock size={20} />,
+    element: <TestObjectsPage />,
   },
   {
     label: 'Помощь',

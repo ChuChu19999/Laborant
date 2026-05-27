@@ -34,6 +34,7 @@ from services.research import (
     update_research_method_sort_order,
 )
 from services.sample import get_sample_by_id
+from services.test_object import resolve_tag_by_name
 
 router = APIRouter()
 
@@ -171,7 +172,9 @@ async def get_available_research_methods(
         methods = [m for m in methods if m.id not in used_method_ids]
 
         if sample.test_object:
-            test_object_lower = sample.test_object.lower()
+            sample_type = await resolve_tag_by_name(db, sample.test_object)
+            if not sample_type:
+                sample_type = _determine_sample_type(sample.test_object.lower())
             filtered_methods = []
             for method in methods:
                 if not method.sample_type:
@@ -181,7 +184,6 @@ async def get_available_research_methods(
                     if isinstance(method.sample_type, list)
                     else [method.sample_type]
                 )
-                sample_type = _determine_sample_type(test_object_lower)
                 if sample_type and sample_type in method_sample_types:
                     filtered_methods.append(method)
             methods = filtered_methods

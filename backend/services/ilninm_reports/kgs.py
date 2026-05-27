@@ -9,7 +9,7 @@ import re
 from dataclasses import dataclass
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Any, Optional
+from typing import Optional
 import pendulum
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,7 +20,6 @@ from models.sample import Sample
 from services.ilninm_reports.constants import (
     GROUP_DENSITY,
     GROUP_MOLECULAR_MASS,
-    KGS_AVERAGE_ROW_LABEL,
     KGS_SAMPLING_LOCATION_PREFIXES,
     METHOD_CHLORIDE_SALTS,
     METHOD_CONDENSATE,

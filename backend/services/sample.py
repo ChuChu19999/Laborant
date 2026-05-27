@@ -1,6 +1,6 @@
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 import pendulum
-from sqlalchemy import Float, case, cast, func, or_, select
+from sqlalchemy import Float, case, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from core.exceptions import ConflictError, NotFoundError, ValidationError
@@ -17,7 +17,7 @@ from schemas.sample import (
     SelectionConditionsUpdate,
 )
 from services.employees import search_employees_by_fio
-from utils.filters import add_date_range_filter, add_text_search_filter
+from utils.filters import add_date_range_filter
 from utils.pagination import apply_pagination, calculate_total_pages, get_total_count
 from utils.protocol_search_filter import sample_has_protocol_display_ilike
 from utils.sample_sort import (
@@ -285,32 +285,6 @@ async def get_samples(
     samples = result.scalars().all()
 
     return samples, total, total_pages
-
-
-async def get_test_objects(
-    db: AsyncSession,
-    laboratory_id: Optional[int] = None,
-    department_id: Optional[int] = None,
-) -> List[str]:
-    """Получить уникальные объекты испытаний из всех проб лаборатории."""
-    query = (
-        select(Sample.test_object)
-        .where(
-            Sample.deleted_at.is_(None),
-            Sample.test_object.isnot(None),
-            Sample.test_object != "",
-        )
-        .distinct()
-        .order_by(Sample.test_object)
-    )
-
-    if laboratory_id:
-        query = query.where(Sample.laboratory_id == laboratory_id)
-    if department_id:
-        query = query.where(Sample.department_id == department_id)
-
-    result = await db.execute(query)
-    return [row[0] for row in result.all() if row[0]]
 
 
 async def create_sample(db: AsyncSession, sample_data: SampleCreate) -> Sample:

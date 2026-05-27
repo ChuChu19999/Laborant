@@ -9,6 +9,7 @@ from routes import (
     report,
     research,
     sample,
+    test_object,
     user,
 )
 
@@ -20,6 +21,7 @@ api_router.include_router(laboratory.router, tags=("laboratory",))
 api_router.include_router(research.router, tags=("research",))
 api_router.include_router(sample.router, tags=("sample",))
 api_router.include_router(equipment.router, tags=("equipment",))
+api_router.include_router(test_object.router, tags=("test_object",))
 api_router.include_router(protocol.router, tags=("protocol",))
 api_router.include_router(report.router, tags=("report",))
 api_router.include_router(calculation.router, tags=("calculation",))

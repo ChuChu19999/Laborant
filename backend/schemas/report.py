@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, Field, field_validator
 from models.report import ReportType
+from services.ilninm_reports.physicochemical import resolve_sampling_location_db_name
 
 
 class ReportTemplateBase(BaseModel):
@@ -106,10 +107,6 @@ class GeneratePhysicochemicalReportRequest(BaseModel):
     @field_validator("sampling_location")
     @classmethod
     def validate_sampling_location(cls, v: str) -> str:
-        from services.ilninm_reports.physicochemical import (
-            resolve_sampling_location_db_name,
-        )
-
         resolve_sampling_location_db_name(v)
         return v.strip()
 

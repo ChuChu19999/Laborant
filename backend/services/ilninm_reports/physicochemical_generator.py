@@ -6,7 +6,6 @@ import base64
 from io import BytesIO
 from typing import Any, Optional
 import openpyxl
-import pendulum
 from openpyxl.cell.cell import Cell
 from openpyxl.styles import Font
 from sqlalchemy.ext.asyncio import AsyncSession

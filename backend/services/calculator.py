@@ -6,7 +6,6 @@ from services.calculation import (
     calculate_convergence_steps,
     calculate_mass_fraction_from_refraction,
     evaluate_formula,
-    get_temperature_correction,
     round_result,
 )
 from services.fractional import (

@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from core.logger import logger
 from models.calculation import Calculation
-from models.laboratory import Branch, SamplingLocation
+from models.laboratory import Laboratory
 from models.sample import Sample
 from utils.filters import add_date_range_filter
 from .constants import (
@@ -99,8 +99,6 @@ def _match_row_title(cell_a: str, title: str) -> bool:
 
 
 async def _get_ilninm_laboratory_id(db: AsyncSession) -> Optional[int]:
-    from models.laboratory import Laboratory
-
     r = await db.execute(
         select(Laboratory.id).where(
             Laboratory.name == LABORATORY_NAME_ILNINM,

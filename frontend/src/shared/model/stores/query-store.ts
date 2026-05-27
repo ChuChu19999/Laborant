@@ -51,6 +51,14 @@ export interface ProtocolsQueryState extends QueryState {
 /**
  * Интерфейс для параметров запросов оборудования
  */
+export interface TestObjectsQueryState extends QueryState {
+  filters?: {
+    search?: string;
+    name?: string;
+    tag?: string;
+  };
+}
+
 export interface EquipmentQueryState extends QueryState {
   laboratoryId?: number;
   departmentId?: number;
@@ -98,6 +106,12 @@ interface QueryStore {
   setEquipmentLaboratoryId: (laboratoryId: number | undefined) => void;
   setEquipmentDepartmentId: (departmentId: number | undefined) => void;
   resetEquipmentQuery: () => void;
+  testObjectsQuery: TestObjectsQueryState;
+  setTestObjectsPage: (page: number) => void;
+  setTestObjectsPageSize: (pageSize: number) => void;
+  setTestObjectsFilters: (filters: TestObjectsQueryState['filters']) => void;
+  setTestObjectsSorting: (sorting: TestObjectsQueryState['sorting']) => void;
+  resetTestObjectsQuery: () => void;
   resetAllQueries: () => void;
 }
 
@@ -231,12 +245,34 @@ export const useQueryStore = create<QueryStore>()(
       set({
         equipmentQuery: { ...defaultQueryState },
       }),
+    testObjectsQuery: { ...defaultQueryState },
+    setTestObjectsPage: page =>
+      set(state => ({
+        testObjectsQuery: { ...state.testObjectsQuery, page },
+      })),
+    setTestObjectsPageSize: pageSize =>
+      set(state => ({
+        testObjectsQuery: { ...state.testObjectsQuery, pageSize, page: 1 },
+      })),
+    setTestObjectsFilters: filters =>
+      set(state => ({
+        testObjectsQuery: { ...state.testObjectsQuery, filters, page: 1 },
+      })),
+    setTestObjectsSorting: sorting =>
+      set(state => ({
+        testObjectsQuery: { ...state.testObjectsQuery, sorting, page: 1 },
+      })),
+    resetTestObjectsQuery: () =>
+      set({
+        testObjectsQuery: { ...defaultQueryState },
+      }),
     resetAllQueries: () =>
       set({
         researchMethodsQuery: { ...defaultQueryState },
         samplesQuery: { ...defaultQueryState },
         protocolsQuery: { ...defaultQueryState },
         equipmentQuery: { ...defaultQueryState },
+        testObjectsQuery: { ...defaultQueryState },
       }),
   }))
 );

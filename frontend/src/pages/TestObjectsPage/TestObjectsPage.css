@@ -1,0 +1,31 @@
+.test-objects-page-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 80px 20px 20px 20px;
+  height: calc(100vh - 195px);
+}
+
+.test-objects-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.test-objects-page-header-left {
+  display: flex;
+  align-items: center;
+}
+
+.test-objects-page-header-right {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+
+.test-objects-page-table {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}

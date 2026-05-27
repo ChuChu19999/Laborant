@@ -593,7 +593,7 @@ const CalculationsPage: React.FC = () => {
 
   if (isLoadingSample) {
     return (
-      <Layout title="Расчеты">
+      <Layout title="Расчеты" bodyClassName="calculations-page">
         <NavigationBar breadcrumbs={breadcrumbs} onBack={handleBack} showBack={true} />
         <LoadingCard loading />
       </Layout>
@@ -602,7 +602,7 @@ const CalculationsPage: React.FC = () => {
 
   if (error) {
     return (
-      <Layout title="Ошибка">
+      <Layout title="Ошибка" bodyClassName="calculations-page">
         <NavigationBar breadcrumbs={breadcrumbs} onBack={handleBack} showBack={true} />
         <div className="calculations-page-error">{error}</div>
       </Layout>
@@ -616,9 +616,15 @@ const CalculationsPage: React.FC = () => {
     : 'Расчеты';
 
   return (
-    <Layout title={title}>
+    <Layout title={title} bodyClassName="calculations-page">
       <NavigationBar breadcrumbs={breadcrumbs} onBack={handleBack} showBack={true} />
-      <div className={isEditMode ? 'calculations-page-split-edit-mode' : undefined}>
+      <div
+        className={
+          isEditMode
+            ? 'calculations-page-body calculations-page-split-edit-mode'
+            : 'calculations-page-body'
+        }
+      >
         <SplitPanel leftPanel={leftPanel} rightPanel={rightPanel} />
       </div>
 

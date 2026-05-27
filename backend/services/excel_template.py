@@ -3,7 +3,6 @@ from copy import copy
 from io import BytesIO
 from typing import Any, Dict, Optional
 import openpyxl
-import orjson
 from openpyxl.cell.cell import MergedCell
 from openpyxl.styles import Alignment, Font
 from sqlalchemy import select

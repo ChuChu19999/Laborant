@@ -108,7 +108,7 @@ export const samplesApi = {
       params.department_id = departmentId;
     }
 
-    const response = await axiosInstance.get<string[]>('/api/test-objects/', {
+    const response = await axiosInstance.get<string[]>('/api/test-objects/names/', {
       params,
     });
     return response.data;

@@ -289,7 +289,7 @@ const LaboratoryManagement: React.FC<LaboratoryManagementProps> = ({ onBack }) =
                 </div>
               </button>
               <AddDepartmentCard
-                text="Создать первое подразделение"
+                text="Добавить первое подразделение"
                 onClick={() => setIsCreateDeptModalOpen(true)}
               />
             </div>

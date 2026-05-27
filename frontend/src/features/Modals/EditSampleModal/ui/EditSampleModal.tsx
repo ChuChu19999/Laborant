@@ -26,19 +26,6 @@ dayjs.locale('ru');
 
 const { Option } = Select;
 
-const TEST_OBJECT_OPTIONS = [
-  { value: 'дегазированный конденсат', label: 'дегазированный конденсат' },
-  { value: 'нефть', label: 'нефть' },
-  { value: 'нефть калибровочная', label: 'нефть калибровочная' },
-  { value: 'нефтеконденсатная смесь', label: 'нефтеконденсатная смесь' },
-  { value: 'дизельное топливо', label: 'дизельное топливо' },
-  { value: 'отработанные нефтепродукты', label: 'отработанные нефтепродукты' },
-  { value: 'масло турбинное', label: 'масло турбинное' },
-  { value: 'масло авиационное', label: 'масло авиационное' },
-  { value: 'смесь жидких углеводородов', label: 'смесь жидких углеводородов' },
-  { value: 'ингибитор коррозии', label: 'ингибитор коррозии' },
-];
-
 interface EditSampleModalProps {
   open: boolean;
   onClose: () => void;
@@ -73,6 +60,22 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({
   const { data: sampleTypes = [] } = useAutoRefetchQuery<string[]>(['sample-types'], () =>
     samplesApi.getSampleTypes()
   );
+
+  const { data: testObjectOptions = [] } = useAutoRefetchQuery(
+    ['test-objects', 'select', laboratoryId, departmentId],
+    () => samplesApi.getTestObjects(laboratoryId, departmentId),
+    {
+      enabled: open,
+    }
+  );
+
+  const testObjectSelectOptions = React.useMemo(() => {
+    const names = new Set(testObjectOptions);
+    if (formData.test_object) {
+      names.add(formData.test_object);
+    }
+    return Array.from(names);
+  }, [testObjectOptions, formData.test_object]);
 
   const { data: branchesData, isLoading: branchesLoading } = useAutoRefetchQuery<{
     items: Branch[];
@@ -361,9 +364,9 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({
             listHeight={100}
             allowClear
           >
-            {TEST_OBJECT_OPTIONS.map(option => (
-              <Option key={option.value} value={option.value}>
-                {option.label}
+            {testObjectSelectOptions.map(name => (
+              <Option key={name} value={name}>
+                {name}
               </Option>
             ))}
           </Select>

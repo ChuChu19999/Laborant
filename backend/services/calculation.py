@@ -1,5 +1,5 @@
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Any, Dict, List, NamedTuple, Optional
+from typing import List, NamedTuple, Optional
 from sqlalchemy import Float, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -10,7 +10,6 @@ from models.laboratory import Department, Laboratory
 from models.research import ResearchMethod
 from models.sample import MassFractionOilRefractionTable, Sample
 from schemas.calculation import CalculationCreate, CalculationUpdate
-from utils.filters import add_list_filter
 from utils.pagination import apply_pagination, calculate_total_pages, get_total_count
 from utils.sorting import build_order_by
 

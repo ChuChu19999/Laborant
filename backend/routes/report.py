@@ -1,3 +1,4 @@
+import base64
 import zipfile
 from io import BytesIO
 from typing import Optional
@@ -147,8 +148,6 @@ async def create_report_template_endpoint(
     db: AsyncSession = Depends(get_db),
 ):
     """Добавляет новый шаблон отчёта на основе переданных данных."""
-    from models.report import ReportTemplate
-
     template = await create_report_template(db, template_data)
     await db.commit()
     query = (
@@ -190,8 +189,6 @@ async def get_report_template(
         raise NotFoundError("Шаблон отчёта не найден")
 
     if download:
-        import base64
-
         file_data = base64.b64decode(template.file)
         encoded_filename = quote(template.file_name, safe="")
         content_disposition = f"attachment; filename*=UTF-8''{encoded_filename}"
@@ -226,8 +223,6 @@ async def update_report_template_endpoint(
     db: AsyncSession = Depends(get_db),
 ):
     """Обновляет существующий шаблон отчёта. Можно обновить только указанные поля."""
-    from models.report import ReportTemplate
-
     template = await update_report_template(db, template_id, template_data)
     await db.commit()
     query = (

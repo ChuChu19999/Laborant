@@ -3,12 +3,12 @@ import pendulum
 from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from core.exceptions import ConflictError, NotFoundError, ValidationError
+from core.exceptions import NotFoundError, ValidationError
 from models.equipment import Equipment
 from models.laboratory import Department, Laboratory
 from models.research import ResearchMethod
 from schemas.equipment import EquipmentCreate, EquipmentUpdate
-from utils.filters import add_date_range_filter, add_text_search_filter
+from utils.filters import add_date_range_filter
 from utils.pagination import apply_pagination, calculate_total_pages, get_total_count
 from utils.sorting import build_order_by
 

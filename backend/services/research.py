@@ -17,9 +17,7 @@ from schemas.research import (
     ResearchMethodSortOrderUpdate,
     ResearchMethodUpdate,
     SortOrderBatchUpdate,
-    SortOrderBatchUpdateItem,
 )
-from utils.filters import add_list_filter, add_text_search_filter
 from utils.pagination import apply_pagination, calculate_total_pages, get_total_count
 from utils.sorting import build_order_by
 

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { LoadingOutlined } from '@ant-design/icons';
 import { Checkbox, Radio, Spin, TreeSelect, message } from 'antd';
 import { FormulaKeyboard } from '../../../../entities/FormulaKeyboard';
@@ -8,6 +8,7 @@ import {
   type SavedMethodsTreeResponse,
 } from '../../../../shared/api/fixtures';
 import { researchApi } from '../../../../shared/api/research';
+import { useTestObjectSampleTypeOptions } from '../../../../shared/model/hooks';
 import { Input, Select } from '../../../../shared/ui/FormItems';
 import { Modal } from '../../../../shared/ui/Modal';
 import type { ResearchMethod, ResearchMethodCreate } from '../../../../shared/api/research';
@@ -101,18 +102,6 @@ function serializeIntermediateFieldForApi(field: IntermediateFieldForm): Interme
 
   return payload;
 }
-
-const SAMPLE_TYPE_OPTIONS = [
-  { value: 'oil', label: 'Нефть' },
-  { value: 'condensate', label: 'Дегазированный конденсат' },
-  { value: 'oil_condensate_mixture', label: 'Нефтеконденсатная смесь' },
-  { value: 'diesel_fuel', label: 'Дизельное топливо' },
-  { value: 'spent_oil_products', label: 'Отработанные нефтепродукты' },
-  { value: 'turbine_oil', label: 'Масло турбинное' },
-  { value: 'aviation_oil', label: 'Масло авиационное' },
-  { value: 'liquid_hydrocarbons_mixture', label: 'Смесь жидких углеводородов' },
-  { value: 'corrosion_inhibitor', label: 'Ингибитор коррозии' },
-];
 
 type FixtureTreeNode = NonNullable<TreeSelectProps['treeData']>[number];
 
@@ -266,6 +255,9 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
 }) => {
   const spinnerIndicator = <LoadingOutlined style={{ fontSize: 24, color: '#1677ff' }} spin />;
 
+  const { options: catalogSampleTypeOptions, isLoading: isSampleTypeOptionsLoading } =
+    useTestObjectSampleTypeOptions(laboratoryId, departmentId, isOpen);
+
   const isEditMode = editMethodId != null;
   const [activeTab, setActiveTab] = useState<'single' | 'group'>('single');
   const [isAnimating, setIsAnimating] = useState(false);
@@ -349,6 +341,27 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
     rounding_decimal: 0,
   });
 
+  const sampleTypeOptions = catalogSampleTypeOptions;
+
+  const catalogTagSet = useMemo(
+    () => new Set(catalogSampleTypeOptions.map(option => option.value)),
+    [catalogSampleTypeOptions]
+  );
+
+  useEffect(() => {
+    if (!isOpen || isSampleTypeOptionsLoading) {
+      return;
+    }
+
+    setFormData(prev => {
+      const filteredSampleTypes = prev.sample_type.filter(tag => catalogTagSet.has(tag));
+      if (filteredSampleTypes.length === prev.sample_type.length) {
+        return prev;
+      }
+      return { ...prev, sample_type: filteredSampleTypes };
+    });
+  }, [isOpen, isSampleTypeOptionsLoading, catalogTagSet]);
+
   const [groupData, setGroupData] = useState<{
     name: string;
     selectedMethods: number[];
@@ -403,7 +416,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
         ? fixtureData.sample_type
         : fixtureData.sample_type
           ? [fixtureData.sample_type]
-          : ['condensate'],
+          : [],
       formula: fixtureData.formula || '',
       measurement_error: {
         type: (fixtureData.measurement_error?.type || 'fixed') as 'fixed' | 'formula',
@@ -1310,7 +1323,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
 
   const buildCreatePayload = (): ResearchMethodCreate => ({
     name: formData.name,
-    sample_type: formData.sample_type,
+    sample_type: formData.sample_type.filter(tag => catalogTagSet.has(tag)),
     formula: formData.formula,
     measurement_error: {
       type: formData.measurement_error.type === 'range' ? 'fixed' : formData.measurement_error.type,
@@ -1627,12 +1640,19 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
 
                 <div className="form-group">
                   <label>Типы проб</label>
+                  {isSampleTypeOptionsLoading ? (
+                    <Spin indicator={spinnerIndicator} />
+                  ) : sampleTypeOptions.length === 0 ? (
+                    <p className="sample-types-empty-hint">
+                      Нет объектов испытаний в справочнике для выбранной лаборатории.
+                    </p>
+                  ) : null}
                   <div className="sample-types-controls">
                     <button
                       type="button"
                       className="select-all-btn"
                       onClick={() =>
-                        handleSampleTypeChange(SAMPLE_TYPE_OPTIONS.map(opt => opt.value))
+                        handleSampleTypeChange(sampleTypeOptions.map(opt => opt.value))
                       }
                     >
                       Выбрать все
@@ -1646,7 +1666,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                     </button>
                   </div>
                   <div className="sample-types-container">
-                    {SAMPLE_TYPE_OPTIONS.map(option => (
+                    {sampleTypeOptions.map(option => (
                       <Checkbox
                         key={option.value}
                         checked={formData.sample_type.includes(option.value)}

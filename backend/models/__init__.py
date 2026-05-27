@@ -12,6 +12,7 @@ from models.research import (
     research_method_groups_association,
 )
 from models.sample import MassFractionOilRefractionTable, Sample, SelectionConditions
+from models.test_object import TestObject
 
 __all__ = [
     "BaseModel",
@@ -33,4 +34,5 @@ __all__ = [
     "Calculation",
     "Equipment",
     "EquipmentType",
+    "TestObject",
 ]
