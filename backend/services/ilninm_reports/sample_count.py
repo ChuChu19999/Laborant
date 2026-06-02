@@ -386,6 +386,20 @@ def _build_gkp_21_22_collapsed_lines(
     return lines
 
 
+def _build_pok_distribution_lines(
+    subset: list[Sample],
+    agg: dict[int, tuple[int, int]],
+) -> list[str]:
+    """Распределение проб по числу показателей: «по N пок M шт»."""
+    if not subset:
+        return []
+    by_pok: dict[int, int] = defaultdict(int)
+    for s in subset:
+        pok = _map_display_pok_count(agg.get(s.id, (0, 0))[1])
+        by_pok[pok] += 1
+    return [f"по {pok} пок {by_pok[pok]} шт" for pok in sorted(by_pok.keys())]
+
+
 def _build_tovarnaya_neft_ngdu(
     samples: list[Sample], agg: dict[int, tuple[int, int]]
 ) -> tuple[str, list[Sample]]:
@@ -393,18 +407,8 @@ def _build_tovarnaya_neft_ngdu(
     items = [s for s in samples if _matches_tovarnaya_neft_ngdu_criteria(s)]
     if not items:
         return "", []
-    total_cnt = sum(agg.get(s.id, (0, 0))[0] for s in items)
-    if total_cnt == 0:
-        return "", items
-    all_pok = set()
-    for s in items:
-        _, pok = agg.get(s.id, (0, 0))
-        if pok > 0:
-            all_pok.add((s.id, pok))
-    pok_count = sum(p for _, p in all_pok) if all_pok else 0
-    if pok_count == 0:
-        pok_count = sum(agg.get(s.id, (0, 0))[1] for s in items)
-    return f"{len(items)} шт по {_map_display_pok_count(pok_count)} пок", items
+    lines = _build_pok_distribution_lines(items, agg)
+    return ("\n".join(lines) if lines else ""), items
 
 
 def _build_ekspluatacionnaya_neft_ngdu(
@@ -414,29 +418,35 @@ def _build_ekspluatacionnaya_neft_ngdu(
     items = [s for s in samples if _matches_ekspluatacionnaya_neft_ngdu_criteria(s)]
     if not items:
         return "", []
-    by_loc: dict[str, list[Sample]] = defaultdict(list)
+    by_pok: dict[int, list[Sample]] = defaultdict(list)
     for s in items:
-        name = (s.sampling_location.name or "").strip()
-        by_loc[name].append(s)
-    lines = []
-    for loc_name in ("Цех по ДГГКН №1", "Цех по ДГГКН №2"):
-        loc_samples = by_loc.get(loc_name, [])
-        if not loc_samples:
-            continue
-        cnt = len(loc_samples)
-        pok = sum(agg.get(s.id, (0, 0))[1] for s in loc_samples)
-        if cnt == 0 and pok == 0:
-            continue
-        display_name = DISPLAY_NAMES_CDGGKN.get(loc_name, loc_name)
-        lines.append(f"{cnt} шт по {_map_display_pok_count(pok)} пок")
+        pok = _map_display_pok_count(agg.get(s.id, (0, 0))[1])
+        by_pok[pok].append(s)
+
+    lines: list[str] = []
+    for pok in sorted(by_pok.keys()):
+        group = by_pok[pok]
+        lines.append(f"по {pok} пок {len(group)} шт")
         for s in sorted(
-            loc_samples,
-            key=lambda x: (x.receiving_date or pendulum.date(1900, 1, 1), x.well or ""),
+            group,
+            key=lambda x: (
+                x.receiving_date or pendulum.date(1900, 1, 1),
+                (x.sampling_location.name or "").strip() if x.sampling_location else "",
+                x.well or "",
+            ),
         ):
-            if (s.well or "").strip():
-                lines.append(
-                    f"{display_name} скв. {s.well} от {_fmt_date(s.receiving_date)}"
-                )
+            if not (s.well or "").strip():
+                continue
+            raw_loc_name = (
+                (s.sampling_location.name or "").strip() if s.sampling_location else ""
+            )
+            display_name = DISPLAY_NAMES_CDGGKN.get(raw_loc_name, raw_loc_name)
+            lines.append(
+                f"{display_name} скв. {s.well} от {_fmt_date(s.receiving_date)}"
+            )
+        lines.append("")
+    if lines and lines[-1] == "":
+        lines.pop()
     return ("\n".join(lines) if lines else ""), items
 
 
@@ -526,9 +536,11 @@ def _build_pasportizaciya(
     lines: list[str] = []
     for loc_name in sorted(by_loc.keys()):
         loc_samples = by_loc[loc_name]
-        cnt = len(loc_samples)
-        pok = sum(agg.get(s.id, (0, 0))[1] for s in loc_samples)
-        lines.append(f"{loc_name} - {cnt} шт по {_map_display_pok_count(pok)} пок")
+        distribution = _build_pok_distribution_lines(loc_samples, agg)
+        if not distribution:
+            continue
+        lines.append(loc_name)
+        lines.extend(distribution)
     return "\n".join(lines), items
 
 
@@ -601,11 +613,15 @@ def _build_ois_valanzhin(
     lines: list[str] = []
     for loc_name in sorted(by_loc.keys()):
         loc_samples = by_loc[loc_name]
-        pok = sum(agg.get(s.id, (0, 0))[1] for s in loc_samples)
-        lines.append(
-            f"{len(loc_samples)} шт {loc_name} по {_map_display_pok_count(pok)} пок"
-        )
-    return "\n\n".join(lines), items
+        distribution = _build_pok_distribution_lines(loc_samples, agg)
+        if not distribution:
+            continue
+        lines.append(loc_name)
+        lines.extend(distribution)
+        lines.append("")
+    if lines and lines[-1] == "":
+        lines.pop()
+    return "\n".join(lines), items
 
 
 def _build_ois_en_yaha(
@@ -661,8 +677,7 @@ def _build_ois(
         loc_samples = by_loc.get(loc_name, [])
         if not loc_samples:
             continue
-        pok = sum(agg.get(s.id, (0, 0))[1] for s in loc_samples)
-        lines.append(f"{len(loc_samples)} шт по {_map_display_pok_count(pok)} пок")
+        lines.extend(_build_pok_distribution_lines(loc_samples, agg))
         display_name = DISPLAY_NAMES_CDGGKN.get(loc_name, loc_name)
         for s in sorted(
             loc_samples,
@@ -818,11 +833,9 @@ def _build_by_test_object_place_date(
         by_place_date.items(),
         key=lambda x: (x[0][0], x[0][1] or pendulum.date(1900, 1, 1)),
     ):
-        cnt = len(loc_samples)
-        pok = sum(agg.get(s.id, (0, 0))[1] for s in loc_samples)
-        lines.append(
-            f"{cnt} шт {place} от {_fmt_date(dt)} по {_map_display_pok_count(pok)} пок"
-        )
+        distribution = _build_pok_distribution_lines(loc_samples, agg)
+        for part in distribution:
+            lines.append(f"{part} {place} от {_fmt_date(dt)}")
     return ("\n".join(lines) if lines else ""), items
 
 

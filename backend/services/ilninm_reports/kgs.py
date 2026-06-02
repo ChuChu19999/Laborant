@@ -94,7 +94,8 @@ def resolve_kgs_sampling_location_key_and_display(
     """
     Ключ группы и подпись для столбца B.
 
-    УКПГ-2В и «УКПГ-2В НСПК …» сводятся к «УКПГ-2В»; «ГП-1 ОУПДТ» — к «ОУПДТ».
+    «УКПГ-2В НСПК …» сводится к «УКПГ-2В НСПК»; прочие префиксы — к самому префиксу.
+    «ГП-1 ОУПДТ» — к «ОУПДТ».
     """
     name = (raw_name or "").strip()
     if not name:
@@ -104,6 +105,9 @@ def resolve_kgs_sampling_location_key_and_display(
         return "ОУПДТ", "ОУПДТ"
     prefix = _find_sampling_location_prefix(name)
     if prefix:
+        if prefix == "УКПГ-2В" and "нспк" in lower:
+            normalized = "УКПГ-2В НСПК"
+            return normalized, normalized
         return prefix, prefix
     return name, name
 
