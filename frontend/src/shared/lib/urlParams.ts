@@ -57,6 +57,42 @@ export function urlParamsToFilters(
 }
 
 /**
+ * Одно значение или список из URL в массив строк для мультивыбора в таблице.
+ */
+export function urlFilterValueToStringArray(
+  plural: string | string[] | undefined,
+  singular: string | string[] | undefined
+): string[] {
+  const raw = plural ?? singular;
+  if (!raw) {
+    return [];
+  }
+  if (Array.isArray(raw)) {
+    return raw;
+  }
+  return [raw];
+}
+
+/**
+ * Нормализация фильтров из URL перед записью в store.
+ */
+export function normalizeUrlFilters<T extends Record<string, unknown>>(
+  filters: T,
+  arrayFilterKeys: string[] = []
+): T {
+  const normalized = { ...filters } as Record<string, unknown>;
+
+  arrayFilterKeys.forEach(key => {
+    const value = normalized[key];
+    if (typeof value === 'string') {
+      normalized[key] = [value];
+    }
+  });
+
+  return normalized as T;
+}
+
+/**
  * Получение параметров пагинации из URL
  */
 export function getPaginationFromUrl(searchParams: URLSearchParams): {

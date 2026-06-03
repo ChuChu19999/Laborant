@@ -23,7 +23,10 @@ export const useSamples = (laboratoryId?: number, departmentId?: number) => {
     {
       filterKeys: [
         'registration_number',
+        'sample_type',
+        'sample_types',
         'test_object',
+        'test_objects',
         'sampling_location',
         'protocols',
         'added_by',
@@ -34,6 +37,7 @@ export const useSamples = (laboratoryId?: number, departmentId?: number) => {
         'created_at_from',
         'created_at_to',
       ],
+      arrayFilterKeys: ['sample_types', 'test_objects'],
       defaultPage: 1,
       defaultPageSize: 20,
     },

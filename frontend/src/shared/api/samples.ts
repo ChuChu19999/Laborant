@@ -1,3 +1,4 @@
+import { isAxiosError } from 'axios';
 import { axiosInstance } from '../config/axios';
 import type { PaginatedResponse } from './research';
 
@@ -91,6 +92,101 @@ export interface SelectionConditionsField {
   unit: string;
 }
 
+const parseContentDispositionFilename = (contentDisposition: string): string | null => {
+  const utf8NameMatch = contentDisposition.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
+  const basicNameMatch = contentDisposition.match(/filename\s*=\s*"?([^"]+)"?/i);
+  const rawName = utf8NameMatch?.[1] ?? basicNameMatch?.[1];
+  if (!rawName) {
+    return null;
+  }
+  try {
+    return decodeURIComponent(rawName);
+  } catch {
+    return rawName;
+  }
+};
+
+const buildSampleListParams = (
+  page: number | undefined,
+  pageSize: number | undefined,
+  filters: SampleFilters | undefined,
+  sorting: { sort_by?: string; sort_order?: 'asc' | 'desc' } | undefined,
+  laboratoryId: number | undefined,
+  departmentId: number | undefined
+): Record<string, unknown> => {
+  const params: Record<string, unknown> = {};
+
+  if (page !== undefined) {
+    params.page = page;
+  }
+
+  if (pageSize !== undefined) {
+    params.page_size = pageSize;
+  }
+
+  if (laboratoryId) {
+    params.laboratory_id = laboratoryId;
+  }
+
+  if (departmentId) {
+    params.department_id = departmentId;
+  }
+
+  if (filters?.registration_number) {
+    params.search = filters.registration_number;
+  }
+
+  if (filters?.sample_types && filters.sample_types.length > 0) {
+    params.sample_types = filters.sample_types;
+  } else if (filters?.sample_type) {
+    params.sample_type = filters.sample_type;
+  }
+
+  if (filters?.test_objects && filters.test_objects.length > 0) {
+    params.test_objects = filters.test_objects;
+  } else if (filters?.test_object) {
+    params.test_object = filters.test_object;
+  }
+
+  if (filters?.sampling_location) {
+    params.search_sampling_location = filters.sampling_location;
+  }
+
+  if (filters?.protocols) {
+    params.search_protocols = filters.protocols;
+  }
+
+  if (filters?.added_by) {
+    params.search_added_by = filters.added_by;
+  }
+
+  if (filters?.sampling_date_from) {
+    params.sampling_date_from = filters.sampling_date_from;
+  }
+  if (filters?.sampling_date_to) {
+    params.sampling_date_to = filters.sampling_date_to;
+  }
+  if (filters?.receiving_date_from) {
+    params.receiving_date_from = filters.receiving_date_from;
+  }
+  if (filters?.receiving_date_to) {
+    params.receiving_date_to = filters.receiving_date_to;
+  }
+  if (filters?.created_at_from) {
+    params.created_at_from = filters.created_at_from;
+  }
+  if (filters?.created_at_to) {
+    params.created_at_to = filters.created_at_to;
+  }
+
+  if (sorting?.sort_by) {
+    params.sort_by = sorting.sort_by;
+    params.sort_order = sorting.sort_order || 'desc';
+  }
+
+  return params;
+};
+
 export const samplesApi = {
   getSampleTypes: async (): Promise<string[]> => {
     const response = await axiosInstance.get<string[]>('/api/sample-types/');
@@ -122,80 +218,77 @@ export const samplesApi = {
     laboratoryId?: number,
     departmentId?: number
   ): Promise<PaginatedResponse<Sample>> => {
-    const params: Record<string, unknown> = {};
-
-    if (page !== undefined) {
-      params.page = page;
-    }
-
-    if (pageSize !== undefined) {
-      params.page_size = pageSize;
-    }
-
-    if (laboratoryId) {
-      params.laboratory_id = laboratoryId;
-    }
-
-    if (departmentId) {
-      params.department_id = departmentId;
-    }
-
-    if (filters?.registration_number) {
-      params.search = filters.registration_number;
-    }
-
-    if (filters?.sample_types && filters.sample_types.length > 0) {
-      params.sample_types = filters.sample_types;
-    } else if (filters?.sample_type) {
-      params.sample_type = filters.sample_type;
-    }
-
-    if (filters?.test_objects && filters.test_objects.length > 0) {
-      params.test_objects = filters.test_objects;
-    } else if (filters?.test_object) {
-      params.test_object = filters.test_object;
-    }
-
-    if (filters?.sampling_location) {
-      params.search_sampling_location = filters.sampling_location;
-    }
-
-    if (filters?.protocols) {
-      params.search_protocols = filters.protocols;
-    }
-
-    if (filters?.added_by) {
-      params.search_added_by = filters.added_by;
-    }
-
-    if (filters?.sampling_date_from) {
-      params.sampling_date_from = filters.sampling_date_from;
-    }
-    if (filters?.sampling_date_to) {
-      params.sampling_date_to = filters.sampling_date_to;
-    }
-    if (filters?.receiving_date_from) {
-      params.receiving_date_from = filters.receiving_date_from;
-    }
-    if (filters?.receiving_date_to) {
-      params.receiving_date_to = filters.receiving_date_to;
-    }
-    if (filters?.created_at_from) {
-      params.created_at_from = filters.created_at_from;
-    }
-    if (filters?.created_at_to) {
-      params.created_at_to = filters.created_at_to;
-    }
-
-    if (sorting?.sort_by) {
-      params.sort_by = sorting.sort_by;
-      params.sort_order = sorting.sort_order || 'desc';
-    }
+    const params = buildSampleListParams(
+      page,
+      pageSize,
+      filters,
+      sorting,
+      laboratoryId,
+      departmentId
+    );
 
     const response = await axiosInstance.get<PaginatedResponse<Sample>>('/api/samples/', {
       params,
     });
     return response.data;
+  },
+
+  exportSamples: async (
+    filters?: SampleFilters,
+    sorting?: { sort_by?: string; sort_order?: 'asc' | 'desc' },
+    laboratoryId?: number,
+    departmentId?: number
+  ): Promise<{ blob: Blob; filename: string; total: number | null }> => {
+    const params = buildSampleListParams(
+      undefined,
+      undefined,
+      filters,
+      sorting,
+      laboratoryId,
+      departmentId
+    );
+
+    try {
+      const response = await axiosInstance.get<Blob>('/api/samples/export/', {
+        params,
+        responseType: 'blob',
+      });
+
+      let filename = 'Поступления_проб.xlsx';
+      const contentDisposition =
+        response.headers['content-disposition'] || response.headers['Content-Disposition'] || '';
+      const parsedFilename = parseContentDispositionFilename(String(contentDisposition));
+      if (parsedFilename) {
+        filename = parsedFilename;
+      }
+
+      const totalHeader = response.headers['x-export-total'] || response.headers['X-Export-Total'];
+      const total =
+        totalHeader !== undefined && totalHeader !== null && totalHeader !== ''
+          ? parseInt(String(totalHeader), 10)
+          : null;
+
+      return { blob: response.data, filename, total };
+    } catch (error) {
+      if (
+        isAxiosError(error) &&
+        error.response?.status === 400 &&
+        error.response.data instanceof Blob
+      ) {
+        const text = await error.response.data.text();
+        let detail = 'Нет данных для экспорта по выбранным фильтрам';
+        try {
+          const body = JSON.parse(text) as { detail?: string };
+          if (body.detail) {
+            detail = body.detail;
+          }
+        } catch {
+          // ответ не JSON — оставляем сообщение по умолчанию
+        }
+        throw new Error(detail);
+      }
+      throw error;
+    }
   },
 
   getSample: async (id: number): Promise<Sample> => {

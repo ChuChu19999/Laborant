@@ -1,11 +1,13 @@
 from decimal import Decimal
 from typing import List, Optional, get_args
+from urllib.parse import quote
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from core.database import get_db
-from core.exceptions import NotFoundError
+from core.exceptions import NotFoundError, ValidationError
 from core.security import IsAuthenticated
 from models.calculation import Calculation
 from models.sample import (
@@ -43,6 +45,7 @@ from services.sample import (
     update_sample,
     update_selection_conditions,
 )
+from services.samples_excel import build_samples_export_excel
 from utils.query_params import parse_date_range_params
 
 router = APIRouter()
@@ -154,6 +157,90 @@ async def list_samples(
         page=page if page is not None else 1,
         page_size=page_size if page_size is not None else total,
         total_pages=total_pages,
+    )
+
+
+@router.get(
+    "/samples/export/",
+    summary="Экспорт таблицы поступления проб",
+    description=(
+        "Формирует xlsx-файл со всеми пробами по текущим фильтрам и сортировке "
+        "без пагинации, включая расчеты и методы исследований."
+    ),
+    responses={
+        200: {"description": "Файл Excel успешно сформирован"},
+        400: {"description": "Нет данных для экспорта"},
+    },
+)
+# @IsAuthenticated
+async def export_samples(
+    laboratory_id: Optional[int] = Query(None),
+    department_id: Optional[int] = Query(None),
+    search: Optional[str] = Query(None),
+    search_sampling_location: Optional[str] = Query(None),
+    search_protocols: Optional[str] = Query(None),
+    search_added_by: Optional[str] = Query(None),
+    sample_type: Optional[str] = Query(None),
+    sample_types: Optional[List[str]] = Query(None),
+    test_object: Optional[str] = Query(None),
+    test_objects: Optional[List[str]] = Query(None),
+    sort_by: Optional[str] = Query(None),
+    sort_order: Optional[str] = Query("desc"),
+    sampling_date_from: Optional[str] = Query(None),
+    sampling_date_to: Optional[str] = Query(None),
+    receiving_date_from: Optional[str] = Query(None),
+    receiving_date_to: Optional[str] = Query(None),
+    created_at_from: Optional[str] = Query(None),
+    created_at_to: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db),
+):
+    """Формирует xlsx-файл таблицы поступления проб."""
+    sampling_date_from_parsed, sampling_date_to_parsed = parse_date_range_params(
+        sampling_date_from, sampling_date_to
+    )
+    receiving_date_from_parsed, receiving_date_to_parsed = parse_date_range_params(
+        receiving_date_from, receiving_date_to
+    )
+    created_at_from_parsed, created_at_to_parsed = parse_date_range_params(
+        created_at_from, created_at_to
+    )
+
+    excel_bytes, total = await build_samples_export_excel(
+        db,
+        laboratory_id=laboratory_id,
+        department_id=department_id,
+        search=search,
+        search_sampling_location=search_sampling_location,
+        search_protocols=search_protocols,
+        search_added_by=search_added_by,
+        sample_type=sample_type,
+        sample_types=sample_types,
+        test_object=test_object,
+        test_objects=test_objects,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        sampling_date_from=sampling_date_from_parsed,
+        sampling_date_to=sampling_date_to_parsed,
+        receiving_date_from=receiving_date_from_parsed,
+        receiving_date_to=receiving_date_to_parsed,
+        created_at_from=created_at_from_parsed,
+        created_at_to=created_at_to_parsed,
+    )
+
+    if total == 0 or not excel_bytes:
+        raise ValidationError("Нет данных для экспорта по выбранным фильтрам")
+
+    filename = "Поступления_проб.xlsx"
+    encoded_filename = quote(filename, safe="")
+    content_disposition = f"attachment; filename*=UTF-8''{encoded_filename}"
+
+    return Response(
+        content=excel_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": content_disposition,
+            "X-Export-Total": str(total),
+        },
     )
 
 

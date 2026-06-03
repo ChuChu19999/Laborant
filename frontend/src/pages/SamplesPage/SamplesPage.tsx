@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FileTextOutlined, PlusOutlined } from '@ant-design/icons';
+import { DownloadOutlined, FileTextOutlined, PlusOutlined } from '@ant-design/icons';
+import { message } from 'antd';
 import dayjs from 'dayjs';
 import { ResetFiltersButton } from '../../entities/ResetFiltersButton';
 import { LoadingCard } from '../../features/Cards';
@@ -12,6 +13,7 @@ import {
   GenerateReportModal,
 } from '../../features/Modals';
 import { laboratoriesApi } from '../../shared/api/laboratories';
+import { samplesApi } from '../../shared/api/samples';
 import { useSamples } from '../../shared/model/hooks';
 import { useAutoRefetchQuery } from '../../shared/model/lib/useQuery';
 import { useQueryStore } from '../../shared/model/stores';
@@ -38,6 +40,7 @@ const SamplesPage: React.FC = () => {
   const [isFillCalculationsModalOpen, setIsFillCalculationsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isGenerateReportModalOpen, setIsGenerateReportModalOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const labId = laboratoryId ? parseInt(laboratoryId, 10) : undefined;
   const deptId = departmentId ? parseInt(departmentId, 10) : undefined;
@@ -294,6 +297,57 @@ const SamplesPage: React.FC = () => {
     [samples]
   );
 
+  const handleExportTable = useCallback(async () => {
+    if (!effectiveLabId) {
+      message.warning('Выберите лабораторию для экспорта');
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      const { blob } = await samplesApi.exportSamples(
+        samples.filters,
+        samples.sorting,
+        effectiveLabId,
+        effectiveDeptId
+      );
+
+      const deptName = departments?.find(department => department.id === effectiveDeptId)?.name;
+      const labName = laboratories?.items.find(
+        laboratory => laboratory.id === effectiveLabId
+      )?.name;
+      const titlePart = (deptName || labName || 'Пробы').replace(/\s+/g, '_');
+      const dateStamp = dayjs().format('DD.MM.YYYY_HH-mm');
+      const filename = `Поступления_проб_${titlePart}_${dateStamp}.xlsx`;
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(url);
+
+      message.success('Таблица успешно сохранена');
+    } catch (error) {
+      console.error('Ошибка экспорта таблицы проб:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Не удалось сохранить таблицу';
+      if (errorMessage.includes('Нет данных для экспорта')) {
+        message.info(errorMessage);
+      } else {
+        message.error('Не удалось сохранить таблицу');
+      }
+    } finally {
+      setIsExporting(false);
+    }
+  }, [
+    departments,
+    effectiveDeptId,
+    effectiveLabId,
+    laboratories?.items,
+    samples.filters,
+    samples.sorting,
+  ]);
+
   const handleLaboratoryClick = useCallback(
     (laboratory: Laboratory) => {
       navigate(`/samples/laboratory/${laboratory.id}`);
@@ -417,6 +471,15 @@ const SamplesPage: React.FC = () => {
                 Сформировать отчёт
               </Button>
             )}
+            <Button
+              type="default"
+              onClick={() => void handleExportTable()}
+              icon={<DownloadOutlined />}
+              loading={isExporting}
+              disabled={!effectiveLabId || samples.isLoading}
+            >
+              Сохранить таблицу
+            </Button>
           </div>
           <div className="samples-page-header-right">
             <ResetFiltersButton

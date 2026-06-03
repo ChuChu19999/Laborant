@@ -6,12 +6,21 @@ import {
   getPaginationFromUrl,
   getSortingFromUrl,
   updateUrlParams,
+  normalizeUrlFilters,
 } from '../../lib/urlParams';
 
 export interface UseUrlSyncOptions {
   filterKeys: string[];
+  arrayFilterKeys?: string[];
   defaultPage?: number;
   defaultPageSize?: number;
+}
+
+function isFilterValueEmpty(value: unknown): boolean {
+  if (value === undefined || value === null || value === '') {
+    return true;
+  }
+  return Array.isArray(value) && value.length === 0;
 }
 
 /**
@@ -35,7 +44,7 @@ export function useUrlSync<TFilters extends Record<string, unknown> = Record<str
 ) {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
-  const { filterKeys, defaultPage = 1, defaultPageSize = 20 } = options;
+  const { filterKeys, arrayFilterKeys = [], defaultPage = 1, defaultPageSize = 20 } = options;
   const previousPathRef = useRef<string | undefined>(undefined);
   const isInitialMountRef = useRef(true);
   const isResettingRef = useRef(false);
@@ -85,7 +94,10 @@ export function useUrlSync<TFilters extends Record<string, unknown> = Record<str
 
     const urlPage = getPaginationFromUrl(searchParams).page;
     const urlPageSize = getPaginationFromUrl(searchParams).pageSize;
-    const urlFilters = urlParamsToFilters(searchParams, filterKeys) as TFilters;
+    const urlFilters = normalizeUrlFilters(
+      urlParamsToFilters(searchParams, filterKeys) as TFilters,
+      arrayFilterKeys
+    );
     const urlSorting = getSortingFromUrl(searchParams);
 
     // Обновляем store только если в URL есть параметры и они отличаются от текущего состояния
@@ -146,7 +158,8 @@ export function useUrlSync<TFilters extends Record<string, unknown> = Record<str
 
     // Удаляем параметры, которых нет в store
     filterKeys.forEach(key => {
-      if (!storeState.filters || !storeState.filters[key]) {
+      const value = storeState.filters?.[key];
+      if (!storeState.filters || isFilterValueEmpty(value)) {
         urlUpdates[key] = undefined;
       }
     });

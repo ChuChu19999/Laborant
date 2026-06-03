@@ -22,7 +22,7 @@ import { LoadingCard } from '../../../../features/Cards';
 import { employeesApi } from '../../../../shared/api/employees';
 import { type Sample, samplesApi } from '../../../../shared/api/samples';
 import { getDateRangePresets } from '../../../../shared/lib/datePresets';
-import { urlParamsToFilters } from '../../../../shared/lib/urlParams';
+import { urlFilterValueToStringArray, urlParamsToFilters } from '../../../../shared/lib/urlParams';
 import { useAutoRefetchQuery } from '../../../../shared/model/lib';
 import Button from '../../../../shared/ui/Button/Button';
 import { Input, Select, RangePicker } from '../../../../shared/ui/FormItems';
@@ -111,29 +111,19 @@ const SamplesTable: React.FC<SamplesTableProps> = ({
     if (urlFilters.registration_number && typeof urlFilters.registration_number === 'string') {
       columnFilters.push({ id: 'registration_number', value: urlFilters.registration_number });
     }
-    if (urlFilters.sample_type || urlFilters.sample_types) {
-      const sampleTypeArray = Array.isArray(urlFilters.sample_types)
-        ? urlFilters.sample_types
-        : Array.isArray(urlFilters.sample_type)
-          ? urlFilters.sample_type
-          : urlFilters.sample_type
-            ? [urlFilters.sample_type]
-            : [];
-      if (sampleTypeArray.length > 0) {
-        columnFilters.push({ id: 'sample_type', value: sampleTypeArray });
-      }
+    const sampleTypeArray = urlFilterValueToStringArray(
+      urlFilters.sample_types,
+      urlFilters.sample_type
+    );
+    if (sampleTypeArray.length > 0) {
+      columnFilters.push({ id: 'sample_type', value: sampleTypeArray });
     }
-    if (urlFilters.test_object || urlFilters.test_objects) {
-      const testObjectArray = Array.isArray(urlFilters.test_objects)
-        ? urlFilters.test_objects
-        : Array.isArray(urlFilters.test_object)
-          ? urlFilters.test_object
-          : urlFilters.test_object
-            ? [urlFilters.test_object]
-            : [];
-      if (testObjectArray.length > 0) {
-        columnFilters.push({ id: 'test_object', value: testObjectArray });
-      }
+    const testObjectArray = urlFilterValueToStringArray(
+      urlFilters.test_objects,
+      urlFilters.test_object
+    );
+    if (testObjectArray.length > 0) {
+      columnFilters.push({ id: 'test_object', value: testObjectArray });
     }
     if (urlFilters.sampling_location && typeof urlFilters.sampling_location === 'string') {
       columnFilters.push({ id: 'sampling_location', value: urlFilters.sampling_location });
@@ -809,6 +799,10 @@ const SamplesTable: React.FC<SamplesTableProps> = ({
                                 header.column.setFilterValue(e.target.value)
                               }
                               onPressEnter={() => {
+                                applyFilters();
+                              }}
+                              onClear={() => {
+                                header.column.setFilterValue('');
                                 applyFilters();
                               }}
                               placeholder="Поиск..."
