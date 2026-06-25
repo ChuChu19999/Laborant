@@ -149,3 +149,5 @@ class GenerateNksReportRequest(BaseModel):
     date_to: str = Field(
         ..., description="Конец периода по дате отбора пробы (YYYY-MM-DD)"
     )
+    report_month: int = Field(..., ge=1, le=12, description="Месяц отчёта")
+    report_year: int = Field(..., ge=1900, le=2100, description="Год отчёта")

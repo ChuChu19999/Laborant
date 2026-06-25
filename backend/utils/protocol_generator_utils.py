@@ -372,9 +372,7 @@ def map_test_object_to_suffix(text: str) -> str:
         return "дт"
     if "отработанные нефтепродукты" in value:
         return "он"
-    if "масло турбинное" in value:
-        return "м"
-    if "масло авиационное" in value:
+    if "масло" in value:
         return "м"
     if "смесь жидких углеводородов" in value:
         return "с"

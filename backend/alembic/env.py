@@ -26,6 +26,7 @@ from models import (  # noqa: F401
     ReportTemplate,
     ResearchMethod,
     ResearchMethodGroup,
+    Role,
     Sample,
     SamplingLocation,
     SelectionConditions,

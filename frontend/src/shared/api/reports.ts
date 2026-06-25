@@ -176,13 +176,15 @@ export const reportsApi = {
     template_id?: number;
     date_from: string;
     date_to: string;
+    report_month: number;
+    report_year: number;
   }): Promise<{ blob: Blob; filename: string }> => {
     const response = await axiosInstance.post(
       '/api/report-templates/generate/nks-results/',
       params,
       { responseType: 'blob' }
     );
-    let filename = `Результаты_НКС_${params.date_from}_${params.date_to}.xlsx`;
+    let filename = `Результаты_НКС_${params.report_month}_${params.report_year}_${params.date_from}_${params.date_to}.xlsx`;
     const contentDisposition =
       response.headers['content-disposition'] || response.headers['Content-Disposition'] || '';
     const utf8NameMatch = contentDisposition.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);

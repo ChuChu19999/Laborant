@@ -13,6 +13,8 @@ export * from './useEquipment';
 export * from './useEquipmentMutations';
 export * from './useTestObjects';
 export * from './useTestObjectsMutations';
+export * from './useRoles';
+export * from './useRolesMutations';
 export * from './useTestObjectSampleTypeOptions';
 export * from './useLaboratoriesWithDepartments';
 export * from './useSamplingLocationsMutations';

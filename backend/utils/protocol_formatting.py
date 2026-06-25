@@ -44,9 +44,7 @@ def format_protocol_number(
             return "дт"
         if "отработанные нефтепродукты" in test_object_lower:
             return "он"
-        if "масло турбинное" in test_object_lower:
-            return "м"
-        if "масло авиационное" in test_object_lower:
+        if "масло" in test_object_lower:
             return "м"
         if "смесь жидких углеводородов" in test_object_lower:
             return "с"

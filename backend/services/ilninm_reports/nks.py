@@ -51,13 +51,34 @@ from services.ilninm_reports.physicochemical import (
     _method_name_matches,
     _parse_calculation_result_payload,
     _report_display,
-    format_report_period,
 )
 from utils.calculation_result_display import format_calculation_result_for_display
 from utils.filters import add_date_range_filter
 
 _NKS_TEMPERATURE_CAP = 360
 _Q_ZERO_EPSILON = 1e-9
+
+_NKS_MONTH_NAMES = (
+    "январь",
+    "февраль",
+    "март",
+    "апрель",
+    "май",
+    "июнь",
+    "июль",
+    "август",
+    "сентябрь",
+    "октябрь",
+    "ноябрь",
+    "декабрь",
+)
+
+
+def format_nks_report_period(month: int, year: int) -> str:
+    """Период для метки {period} в шапке отчёта НКС, например «июнь 2026 г.»."""
+    if not 1 <= month <= 12:
+        raise ValueError("Месяц отчёта должен быть от 1 до 12")
+    return f"{_NKS_MONTH_NAMES[month - 1]} {year} г."
 
 
 @dataclass
@@ -447,6 +468,6 @@ async def get_nks_report_rows(
 
 __all__ = [
     "NksReportRow",
-    "format_report_period",
+    "format_nks_report_period",
     "get_nks_report_rows",
 ]

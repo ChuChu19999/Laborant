@@ -11,6 +11,7 @@ from models.research import (
     SampleType,
     research_method_groups_association,
 )
+from models.role import Role, RoleType
 from models.sample import MassFractionOilRefractionTable, Sample, SelectionConditions
 from models.test_object import TestObject
 
@@ -34,5 +35,7 @@ __all__ = [
     "Calculation",
     "Equipment",
     "EquipmentType",
+    "Role",
+    "RoleType",
     "TestObject",
 ]

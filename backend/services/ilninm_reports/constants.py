@@ -151,6 +151,7 @@ TEST_OBJECT_NKS_MIXTURE = "нефтеконденсатная смесь"
 NKS_TEMPLATE_HEADER_LAST_ROW = 18
 NKS_TEMPLATE_DATA_ROW = 19
 NKS_PLACEHOLDER_PERIOD = "{period}"
+NKS_REPORT_FONT_SIZE = 10
 
 GROUP_MASS_FRACTION_OIL = "Массовая доля нефти"
 GROUP_DENSITY_20 = "Плотность при температуре 20 °C"

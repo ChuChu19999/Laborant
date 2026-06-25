@@ -590,6 +590,8 @@ async def generate_nks_report(
         laboratory_id=body.laboratory_id,
         sampling_date_from=date_from,
         sampling_date_to=date_to,
+        report_month=body.report_month,
+        report_year=body.report_year,
         department_id=body.department_id,
     )
 

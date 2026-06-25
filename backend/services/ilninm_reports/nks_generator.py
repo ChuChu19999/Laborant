@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from services.ilninm_reports.constants import (
     NKS_MAX_COLUMN,
     NKS_PLACEHOLDER_PERIOD,
+    NKS_REPORT_FONT_SIZE,
     NKS_TEMPLATE_DATA_ROW,
     NKS_TEMPLATE_HEADER_LAST_ROW,
     REPORT_EMPTY_CELL_VALUE,
@@ -20,11 +21,8 @@ from services.ilninm_reports.excel_template_layout import (
     insert_rows_for_data_count,
     unmerge_cells_in_row_range,
 )
-from services.ilninm_reports.nks import format_report_period, get_nks_report_rows
-from services.ilninm_reports.sample_count_generator import (
-    REPORT_FONT_NAME,
-    REPORT_FONT_SIZE,
-)
+from services.ilninm_reports.nks import format_nks_report_period, get_nks_report_rows
+from services.ilninm_reports.sample_count_generator import REPORT_FONT_NAME
 from utils.protocol_generator_utils import (
     copy_cell_style,
     copy_column_dimensions,
@@ -37,7 +35,7 @@ def _apply_report_font(cell: Cell) -> None:
     if old:
         cell.font = Font(
             name=REPORT_FONT_NAME,
-            size=REPORT_FONT_SIZE,
+            size=NKS_REPORT_FONT_SIZE,
             bold=old.bold,
             italic=old.italic,
             underline=old.underline,
@@ -45,7 +43,7 @@ def _apply_report_font(cell: Cell) -> None:
             color=old.color,
         )
         return
-    cell.font = Font(name=REPORT_FONT_NAME, size=REPORT_FONT_SIZE)
+    cell.font = Font(name=REPORT_FONT_NAME, size=NKS_REPORT_FONT_SIZE)
 
 
 def _merged_cell_anchor(
@@ -65,6 +63,25 @@ def _writable_cell(
 ) -> Cell:
     anchor_row, anchor_col = _merged_cell_anchor(ws, row, col)
     return ws.cell(row=anchor_row, column=anchor_col)
+
+
+def _template_data_row_height(
+    ws: openpyxl.worksheet.worksheet.Worksheet, template_row: int
+) -> Optional[float]:
+    row_dim = ws.row_dimensions.get(template_row)
+    if row_dim and row_dim.height is not None:
+        return row_dim.height
+    return None
+
+
+def _lock_data_row_height(
+    ws: openpyxl.worksheet.worksheet.Worksheet,
+    row: int,
+    height: Optional[float],
+) -> None:
+    if height is None:
+        return
+    ws.row_dimensions[row].height = height
 
 
 def _replace_period_placeholder(
@@ -96,6 +113,7 @@ def _write_data_row(
     well: str,
     sampling_date: str,
     values_by_column: dict[int, str],
+    template_row_height: Optional[float],
 ) -> None:
     if output_row != template_row:
         copy_row_formatting(ws, ws, template_row, output_row, merged_cells_map=None)
@@ -116,6 +134,8 @@ def _write_data_row(
     for col in range(1, NKS_MAX_COLUMN + 1):
         _apply_report_font(_writable_cell(ws, output_row, col))
 
+    _lock_data_row_height(ws, output_row, template_row_height)
+
 
 async def build_nks_excel(
     db: AsyncSession,
@@ -123,6 +143,8 @@ async def build_nks_excel(
     laboratory_id: int,
     sampling_date_from: Any,
     sampling_date_to: Any,
+    report_month: int,
+    report_year: int,
     department_id: Optional[int] = None,
 ) -> bytes:
     """Строит Excel по шаблону: шапка с периодом, строки данных с 19-й строки."""
@@ -130,7 +152,7 @@ async def build_nks_excel(
     wb = openpyxl.load_workbook(BytesIO(template_bytes))
     ws = wb.worksheets[0] if wb.worksheets else wb.active
 
-    period_text = format_report_period(sampling_date_from, sampling_date_to)
+    period_text = format_nks_report_period(report_month, report_year)
     for sheet in wb.worksheets:
         _replace_period_placeholder(sheet, period_text)
 
@@ -143,6 +165,7 @@ async def build_nks_excel(
     )
 
     template_row = NKS_TEMPLATE_DATA_ROW
+    template_row_height = _template_data_row_height(ws, template_row)
     data_row_count = len(rows)
     insert_rows_for_data_count(ws, template_row, data_row_count)
     if data_row_count > 0:
@@ -163,6 +186,7 @@ async def build_nks_excel(
             data_row.well,
             data_row.sampling_date,
             data_row.values_by_column,
+            template_row_height,
         )
         output_row += 1
 

@@ -1,9 +1,10 @@
 import React, { useState, useCallback } from 'react';
 import { message } from 'antd';
+import dayjs from 'dayjs';
 import { reportsApi } from '../../../../shared/api/reports';
 import { getDateRangePresets } from '../../../../shared/lib/datePresets';
 import { extractErrorMessage } from '../../../../shared/lib/errors/extractErrorMessage';
-import { RangePicker, Select } from '../../../../shared/ui/FormItems';
+import { DatePicker, RangePicker, Select } from '../../../../shared/ui/FormItems';
 import { Modal } from '../../../../shared/ui/Modal';
 import type { Dayjs } from 'dayjs';
 import './GenerateReportModal.css';
@@ -41,6 +42,7 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
   const [reportType, setReportType] = useState<string>(REPORT_TYPE_SAMPLE_COUNT);
   const [samplingLocation, setSamplingLocation] = useState<string>('ЦДГГКН №1');
   const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
+  const [reportPeriod, setReportPeriod] = useState<Dayjs | null>(dayjs());
   const [loading, setLoading] = useState(false);
 
   const isPhysicochemical = reportType === REPORT_TYPE_PHYSICOCHEMICAL;
@@ -60,6 +62,13 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
       message.warning('Выберите место отбора пробы');
       return;
     }
+    if (isNks && !reportPeriod) {
+      message.warning('Выберите месяц и год отчёта');
+      return;
+    }
+
+    const nksReportMonth = reportPeriod ? reportPeriod.month() + 1 : undefined;
+    const nksReportYear = reportPeriod ? reportPeriod.year() : undefined;
 
     setLoading(true);
     try {
@@ -80,8 +89,12 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
         });
       } else if (isKgs) {
         reportFile = await reportsApi.generateKgsReport(baseParams);
-      } else if (isNks) {
-        reportFile = await reportsApi.generateNksReport(baseParams);
+      } else if (isNks && nksReportMonth && nksReportYear) {
+        reportFile = await reportsApi.generateNksReport({
+          ...baseParams,
+          report_month: nksReportMonth,
+          report_year: nksReportYear,
+        });
       } else {
         reportFile = await reportsApi.generateSampleCountReport(baseParams);
       }
@@ -109,6 +122,7 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
     isKgs,
     isNks,
     samplingLocation,
+    reportPeriod,
     dateLabel,
     onClose,
   ]);
@@ -149,6 +163,20 @@ const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
                 setSamplingLocation((v as string) ?? PHYSICOCHEMICAL_SAMPLING_LOCATIONS[0].value)
               }
               options={PHYSICOCHEMICAL_SAMPLING_LOCATIONS}
+              style={{ width: '100%' }}
+            />
+          </div>
+        )}
+        {isNks && (
+          <div className="generate-report-modal-field">
+            <label className="generate-report-modal-label">Месяц и год отчёта</label>
+            <DatePicker
+              picker="month"
+              disableYearNavigation={false}
+              inputReadOnly
+              value={reportPeriod}
+              onChange={date => setReportPeriod((date as Dayjs | null) ?? null)}
+              format="MMMM YYYY"
               style={{ width: '100%' }}
             />
           </div>
