@@ -1,59 +1,65 @@
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
-from typing import Any, Dict
+from typing import Any, Dict, Union
 import orjson
 from core.logger import logger
-from services.calculation import get_temperature_correction
+from services.calculation import (
+    get_temperature_correction,
+    parse_decimal_value,
+    round_decimal_half_up,
+)
 
 
-def round_to_half(value):
+def _format_one_decimal_str(value: Any) -> str:
+    """Одна цифра после запятой для протокола."""
+    return format(round_decimal_half_up(value, 1), ".1f")
+
+
+def _is_nonempty_numeric(value: Any) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, str) and not value.strip():
+        return False
+    return str(value).strip() != "0"
+
+
+def round_to_half(value: Any) -> Decimal:
     """Округляет до ближайшего 0,5 математически (0,5 вверх на границе)."""
     try:
-        normalized_value = str(value).replace(",", ".")
-        decimal_value = Decimal(normalized_value)
-        rounded = (decimal_value * 2).quantize(Decimal("1"), rounding=ROUND_HALF_UP) / 2
-        return float(rounded)
+        decimal_value = parse_decimal_value(value)
+        return (decimal_value * 2).quantize(Decimal("1"), rounding=ROUND_HALF_UP) / 2
     except (ValueError, TypeError, InvalidOperation):
         return value
 
 
-def round_condensate_distillate_volume(value):
+def round_condensate_distillate_volume(value: Any) -> Union[int, Decimal]:
     """Округление объемной доли отгона в фракционке конденсата."""
     try:
-        val = float(str(value).replace(",", "."))
+        val = parse_decimal_value(value)
         integer_part = int(val)
-        fractional_part = val - integer_part
-
-        if fractional_part >= 0.75:
+        fractional_part = val - Decimal(integer_part)
+        if fractional_part >= Decimal("0.75"):
             return integer_part + 1
-        if fractional_part >= 0.25:
-            return integer_part + 0.5
+        if fractional_part >= Decimal("0.25"):
+            return Decimal(integer_part) + Decimal("0.5")
         return integer_part
-    except (ValueError, TypeError):
-        return value
-
-
-def round_to_one_decimal(value):
-    """Округляет до 1 знака после запятой"""
-    try:
-        normalized_value = str(value).replace(",", ".")
-        rounded = Decimal(normalized_value).quantize(
-            Decimal("0.1"), rounding=ROUND_HALF_UP
-        )
-        return float(rounded)
     except (ValueError, TypeError, InvalidOperation):
         return value
 
 
-def round_half_up_to_int(value):
+def round_to_one_decimal(value: Any) -> Decimal:
+    """Округляет до 1 знака после запятой."""
+    try:
+        return round_decimal_half_up(value, 1)
+    except (ValueError, TypeError, InvalidOperation):
+        return value
+
+
+def round_half_up_to_int(value: Any) -> int:
     """Округляет до целого по правилу 0.5 вверх."""
     try:
-        normalized_value = str(value).replace(",", ".")
-        rounded = Decimal(normalized_value).quantize(
-            Decimal("1"), rounding=ROUND_HALF_UP
-        )
-        return int(rounded)
+        return int(round_decimal_half_up(value, 0))
     except (ValueError, TypeError, InvalidOperation):
-        return value
+        return int(value) if value not in (None, "") else 0
 
 
 def calculate_fractional_composition(input_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -231,83 +237,66 @@ def calculate_fractional_composition(input_data: Dict[str, Any]) -> Dict[str, An
         volume_distillate2 = card_2_data.get("Объемная доля отгона", "0")
         volume_residue2 = card_2_data.get("Объемная доля остатка", "0")
 
-        # Обрабатываем первую параллель
         corrected_temps_1 = {}
         for field_name, temp_value in temp_fields_1:
-            if temp_value and temp_value != "0" and temp_value.strip():
+            if _is_nonempty_numeric(temp_value):
                 try:
-                    temp_float = float(str(temp_value).replace(",", "."))
-                    correction = get_temperature_correction(temp_float, patm1)
-                    corrected_temp = temp_float + correction
-                    corrected_temps_1[field_name] = corrected_temp
+                    temp_decimal = parse_decimal_value(temp_value)
+                    correction = get_temperature_correction(temp_decimal, patm1)
+                    corrected_temps_1[field_name] = temp_decimal + correction
                 except (ValueError, TypeError):
                     corrected_temps_1[field_name] = temp_value
             else:
                 corrected_temps_1[field_name] = temp_value
 
-        # Обрабатываем вторую параллель
         corrected_temps_2 = {}
         for field_name, temp_value in temp_fields_2:
-            if temp_value and temp_value != "0" and temp_value.strip():
+            if _is_nonempty_numeric(temp_value):
                 try:
-                    temp_float = float(str(temp_value).replace(",", "."))
-                    correction = get_temperature_correction(temp_float, patm2)
-                    corrected_temp = temp_float + correction
-                    corrected_temps_2[field_name] = corrected_temp
+                    temp_decimal = parse_decimal_value(temp_value)
+                    correction = get_temperature_correction(temp_decimal, patm2)
+                    corrected_temps_2[field_name] = temp_decimal + correction
                 except (ValueError, TypeError):
                     corrected_temps_2[field_name] = temp_value
             else:
                 corrected_temps_2[field_name] = temp_value
 
-        # Рассчитываем средние значения температур
         average_temps = {}
         for field_name in corrected_temps_1.keys():
             val1 = corrected_temps_1.get(field_name, 0)
             val2 = corrected_temps_2.get(field_name, 0)
 
-            if (val1 and val1 != "0" and str(val1).strip()) and (
-                val2 and val2 != "0" and str(val2).strip()
-            ):
+            if _is_nonempty_numeric(val1) and _is_nonempty_numeric(val2):
                 try:
-                    val1_float = float(str(val1).replace(",", "."))
-                    val2_float = float(str(val2).replace(",", "."))
-                    avg_val = (val1_float + val2_float) / 2
-                    rounded_val = round_half_up_to_int(avg_val)
-                    average_temps[field_name] = rounded_val
+                    avg_val = (
+                        parse_decimal_value(val1) + parse_decimal_value(val2)
+                    ) / 2
+                    average_temps[field_name] = round_half_up_to_int(avg_val)
                 except (ValueError, TypeError):
                     average_temps[field_name] = val1
-            elif val1 and val1 != "0" and str(val1).strip():
+            elif _is_nonempty_numeric(val1):
                 try:
-                    val1_float = float(str(val1).replace(",", "."))
-                    rounded_val = round_half_up_to_int(val1_float)
-                    average_temps[field_name] = rounded_val
+                    average_temps[field_name] = round_half_up_to_int(
+                        parse_decimal_value(val1)
+                    )
                 except (ValueError, TypeError):
                     average_temps[field_name] = val1
-            elif val2 and val2 != "0" and str(val2).strip():
+            elif _is_nonempty_numeric(val2):
                 try:
-                    val2_float = float(str(val2).replace(",", "."))
-                    rounded_val = round_half_up_to_int(val2_float)
-                    average_temps[field_name] = rounded_val
+                    average_temps[field_name] = round_half_up_to_int(
+                        parse_decimal_value(val2)
+                    )
                 except (ValueError, TypeError):
                     average_temps[field_name] = val2
 
-        # Рассчитываем средние объемные доли
         average_volume_distillate = None
         average_volume_residue = None
 
-        if (
-            volume_distillate1
-            and volume_distillate1 != "0"
-            and str(volume_distillate1).strip()
-        ):
+        if _is_nonempty_numeric(volume_distillate1):
             try:
-                val1 = float(str(volume_distillate1).replace(",", "."))
-                if (
-                    volume_distillate2
-                    and volume_distillate2 != "0"
-                    and str(volume_distillate2).strip()
-                ):
-                    val2 = float(str(volume_distillate2).replace(",", "."))
+                val1 = parse_decimal_value(volume_distillate1)
+                if _is_nonempty_numeric(volume_distillate2):
+                    val2 = parse_decimal_value(volume_distillate2)
                     average_volume_distillate = round_condensate_distillate_volume(
                         (val1 + val2) / 2
                     )
@@ -316,29 +305,25 @@ def calculate_fractional_composition(input_data: Dict[str, Any]) -> Dict[str, An
             except (ValueError, TypeError):
                 pass
 
-        if volume_residue1 and volume_residue1 != "0" and str(volume_residue1).strip():
+        if _is_nonempty_numeric(volume_residue1):
             try:
-                val1 = float(str(volume_residue1).replace(",", "."))
-                if (
-                    volume_residue2
-                    and volume_residue2 != "0"
-                    and str(volume_residue2).strip()
-                ):
-                    val2 = float(str(volume_residue2).replace(",", "."))
+                val1 = parse_decimal_value(volume_residue1)
+                if _is_nonempty_numeric(volume_residue2):
+                    val2 = parse_decimal_value(volume_residue2)
                     average_volume_residue = round_to_one_decimal((val1 + val2) / 2)
                 else:
                     average_volume_residue = round_to_one_decimal(val1)
             except (ValueError, TypeError):
                 pass
 
-        # Рассчитываем объемную долю потерь
         volume_losses = None
         if average_volume_distillate is not None and average_volume_residue is not None:
             try:
-                distillate_val = float(str(average_volume_distillate).replace(",", "."))
-                residue_val = float(str(average_volume_residue).replace(",", "."))
-                volume_losses = 100 - distillate_val - residue_val
-                volume_losses = round_to_one_decimal(volume_losses)
+                distillate_val = parse_decimal_value(average_volume_distillate)
+                residue_val = parse_decimal_value(average_volume_residue)
+                volume_losses = round_to_one_decimal(
+                    Decimal("100") - distillate_val - residue_val
+                )
             except (ValueError, TypeError):
                 pass
 
@@ -346,16 +331,13 @@ def calculate_fractional_composition(input_data: Dict[str, Any]) -> Dict[str, An
         intermediate_results = {}
 
         for field_name, value in average_temps.items():
-            if value and value != "0" and str(value).strip():
+            if _is_nonempty_numeric(value):
                 if any(
                     temp_keyword in field_name.lower()
                     for temp_keyword in ["температура", "отгона при температуре"]
                 ):
                     try:
-                        value_str = str(value).replace(",", ".")
-                        float_value = float(value_str)
-                        int_value = int(float_value)
-                        # Нормализуем ключ: заменяем запятую на точку
+                        int_value = int(parse_decimal_value(value))
                         normalized_key = field_name.replace(
                             "Температура н,к.", "Температура н.к."
                         )
@@ -367,16 +349,16 @@ def calculate_fractional_composition(input_data: Dict[str, Any]) -> Dict[str, An
                         intermediate_results[normalized_key] = str(value)
 
         if average_volume_distillate is not None:
-            intermediate_results["Объемная доля отгона"] = (
-                f"{float(str(average_volume_distillate)):.1f}"
+            intermediate_results["Объемная доля отгона"] = _format_one_decimal_str(
+                average_volume_distillate
             )
         if average_volume_residue is not None:
-            intermediate_results["Объемная доля остатка"] = (
-                f"{float(str(average_volume_residue)):.1f}"
+            intermediate_results["Объемная доля остатка"] = _format_one_decimal_str(
+                average_volume_residue
             )
         if volume_losses is not None:
-            intermediate_results["Объемная доля потерь"] = (
-                f"{float(str(volume_losses)):.1f}"
+            intermediate_results["Объемная доля потерь"] = _format_one_decimal_str(
+                volume_losses
             )
 
         result_json = orjson.dumps(
@@ -474,14 +456,13 @@ def calculate_fractional_composition_oil(input_data: Dict[str, Any]) -> Dict[str
             ),
         ]
 
-        # Поправка на атмосферное давление для температур (как у конденсата)
         corrected_temps_1 = {}
         for field_name, temp_value in temp_fields_1:
-            if temp_value and temp_value != "0" and temp_value.strip():
+            if _is_nonempty_numeric(temp_value):
                 try:
-                    temp_float = float(str(temp_value).replace(",", "."))
-                    correction = get_temperature_correction(temp_float, patm1)
-                    corrected_temps_1[field_name] = temp_float + correction
+                    temp_decimal = parse_decimal_value(temp_value)
+                    correction = get_temperature_correction(temp_decimal, patm1)
+                    corrected_temps_1[field_name] = temp_decimal + correction
                 except (ValueError, TypeError):
                     corrected_temps_1[field_name] = temp_value
             else:
@@ -489,11 +470,11 @@ def calculate_fractional_composition_oil(input_data: Dict[str, Any]) -> Dict[str
 
         corrected_temps_2 = {}
         for field_name, temp_value in temp_fields_2:
-            if temp_value and temp_value != "0" and temp_value.strip():
+            if _is_nonempty_numeric(temp_value):
                 try:
-                    temp_float = float(str(temp_value).replace(",", "."))
-                    correction = get_temperature_correction(temp_float, patm2)
-                    corrected_temps_2[field_name] = temp_float + correction
+                    temp_decimal = parse_decimal_value(temp_value)
+                    correction = get_temperature_correction(temp_decimal, patm2)
+                    corrected_temps_2[field_name] = temp_decimal + correction
                 except (ValueError, TypeError):
                     corrected_temps_2[field_name] = temp_value
             else:
@@ -531,65 +512,57 @@ def calculate_fractional_composition_oil(input_data: Dict[str, Any]) -> Dict[str
             ("300 ℃", card_2_data.get("300 ℃", "0")),
         ]
 
-        # Усредняем скорректированные температуры по двум параллелям
         average_temps = {}
         for field_name in corrected_temps_1.keys():
             val1 = corrected_temps_1.get(field_name, 0)
             val2 = corrected_temps_2.get(field_name, 0)
 
-            if (val1 and val1 != "0" and str(val1).strip()) and (
-                val2 and val2 != "0" and str(val2).strip()
-            ):
+            if _is_nonempty_numeric(val1) and _is_nonempty_numeric(val2):
                 try:
-                    val1_float = float(str(val1).replace(",", "."))
-                    val2_float = float(str(val2).replace(",", "."))
-                    avg_val = (val1_float + val2_float) / 2
-                    rounded_val = round_half_up_to_int(avg_val)
-                    average_temps[field_name] = rounded_val
+                    avg_val = (
+                        parse_decimal_value(val1) + parse_decimal_value(val2)
+                    ) / 2
+                    average_temps[field_name] = round_half_up_to_int(avg_val)
                 except (ValueError, TypeError):
                     average_temps[field_name] = val1
-            elif val1 and val1 != "0" and str(val1).strip():
+            elif _is_nonempty_numeric(val1):
                 try:
-                    val1_float = float(str(val1).replace(",", "."))
-                    rounded_val = round_half_up_to_int(val1_float)
-                    average_temps[field_name] = rounded_val
+                    average_temps[field_name] = round_half_up_to_int(
+                        parse_decimal_value(val1)
+                    )
                 except (ValueError, TypeError):
                     average_temps[field_name] = val1
-            elif val2 and val2 != "0" and str(val2).strip():
+            elif _is_nonempty_numeric(val2):
                 try:
-                    val2_float = float(str(val2).replace(",", "."))
-                    rounded_val = round_half_up_to_int(val2_float)
-                    average_temps[field_name] = rounded_val
+                    average_temps[field_name] = round_half_up_to_int(
+                        parse_decimal_value(val2)
+                    )
                 except (ValueError, TypeError):
                     average_temps[field_name] = val2
 
-        # Рассчитываем средние значения выходов фракций
         average_outputs = {}
         for field_name, val1 in output_fields_1:
             val2 = output_fields_2[output_fields_1.index((field_name, val1))][1]
 
-            if (val1 and val1 != "0" and str(val1).strip()) and (
-                val2 and val2 != "0" and str(val2).strip()
-            ):
+            if _is_nonempty_numeric(val1) and _is_nonempty_numeric(val2):
                 try:
                     avg_val = (
-                        float(str(val1).replace(",", "."))
-                        + float(str(val2).replace(",", "."))
+                        parse_decimal_value(val1) + parse_decimal_value(val2)
                     ) / 2
                     average_outputs[field_name] = round_to_half(avg_val)
                 except (ValueError, TypeError):
                     average_outputs[field_name] = val1
-            elif val1 and val1 != "0" and str(val1).strip():
+            elif _is_nonempty_numeric(val1):
                 try:
                     average_outputs[field_name] = round_to_half(
-                        float(str(val1).replace(",", "."))
+                        parse_decimal_value(val1)
                     )
                 except (ValueError, TypeError):
                     average_outputs[field_name] = val1
-            elif val2 and val2 != "0" and str(val2).strip():
+            elif _is_nonempty_numeric(val2):
                 try:
                     average_outputs[field_name] = round_to_half(
-                        float(str(val2).replace(",", "."))
+                        parse_decimal_value(val2)
                     )
                 except (ValueError, TypeError):
                     average_outputs[field_name] = val2
@@ -598,12 +571,9 @@ def calculate_fractional_composition_oil(input_data: Dict[str, Any]) -> Dict[str
         intermediate_results = {}
 
         for field_name, value in average_temps.items():
-            if value and value != "0" and str(value).strip():
+            if _is_nonempty_numeric(value):
                 try:
-                    value_str = str(value).replace(",", ".")
-                    float_value = float(value_str)
-                    int_value = int(float_value)
-                    # Нормализуем ключ: заменяем запятую на точку
+                    int_value = int(parse_decimal_value(value))
                     normalized_key = field_name.replace(
                         "Температура н,к.", "Температура н.к."
                     )
@@ -615,9 +585,9 @@ def calculate_fractional_composition_oil(input_data: Dict[str, Any]) -> Dict[str
                     intermediate_results[normalized_key] = str(value)
 
         for field_name, value in average_outputs.items():
-            if value and value != "0" and str(value).strip():
+            if _is_nonempty_numeric(value):
                 intermediate_results[f"Выход фракций до {field_name}"] = (
-                    f"{float(str(value).replace(',', '.')):.1f}"
+                    _format_one_decimal_str(value)
                 )
 
         result_json = orjson.dumps(

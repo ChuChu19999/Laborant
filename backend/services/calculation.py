@@ -1,5 +1,6 @@
+import re
 from decimal import ROUND_HALF_UP, Decimal
-from typing import List, NamedTuple, Optional
+from typing import Any, List, NamedTuple, Optional
 from sqlalchemy import Float, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -327,41 +328,65 @@ async def replace_calculation(
 # ============================================================================
 
 
+def parse_decimal_value(value: Any) -> Decimal:
+    """Число в Decimal: строки и целые точно, float без лишнего хвоста."""
+    if isinstance(value, Decimal):
+        return value
+    if isinstance(value, bool):
+        raise ValueError(f"недопустимое числовое значение: {value!r}")
+    if isinstance(value, int):
+        return Decimal(value)
+    if isinstance(value, float):
+        text = format(value, ".15g")
+        if "e" in text or "E" in text:
+            text = format(value, ".15f").rstrip("0").rstrip(".")
+        return Decimal(text if text else "0")
+    if isinstance(value, str):
+        text = value.strip().replace(",", ".")
+        if not text:
+            raise ValueError("пустое числовое значение")
+        return Decimal(text)
+    raise ValueError(f"не удалось преобразовать в число: {value!r}")
+
+
+def round_decimal_half_up(value: Any, decimal_places: int) -> Decimal:
+    """Округление до N знаков после запятой, 0.5 вверх, как при ручном счёте."""
+    places = int(decimal_places)
+    quant = Decimal("1") if places == 0 else Decimal("0.1") ** places
+    return parse_decimal_value(value).quantize(quant, rounding=ROUND_HALF_UP)
+
+
+def _formula_variable_value(value: Any) -> Decimal:
+    """Значение переменной формулы: ввод пользователя или округлённый промежуточный шаг."""
+    return parse_decimal_value(value)
+
+
+def _eval_numeric_result(result: Any) -> Decimal:
+    if isinstance(result, Decimal):
+        return result
+    if isinstance(result, (int, float)):
+        return parse_decimal_value(result)
+    raise ValueError(f"формула вернула не число: {result!r}")
+
+
 def _round_half_up(value, ndigits=0):
-    """Округляет число по правилу 0.5 вверх."""
-    decimal_value = Decimal(str(float(value)))
-    quant = Decimal("1") if ndigits == 0 else Decimal("0.1") ** int(ndigits)
-    return float(decimal_value.quantize(quant, rounding=ROUND_HALF_UP))
+    """Округляет число по правилу 0.5 вверх (для round() внутри формул)."""
+    return round_decimal_half_up(value, ndigits)
 
 
-def _round_to_significant_figures(number, significant_figures):
-    """
-    Округляет число до заданного количества значащих цифр.
-    """
-    if number == 0:
-        return 0
-
-    d = Decimal(str(float(number)))
-    str_num = f"{d:E}"
-    mantissa, exp = str_num.split("E")
-    exp = int(exp)
-    mantissa = mantissa.replace(".", "").rstrip("0")
-
-    if len(mantissa) > significant_figures:
-        decimal_mantissa = Decimal(mantissa[: significant_figures + 1]) / Decimal("10")
-        mantissa = str(decimal_mantissa.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
-
-    mantissa = mantissa.ljust(significant_figures, "0")
-
-    if exp >= 0:
-        if exp + 1 >= len(mantissa):
-            result = Decimal(mantissa + "0" * (exp + 1 - len(mantissa)))
-        else:
-            result = Decimal(mantissa[: exp + 1] + "." + mantissa[exp + 1 :])
-    else:
-        result = Decimal("0." + "0" * (-exp - 1) + mantissa)
-
-    return result
+def round_significant_half_up(value: Any, significant_figures: int) -> Decimal:
+    """Округление до N значащих цифр, 0.5 вверх."""
+    sf = int(significant_figures)
+    if sf <= 0:
+        raise ValueError(
+            f"число значащих цифр должно быть положительным: {significant_figures}"
+        )
+    d = parse_decimal_value(value)
+    if d.is_zero():
+        return Decimal("0")
+    quant_exp = d.adjusted() - sf + 1
+    quant = Decimal("1").scaleb(quant_exp)
+    return d.quantize(quant, rounding=ROUND_HALF_UP)
 
 
 def _round_to_multiple(number, multiple):
@@ -369,8 +394,8 @@ def _round_to_multiple(number, multiple):
     Округляет число до ближайшего кратного заданному числу.
     """
     try:
-        d = Decimal(str(float(number)))
-        m = Decimal(str(float(multiple)))
+        d = parse_decimal_value(number)
+        m = parse_decimal_value(multiple)
         quotient = (d / m).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
         return quotient * m
     except Exception as e:
@@ -382,11 +407,8 @@ def round_result(result, rounding_type, rounding_decimal):
     Округляет результат по заданному типу и количеству знаков.
     """
     if rounding_type == "decimal":
-        d = Decimal(str(float(result)))
-        # Используем ROUND_HALF_UP для округления 0.5 вверх
-        return d.quantize(Decimal("0.1") ** rounding_decimal, rounding=ROUND_HALF_UP)
-    else:
-        return _round_to_significant_figures(result, rounding_decimal)
+        return round_decimal_half_up(result, rounding_decimal)
+    return round_significant_half_up(result, rounding_decimal)
 
 
 def _replace_subscript_digits(text):
@@ -434,6 +456,47 @@ def _replace_subscript_digits(text):
     return result
 
 
+_FORMULA_NUMBER_RE = re.compile(
+    r"(?<![\w.])(-?\d+\.\d+|-?\d+\.|-?\.\d+|-?\d+)(?![\w.])"
+)
+
+
+def _normalize_formula_text(formula: str) -> str:
+    text = _replace_subscript_digits(formula)
+    return text.replace("×", "*").replace("÷", "/")
+
+
+def _decimalize_formula_literals(formula: str) -> str:
+    """Числовые литералы в формуле становятся Decimal, чтобы не смешивать float и Decimal."""
+
+    def repl(match: re.Match[str]) -> str:
+        return f"Decimal('{match.group(1)}')"
+
+    return _FORMULA_NUMBER_RE.sub(repl, formula)
+
+
+def _formula_safe_dict(decimal_vars: dict[str, Decimal]) -> dict[str, Any]:
+    return {
+        "__builtins__": {},
+        "Decimal": Decimal,
+        "abs": abs,
+        "pow": pow,
+        "round": _round_half_up,
+        "max": max,
+        "min": min,
+        **decimal_vars,
+    }
+
+
+def _eval_prepared_formula(
+    prepared_formula: str, decimal_vars: dict[str, Decimal]
+) -> Decimal:
+    safe_dict = _formula_safe_dict(decimal_vars)
+    return _eval_numeric_result(
+        eval(prepared_formula, {"__builtins__": None}, safe_dict)
+    )
+
+
 def evaluate_formula(
     formula, variables, is_condition=False, range_calculation=None, rounding_params=None
 ):
@@ -441,8 +504,7 @@ def evaluate_formula(
     Вычисляет результат формулы.
     """
     try:
-        formula = _replace_subscript_digits(formula)
-        formula = formula.replace("×", "*").replace("÷", "/")
+        formula = _normalize_formula_text(formula)
 
         # Если есть диапазонный расчет, сразу его применяем
         if not is_condition and range_calculation and "ranges" in range_calculation:
@@ -450,24 +512,14 @@ def evaluate_formula(
             decimal_vars = {}
             for name, value in variables.items():
                 try:
-                    if isinstance(value, str):
-                        value = value.strip().replace(",", ".")
                     new_name = _replace_subscript_digits(name)
-                    decimal_vars[new_name] = float(value)
+                    decimal_vars[new_name] = _formula_variable_value(value)
                 except Exception as e:
                     raise ValueError(
                         f"Ошибка преобразования значения {name} = {value} в число: {str(e)}"
                     )
 
-            safe_dict = {
-                "__builtins__": {},
-                "abs": abs,
-                "pow": pow,
-                "round": _round_half_up,
-                "max": max,
-                "min": min,
-            }
-            safe_dict.update(decimal_vars)
+            safe_dict = _formula_safe_dict(decimal_vars)
 
             # Проверяем каждый диапазон
             for range_item in range_calculation["ranges"]:
@@ -496,45 +548,33 @@ def evaluate_formula(
                         break
 
                 if any_or_condition_met:
-                    # Если условие выполняется, вычисляем формулу из диапазона
-                    range_formula = _replace_subscript_digits(range_item["formula"])
-                    range_formula = range_formula.replace("×", "*").replace("÷", "/")
-                    result = float(
-                        eval(range_formula, {"__builtins__": None}, safe_dict)
+                    range_formula = _normalize_formula_text(range_item["formula"])
+                    prepared = _decimalize_formula_literals(range_formula)
+                    return _eval_numeric_result(
+                        eval(prepared, {"__builtins__": None}, safe_dict)
                     )
-                    return Decimal(str(result))
 
             # Если ни одно условие не выполнилось, возвращаем 0
             return Decimal("0")
 
         # Проверяем, является ли формула простым числом
         try:
-            return Decimal(str(float(formula)))
-        except ValueError:
+            return parse_decimal_value(formula.strip().replace(",", "."))
+        except Exception:
             pass
 
         # Создаем словарь переменных для обычного расчета
         decimal_vars = {}
         for name, value in variables.items():
             try:
-                if isinstance(value, str):
-                    value = value.strip().replace(",", ".")
                 new_name = _replace_subscript_digits(name)
-                decimal_vars[new_name] = float(value)
+                decimal_vars[new_name] = _formula_variable_value(value)
             except Exception as e:
                 raise ValueError(
                     f"Ошибка преобразования значения {name} = {value} в число: {str(e)}"
                 )
 
-        safe_dict = {
-            "__builtins__": {},
-            "abs": abs,
-            "pow": pow,
-            "round": _round_half_up,
-            "max": max,
-            "min": min,
-        }
-        safe_dict.update(decimal_vars)
+        safe_dict = _formula_safe_dict(decimal_vars)
 
         if is_condition:
             # Проверяем наличие OR в условии
@@ -573,34 +613,39 @@ def evaluate_formula(
                 for operator in ["<=", ">=", ">", "<", "="]:
                     if operator in formula:
                         left, right = formula.split(operator)
-                        # Вычисляем левую и правую части
-                        left_result = float(
-                            eval(left, {"__builtins__": None}, safe_dict)
+                        left_result = _eval_numeric_result(
+                            eval(
+                                _decimalize_formula_literals(left),
+                                {"__builtins__": None},
+                                safe_dict,
+                            )
                         )
-                        right_result = float(
-                            eval(right, {"__builtins__": None}, safe_dict)
+                        right_result = _eval_numeric_result(
+                            eval(
+                                _decimalize_formula_literals(right),
+                                {"__builtins__": None},
+                                safe_dict,
+                            )
                         )
-
-                        # Добавляем эпсилон для сравнения чисел с плавающей точкой
-                        epsilon = 1e-10
 
                         if operator == "<=":
-                            return left_result <= (right_result + epsilon)
-                        elif operator == ">=":
-                            return left_result >= (right_result - epsilon)
-                        elif operator == ">":
-                            return left_result > (right_result + epsilon)
-                        elif operator == "<":
-                            return left_result < (right_result - epsilon)
-                        else:  # =
-                            return abs(left_result - right_result) < 1e-10
+                            return left_result <= right_result
+                        if operator == ">=":
+                            return left_result >= right_result
+                        if operator == ">":
+                            return left_result > right_result
+                        if operator == "<":
+                            return left_result < right_result
+                        return left_result == right_result
 
                 raise ValueError(
                     f"Неподдерживаемый оператор сравнения в формуле: {formula}"
                 )
         else:
-            result = float(eval(formula, {"__builtins__": None}, safe_dict))
-            result = Decimal(str(result))
+            prepared = _decimalize_formula_literals(formula)
+            result = _eval_numeric_result(
+                eval(prepared, {"__builtins__": None}, safe_dict)
+            )
 
             # Применяем округление, если заданы параметры
             if rounding_params:
@@ -608,7 +653,7 @@ def evaluate_formula(
                     multiple_raw = rounding_params.get("multiple_value")
                     rounding_type = rounding_params.get("rounding_type")
                     if rounding_type == "multiple" or multiple_raw not in (None, ""):
-                        multiple = float(multiple_raw or "1")
+                        multiple = parse_decimal_value(multiple_raw or "1")
                         result = _round_to_multiple(result, multiple)
                     elif rounding_type in ("decimal", "significant") and (
                         rounding_params.get("rounding_decimal") is not None
@@ -638,28 +683,32 @@ def evaluate_formula(
         raise ValueError(f"Ошибка при вычислении формулы '{formula}': {str(e)}")
 
 
+def _format_step_decimal(value: Decimal) -> str:
+    """Число для отображения в шагах повторяемости."""
+    text = format(value.normalize(), "f")
+    if "." in text:
+        text = text.rstrip("0").rstrip(".")
+    return text.replace(".", ",")
+
+
 def calculate_convergence_steps(formula, variables):
     """
     Вычисляет шаги расчета повторяемости.
     """
     try:
-        # Заменяем переменные на их значения
-        step1 = formula
+        normalized_formula = _normalize_formula_text(formula)
+        step1 = normalized_formula
         for name, value in variables.items():
             if isinstance(value, str):
                 value = value.strip().replace(",", ".")
             step1 = step1.replace(name, str(value))
+            sub_name = _replace_subscript_digits(name)
+            if sub_name != name:
+                step1 = step1.replace(sub_name, str(value))
 
-        safe_dict = {
-            "abs": abs,
-            "pow": pow,
-            "round": _round_half_up,
-            "max": max,
-            "min": min,
-        }
+        safe_dict = _formula_safe_dict({})
 
-        # Обрабатываем сложные условия
-        if " or " in formula:
+        if " or " in normalized_formula:
             or_conditions = step1.split(" or ")
             steps = []
             for or_condition in or_conditions:
@@ -680,7 +729,7 @@ def calculate_convergence_steps(formula, variables):
                     if step:
                         steps.append({"type": "single", "condition": step})
             return {"type": "or", "steps": steps}
-        elif " and " in formula:
+        if " and " in normalized_formula:
             and_conditions = step1.split(" and ")
             steps = []
             for and_condition in and_conditions:
@@ -708,13 +757,19 @@ def _calculate_single_condition(condition, safe_dict):
     """
     for operator in ["<=", ">=", ">", "<", "="]:
         if operator in condition:
-            left, right = condition.split(operator)
+            left, right = condition.split(operator, 1)
             try:
-                left_result = float(eval(left, {"__builtins__": {}}, safe_dict))
-                right_result = float(eval(right, {"__builtins__": {}}, safe_dict))
+                left_prepared = _decimalize_formula_literals(left.strip())
+                right_prepared = _decimalize_formula_literals(right.strip())
+                left_result = _eval_numeric_result(
+                    eval(left_prepared, {"__builtins__": None}, safe_dict)
+                )
+                right_result = _eval_numeric_result(
+                    eval(right_prepared, {"__builtins__": None}, safe_dict)
+                )
 
-                left_str = f"{left_result:g}".replace(".", ",")
-                right_str = f"{right_result:g}".replace(".", ",")
+                left_str = _format_step_decimal(left_result)
+                right_str = _format_step_decimal(right_result)
 
                 return {
                     "original": condition.replace("*", "×").replace("/", "÷"),
@@ -731,22 +786,21 @@ def get_pressure_correction_coefficient(patm):
     Определяет коэффициент поправки на атмосферное давление для фракционного состава.
     """
     try:
-        patm_value = float(str(patm).replace(",", "."))
+        patm_value = parse_decimal_value(patm)
 
         if (patm_value < 750 and patm_value >= 740) or (
             patm_value > 770 and patm_value <= 780
         ):
-            return 1  # x1
-        elif (patm_value < 740 and patm_value >= 730) or (
+            return 1
+        if (patm_value < 740 and patm_value >= 730) or (
             patm_value > 780 and patm_value <= 790
         ):
-            return 2  # x2
-        elif (patm_value < 730 and patm_value >= 720) or (
+            return 2
+        if (patm_value < 730 and patm_value >= 720) or (
             patm_value > 790 and patm_value <= 800
         ):
-            return 3  # x3
-        else:
-            return 0  # Нет поправки
+            return 3
+        return 0
     except (ValueError, TypeError):
         return 0
 
@@ -799,59 +853,60 @@ def get_temperature_correction(temperature, patm):
     Определяет поправку на температуру для фракционного состава.
     """
     try:
-        temp_value = float(str(temperature).replace(",", "."))
+        temp_value = parse_decimal_value(temperature)
 
-        # Если температура больше 360, поправку не вносим
         if temp_value > 360:
-            return 0
+            return Decimal("0")
 
         pressure_coeff = get_pressure_correction_coefficient(patm)
         if pressure_coeff == 0:
-            return 0
+            return Decimal("0")
 
         correction_table = get_temperature_correction_table()
 
         for (min_temp, max_temp), correction_value in correction_table.items():
             if min_temp <= temp_value <= max_temp:
-                final_correction = correction_value * pressure_coeff
+                final_correction = Decimal(str(correction_value)) * pressure_coeff
 
-                patm_value = float(str(patm).replace(",", "."))
-                if patm_value > 770:  # Уменьшаем температуру
+                patm_value = parse_decimal_value(patm)
+                if patm_value > 770:
                     return -final_correction
-                elif patm_value < 750:  # Увеличиваем температуру
+                if patm_value < 750:
                     return final_correction
-                else:
-                    return 0
+                return Decimal("0")
 
-        return 0
+        return Decimal("0")
     except (ValueError, TypeError):
-        return 0
+        return Decimal("0")
 
 
 class MassFractionFromRefractionOutcome(NamedTuple):
     """numeric — формулы; stored_display — в input_data (сохранение); ниже ПНР — «0,00»."""
 
-    numeric: float
+    numeric: Decimal
     stored_display: str
     below_detection_limit: bool
 
 
-def _mf_oil_display_from_float(value: float) -> str:
-    return str(value).replace(".", ",")
+_MF_OIL_N_DUPLICATE_OFFSET = Decimal("0.005")
+
+
+def _mf_oil_display_from_decimal(value: Decimal) -> str:
+    text = format(value.normalize(), "f")
+    if "." in text:
+        text = text.rstrip("0").rstrip(".")
+    return text.replace(".", ",")
 
 
 async def calculate_mass_fraction_from_refraction(
-    db: AsyncSession, n_value: float, research_method_id: int
+    db: AsyncSession, n_value: Any, research_method_id: int
 ) -> MassFractionFromRefractionOutcome:
     """
     Вычисляет массовую долю нефти (C) по показателю преломления (n) с использованием линейной интерполяции.
     Использует данные из MassFractionOilRefractionTable для указанного метода исследования.
     """
     try:
-        if isinstance(n_value, str):
-            n_value = float(n_value.replace(",", "."))
-        else:
-            n_value = float(n_value)
+        n_value = parse_decimal_value(n_value)
 
         result = await db.execute(
             select(MassFractionOilRefractionTable)
@@ -867,83 +922,71 @@ async def calculate_mass_fraction_from_refraction(
             logger.warning(
                 f"Не найдено активных записей в таблице для метода {research_method_id}"
             )
-            return MassFractionFromRefractionOutcome(0.0, "0", False)
+            return MassFractionFromRefractionOutcome(Decimal("0"), "0", False)
 
-        n_at_c_zero: List[float] = []
+        n_at_c_zero: List[Decimal] = []
         for entry in table_entries:
             try:
-                c_raw = float(str(entry.c_value).replace(",", "."))
-                n_raw = float(str(entry.n_value).replace(",", "."))
+                c_raw = parse_decimal_value(entry.c_value)
+                n_raw = parse_decimal_value(entry.n_value)
             except (ValueError, TypeError):
                 continue
-            if abs(c_raw) < 1e-12:
+            if c_raw.copy_abs() < Decimal("1e-12"):
                 n_at_c_zero.append(n_raw)
 
         if n_at_c_zero:
             n_ref = min(n_at_c_zero)
             if n_value < n_ref:
-                return MassFractionFromRefractionOutcome(0.0, "0,00", True)
+                return MassFractionFromRefractionOutcome(Decimal("0"), "0,00", True)
 
-        # Обрабатываем повторяющиеся значения n_value, добавляя 0.005 для каждого следующего
         points = []
-        n_value_counts = {}
+        n_value_counts: dict[Decimal, int] = {}
 
         for entry in table_entries:
-            c_val = float(entry.c_value)
-            n_val = float(entry.n_value)
+            c_val = parse_decimal_value(entry.c_value)
+            n_val = parse_decimal_value(entry.n_value)
             original_n_val = n_val
 
-            # Если значение n уже встречалось, добавляем 0.005
             if original_n_val in n_value_counts:
                 n_value_counts[original_n_val] += 1
-                n_val = original_n_val + (n_value_counts[original_n_val] - 1) * 0.005
+                n_val = original_n_val + (
+                    (n_value_counts[original_n_val] - 1) * _MF_OIL_N_DUPLICATE_OFFSET
+                )
             else:
                 n_value_counts[original_n_val] = 1
 
             points.append((c_val, n_val))
 
-        # Сортируем по n_value
         points.sort(key=lambda x: x[1])
 
-        # Проверяем граничные случаи
         min_n = points[0][1]
         max_n = points[-1][1]
 
         if n_value < min_n:
-            return MassFractionFromRefractionOutcome(0.0, "0", False)
+            return MassFractionFromRefractionOutcome(Decimal("0"), "0", False)
         if n_value > max_n:
-            return MassFractionFromRefractionOutcome(100.0, "100", False)
+            return MassFractionFromRefractionOutcome(Decimal("100"), "100", False)
 
-        # Ищем две ближайшие точки для интерполяции
         for i in range(len(points) - 1):
             n1, c1 = points[i][1], points[i][0]
             n2, c2 = points[i + 1][1], points[i + 1][0]
 
             if n1 <= n_value <= n2:
-                # Линейная интерполяция
                 if n2 == n1:
                     c_result = c1
                 else:
                     c_result = c1 + (c2 - c1) * (n_value - n1) / (n2 - n1)
 
-                # Округляем до одной цифры после запятой
-                rounded = float(
-                    Decimal(str(c_result)).quantize(
-                        Decimal("0.1"), rounding=ROUND_HALF_UP
-                    )
-                )
+                rounded = round_decimal_half_up(c_result, 1)
                 return MassFractionFromRefractionOutcome(
-                    rounded, _mf_oil_display_from_float(rounded), False
+                    rounded, _mf_oil_display_from_decimal(rounded), False
                 )
 
-        # Если не нашли интервал (не должно произойти), возвращаем последнее значение
-        rounded = float(
-            Decimal(str(points[-1][0])).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
-        )
+        rounded = round_decimal_half_up(points[-1][0], 1)
         return MassFractionFromRefractionOutcome(
-            rounded, _mf_oil_display_from_float(rounded), False
+            rounded, _mf_oil_display_from_decimal(rounded), False
         )
 
     except Exception as e:
         logger.error(f"Ошибка при расчете массовой доли нефти: {str(e)}")
-        return MassFractionFromRefractionOutcome(0.0, "0", False)
+        return MassFractionFromRefractionOutcome(Decimal("0"), "0", False)

@@ -6,6 +6,8 @@ from services.calculation import (
     calculate_convergence_steps,
     calculate_mass_fraction_from_refraction,
     evaluate_formula,
+    parse_decimal_value,
+    round_decimal_half_up,
     round_result,
 )
 from services.fractional import (
@@ -145,11 +147,7 @@ def _field_uses_custom_rounding(field: Optional[Dict[str, Any]]) -> bool:
 
 
 def _quantize_decimal_places(value: Any, decimal_places: int) -> Decimal:
-    d = Decimal(str(float(value)))
-    return d.quantize(
-        Decimal("0.1") ** int(decimal_places),
-        rounding=ROUND_HALF_UP,
-    )
+    return round_decimal_half_up(value, decimal_places)
 
 
 def _resolve_intermediate_rounding(
@@ -193,10 +191,113 @@ def _apply_intermediate_rounding(
         return value
     kind, param = rounding
     if kind == "decimal":
-        return _quantize_decimal_places(value, param)
+        return round_decimal_half_up(value, param)
     if kind == "significant":
         return round_result(value, "significant", param)
     return value
+
+
+def _evaluate_intermediate_field(
+    field: Dict[str, Any],
+    variables: Dict[str, Any],
+    intermediate_fields_by_name: Dict[str, Dict[str, Any]],
+) -> Any:
+    """Вычисляет одно промежуточное поле по формуле и текущим переменным."""
+    if field.get("use_threshold_table"):
+        threshold_cfg = field["threshold_table_values"]
+        target_field = intermediate_fields_by_name.get(threshold_cfg["target_variable"])
+        formula = target_field["formula"] if target_field else field["formula"]
+        return _round_value(
+            value=0,
+            rounding_type="threshold_table",
+            threshold_table_values={
+                "target_variable": threshold_cfg["target_variable"],
+                "higher_variable": threshold_cfg["higher_variable"],
+                "lower_variable": threshold_cfg["lower_variable"],
+                "formula": formula,
+            },
+            variables=variables,
+        )
+
+    rounding_params = None
+    if field.get("use_multiple_rounding"):
+        rounding_params = {
+            "use_multiple_rounding": True,
+            "rounding_type": field.get("rounding_type"),
+            "rounding_decimal": field.get("rounding_decimal"),
+            "multiple_value": field.get("multiple_value"),
+        }
+
+    return evaluate_formula(
+        field["formula"],
+        variables,
+        range_calculation=field.get("range_calculation"),
+        rounding_params=rounding_params,
+    )
+
+
+def _build_variables_rounded_chain(
+    input_data: Dict[str, Any],
+    research_method: Dict[str, Any],
+    intermediate_fields_by_name: Dict[str, Dict[str, Any]],
+    result_decimal_places: Optional[int],
+) -> Dict[str, Any]:
+    """
+    Пересчитывает промежуточные поля по цепочке с округлёнными предшественниками.
+    """
+    variables_rounded = _variables_from_input_data(input_data)
+    logger.info("Пересчёт промежуточных с округлёнными значениями для цепочки формул")
+    for field in research_method["intermediate_data"]["fields"]:
+        if not field["name"].strip() or not field["formula"].strip():
+            continue
+        field_name = field["name"]
+        try:
+            intermediate_value = _evaluate_intermediate_field(
+                field, variables_rounded, intermediate_fields_by_name
+            )
+            repeat_rounding = _resolve_intermediate_rounding(
+                field, research_method, result_decimal_places
+            )
+            if repeat_rounding is not None and isinstance(
+                intermediate_value, (int, float, Decimal)
+            ):
+                rounded_value = _apply_intermediate_rounding(
+                    intermediate_value, repeat_rounding
+                )
+                variables_rounded[field_name] = rounded_value
+                logger.info(
+                    f"Промежуточный результат {field_name}: "
+                    f"{intermediate_value} -> {rounded_value}"
+                )
+            else:
+                variables_rounded[field_name] = intermediate_value
+        except Exception as e:
+            logger.error(
+                f"Ошибка при пересчёте промежуточного результата {field_name}: {str(e)}"
+            )
+            raise ValueError(
+                f"Ошибка при пересчёте промежуточного результата: {str(e)}"
+            )
+    return variables_rounded
+
+
+def _format_intermediate_display_entry(
+    unrounded_value: Any,
+    chain_value: Any,
+    field: Optional[Dict[str, Any]],
+    research_method: Dict[str, Any],
+    result_decimal_places: Optional[int],
+) -> Dict[str, str]:
+    """value из цепочки округлённых значений, reference из неокруглённого расчёта."""
+    reference_formatted = _format_intermediate_value_reference(
+        unrounded_value, field, research_method, result_decimal_places
+    )
+    if isinstance(chain_value, (int, float, Decimal)):
+        return {
+            "value": str(chain_value),
+            "reference": reference_formatted["reference"],
+        }
+    return reference_formatted
 
 
 def _format_intermediate_value_reference(
@@ -247,9 +348,9 @@ def _round_value(
             return value
 
         if isinstance(value, str):
-            value = float(value.replace(",", "."))
+            value = parse_decimal_value(value.replace(",", "."))
         else:
-            value = float(value)
+            value = parse_decimal_value(value)
 
         if rounding_type == "threshold_table":
             if (
@@ -272,18 +373,10 @@ def _round_value(
                 return value
 
             try:
-                target_value = float(
-                    str(variables.get(target_variable, "0")).replace(",", ".")
-                )
-                formula_value = float(
-                    str(variables.get(formula, "0")).replace(",", ".")
-                )
-                higher_value = float(
-                    str(variables.get(higher_variable, "0")).replace(",", ".")
-                )
-                lower_value = float(
-                    str(variables.get(lower_variable, "0")).replace(",", ".")
-                )
+                target_value = parse_decimal_value(variables.get(target_variable, "0"))
+                formula_value = parse_decimal_value(variables.get(formula, "0"))
+                higher_value = parse_decimal_value(variables.get(higher_variable, "0"))
+                lower_value = parse_decimal_value(variables.get(lower_variable, "0"))
 
                 logger.info(f"Значения для сравнения:")
                 logger.info(f"{target_variable}: {target_value}")
@@ -312,20 +405,15 @@ def _round_value(
         elif rounding_type == "multiple":
             if not rounding_decimal:
                 return value
-            d = Decimal(str(value))
-            step = Decimal(str(rounding_decimal))
+            d = parse_decimal_value(value)
+            step = parse_decimal_value(rounding_decimal)
             quotient = (d / step).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
-            return float(quotient * step)
+            return quotient * step
 
         elif rounding_type == "decimal":
             if rounding_decimal is None:
                 return value
-            d = Decimal(str(value))
-            return float(
-                d.quantize(
-                    Decimal("0.1") ** int(rounding_decimal), rounding=ROUND_HALF_UP
-                )
-            )
+            return round_decimal_half_up(value, rounding_decimal)
 
         return value
 
@@ -455,60 +543,9 @@ async def calculate_result(
                     f"Вычисление промежуточного результата: {field['name']}, формула: {field['formula']}"
                 )
 
-                # Если используется метод ближайших табличных значений
-                if field.get("use_threshold_table"):
-                    target_field = next(
-                        (
-                            f
-                            for f in research_method["intermediate_data"]["fields"]
-                            if f["name"]
-                            == field["threshold_table_values"]["target_variable"]
-                        ),
-                        None,
-                    )
-
-                    if target_field:
-                        formula = target_field["formula"]
-                    else:
-                        formula = field["formula"]
-
-                    intermediate_value = _round_value(
-                        value=0,
-                        rounding_type="threshold_table",
-                        threshold_table_values={
-                            "target_variable": field["threshold_table_values"][
-                                "target_variable"
-                            ],
-                            "higher_variable": field["threshold_table_values"][
-                                "higher_variable"
-                            ],
-                            "lower_variable": field["threshold_table_values"][
-                                "lower_variable"
-                            ],
-                            "formula": formula,
-                        },
-                        variables=variables,
-                    )
-                else:
-                    # Подготавливаем параметры округления
-                    rounding_params = None
-                    if field.get("use_multiple_rounding"):
-                        rounding_params = {
-                            "use_multiple_rounding": True,
-                            "rounding_type": field.get("rounding_type"),
-                            "rounding_decimal": field.get("rounding_decimal"),
-                            "multiple_value": field.get("multiple_value"),
-                        }
-
-                    # Проверяем наличие диапазонного расчета
-                    range_calculation = field.get("range_calculation")
-
-                    intermediate_value = evaluate_formula(
-                        field["formula"],
-                        variables,
-                        range_calculation=range_calculation,
-                        rounding_params=rounding_params,
-                    )
+                intermediate_value = _evaluate_intermediate_field(
+                    field, variables, intermediate_fields_by_name
+                )
 
                 logger.info(
                     f"Промежуточный результат {field['name']} = {intermediate_value}"
@@ -595,26 +632,13 @@ async def calculate_result(
                 )
                 result_decimal_places = research_method.get("rounding_decimal", 3)
 
-        # Округляем промежуточные для проверки повторяемости (как итог или по настройке поля)
-        variables_rounded = _variables_from_input_data(input_data)
-        logger.info("Округление промежуточных для проверки повторяемости")
-        for field_name, unrounded_value in intermediate_results_unrounded.items():
-            field_cfg = intermediate_fields_by_name.get(field_name)
-            repeat_rounding = _resolve_intermediate_rounding(
-                field_cfg, research_method, result_decimal_places
-            )
-            if repeat_rounding is not None and isinstance(
-                unrounded_value, (int, float, Decimal)
-            ):
-                rounded_value = _apply_intermediate_rounding(
-                    unrounded_value, repeat_rounding
-                )
-                variables_rounded[field_name] = rounded_value
-                logger.info(
-                    f"Промежуточный результат {field_name}: {unrounded_value} -> {rounded_value}"
-                )
-            else:
-                variables_rounded[field_name] = unrounded_value
+        # Пересчитываем цепочку с округлёнными предшественниками для проверки повторяемости
+        variables_rounded = _build_variables_rounded_chain(
+            input_data,
+            research_method,
+            intermediate_fields_by_name,
+            result_decimal_places,
+        )
 
         logger.info("Начало проверки условий повторяемости с округленными значениями")
         satisfied_conditions = []
@@ -736,11 +760,18 @@ async def calculate_result(
             early_result_places = None
             if research_method["rounding_type"] == "decimal":
                 early_result_places = research_method["rounding_decimal"]
+            variables_rounded_early = _build_variables_rounded_chain(
+                input_data,
+                research_method,
+                intermediate_fields_by_name,
+                early_result_places,
+            )
             intermediate_results_rounded = {}
             for field_name, unrounded_value in intermediate_results_unrounded.items():
                 field_cfg = intermediate_fields_by_name.get(field_name)
-                formatted = _format_intermediate_value_reference(
+                formatted = _format_intermediate_display_entry(
                     unrounded_value,
+                    variables_rounded_early.get(field_name, unrounded_value),
                     field_cfg,
                     research_method,
                     early_result_places,
@@ -820,8 +851,9 @@ async def calculate_result(
             intermediate_results_rounded = {}
             for field_name, unrounded_value in intermediate_results_unrounded.items():
                 field_cfg = intermediate_fields_by_name.get(field_name)
-                formatted = _format_intermediate_value_reference(
+                formatted = _format_intermediate_display_entry(
                     unrounded_value,
+                    variables_rounded.get(field_name, unrounded_value),
                     field_cfg,
                     research_method,
                     result_decimal_places,
@@ -854,10 +886,9 @@ async def calculate_result(
 
                 # Справочное значение результата с +1 знаком
                 if result_decimal_places is not None:
-                    result_decimal = Decimal(str(float(result_unrounded_rounded)))
-                    result_reference = result_decimal.quantize(
-                        Decimal("0.1") ** (result_decimal_places + 1),
-                        rounding=ROUND_HALF_UP,
+                    result_decimal = parse_decimal_value(result_unrounded_rounded)
+                    result_reference = round_decimal_half_up(
+                        result_decimal, result_decimal_places + 1
                     )
                     logger.info(f"Справочное значение результата: {result_reference}")
                 else:
@@ -875,21 +906,20 @@ async def calculate_result(
                 logger.info(f"Вычисление погрешности: {error_config}")
 
                 if error_config["type"] == "fixed":
-                    measurement_error = float(error_config["value"])
+                    measurement_error = parse_decimal_value(error_config["value"])
                 elif error_config["type"] == "formula":
                     variables["result"] = result
-                    measurement_error = float(
-                        evaluate_formula(error_config["value"], variables)
+                    measurement_error = evaluate_formula(
+                        error_config["value"], variables
                     )
                 else:
                     logger.warning("Неподдерживаемый тип погрешности")
-                    measurement_error = 0
+                    measurement_error = Decimal("0")
 
                 # Округляем погрешность до того же количества знаков после запятой, что и результат
                 if measurement_error is not None:
-                    measurement_error = Decimal(str(measurement_error)).quantize(
-                        Decimal("0.1") ** int(result_decimal_places),
-                        rounding=ROUND_HALF_UP,
+                    measurement_error = round_decimal_half_up(
+                        measurement_error, result_decimal_places
                     )
                     logger.info(f"Погрешность после округления: {measurement_error}")
 
