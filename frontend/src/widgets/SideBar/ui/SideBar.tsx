@@ -56,6 +56,11 @@ const SideBar = ({ username, isAdmin, onMinimizeChange }: SideBarProps) => {
     shouldSave: pathname => pathname.startsWith('/sampling-locations'),
   });
 
+  const ndNormsPageState = usePageState({
+    storageKey: PAGE_STATE_KEYS.ND_NORMS_PAGE,
+    shouldSave: pathname => pathname.startsWith('/nd-norms'),
+  });
+
   const mainPageState = usePageState({
     storageKey: PAGE_STATE_KEYS.MAIN_PAGE,
     shouldSave: (pathname, search) => {
@@ -157,7 +162,8 @@ const SideBar = ({ username, isAdmin, onMinimizeChange }: SideBarProps) => {
             (currentPath === '/protocols' && location.pathname.startsWith('/protocols')) ||
             (currentPath === '/equipment' && location.pathname.startsWith('/equipment')) ||
             (currentPath === '/sampling-locations' &&
-              location.pathname.startsWith('/sampling-locations')))) ||
+              location.pathname.startsWith('/sampling-locations')) ||
+            (currentPath === '/nd-norms' && location.pathname.startsWith('/nd-norms')))) ||
         isOpen;
 
       const openSubmenu = (e: React.MouseEvent) => {
@@ -251,6 +257,17 @@ const SideBar = ({ username, isAdmin, onMinimizeChange }: SideBarProps) => {
             return;
           }
           // Если сохраненного пути нет, переходим на базовый путь без параметров
+          navigate({ pathname: targetPath, search: '' }, { replace: true });
+          setOpenSubmenus([]);
+          return;
+        }
+
+        // Если переходим на nd-norms, проверяем сохраненный путь nd-norms
+        if (targetPath === '/nd-norms') {
+          if (ndNormsPageState.restoreState('/nd-norms', '')) {
+            setOpenSubmenus([]);
+            return;
+          }
           navigate({ pathname: targetPath, search: '' }, { replace: true });
           setOpenSubmenus([]);
           return;

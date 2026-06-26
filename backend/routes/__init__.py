@@ -5,6 +5,7 @@ from routes import (
     equipment,
     fixtures,
     laboratory,
+    nd_norm,
     protocol,
     report,
     research,
@@ -22,6 +23,7 @@ api_router.include_router(laboratory.router, tags=("laboratory",))
 api_router.include_router(research.router, tags=("research",))
 api_router.include_router(sample.router, tags=("sample",))
 api_router.include_router(equipment.router, tags=("equipment",))
+api_router.include_router(nd_norm.router, tags=("nd_norm",))
 api_router.include_router(role.router, tags=("role",))
 api_router.include_router(test_object.router, tags=("test_object",))
 api_router.include_router(protocol.router, tags=("protocol",))

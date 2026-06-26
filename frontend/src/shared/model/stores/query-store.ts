@@ -78,6 +78,16 @@ export interface EquipmentQueryState extends QueryState {
   };
 }
 
+export interface NdNormsQueryState extends QueryState {
+  laboratoryId?: number;
+  departmentId?: number;
+  filters?: {
+    name?: string;
+    created_at_from?: string;
+    created_at_to?: string;
+  };
+}
+
 interface QueryStore {
   researchMethodsQuery: ResearchMethodsQueryState;
   setResearchMethodsPage: (page: number) => void;
@@ -111,6 +121,14 @@ interface QueryStore {
   setEquipmentLaboratoryId: (laboratoryId: number | undefined) => void;
   setEquipmentDepartmentId: (departmentId: number | undefined) => void;
   resetEquipmentQuery: () => void;
+  ndNormsQuery: NdNormsQueryState;
+  setNdNormsPage: (page: number) => void;
+  setNdNormsPageSize: (pageSize: number) => void;
+  setNdNormsFilters: (filters: NdNormsQueryState['filters']) => void;
+  setNdNormsSorting: (sorting: NdNormsQueryState['sorting']) => void;
+  setNdNormsLaboratoryId: (laboratoryId: number | undefined) => void;
+  setNdNormsDepartmentId: (departmentId: number | undefined) => void;
+  resetNdNormsQuery: () => void;
   testObjectsQuery: TestObjectsQueryState;
   setTestObjectsPage: (page: number) => void;
   setTestObjectsPageSize: (pageSize: number) => void;
@@ -256,6 +274,35 @@ export const useQueryStore = create<QueryStore>()(
       set({
         equipmentQuery: { ...defaultQueryState },
       }),
+    ndNormsQuery: { ...defaultQueryState },
+    setNdNormsPage: page =>
+      set(state => ({
+        ndNormsQuery: { ...state.ndNormsQuery, page },
+      })),
+    setNdNormsPageSize: pageSize =>
+      set(state => ({
+        ndNormsQuery: { ...state.ndNormsQuery, pageSize, page: 1 },
+      })),
+    setNdNormsFilters: filters =>
+      set(state => ({
+        ndNormsQuery: { ...state.ndNormsQuery, filters, page: 1 },
+      })),
+    setNdNormsSorting: sorting =>
+      set(state => ({
+        ndNormsQuery: { ...state.ndNormsQuery, sorting, page: 1 },
+      })),
+    setNdNormsLaboratoryId: laboratoryId =>
+      set(state => ({
+        ndNormsQuery: { ...state.ndNormsQuery, laboratoryId, page: 1 },
+      })),
+    setNdNormsDepartmentId: departmentId =>
+      set(state => ({
+        ndNormsQuery: { ...state.ndNormsQuery, departmentId, page: 1 },
+      })),
+    resetNdNormsQuery: () =>
+      set({
+        ndNormsQuery: { ...defaultQueryState },
+      }),
     testObjectsQuery: { ...defaultQueryState },
     setTestObjectsPage: page =>
       set(state => ({
@@ -304,6 +351,7 @@ export const useQueryStore = create<QueryStore>()(
         samplesQuery: { ...defaultQueryState },
         protocolsQuery: { ...defaultQueryState },
         equipmentQuery: { ...defaultQueryState },
+        ndNormsQuery: { ...defaultQueryState },
         testObjectsQuery: { ...defaultQueryState },
         rolesQuery: { ...defaultQueryState },
       }),

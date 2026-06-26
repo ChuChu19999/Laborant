@@ -2,6 +2,7 @@ from models.base import BaseModel
 from models.calculation import Calculation
 from models.equipment import Equipment, EquipmentType
 from models.laboratory import Branch, Department, Laboratory, SamplingLocation
+from models.nd_norm import NdNorm
 from models.protocol import Protocol, ProtocolTemplate
 from models.report import ReportTemplate, ReportType
 from models.research import (
@@ -35,6 +36,7 @@ __all__ = [
     "Calculation",
     "Equipment",
     "EquipmentType",
+    "NdNorm",
     "Role",
     "RoleType",
     "TestObject",

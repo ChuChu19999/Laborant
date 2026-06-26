@@ -6,11 +6,13 @@ import {
   BiMap,
   BiTargetLock,
   BiUser,
+  BiBook,
 } from 'react-icons/bi';
 import { FaFlask } from 'react-icons/fa';
 import EquipmentPage from '../pages/EquipmentPage/EquipmentPage';
 import HelpPage from '../pages/HelpPage/HelpPage';
 import MainPage from '../pages/MainPage/MainPage';
+import NdNormsPage from '../pages/NdNormsPage/NdNormsPage';
 import ProtocolsPage from '../pages/ProtocolsPage/ProtocolsPage';
 import RolesPage from '../pages/RolesPage/RolesPage';
 import SamplesPage from '../pages/SamplesPage/SamplesPage';
@@ -47,6 +49,12 @@ export const routersData = [
     path: '/sampling-locations',
     icon: <BiMap size={20} />,
     element: <SamplingLocationsPage />,
+  },
+  {
+    label: 'Нормы НД',
+    path: '/nd-norms',
+    icon: <BiBook size={20} />,
+    element: <NdNormsPage />,
   },
   {
     label: 'Объекты испытаний',

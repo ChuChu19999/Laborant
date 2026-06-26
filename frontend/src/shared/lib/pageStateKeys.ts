@@ -6,6 +6,7 @@ export const PAGE_STATE_KEYS = {
   SAMPLES_PAGE: 'lastSamplesPagePath',
   PROTOCOLS_PAGE: 'lastProtocolsPagePath',
   EQUIPMENT_PAGE: 'lastEquipmentPagePath',
+  ND_NORMS_PAGE: 'lastNdNormsPagePath',
   SAMPLING_LOCATIONS_PAGE: 'lastSamplingLocationsPagePath',
   MAIN_PAGE: 'lastMainPagePath',
 } as const;

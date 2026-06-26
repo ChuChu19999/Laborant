@@ -1,0 +1,390 @@
+.nd-norms-table-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 0;
+  background: #fcfcfc;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(40, 40, 40, 0.12);
+  border: 1px solid #babfc7;
+  overflow: hidden;
+  font-family: 'HeliosCondC';
+  box-sizing: border-box;
+}
+
+.nd-norms-table-wrapper {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: auto;
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.nd-norms-table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 14px;
+  font-family: 'HeliosCondC';
+  transition: opacity 0.3s ease;
+  box-sizing: border-box;
+}
+
+.nd-norms-table-loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.nd-norms-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #efeff0;
+}
+
+.nd-norms-table th {
+  padding: 8px 10px;
+  text-align: left;
+  font-weight: 400;
+  color: #282828;
+  background: #efeff0;
+  font-family: 'HeliosCondC';
+  user-select: none;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.nd-norms-table th.is-resizing,
+.nd-norms-table td.is-resizing {
+  transition: none;
+}
+
+.nd-norms-table-header-row th {
+  border-bottom: 1px solid #e4e6e8;
+}
+
+.nd-norms-table-filter-row th {
+  padding: 8px 10px;
+  border-bottom: 2px solid #e4e6e8;
+  background: #ffffff;
+  transform: translateY(-1px);
+}
+
+.nd-norms-table-filter-cell {
+  padding: 8px 10px;
+}
+
+.nd-norms-table-header-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+}
+
+.nd-norms-table-header-content.sortable {
+  cursor: pointer;
+  transition: color 0.25s ease;
+}
+
+.nd-norms-table-header-content.sortable:hover {
+  color: #282828;
+}
+
+.nd-norms-table-sort-icon {
+  display: flex;
+  align-items: center;
+  color: #bdbfc1;
+  transition: color 0.25s ease;
+}
+
+.nd-norms-table-header-content:hover .nd-norms-table-sort-icon {
+  color: #282828;
+}
+
+.nd-norms-table-filter-input {
+  font-family: 'HeliosCondC';
+}
+
+.nd-norms-table-filter-input .ant-input {
+  font-family: 'HeliosCondC';
+  border: 1px solid #babfc7;
+  border-radius: 6px;
+  font-size: 13px;
+  transition: all 0.25s ease;
+}
+
+.nd-norms-table-filter-input .ant-input:focus,
+.nd-norms-table-filter-input .ant-input-focused {
+  border-color: #282828;
+  box-shadow: 0 0 0 2px rgba(40, 40, 40, 0.1);
+}
+
+.nd-norms-table-filter-input .ant-input::placeholder {
+  color: #bdbfc1;
+}
+
+.nd-norms-table-filter-select {
+  width: 100%;
+  font-family: 'HeliosCondC';
+}
+
+.nd-norms-table-filter-select .ant-select-selector {
+  font-family: 'HeliosCondC';
+  border: 1px solid #babfc7;
+  border-radius: 6px;
+  font-size: 13px;
+  transition: all 0.25s ease;
+}
+
+.nd-norms-table-filter-select:hover .ant-select-selector,
+.nd-norms-table-filter-select.ant-select-focused .ant-select-selector {
+  border-color: #282828;
+  box-shadow: 0 0 0 2px rgba(40, 40, 40, 0.1);
+}
+
+.nd-norms-table-filter-select-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nd-norms-table-filter-datepicker {
+  font-family: 'HeliosCondC';
+  width: 100%;
+}
+
+.nd-norms-table-filter-datepicker .ant-picker {
+  font-family: 'HeliosCondC';
+  border: 1px solid #babfc7;
+  border-radius: 6px;
+  font-size: 13px;
+  transition: all 0.25s ease;
+  width: 100%;
+}
+
+.nd-norms-table-filter-datepicker .ant-picker:focus,
+.nd-norms-table-filter-datepicker .ant-picker-focused {
+  border-color: #282828;
+  box-shadow: 0 0 0 2px rgba(40, 40, 40, 0.1);
+}
+
+.nd-norms-table-filter-datepicker .ant-picker-input input::placeholder {
+  color: #bdbfc1;
+}
+
+.nd-norms-table-filter-datepicker .ant-picker-range {
+  width: 100%;
+}
+
+.nd-norms-table-filter-datepicker .ant-picker-range .ant-picker-input {
+  flex: 1;
+}
+
+.nd-norms-table tbody tr {
+  transition: background-color 0.25s ease;
+  border-bottom: 1px solid #e4e6e8;
+}
+
+.nd-norms-table tbody tr:hover {
+  background-color: #e9f7ff;
+}
+
+.nd-norms-table td {
+  padding: 8px 10px;
+  color: #282828;
+  font-family: 'HeliosCondC';
+  overflow: hidden;
+  box-sizing: border-box;
+  word-wrap: break-word;
+}
+
+.nd-norms-table-method-cell {
+  white-space: pre-wrap;
+}
+
+.nd-norms-table-name-cell {
+  white-space: pre-wrap;
+}
+
+.nd-norms-table-loading-cell,
+.nd-norms-table-empty-cell {
+  text-align: center;
+  padding: 48px 16px;
+  color: #5f6770;
+  font-size: 14px;
+  font-family: 'HeliosCondC';
+}
+
+.nd-norms-table-loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.nd-norms-table-loader::before {
+  content: '';
+  width: 16px;
+  height: 16px;
+  border: 2px solid #e4e6e8;
+  border-top-color: #282828;
+  border-radius: 50%;
+  animation: nd-norms-table-spin 0.8s linear infinite;
+}
+
+@keyframes nd-norms-table-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.nd-norms-table-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 10px;
+  border-top: 1px solid #e4e6e8;
+  border-bottom: 1px solid #e4e6e8;
+  background: #ffffff;
+  flex-shrink: 0;
+  font-family: 'HeliosCondC';
+}
+
+.nd-norms-table-pagination-info {
+  font-size: 14px;
+  color: #5f6770;
+  font-family: 'HeliosCondC';
+}
+
+.nd-norms-table-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 0px;
+}
+
+.nd-norms-table-pagination-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: #5f6770;
+  cursor: pointer;
+  transition: color 0.25s ease;
+  padding: 4px;
+  font-family: 'HeliosCondC';
+}
+
+.nd-norms-table-pagination-icon:hover:not(:disabled) {
+  color: #282828;
+}
+
+.nd-norms-table-pagination-icon:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.nd-norms-table-pagination-page-info {
+  font-size: 14px;
+  color: #5f6770;
+  margin: 0 8px;
+  white-space: nowrap;
+  font-family: 'HeliosCondC';
+}
+
+.nd-norms-table-page-size-select {
+  font-family: 'HeliosCondC';
+  width: 100px;
+  flex-shrink: 0;
+}
+
+.nd-norms-table-page-size-select .ant-select-selector {
+  font-family: 'HeliosCondC';
+  border: 1px solid #babfc7;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #5f6770;
+  transition: all 0.25s ease;
+}
+
+.nd-norms-table-page-size-select:hover .ant-select-selector {
+  border-color: #282828;
+}
+
+.nd-norms-table-page-size-select.ant-select-focused .ant-select-selector {
+  border-color: #282828;
+  box-shadow: 0 0 0 2px rgba(40, 40, 40, 0.1);
+}
+
+@media (max-width: 768px) {
+  .nd-norms-table-pagination {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .nd-norms-table th,
+  .nd-norms-table td {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+}
+
+.nd-norms-table-resizer {
+  position: absolute;
+  right: 0;
+  top: 0;
+  height: 100%;
+  width: 5px;
+  cursor: col-resize;
+  user-select: none;
+  touch-action: none;
+  z-index: 1;
+}
+
+.nd-norms-table-resizer:hover {
+  background-color: #282828;
+  opacity: 0.5;
+}
+
+.nd-norms-table-resizer.isResizing {
+  background-color: #282828;
+  opacity: 1;
+}
+
+.nd-norms-table th:hover .nd-norms-table-resizer {
+  background-color: #bdbfc1;
+}
+
+.nd-norms-table-actions {
+  display: flex;
+  align-items: center;
+}
+
+.nd-norms-table-edit-button {
+  color: #1890ff !important;
+  font-family: 'HeliosCondC';
+  font-size: 14px;
+}
+
+.nd-norms-table-edit-button:hover {
+  background-color: rgba(24, 144, 255, 0.1) !important;
+  color: #1890ff !important;
+}
+
+.nd-norms-table-edit-button:focus {
+  background-color: rgba(24, 144, 255, 0.1) !important;
+  color: #1890ff !important;
+}
+
+.nd-norms-table-delete-button {
+  font-family: 'HeliosCondC';
+  font-size: 14px;
+}

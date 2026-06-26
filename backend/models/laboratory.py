@@ -27,6 +27,7 @@ class Laboratory(BaseModel):
     protocols = relationship("Protocol", back_populates="laboratory")
     calculations = relationship("Calculation", back_populates="laboratory")
     equipment = relationship("Equipment", back_populates="laboratory")
+    nd_norms = relationship("NdNorm", back_populates="laboratory")
     selection_conditions = relationship(
         "SelectionConditions", back_populates="laboratory"
     )
@@ -77,6 +78,7 @@ class Department(BaseModel):
     protocols = relationship("Protocol", back_populates="department")
     calculations = relationship("Calculation", back_populates="department")
     equipment = relationship("Equipment", back_populates="department")
+    nd_norms = relationship("NdNorm", back_populates="department")
     selection_conditions = relationship(
         "SelectionConditions", back_populates="department"
     )

@@ -10,6 +10,7 @@ import CalculationsPage from '../pages/CalculationsPage/CalculationsPage';
 import EquipmentPage from '../pages/EquipmentPage/EquipmentPage';
 import Page404 from '../pages/ErrorPages/Page404/Page404';
 import LoadingPage from '../pages/LoadingPage/LoadingPage';
+import NdNormsPage from '../pages/NdNormsPage/NdNormsPage';
 import ProtocolsPage from '../pages/ProtocolsPage/ProtocolsPage';
 import SamplesPage from '../pages/SamplesPage/SamplesPage';
 import SamplingLocationsPage from '../pages/SamplingLocationsPage/SamplingLocationsPage';
@@ -185,6 +186,12 @@ export default function App() {
                     <Route
                       path="/sampling-locations/laboratory/:laboratoryId/department/:departmentId"
                       element={<SamplingLocationsPage />}
+                    />
+                    <Route path="/nd-norms" element={<NdNormsPage />} />
+                    <Route path="/nd-norms/laboratory/:laboratoryId" element={<NdNormsPage />} />
+                    <Route
+                      path="/nd-norms/laboratory/:laboratoryId/department/:departmentId"
+                      element={<NdNormsPage />}
                     />
                     <Route path="*" element={<Page404 />} />
                   </>
