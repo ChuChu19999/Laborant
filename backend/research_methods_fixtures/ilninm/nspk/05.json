@@ -1,0 +1,118 @@
+{
+    "name": "Наличие водорастворимых кислот и щелочей",
+    "sample_type": ["tp22s", "ms8p", "mgk8gp", "m20g", "m20g2sd", "mt"],
+    "formula": "Xср",
+    "measurement_error": {
+        "type": "fixed",
+        "value": "1.9"
+    },
+    "unit": "",
+    "measurement_method": "ГОСТ 6307",
+    "nd_code": "ГОСТ 6307-75",
+    "nd_name": "Нефтепродукты. Метод определения наличия водорастворимых кислот и щелочей",
+    "input_data": {
+        "fields": [
+            {
+                "name": "X₁",
+                "unit": "",
+                "card_index": 1,
+                "description": "pH-метр для первой параллели"
+            },
+            {
+                "name": "X₂",
+                "unit": "",
+                "card_index": 2,
+                "description": "pH-метр для второй параллели"
+            }
+        ]
+    },
+    "intermediate_data": {
+        "fields": [
+            {
+                "name": "Xср",
+                "unit": "",
+                "formula": "(X₁+X₂)/2",
+                "description": "Среднее значение pH-метра",
+                "multiple_value": "",
+                "show_calculation": true,
+                "use_multiple_rounding": false,
+                "use_result_rounding": false,
+                "rounding_type": "decimal",
+                "rounding_decimal": 2
+            },
+            {
+                "name": "r",
+                "unit": "",
+                "formula": "0",
+                "description": "Повторяемость",
+                "multiple_value": "",
+                "show_calculation": true,
+                "range_calculation": {
+                    "ranges": [
+                        {
+                            "condition": "Xср<=4",
+                            "formula": "0.2"
+                        },
+                        {
+                            "condition": "(Xср>4) and (Xср<=6)",
+                            "formula": "0.3"
+                        },
+                        {
+                            "condition": "(Xср>6) and (Xср<=8)",
+                            "formula": "0.3"
+                        },
+                        {
+                            "condition": "(Xср>8) and (Xср<=10)",
+                            "formula": "0.3"
+                        },
+                        {
+                            "condition": "Xср>10",
+                            "formula": "0.3"
+                        }
+                    ]
+                },
+                "use_multiple_rounding": false,
+                "use_threshold_table": false
+            }
+        ]
+    },
+    "convergence_conditions": {
+        "formulas": [
+            {
+                "formula": "(Xср<=4) and (abs(X₁-X₂)<=r)",
+                "custom_value": "Кислая",
+                "convergence_value": "custom"
+            },
+            {
+                "formula": "(Xср>4) and (Xср<=6) and (abs(X₁-X₂)<=r)",
+                "custom_value": "Слабокислая",
+                "convergence_value": "custom"
+            },
+            {
+                "formula": "(Xср>6) and (Xср<=8) and (abs(X₁-X₂)<=r)",
+                "convergence_value": "absence"
+            },
+            {
+                "formula": "(Xср>8) and (Xср<=10) and (abs(X₁-X₂)<=r)",
+                "custom_value": "Слабощелочная",
+                "convergence_value": "custom"
+            },
+            {
+                "formula": "(Xср>10) and (abs(X₁-X₂)<=r)",
+                "custom_value": "Щелочная",
+                "convergence_value": "custom"
+            },
+            {
+                "formula": "abs(X₁-X₂)>r",
+                "convergence_value": "unsatisfactory"
+            }
+        ]
+    },
+    "is_deleted": false,
+    "rounding_type": "decimal",
+    "rounding_decimal": 1,
+    "is_active": true,
+    "is_group_member": false,
+    "groups": [],
+    "group_name": ""
+}

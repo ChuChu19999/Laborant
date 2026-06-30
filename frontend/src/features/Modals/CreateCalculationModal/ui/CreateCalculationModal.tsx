@@ -520,15 +520,20 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
       if (dataNode.children && dataNode.children.length > 0) {
         return;
       }
-      const dirPath = keyStr.slice('dir:'.length);
+      const dirPaths = keyStr.slice('dir:'.length).split('|').filter(Boolean);
       const nodeKey = dataNode.key;
       if (nodeKey === undefined || nodeKey === null) {
         return;
       }
       try {
-        const { files } = await fixturesApi.listFixtureFiles(dirPath);
+        const fileEntries = await Promise.all(
+          dirPaths.map(async dirPath => {
+            const { files } = await fixturesApi.listFixtureFiles(dirPath);
+            return files.map(fn => ({ dirPath, fn }));
+          })
+        );
         const children: FixtureTreeNode[] = await Promise.all(
-          files.map(async fn => {
+          fileEntries.flat().map(async ({ dirPath, fn }) => {
             const fullPath = `${dirPath}/${fn}`;
             const fallback = fn.replace(/\.json$/i, '');
             let title = fallback;
@@ -546,9 +551,10 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
             };
           })
         );
+        children.sort((a, b) => String(a.title).localeCompare(String(b.title), 'ru'));
         setFixtureTreeData(prev => updateFixtureTreeChildren(prev, nodeKey, children));
       } catch (err) {
-        console.error(`Ошибка при загрузке списка методов раздела ${dirPath}:`, err);
+        console.error(`Ошибка при загрузке списка методов раздела ${dirPaths.join(', ')}:`, err);
         message.error('Не удалось загрузить список методов в выбранном разделе');
       }
     },
@@ -581,13 +587,17 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
           value: 'root-fixtures',
           key: 'root-fixtures',
           selectable: false,
-          children: directories.map(d => ({
-            title: d.label,
-            value: `dir:${d.path}`,
-            key: `dir:${d.path}`,
-            selectable: false,
-            isLeaf: false,
-          })),
+          children: directories.map(d => {
+            const paths = d.paths?.length ? d.paths : [d.path];
+            const dirKey = paths.join('|');
+            return {
+              title: d.label,
+              value: `dir:${dirKey}`,
+              key: `dir:${dirKey}`,
+              selectable: false,
+              isLeaf: false,
+            };
+          }),
         });
       }
 
@@ -1698,11 +1708,11 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                         ×
                       </button>
                       <div className="form-group">
-                        <label>Название переменной</label>
+                        <label>Переменная</label>
                         <Input
                           value={field.name}
                           onChange={e => handleInputDataChange(index, 'name', e.target.value)}
-                          placeholder="Введите название переменной"
+                          placeholder="Введите переменную"
                         />
                       </div>
                       <div className="form-group">
@@ -1760,13 +1770,13 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                         ×
                       </button>
                       <div className="form-group">
-                        <label>Название переменной</label>
+                        <label>Переменная</label>
                         <Input
                           value={field.name}
                           onChange={e =>
                             handleIntermediateDataChange(index, 'name', e.target.value)
                           }
-                          placeholder="Введите название"
+                          placeholder="Введите переменную"
                         />
                       </div>
 
@@ -2105,7 +2115,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                                       formulaRefs.threshold[index] = {};
                                     formulaRefs.threshold[index].target = el;
                                   }}
-                                  placeholder="Введите название переменной (например: p)"
+                                  placeholder="Введите переменную (например: p)"
                                 />
                                 {activeFormulaField === `threshold-target-${index}` && (
                                   <div onMouseDown={e => e.preventDefault()}>
@@ -2214,7 +2224,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                                       formulaRefs.threshold[index] = {};
                                     formulaRefs.threshold[index].higher = el;
                                   }}
-                                  placeholder="Введите название переменной (например: pтабл_при_tнаиб)"
+                                  placeholder="Введите переменную (например: pтабл_при_tнаиб)"
                                 />
                                 {activeFormulaField === `threshold-higher-${index}` && (
                                   <div onMouseDown={e => e.preventDefault()}>
@@ -2323,7 +2333,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                                       formulaRefs.threshold[index] = {};
                                     formulaRefs.threshold[index].lower = el;
                                   }}
-                                  placeholder="Введите название переменной (например: pтабл_при_tнаим)"
+                                  placeholder="Введите переменную (например: pтабл_при_tнаим)"
                                 />
                                 {activeFormulaField === `threshold-lower-${index}` && (
                                   <div onMouseDown={e => e.preventDefault()}>

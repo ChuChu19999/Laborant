@@ -18,6 +18,7 @@ import {
   buildAvailableMethodsFromResearchMethod,
   buildCalculationFormPrefill,
 } from '../../shared/utils/calculationFormPrefill';
+import { getFirstGroupMethodId, sortGroupMethods } from '../../shared/utils/researchMethodGroup';
 import { CalculationPanel } from '../../widgets/CalculationPanel';
 import { NavigationBar } from '../../widgets/NavigationBar';
 import { SplitPanel } from '../../widgets/SplitPanel';
@@ -187,10 +188,12 @@ const CalculationsPage: React.FC = () => {
         if (response.methods && response.methods.length > 0) {
           const firstMethod = response.methods[0];
           if (firstMethod.is_group && firstMethod.methods && firstMethod.methods.length > 0) {
-            const firstGroupMethod = firstMethod.methods[0];
-            setSelectedMethodId(firstGroupMethod.id);
-            const fullMethod = await researchApi.getResearchMethod(firstGroupMethod.id);
-            setCurrentMethod(fullMethod);
+            const firstGroupMethodId = getFirstGroupMethodId(firstMethod.methods);
+            if (firstGroupMethodId != null) {
+              setSelectedMethodId(firstGroupMethodId);
+              const fullMethod = await researchApi.getResearchMethod(firstGroupMethodId);
+              setCurrentMethod(fullMethod);
+            }
           } else if (!firstMethod.is_group && typeof firstMethod.id === 'number') {
             setSelectedMethodId(firstMethod.id);
             const fullMethod = await researchApi.getResearchMethod(firstMethod.id);
@@ -336,8 +339,10 @@ const CalculationsPage: React.FC = () => {
           if (!isCurrentMethodAvailable && response.methods && response.methods.length > 0) {
             const firstMethod = response.methods[0];
             if (firstMethod.is_group && firstMethod.methods && firstMethod.methods.length > 0) {
-              const firstGroupMethod = firstMethod.methods[0];
-              await handleMethodClick(firstGroupMethod.id);
+              const firstGroupMethodId = getFirstGroupMethodId(firstMethod.methods);
+              if (firstGroupMethodId != null) {
+                await handleMethodClick(firstGroupMethodId);
+              }
             } else if (!firstMethod.is_group && typeof firstMethod.id === 'number') {
               await handleMethodClick(firstMethod.id);
             }
@@ -456,10 +461,13 @@ const CalculationsPage: React.FC = () => {
       .map(m => ({
         id: typeof m.group_id === 'number' ? m.group_id : 0,
         name: m.name,
-        methods: (m.methods || []).map(method => ({
-          id: method.id,
-          name: method.name,
-        })),
+        methods: sortGroupMethods(
+          (m.methods || []).map(method => ({
+            id: method.id,
+            name: method.name,
+            sort_order: method.sort_order,
+          }))
+        ),
         sort_order: m.sort_order || 0,
         created_at: '',
         updated_at: '',
@@ -495,7 +503,10 @@ const CalculationsPage: React.FC = () => {
                   className={`calculations-page-method-item ${isActive ? 'active' : ''}`}
                   onClick={() => {
                     if (method.is_group && method.methods && method.methods.length > 0) {
-                      handleMethodClick(method.methods[0].id);
+                      const firstGroupMethodId = getFirstGroupMethodId(method.methods);
+                      if (firstGroupMethodId != null) {
+                        handleMethodClick(firstGroupMethodId);
+                      }
                     } else if (!method.is_group && typeof method.id === 'number') {
                       handleMethodClick(method.id);
                     }

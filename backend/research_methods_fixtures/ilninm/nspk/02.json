@@ -1,0 +1,149 @@
+{
+    "name": "Температура вспышки в открытом тигле",
+    "sample_type": ["tp22s", "mgk8gp", "m20g", "m20g2sd", "m20v2", "sae", "shell_rimula", "gazprom_prioritet", "mmo", "mio"],
+    "formula": "Xср",
+    "measurement_error": {
+        "type": "fixed",
+        "value": "13"
+    },
+    "unit": "℃",
+    "measurement_method": "ГОСТ 4333",
+    "nd_code": "ГОСТ 4333-2021",
+    "nd_name": "Нефтепродукты. Методы определения температур вспышки и воспламенения в открытом тигле",
+    "input_data": {
+        "fields": [
+            {
+                "name": "td₁",
+                "unit": "℃",
+                "card_index": 1,
+                "description": "Температура вспышки при барометрическом давлении окружающей среды для первой параллели"
+            },
+            {
+                "name": "td₂",
+                "unit": "℃",
+                "card_index": 2,
+                "description": "Температура вспышки при барометрическом давлении окружающей среды для второй параллели"
+            },
+            {
+                "name": "P",
+                "unit": "кПа",
+                "card_index": 3,
+                "description": "Барометрическое давление окружающей среды"
+            }
+        ]
+    },
+    "intermediate_data": {
+        "fields": [
+            {
+                "name": "tc₁",
+                "unit": "℃",
+                "formula": "td₁+0.25*(101.3-P)",
+                "description": "Температура вспышки, скорректированная на стандартное атм. давление для первой параллели",
+                "multiple_value": "",
+                "show_calculation": true,
+                "range_calculation": null,
+                "use_multiple_rounding": false,
+                "use_threshold_table": false,
+                "use_result_rounding": false,
+                "rounding_type": "decimal",
+                "rounding_decimal": 1
+            },
+            {
+                "name": "tc₂",
+                "unit": "℃",
+                "formula": "td₂+0.25*(101.3-P)",
+                "description": "Температура вспышки, скорректированная на стандартное атм. давление для второй параллели",
+                "multiple_value": "",
+                "show_calculation": true,
+                "use_multiple_rounding": false,
+                "use_threshold_table": false,
+                "use_result_rounding": false,
+                "rounding_type": "decimal",
+                "rounding_decimal": 1
+            },
+            {
+                "name": "Δt",
+                "unit": "℃",
+                "formula": "0",
+                "description": "Поправка температуры вспышки при барометрическом давлении окружающей среды",
+                "multiple_value": "",
+                "show_calculation": true,
+                "range_calculation": {
+                    "ranges": [
+                        {
+                            "condition": "(P>=81.3) and (P<=81.9)",
+                            "formula": "4"
+                        },
+                        {
+                            "condition": "(P>=73.3) and (P<=81.2)",
+                            "formula": "6"
+                        },
+                        {
+                            "condition": "(P>=82.0) and (P<=104.7)",
+                            "formula": "0.25*(101.3-P)"
+                        }
+                    ]
+                },
+                "use_multiple_rounding": false,
+                "use_threshold_table": false,
+                "use_result_rounding": false,
+                "rounding_type": "decimal",
+                "rounding_decimal": 1
+            },
+            {
+                "name": "X₁",
+                "unit": "℃",
+                "formula": "td₁+Δt",
+                "description": "Поправочная температура вспышки, скорректированная на барометрическое давление для первой параллели",
+                "multiple_value": "",
+                "show_calculation": true,
+                "range_calculation": null,
+                "use_multiple_rounding": false,
+                "use_threshold_table": false,
+                "use_result_rounding": false,
+                "rounding_type": "decimal",
+                "rounding_decimal": 1
+            },
+            {
+                "name": "X₂",
+                "unit": "℃",
+                "formula": "td₂+Δt",
+                "description": "Поправочная температура вспышки, скорректированная на барометрическое давление для второй параллели",
+                "multiple_value": "",
+                "show_calculation": true,
+                "use_multiple_rounding": false,
+                "use_result_rounding": false,
+                "rounding_type": "decimal",
+                "rounding_decimal": 1
+            },
+            {
+                "name": "Xср",
+                "unit": "℃",
+                "formula": "(X₁+X₂)/2",
+                "description": "Средняя температура вспышки в открытом тигле",
+                "multiple_value": "",
+                "show_calculation": true,
+                "use_multiple_rounding": false
+            }
+        ]
+    },
+    "convergence_conditions": {
+        "formulas": [
+            {
+                "formula": "abs(X₁-X₂)<=8",
+                "convergence_value": "satisfactory"
+            },
+            {
+                "formula": "abs(X₁-X₂)>8",
+                "convergence_value": "unsatisfactory"
+            }
+        ]
+    },
+    "is_deleted": false,
+    "rounding_type": "decimal",
+    "rounding_decimal": 0,
+    "is_active": true,
+    "is_group_member": false,
+    "groups": [],
+    "group_name": ""
+}

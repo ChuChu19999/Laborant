@@ -1,0 +1,61 @@
+{
+    "name": "Прозрачные н/ф",
+    "sample_type": ["ms8p", "sae", "shell_rimula", "gazprom_prioritet"],
+    "formula": "ρср",
+    "measurement_error": {
+        "type": "fixed",
+        "value": "0.8"
+    },
+    "unit": "кг/м³",
+    "measurement_method": "ГОСТ Р 51069",
+    "nd_code": "ГОСТ Р 51069-97",
+    "nd_name": "Нефть и нефтепродукты. Метод определения плотности, относительной плотности и плотности в градусах API ареометром",
+    "input_data": {
+        "fields": [
+            {
+                "name": "ρ₁",
+                "unit": "кг/м³",
+                "card_index": 1,
+                "description": "Значение плотности для первой параллели"
+            },
+            {
+                "name": "ρ₂",
+                "unit": "кг/м³",
+                "card_index": 2,
+                "description": "Значение плотности для второй параллели"
+            }
+        ]
+    },
+    "intermediate_data": {
+        "fields": [
+            {
+                "name": "ρср",
+                "unit": "кг/м³",
+                "formula": "(ρ₁+ρ₂)/2",
+                "description": "Среднее значение плотности",
+                "multiple_value": "",
+                "show_calculation": false,
+                "use_multiple_rounding": false
+            }
+        ]
+    },
+    "convergence_conditions": {
+        "formulas": [
+            {
+                "formula": "abs(ρ₁-ρ₂)<=0.5",
+                "convergence_value": "satisfactory"
+            },
+            {
+                "formula": "abs(ρ₁-ρ₂)>0.5",
+                "convergence_value": "unsatisfactory"
+            }
+        ]
+    },
+    "is_deleted": false,
+    "rounding_type": "decimal",
+    "rounding_decimal": 1,
+    "is_active": true,
+    "is_group_member": false,
+    "groups": [],
+    "group_name": "Плотность при температуре 15 °C"
+}

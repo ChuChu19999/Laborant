@@ -1,5 +1,5 @@
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.logger import logger
 from services.calculation import (
@@ -130,11 +130,26 @@ def _mf_oil_skip_repeatability_div_by_sum(
     return cv in ("satisfactory", "unsatisfactory")
 
 
+def _intermediate_fields(research_method: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Промежуточные поля метода; пустой intermediate_data трактуем как отсутствие полей."""
+    raw = (research_method.get("intermediate_data") or {}).get("fields") or []
+    return [field for field in raw if isinstance(field, dict)]
+
+
+def _convergence_formulas(research_method: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Условия повторяемости; пустой convergence_conditions — без проверок."""
+    raw = (research_method.get("convergence_conditions") or {}).get("formulas") or []
+    return [condition for condition in raw if isinstance(condition, dict)]
+
+
 def _intermediate_field_by_name(
     research_method: Dict[str, Any],
 ) -> Dict[str, Dict[str, Any]]:
-    fields = (research_method.get("intermediate_data") or {}).get("fields") or []
-    return {str(f["name"]): f for f in fields if isinstance(f, dict) and f.get("name")}
+    return {
+        str(field["name"]): field
+        for field in _intermediate_fields(research_method)
+        if field.get("name")
+    }
 
 
 def _field_uses_custom_rounding(field: Optional[Dict[str, Any]]) -> bool:
@@ -247,8 +262,8 @@ def _build_variables_rounded_chain(
     """
     variables_rounded = _variables_from_input_data(input_data)
     logger.info("Пересчёт промежуточных с округлёнными значениями для цепочки формул")
-    for field in research_method["intermediate_data"]["fields"]:
-        if not field["name"].strip() or not field["formula"].strip():
+    for field in _intermediate_fields(research_method):
+        if not field.get("name", "").strip() or not field.get("formula", "").strip():
             continue
         field_name = field["name"]
         try:
@@ -298,6 +313,18 @@ def _format_intermediate_display_entry(
             "reference": reference_formatted["reference"],
         }
     return reference_formatted
+
+
+def _filter_intermediate_results_for_display(
+    intermediate_results: Dict[str, Any],
+    intermediate_fields_by_name: Dict[str, Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Скрывает поля с show_calculation=False из ответа API."""
+    return {
+        name: value
+        for name, value in intermediate_results.items()
+        if intermediate_fields_by_name.get(name, {}).get("show_calculation", True)
+    }
 
 
 def _format_intermediate_value_reference(
@@ -532,9 +559,12 @@ async def calculate_result(
 
         intermediate_fields_by_name = _intermediate_field_by_name(research_method)
 
-        for field in research_method["intermediate_data"]["fields"]:
+        for field in _intermediate_fields(research_method):
             # Пропускаем поля с пустыми именами или формулами
-            if not field["name"].strip() or not field["formula"].strip():
+            if (
+                not field.get("name", "").strip()
+                or not field.get("formula", "").strip()
+            ):
                 logger.info(f"Пропущено пустое промежуточное поле: {field}")
                 continue
 
@@ -643,30 +673,34 @@ async def calculate_result(
         logger.info("Начало проверки условий повторяемости с округленными значениями")
         satisfied_conditions = []
 
-        for condition in research_method["convergence_conditions"]["formulas"]:
+        for condition in _convergence_formulas(research_method):
+            formula = str(condition.get("formula") or "").strip()
+            convergence_value = condition.get("convergence_value")
+            if not formula or not convergence_value:
+                continue
             try:
                 if _mf_oil_skip_repeatability_div_by_sum(
                     research_method, variables_rounded, condition
                 ):
-                    if condition["convergence_value"] == "satisfactory":
+                    if convergence_value == "satisfactory":
                         satisfied_conditions.append("satisfactory")
                         logger.info(
                             "Массовая доля нефти: C₁=C₂=0 — удовлетворительная повторяемость "
                             "принята без вычисления формулы с (C₁+C₂) в знаменателе."
                         )
                     continue
-                logger.info(f"Проверка условия: {condition['formula']}")
+                logger.info(f"Проверка условия: {formula}")
                 condition_result = evaluate_formula(
-                    condition["formula"], variables_rounded, is_condition=True
+                    formula, variables_rounded, is_condition=True
                 )
                 logger.info(
-                    f"Результат проверки условия: {condition_result} (тип: {condition['convergence_value']}"
+                    f"Результат проверки условия: {condition_result} (тип: {convergence_value}"
                 )
 
                 if condition_result:
-                    satisfied_conditions.append(condition["convergence_value"])
+                    satisfied_conditions.append(convergence_value)
                     logger.info(
-                        f"Условие {condition['formula']} выполнено, тип: {condition['convergence_value']}"
+                        f"Условие {formula} выполнено, тип: {convergence_value}"
                     )
             except Exception as e:
                 logger.error(f"Ошибка при проверке условия повторяемости: {str(e)}")
@@ -679,13 +713,16 @@ async def calculate_result(
         custom_value = None
 
         # Проверяем наличие кастомного значения
-        for condition in research_method["convergence_conditions"]["formulas"]:
-            if condition["convergence_value"] == "custom" and condition.get(
+        for condition in _convergence_formulas(research_method):
+            formula = str(condition.get("formula") or "").strip()
+            if condition.get("convergence_value") == "custom" and condition.get(
                 "custom_value"
             ):
+                if not formula:
+                    continue
                 try:
                     condition_result = evaluate_formula(
-                        condition["formula"], variables_rounded, is_condition=True
+                        formula, variables_rounded, is_condition=True
                     )
                     if condition_result:
                         convergence_result = "custom"
@@ -706,39 +743,40 @@ async def calculate_result(
 
         # Сохраняем информацию только о выбранном условии
         conditions_info = []
-        for condition in research_method["convergence_conditions"]["formulas"]:
-            if condition["convergence_value"] == convergence_result:
-                try:
-                    if _mf_oil_skip_repeatability_div_by_sum(
-                        research_method, variables_rounded, condition
-                    ):
-                        conditions_info.append(
-                            {
-                                "formula": condition["formula"],
-                                "satisfied": True,
-                                "convergence_value": condition["convergence_value"],
-                                "calculation_steps": [],
-                            }
-                        )
-                        continue
-                    condition_result = evaluate_formula(
-                        condition["formula"], variables_rounded, is_condition=True
-                    )
+        for condition in _convergence_formulas(research_method):
+            formula = str(condition.get("formula") or "").strip()
+            convergence_value = condition.get("convergence_value")
+            if convergence_value != convergence_result or not formula:
+                continue
+            try:
+                if _mf_oil_skip_repeatability_div_by_sum(
+                    research_method, variables_rounded, condition
+                ):
                     conditions_info.append(
                         {
-                            "formula": condition["formula"],
-                            "satisfied": condition_result,
-                            "convergence_value": condition["convergence_value"],
-                            "calculation_steps": calculate_convergence_steps(
-                                condition["formula"], variables_rounded
-                            ),
+                            "formula": formula,
+                            "satisfied": True,
+                            "convergence_value": convergence_value,
+                            "calculation_steps": [],
                         }
                     )
-                except Exception as e:
-                    logger.error(f"Ошибка при проверке условия повторяемости: {str(e)}")
-                    raise ValueError(
-                        f"Ошибка при проверке условия повторяемости: {str(e)}"
-                    )
+                    continue
+                condition_result = evaluate_formula(
+                    formula, variables_rounded, is_condition=True
+                )
+                conditions_info.append(
+                    {
+                        "formula": formula,
+                        "satisfied": condition_result,
+                        "convergence_value": convergence_value,
+                        "calculation_steps": calculate_convergence_steps(
+                            formula, variables_rounded
+                        ),
+                    }
+                )
+            except Exception as e:
+                logger.error(f"Ошибка при проверке условия повторяемости: {str(e)}")
+                raise ValueError(f"Ошибка при проверке условия повторяемости: {str(e)}")
 
         # Если повторяемость отсутствие, неудовлетворительная, следы или задано кастомное значение, возвращаем результат без расчета
         if convergence_result in ["absence", "traces", "unsatisfactory", "custom"]:
@@ -819,7 +857,9 @@ async def calculate_result(
 
             response_data_early = {
                 "convergence": convergence_result,
-                "intermediate_results": intermediate_results_rounded,
+                "intermediate_results": _filter_intermediate_results_for_display(
+                    intermediate_results_rounded, intermediate_fields_by_name
+                ),
                 "result": result_text,
                 "result_reference": None,
                 "measurement_error": None,
@@ -898,16 +938,22 @@ async def calculate_result(
                 raise ValueError(f"Ошибка при вычислении результата: {str(e)}")
 
             # Обновляем промежуточные результаты в ответе
-            intermediate_results = intermediate_results_rounded
+            intermediate_results = _filter_intermediate_results_for_display(
+                intermediate_results_rounded, intermediate_fields_by_name
+            )
 
             # Вычисляем погрешность
             try:
-                error_config = research_method["measurement_error"]
+                error_config = research_method.get("measurement_error") or {}
+                error_type = error_config.get("type")
                 logger.info(f"Вычисление погрешности: {error_config}")
 
-                if error_config["type"] == "fixed":
+                if not error_type:
+                    measurement_error = None
+                    logger.info("Погрешность не задана, пропускаем вычисление")
+                elif error_type == "fixed":
                     measurement_error = parse_decimal_value(error_config["value"])
-                elif error_config["type"] == "formula":
+                elif error_type == "formula":
                     variables["result"] = result
                     measurement_error = evaluate_formula(
                         error_config["value"], variables

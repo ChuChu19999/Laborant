@@ -215,12 +215,8 @@
             }
         ]
     },
-    "intermediate_data": {
-        "fields": {}
-    },
-    "convergence_conditions": {
-        "formulas": {}
-    },
+    "intermediate_data": {},
+    "convergence_conditions": {},
     "is_deleted": false,
     "rounding_type": "decimal",
     "rounding_decimal": 0,

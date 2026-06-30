@@ -29,6 +29,11 @@ import { Select } from '../../shared/ui/FormItems';
 import Layout from '../../shared/ui/Layout/Layout';
 import { buildCalculationFormPrefill } from '../../shared/utils/calculationFormPrefill';
 import { isMassFractionOilResearchMethod } from '../../shared/utils/massFractionOilMethod';
+import {
+  enrichGroupMethodsWithSortOrder,
+  getFirstGroupMethodId,
+  sortGroupMethods,
+} from '../../shared/utils/researchMethodGroup';
 import { CalculationPanel } from '../../widgets/CalculationPanel';
 import { MethodsPanel } from '../../widgets/MethodsPanel';
 import { NavigationBar } from '../../widgets/NavigationBar';
@@ -211,11 +216,16 @@ const AdminPage: React.FC = () => {
       } else {
         const group = groups.find(g => g.id === firstItem.id);
         if (group && group.methods.length > 0) {
-          setSelectedMethodId(group.methods[0].id);
+          const firstGroupMethodId = getFirstGroupMethodId(
+            enrichGroupMethodsWithSortOrder(group.methods, methods)
+          );
+          if (firstGroupMethodId != null) {
+            setSelectedMethodId(firstGroupMethodId);
+          }
         }
       }
     }
-  }, [displayItems, groups, selectedMethodId]);
+  }, [displayItems, groups, methods, selectedMethodId]);
 
   useEffect(() => {
     if (selectedMethodId) {
@@ -267,7 +277,12 @@ const AdminPage: React.FC = () => {
     } else {
       const group = groups.find(g => g.id === itemId);
       if (group && group.methods.length > 0) {
-        setSelectedMethodId(group.methods[0].id);
+        const firstGroupMethodId = getFirstGroupMethodId(
+          enrichGroupMethodsWithSortOrder(group.methods, methods)
+        );
+        if (firstGroupMethodId != null) {
+          setSelectedMethodId(firstGroupMethodId);
+        }
       }
     }
   };
@@ -471,7 +486,9 @@ const AdminPage: React.FC = () => {
 
   const groupMethods = useMemo(() => {
     if (!currentMethodGroup) return [];
-    return methods.filter(m => currentMethodGroup.methods.some(gm => gm.id === m.id));
+    return sortGroupMethods(
+      methods.filter(m => currentMethodGroup.methods.some(gm => gm.id === m.id))
+    );
   }, [currentMethodGroup, methods]);
 
   const shouldShowGroupSelector = useMemo(() => {

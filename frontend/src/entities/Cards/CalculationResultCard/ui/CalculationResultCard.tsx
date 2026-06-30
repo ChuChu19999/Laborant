@@ -3,7 +3,8 @@ import { BiHelpCircle } from 'react-icons/bi';
 import Tooltip from '../../../../shared/ui/Tooltip/Tooltip';
 import {
   CONVERGENCE_LABELS,
-  processAbs,
+  formatConvergenceFormula,
+  getConvergenceStepsDisplayParts,
   roundValue,
   roundValueForOilFractional,
   roundValueForCondensateFractional,
@@ -17,10 +18,21 @@ interface ConditionInfo {
   calculation_steps?: {
     type?: string;
     step?: {
+      original?: string;
       evaluated?: string;
     };
     steps?: Array<{
+      original?: string;
       evaluated?: string;
+      type?: string;
+      condition?: {
+        original?: string;
+        evaluated?: string;
+      };
+      conditions?: Array<{
+        original?: string;
+        evaluated?: string;
+      }>;
     }>;
     step2?: string;
   };
@@ -81,15 +93,7 @@ const CalculationResultCard: React.FC<CalculationResultCardProps> = ({ result, c
   const shouldShowLessThan =
     isMassFractionOilMethod && csrValueStr && parseFloat(csrValueStr.replace(',', '.')) < 0.1;
 
-  const formatFormula = (formula: string): string => {
-    return processAbs(formula)
-      .replace(/\*/g, '×')
-      .replace(/<=/g, '≤')
-      .replace(/>=/g, '≥')
-      .replace(/\./g, ',')
-      .replace(/or/g, 'или')
-      .replace(/and/g, 'и');
-  };
+  const formatFormula = (formula: string): string => formatConvergenceFormula(formula);
 
   const getResultText = (): React.ReactNode => {
     if (result.convergence === 'custom') {
@@ -105,9 +109,23 @@ const CalculationResultCard: React.FC<CalculationResultCardProps> = ({ result, c
       if (result.result === 'выпадение парафина') {
         return <span>{result.result}</span>;
       }
+      const resultValue = result.result || '';
+      const unit = result.unit?.trim() || '';
+      const measurementError = result.measurement_error?.trim() || '';
+
+      if (!measurementError) {
+        return (
+          <span>
+            {resultValue}
+            {unit ? ` ${unit}` : ''}
+          </span>
+        );
+      }
+
       return (
         <span>
-          {result.result || ''} ± {result.measurement_error || ''} {result.unit || ''}
+          {resultValue} ± {measurementError}
+          {unit ? ` ${unit}` : ''}
         </span>
       );
     } else if (result.convergence === 'absence') {
@@ -249,17 +267,29 @@ const CalculationResultCard: React.FC<CalculationResultCardProps> = ({ result, c
                         : ''}
                   </div>
 
-                  {condition.calculation_steps && (
-                    <div className="calculation-condition-steps">
-                      {condition.calculation_steps.type === 'single'
-                        ? condition.calculation_steps.step?.evaluated
-                          ? formatFormula(condition.calculation_steps.step.evaluated)
-                          : ''
-                        : condition.calculation_steps.steps?.[0]?.evaluated
-                          ? formatFormula(condition.calculation_steps.steps[0].evaluated)
-                          : ''}
-                    </div>
-                  )}
+                  {condition.calculation_steps &&
+                    (() => {
+                      const stepsDisplay = getConvergenceStepsDisplayParts(
+                        condition.calculation_steps
+                      );
+                      if (!stepsDisplay.original && !stepsDisplay.evaluated) {
+                        return null;
+                      }
+                      return (
+                        <div className="calculation-condition-steps">
+                          {stepsDisplay.original && (
+                            <div className="calculation-condition-step-line">
+                              {stepsDisplay.original}
+                            </div>
+                          )}
+                          {stepsDisplay.evaluated && (
+                            <div className="calculation-condition-step-line calculation-condition-step-evaluated">
+                              {stepsDisplay.evaluated}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                   <div className="calculation-condition-result">
                     {getConvergenceLabel(condition.convergence_value)}

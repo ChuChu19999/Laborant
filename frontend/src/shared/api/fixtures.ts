@@ -58,6 +58,7 @@ export interface FixtureData {
 
 export interface FixtureDirectoryEntry {
   path: string;
+  paths?: string[];
   label: string;
 }
 

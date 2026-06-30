@@ -30,6 +30,139 @@ export const processAbs = (formula: string): string => {
   return result;
 };
 
+export const formatConvergenceFormula = (formula: string): string => {
+  return processAbs(formula)
+    .replace(/\*/g, '×')
+    .replace(/\//g, '÷')
+    .replace(/<=/g, '≤')
+    .replace(/>=/g, '≥')
+    .replace(/\./g, ',')
+    .replace(/or/g, 'или')
+    .replace(/and/g, 'и');
+};
+
+export interface ConvergenceStepDisplay {
+  original?: string;
+  evaluated?: string;
+  type?: string;
+  condition?: ConvergenceStepDisplay;
+  conditions?: ConvergenceStepDisplay[];
+}
+
+export interface ConvergenceCalculationStepsDisplay {
+  type?: string;
+  step?: ConvergenceStepDisplay;
+  steps?: ConvergenceStepDisplay[];
+  step2?: string;
+}
+
+export interface ConvergenceStepsDisplayParts {
+  original?: string;
+  evaluated?: string;
+}
+
+const uniqueNonEmpty = (items: (string | undefined)[]): string[] => {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const item of items) {
+    if (!item || seen.has(item)) {
+      continue;
+    }
+    seen.add(item);
+    result.push(item);
+  }
+  return result;
+};
+
+const stripOuterParens = (value: string): string => value.replace(/^\(|\)$/g, '').trim();
+
+const collectDisplaySteps = (
+  calculationSteps: ConvergenceCalculationStepsDisplay
+): ConvergenceStepDisplay[] => {
+  if (calculationSteps.type === 'single' && calculationSteps.step) {
+    return [calculationSteps.step];
+  }
+
+  if (calculationSteps.type === 'and' && calculationSteps.steps?.length) {
+    const lastStep = calculationSteps.steps[calculationSteps.steps.length - 1];
+    return lastStep ? [lastStep] : [];
+  }
+
+  if (calculationSteps.type === 'or' && calculationSteps.steps?.length) {
+    const result: ConvergenceStepDisplay[] = [];
+    for (const orStep of calculationSteps.steps) {
+      if (orStep.type === 'and' && orStep.conditions?.length) {
+        const lastCondition = orStep.conditions[orStep.conditions.length - 1];
+        if (lastCondition) {
+          result.push(lastCondition);
+        }
+      } else if (orStep.type === 'single' && orStep.condition) {
+        result.push(orStep.condition);
+      } else if (orStep.original || orStep.evaluated) {
+        result.push(orStep);
+      }
+    }
+    return result;
+  }
+
+  if (calculationSteps.steps?.length) {
+    if (calculationSteps.type === 'and') {
+      const lastStep = calculationSteps.steps[calculationSteps.steps.length - 1];
+      return lastStep ? [lastStep] : [];
+    }
+    return calculationSteps.steps;
+  }
+
+  return [];
+};
+
+const joinDisplayParts = (
+  parts: string[],
+  separator: string,
+  wrapEach = false
+): string | undefined => {
+  if (parts.length === 0) {
+    return undefined;
+  }
+  if (parts.length === 1) {
+    return wrapEach ? `(${parts[0]})` : parts[0];
+  }
+  return parts.map(part => (wrapEach ? `(${part})` : part)).join(separator);
+};
+
+/** Сырое подставленное условие и вычисленные части на разных строках; одинаковые части не дублируются. */
+export const getConvergenceStepsDisplayParts = (
+  calculationSteps?: ConvergenceCalculationStepsDisplay
+): ConvergenceStepsDisplayParts => {
+  if (!calculationSteps) {
+    return {};
+  }
+
+  const steps = collectDisplaySteps(calculationSteps);
+  if (steps.length === 0) {
+    return {};
+  }
+
+  const rawParts = uniqueNonEmpty(
+    steps.map(step => (step.original ? formatConvergenceFormula(step.original) : undefined))
+  );
+  const evaluatedParts = uniqueNonEmpty(
+    steps.map(step => (step.evaluated ? formatConvergenceFormula(step.evaluated) : undefined))
+  );
+
+  const rawLine = joinDisplayParts(rawParts, ' или ', false);
+  const evaluatedLine = joinDisplayParts(evaluatedParts, ' или ', true);
+
+  if (rawLine && evaluatedLine && stripOuterParens(rawLine) === stripOuterParens(evaluatedLine)) {
+    return { evaluated: evaluatedLine };
+  }
+
+  return {
+    original: rawLine,
+    evaluated: evaluatedLine,
+  };
+};
+
 export const getDecimalPlaces = (numStr: string): number => {
   if (!numStr) return 0;
   const parts = numStr.toString().split(',');

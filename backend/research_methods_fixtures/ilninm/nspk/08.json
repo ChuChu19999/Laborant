@@ -1,0 +1,59 @@
+{
+    "name": "ГРАН",
+    "sample_type": ["ms8p", "mgk8gp", "neft_oil"],
+    "formula": "X",
+    "measurement_error": {},
+    "unit": "",
+    "measurement_method": "ГОСТ 17216",
+    "nd_code": "ГОСТ 17216-2001",
+    "nd_name": "Чистота промышленная. Класс чистоты жидкостей",
+    "input_data": {
+        "fields": [
+            {
+                "name": "св. 5 до 10",
+                "unit": "",
+                "card_index": 1,
+                "description": "Размер частиц св. 5 до 10"
+            },
+            {
+                "name": "св. 10 до 25",
+                "unit": "",
+                "card_index": 1,
+                "description": "Размер частиц св. 10 до 25"
+            },
+            {
+                "name": "св. 25 до 50",
+                "unit": "",
+                "card_index": 1,
+                "description": "Размер частиц св. 25 до 50"
+            },
+            {
+                "name": "св. 50 до 100",
+                "unit": "",
+                "card_index": 1,
+                "description": "Размер частиц св. 50 до 100"
+            },
+            {
+                "name": "св. 100",
+                "unit": "",
+                "card_index": 1,
+                "description": "Размер частиц св. 100"
+            },
+            {
+                "name": "X",
+                "unit": "",
+                "card_index": 1,
+                "description": "Класс чистоты"
+            }
+        ]
+    },
+    "intermediate_data": {},
+    "convergence_conditions": {},
+    "is_deleted": false,
+    "rounding_type": "decimal",
+    "rounding_decimal": 0,
+    "is_active": true,
+    "is_group_member": false,
+    "groups": [],
+    "group_name": "Класс чистоты"
+}

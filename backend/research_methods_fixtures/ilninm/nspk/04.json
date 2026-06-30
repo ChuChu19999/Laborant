@@ -1,0 +1,159 @@
+{
+    "name": "Кислотное число",
+    "sample_type": ["tp22s", "ms8p", "mgk8gp", "m20g", "m20g2sd", "mt"],
+    "formula": "Xср",
+    "measurement_error": {
+        "type": "formula",
+        "value": "Δ"
+    },
+    "unit": "мг КОН/г",
+    "measurement_method": "ГОСТ 5985",
+    "nd_code": "ГОСТ 5985-2022",
+    "nd_name": "Нефтепродукты. Метод определения кислотности и кислотного числа",
+    "input_data": {
+        "fields": [
+            {
+                "name": "Vp₁",
+                "unit": "см³",
+                "card_index": 1,
+                "description": "Объем калия, израсходованный на титрование рабочей пробы для первой параллели"
+            },
+            {
+                "name": "Vp₂",
+                "unit": "см³",
+                "card_index": 2,
+                "description": "Объем калия, израсходованный на титрование рабочей пробы для второй параллели"
+            },
+            {
+                "name": "T",
+                "unit": "мг/см³",
+                "card_index": 3,
+                "description": "Титр 0,05 моль/дм³ спиртового раствора гидроокиси калия"
+            },
+            {
+                "name": "V₀",
+                "unit": "см³",
+                "card_index": 3,
+                "description": "Объем 0,05 моль/дм³ спиртового раствора гидроокиси калия, израсходованный на холостую пробу"
+            },
+            {
+                "name": "mпр",
+                "unit": "г",
+                "card_index": 3,
+                "description": "Масса пробы, взятой для анализа"
+            }
+        ]
+    },
+    "intermediate_data": {
+        "fields": [
+            {
+                "name": "X₁",
+                "unit": "мг КОН/г",
+                "formula": "(Vp₁-V₀)*T/mпр",
+                "description": "Кислотное число для первой параллели",
+                "multiple_value": "",
+                "show_calculation": true,
+                "use_multiple_rounding": false,
+                "use_result_rounding": false,
+                "rounding_type": "decimal",
+                "rounding_decimal": 3
+            },
+            {
+                "name": "X₂",
+                "unit": "мг КОН/г",
+                "formula": "(Vp₂-V₀)*T/mпр",
+                "description": "Кислотное число для второй параллели",
+                "multiple_value": "",
+                "show_calculation": true,
+                "use_multiple_rounding": false,
+                "use_result_rounding": false,
+                "rounding_type": "decimal",
+                "rounding_decimal": 3
+            },
+            {
+                "name": "Xср",
+                "unit": "мг КОН/г",
+                "formula": "(X₁+X₂)/2",
+                "description": "Среднее кислотное число",
+                "multiple_value": "",
+                "show_calculation": false,
+                "use_multiple_rounding": false
+            },
+            {
+                "name": "r",
+                "unit": "мг КОН/г",
+                "formula": "0",
+                "description": "Повторяемость",
+                "multiple_value": "",
+                "show_calculation": false,
+                "range_calculation": {
+                    "ranges": [
+                        {
+                            "condition": "Xср<=0.5",
+                            "formula": "0.06"
+                        },
+                        {
+                            "condition": "(Xср>0.5) and (Xср<=1.0)",
+                            "formula": "0.10"
+                        },
+                        {
+                            "condition": "Xср>1.0",
+                            "formula": "0.20"
+                        }
+                    ]
+                },
+                "use_multiple_rounding": false,
+                "use_threshold_table": false
+            },
+            {
+                "name": "Δ",
+                "unit": "мг КОН/г",
+                "formula": "0",
+                "description": "Погрешность",
+                "multiple_value": "",
+                "show_calculation": false,
+                "range_calculation": {
+                    "ranges": [
+                        {
+                            "condition": "Xср<=0.5",
+                            "formula": "0.07"
+                        },
+                        {
+                            "condition": "(Xср>0.5) and (Xср<=1.0)",
+                            "formula": "0.14"
+                        },
+                        {
+                            "condition": "Xср>1.0",
+                            "formula": "0.28"
+                        }
+                    ]
+                },
+                "use_multiple_rounding": false,
+                "use_threshold_table": false
+            }
+        ]
+    },
+    "convergence_conditions": {
+        "formulas": [
+            {
+                "formula": "abs(X₁+X₂)<=r",
+                "convergence_value": "satisfactory"
+            },
+            {
+                "formula": "Xср<0.02",
+                "convergence_value": "absence"
+            },
+            {
+                "formula": "abs(X₁+X₂)>r",
+                "convergence_value": "unsatisfactory"
+            }
+        ]
+    },
+    "is_deleted": false,
+    "rounding_type": "decimal",
+    "rounding_decimal": 2,
+    "is_active": true,
+    "is_group_member": false,
+    "groups": [],
+    "group_name": ""
+}
