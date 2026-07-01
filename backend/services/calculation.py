@@ -10,7 +10,15 @@ from models.calculation import Calculation
 from models.laboratory import Department, Laboratory
 from models.research import ResearchMethod
 from models.sample import MassFractionOilRefractionTable, Sample
-from schemas.calculation import CalculationCreate, CalculationUpdate
+from schemas.calculation import (
+    CalculationCreate,
+    CalculationUpdate,
+    MethodologyChoiceResponse,
+)
+from services.research import (
+    get_active_research_method_by_name,
+    get_research_method_by_id,
+)
 from utils.pagination import apply_pagination, calculate_total_pages, get_total_count
 from utils.sorting import build_order_by
 
@@ -292,6 +300,93 @@ async def delete_calculation(db: AsyncSession, calculation_id: int) -> None:
     await db.flush()
 
 
+async def get_calculation_methodology_choice(
+    db: AsyncSession,
+    calculation_id: int,
+) -> MethodologyChoiceResponse:
+    """Проверить, появилась ли новая версия методики для сохранённого расчёта."""
+    calculation = await get_calculation_by_id(db, calculation_id)
+    if not calculation:
+        raise NotFoundError("Расчет не найден")
+
+    stored_method = await get_research_method_by_id(
+        db, calculation.research_method_id, include_deleted=True
+    )
+    if not stored_method:
+        raise NotFoundError("Метод исследования не найден")
+
+    stored_method_deleted = stored_method.deleted_at is not None
+    current_method = await get_active_research_method_by_name(
+        db,
+        name=stored_method.name,
+        laboratory_id=calculation.laboratory_id,
+        department_id=calculation.department_id,
+    )
+
+    methodology_changed = (
+        stored_method_deleted
+        and current_method is not None
+        and current_method.id != stored_method.id
+    )
+
+    return MethodologyChoiceResponse(
+        methodology_changed=methodology_changed,
+        method_name=stored_method.name,
+        stored_method_id=stored_method.id,
+        stored_method_deleted=stored_method_deleted,
+        current_method_id=current_method.id if current_method else None,
+    )
+
+
+async def _validate_research_method_version_change(
+    db: AsyncSession,
+    old_method_id: int,
+    new_method_id: int,
+    laboratory_id: int,
+    department_id: Optional[int],
+) -> None:
+    """Разрешить смену метода только при переходе на актуальную версию той же методики."""
+    old_method = await get_research_method_by_id(
+        db, old_method_id, include_deleted=True
+    )
+    new_method = await get_research_method_by_id(
+        db, new_method_id, include_deleted=False
+    )
+    if not old_method:
+        raise NotFoundError("Исходный метод исследования не найден")
+    if not new_method:
+        raise NotFoundError("Новый метод исследования не найден")
+    if old_method.name != new_method.name:
+        raise ValidationError(
+            "Новая методика должна иметь то же наименование, что и в сохранённом расчёте"
+        )
+    if old_method.laboratory_id != new_method.laboratory_id:
+        raise ValidationError("Новая методика должна относиться к той же лаборатории")
+    old_department = (
+        old_method.department_id if old_method.department_id is not None else None
+    )
+    new_department = (
+        new_method.department_id if new_method.department_id is not None else None
+    )
+    if old_department != new_department:
+        raise ValidationError(
+            "Новая методика должна относиться к тому же подразделению"
+        )
+    if old_method.deleted_at is None:
+        raise ValidationError("При замене расчёта нельзя менять метод исследования")
+
+    active_method = await get_active_research_method_by_name(
+        db,
+        name=new_method.name,
+        laboratory_id=laboratory_id,
+        department_id=department_id,
+    )
+    if not active_method or active_method.id != new_method.id:
+        raise ValidationError(
+            "Новая методика должна быть актуальной версией в справочнике"
+        )
+
+
 async def replace_calculation(
     db: AsyncSession,
     calculation_id: int,
@@ -305,7 +400,13 @@ async def replace_calculation(
     if calculation_data.sample_id != old.sample_id:
         raise ValidationError("При замене расчёта нельзя менять пробу")
     if calculation_data.research_method_id != old.research_method_id:
-        raise ValidationError("При замене расчёта нельзя менять метод исследования")
+        await _validate_research_method_version_change(
+            db,
+            old_method_id=old.research_method_id,
+            new_method_id=calculation_data.research_method_id,
+            laboratory_id=calculation_data.laboratory_id,
+            department_id=calculation_data.department_id,
+        )
     if calculation_data.laboratory_id != old.laboratory_id:
         raise ValidationError("При замене расчёта нельзя менять лабораторию")
 

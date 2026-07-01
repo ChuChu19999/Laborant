@@ -1,15 +1,51 @@
 import { axiosInstance } from '../config/axios';
 
+export interface ResearchMethodMeasurementErrorPayload {
+  type: 'fixed' | 'formula';
+  value: string;
+  ranges?: Array<{ formula: string; value: string }>;
+}
+
+export interface ResearchMethodIntermediateField {
+  name: string;
+  formula: string;
+  description: string;
+  unit?: string;
+  show_calculation: boolean;
+  use_multiple_rounding?: boolean;
+  multiple_value?: string;
+  use_result_rounding?: boolean;
+  rounding_type?: 'decimal' | 'significant';
+  rounding_decimal?: number;
+  range_calculation?: {
+    ranges: Array<{ condition: string; formula: string }>;
+  };
+  use_threshold_table?: boolean;
+  threshold_table_values?: {
+    target_variable: string;
+    higher_variable: string;
+    lower_variable: string;
+  };
+}
+
+export interface ResearchMethodIntermediateDataPayload {
+  fields: ResearchMethodIntermediateField[];
+}
+
+export interface ResearchMethodConvergenceConditionsPayload {
+  formulas: Array<{
+    formula: string;
+    convergence_value: string;
+    custom_value?: string;
+  }>;
+}
+
 export interface ResearchMethod {
   id: number;
   name: string;
   sample_type: string[];
   formula: string;
-  measurement_error: {
-    type: 'fixed' | 'formula';
-    value: string;
-    ranges?: Array<{ formula: string; value: string }>;
-  };
+  measurement_error: Record<string, never> | ResearchMethodMeasurementErrorPayload;
   unit: string;
   measurement_method: string;
   nd_code: string;
@@ -22,36 +58,8 @@ export interface ResearchMethod {
       card_index: number;
     }>;
   };
-  intermediate_data: {
-    fields: Array<{
-      name: string;
-      formula: string;
-      description: string;
-      unit?: string;
-      show_calculation: boolean;
-      use_multiple_rounding?: boolean;
-      multiple_value?: string;
-      use_result_rounding?: boolean;
-      rounding_type?: 'decimal' | 'significant';
-      rounding_decimal?: number;
-      range_calculation?: {
-        ranges: Array<{ condition: string; formula: string }>;
-      };
-      use_threshold_table?: boolean;
-      threshold_table_values?: {
-        target_variable: string;
-        higher_variable: string;
-        lower_variable: string;
-      };
-    }>;
-  };
-  convergence_conditions: {
-    formulas: Array<{
-      formula: string;
-      convergence_value: string;
-      custom_value?: string;
-    }>;
-  };
+  intermediate_data: Record<string, never> | ResearchMethodIntermediateDataPayload;
+  convergence_conditions: Record<string, never> | ResearchMethodConvergenceConditionsPayload;
   rounding_type: 'decimal' | 'significant';
   rounding_decimal: number;
   is_group_member: boolean;
@@ -69,11 +77,7 @@ export interface ResearchMethodCreate {
   name: string;
   sample_type: string[];
   formula: string;
-  measurement_error: {
-    type: 'fixed' | 'formula';
-    value: string;
-    ranges?: Array<{ formula: string; value: string }>;
-  };
+  measurement_error: Record<string, never> | ResearchMethodMeasurementErrorPayload;
   unit: string;
   measurement_method: string;
   nd_code: string;
@@ -86,36 +90,8 @@ export interface ResearchMethodCreate {
       card_index: number;
     }>;
   };
-  intermediate_data: {
-    fields: Array<{
-      name: string;
-      formula: string;
-      description: string;
-      unit?: string;
-      show_calculation: boolean;
-      use_multiple_rounding?: boolean;
-      multiple_value?: string;
-      use_result_rounding?: boolean;
-      rounding_type?: 'decimal' | 'significant';
-      rounding_decimal?: number;
-      range_calculation?: {
-        ranges: Array<{ condition: string; formula: string }>;
-      };
-      use_threshold_table?: boolean;
-      threshold_table_values?: {
-        target_variable: string;
-        higher_variable: string;
-        lower_variable: string;
-      };
-    }>;
-  };
-  convergence_conditions?: {
-    formulas: Array<{
-      formula: string;
-      convergence_value: string;
-      custom_value?: string;
-    }>;
-  };
+  intermediate_data: Record<string, never> | ResearchMethodIntermediateDataPayload;
+  convergence_conditions?: Record<string, never> | ResearchMethodConvergenceConditionsPayload;
   rounding_type: 'decimal' | 'significant';
   rounding_decimal: number;
   is_group_member?: boolean;
@@ -147,6 +123,15 @@ export interface PaginatedResponse<T> {
   total_pages: number;
 }
 
+export function getResearchMethodIntermediateFields(
+  data: ResearchMethod['intermediate_data'] | undefined
+): ResearchMethodIntermediateField[] {
+  if (!data || Object.keys(data).length === 0 || !('fields' in data)) {
+    return [];
+  }
+  return data.fields;
+}
+
 export const researchApi = {
   getResearchMethods: async (params?: {
     laboratory_id?: number;
@@ -162,8 +147,13 @@ export const researchApi = {
     return response.data;
   },
 
-  getResearchMethod: async (id: number): Promise<ResearchMethod> => {
-    const response = await axiosInstance.get(`/api/research-methods/${id}/`);
+  getResearchMethod: async (
+    id: number,
+    options?: { include_deleted?: boolean }
+  ): Promise<ResearchMethod> => {
+    const response = await axiosInstance.get(`/api/research-methods/${id}/`, {
+      params: options?.include_deleted ? { include_deleted: true } : undefined,
+    });
     return response.data;
   },
 

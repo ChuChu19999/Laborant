@@ -40,3 +40,4 @@ export { EditProtocolTemplateModal } from './EditProtocolTemplateModal';
 export { EditReportTemplateModal } from './EditReportTemplateModal';
 export { GenerateReportModal } from './GenerateReportModal';
 export { SaveCalculationModal } from './SaveCalculationModal';
+export { MethodologyVersionChoiceModal } from './MethodologyVersionChoiceModal';

@@ -725,7 +725,7 @@ const CalculationsTable: React.FC<CalculationsTableProps> = ({
           </div>
         ),
         enableSorting: false,
-        size: 180,
+        size: 120,
       },
     ],
     [employeesMap, methodDisplayNames, methodsById, onDelete, onEdit]

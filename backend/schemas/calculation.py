@@ -88,6 +88,25 @@ class CalculationResponse(CalculationBase):
         from_attributes = True
 
 
+class MethodologyChoiceResponse(BaseModel):
+    """Статус методики при редактировании сохранённого расчёта."""
+
+    methodology_changed: bool = Field(
+        ...,
+        description="Есть ли более новая актуальная версия методики",
+    )
+    method_name: str = Field(..., description="Наименование методики")
+    stored_method_id: int = Field(
+        ..., description="ID методики, зафиксированной в расчёте"
+    )
+    stored_method_deleted: bool = Field(
+        ..., description="Удалена ли методика из расчёта в справочнике"
+    )
+    current_method_id: Optional[int] = Field(
+        None, description="ID актуальной методики с тем же именем"
+    )
+
+
 class CalculateRequest(BaseModel):
     input_data: Dict[str, Any] = Field(..., description="Входные данные для расчета")
     research_method_id: int = Field(..., description="ID метода исследования")

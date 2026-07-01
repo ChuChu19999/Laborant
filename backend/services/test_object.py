@@ -36,7 +36,7 @@ async def validate_research_method_sample_types(
 ) -> None:
     """Проверить, что типы проб совпадают с тегами справочника объектов испытаний."""
     if not sample_types:
-        raise ValidationError("Не указаны типы исследуемых проб")
+        raise ValidationError("Не указаны объекты испытаний")
 
     valid_tags = await get_test_object_tags(db)
     if not valid_tags:

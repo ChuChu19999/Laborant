@@ -1,6 +1,7 @@
 import React from 'react';
 import { EditOutlined } from '@ant-design/icons';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
+import LinkOffIcon from '@mui/icons-material/LinkOff';
 import './MethodListItem.css';
 
 interface MethodListItemProps {
@@ -10,6 +11,7 @@ interface MethodListItemProps {
   onClick?: () => void;
   onEdit?: (e: React.MouseEvent) => void;
   onDelete?: (e: React.MouseEvent) => void;
+  onDisconnect?: (e: React.MouseEvent) => void;
   dragHandleProps?: React.HTMLAttributes<HTMLDivElement>;
 }
 
@@ -20,6 +22,7 @@ const MethodListItem: React.FC<MethodListItemProps> = ({
   onClick,
   onEdit,
   onDelete,
+  onDisconnect,
   dragHandleProps,
 }) => {
   const displayName =
@@ -70,6 +73,22 @@ const MethodListItem: React.FC<MethodListItemProps> = ({
               title="Редактировать метод"
             >
               <EditOutlined />
+            </button>
+          )}
+          {onDisconnect && (
+            <button
+              className="method-list-item-disconnect"
+              onClick={e => {
+                e.stopPropagation();
+                onDisconnect(e);
+              }}
+              onPointerDown={e => {
+                e.stopPropagation();
+              }}
+              type="button"
+              title="Разорвать группу"
+            >
+              <LinkOffIcon className="method-list-item-disconnect-icon" />
             </button>
           )}
           {onDelete && (

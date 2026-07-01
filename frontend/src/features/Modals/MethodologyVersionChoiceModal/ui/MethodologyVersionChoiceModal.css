@@ -1,0 +1,29 @@
+.methodology-version-choice-modal-content p {
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+
+.methodology-version-choice-modal-list {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.methodology-version-choice-modal-list p {
+  margin: 0;
+  display: flex;
+  gap: 6px;
+}
+
+.methodology-version-choice-modal-list p + p {
+  margin-top: 8px;
+}
+
+.methodology-version-choice-modal-marker {
+  flex-shrink: 0;
+}
+
+.methodology-version-choice-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

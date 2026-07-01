@@ -67,7 +67,7 @@ class ResearchMethodBase(BaseModel):
         if not isinstance(v, dict):
             raise ValueError("Погрешность должна быть объектом")
         if not v:
-            return {"type": "fixed", "value": "0"}
+            return {}
         if "type" not in v:
             raise ValueError("Не указан тип погрешности")
         if v["type"] not in ["fixed", "formula"]:

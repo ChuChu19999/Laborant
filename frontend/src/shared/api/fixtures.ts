@@ -1,15 +1,16 @@
 import { axiosInstance } from '../config/axios';
+import type {
+  ResearchMethodConvergenceConditionsPayload,
+  ResearchMethodIntermediateDataPayload,
+  ResearchMethodMeasurementErrorPayload,
+} from './research';
 
 export interface FixtureData {
   name?: string;
   group_name?: string;
   sample_type?: string | string[];
   formula?: string;
-  measurement_error?: {
-    type: 'fixed' | 'formula';
-    value: string;
-    ranges?: Array<{ formula: string; value: string }>;
-  };
+  measurement_error?: Record<string, never> | ResearchMethodMeasurementErrorPayload;
   unit?: string;
   measurement_method?: string;
   nd_code?: string;
@@ -22,36 +23,8 @@ export interface FixtureData {
       card_index: number;
     }>;
   };
-  intermediate_data?: {
-    fields: Array<{
-      name: string;
-      formula: string;
-      description: string;
-      unit?: string;
-      show_calculation: boolean;
-      use_multiple_rounding?: boolean;
-      multiple_value?: string;
-      use_result_rounding?: boolean;
-      rounding_type?: 'decimal' | 'significant';
-      rounding_decimal?: number;
-      range_calculation?: {
-        ranges: Array<{ condition: string; formula: string }>;
-      };
-      use_threshold_table?: boolean;
-      threshold_table_values?: {
-        target_variable: string;
-        higher_variable: string;
-        lower_variable: string;
-      };
-    }>;
-  };
-  convergence_conditions?: {
-    formulas: Array<{
-      formula: string;
-      convergence_value: string;
-      custom_value?: string;
-    }>;
-  };
+  intermediate_data?: Record<string, never> | ResearchMethodIntermediateDataPayload;
+  convergence_conditions?: Record<string, never> | ResearchMethodConvergenceConditionsPayload;
   rounding_type?: 'decimal' | 'significant';
   rounding_decimal?: number;
 }

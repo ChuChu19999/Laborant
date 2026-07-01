@@ -111,7 +111,7 @@ export const useDeleteResearchMethodGroup = () => {
     [['research-method-groups'], ['research-methods']],
     {
       onSuccess: () => {
-        message.success('Группа методов исследования и все ее методы скрыты');
+        message.success('Группа методов исследования удалена');
       },
     }
   );

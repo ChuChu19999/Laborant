@@ -163,6 +163,16 @@
   color: white;
 }
 
+.empty-fields-container {
+  border: 1px dashed #1890ff;
+  border-radius: 4px;
+  padding: 8px;
+}
+
+.empty-fields-container .add-field-btn {
+  margin-top: 0;
+}
+
 .add-field-btn {
   background: none;
   border: 1px dashed #1890ff;

@@ -77,6 +77,14 @@ export interface CalculationFilters {
   research_method_id?: number;
 }
 
+export interface MethodologyChoice {
+  methodology_changed: boolean;
+  method_name: string;
+  stored_method_id: number;
+  stored_method_deleted: boolean;
+  current_method_id: number | null;
+}
+
 export const calculationApi = {
   calculate: async (request: CalculateRequest): Promise<CalculationResult> => {
     const response = await axiosInstance.post<CalculationResult>('/api/calculate/', request);
@@ -192,6 +200,13 @@ export const calculationApi = {
 
   getCalculation: async (id: number): Promise<Calculation> => {
     const response = await axiosInstance.get<Calculation>(`/api/calculations/${id}/`);
+    return response.data;
+  },
+
+  getMethodologyChoice: async (calculationId: number): Promise<MethodologyChoice> => {
+    const response = await axiosInstance.get<MethodologyChoice>(
+      `/api/calculations/${calculationId}/methodology-choice/`
+    );
     return response.data;
   },
 

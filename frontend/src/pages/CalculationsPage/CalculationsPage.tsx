@@ -2,11 +2,12 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Spin, message } from 'antd';
 import { LoadingCard } from '../../features/Cards';
-import { SaveCalculationModal } from '../../features/Modals';
+import { SaveCalculationModal, MethodologyVersionChoiceModal } from '../../features/Modals';
 import {
   calculationApi,
   type Calculation,
   type CalculationResult,
+  type MethodologyChoice,
 } from '../../shared/api/calculation';
 import { laboratoriesApi } from '../../shared/api/laboratories';
 import { researchApi } from '../../shared/api/research';
@@ -78,6 +79,11 @@ const CalculationsPage: React.FC = () => {
     >
   >({});
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [methodologyChoiceModalOpen, setMethodologyChoiceModalOpen] = useState(false);
+  const [methodologyChoice, setMethodologyChoice] = useState<MethodologyChoice | null>(null);
+  const [editMethodologyVersion, setEditMethodologyVersion] = useState<'stored' | 'current' | null>(
+    null
+  );
 
   // Получаем параметры из URL или из query параметров (для обратной совместимости)
   const labId = laboratoryId
@@ -132,8 +138,73 @@ const CalculationsPage: React.FC = () => {
   useEffect(() => {
     if (!isEditMode) {
       setEditCalculation(null);
+      setMethodologyChoice(null);
+      setMethodologyChoiceModalOpen(false);
+      setEditMethodologyVersion(null);
     }
   }, [isEditMode]);
+
+  const loadResearchMethodForEdit = useCallback(
+    async (methodId: number, includeDeleted: boolean) => {
+      const fullMethod = await researchApi.getResearchMethod(methodId, {
+        include_deleted: includeDeleted,
+      });
+      setAvailableMethods(buildAvailableMethodsFromResearchMethod(fullMethod));
+      setSelectedMethodId(fullMethod.id);
+      setCurrentMethod(fullMethod);
+    },
+    []
+  );
+
+  const handleChooseStoredMethodology = useCallback(async () => {
+    if (!methodologyChoice) {
+      return;
+    }
+    try {
+      setIsLoading(true);
+      setMethodologyChoiceModalOpen(false);
+      setEditMethodologyVersion('stored');
+      await loadResearchMethodForEdit(methodologyChoice.stored_method_id, true);
+      setLastCalculationResult({});
+    } catch (error) {
+      console.error('Ошибка при загрузке старой методики:', error);
+      message.error('Не удалось загрузить старую методику');
+      setMethodologyChoiceModalOpen(true);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [loadResearchMethodForEdit, methodologyChoice]);
+
+  const handleChooseCurrentMethodology = useCallback(async () => {
+    if (!methodologyChoice?.current_method_id) {
+      message.error('Актуальная методика не найдена');
+      return;
+    }
+    try {
+      setIsLoading(true);
+      setMethodologyChoiceModalOpen(false);
+      setEditMethodologyVersion('current');
+      await loadResearchMethodForEdit(methodologyChoice.current_method_id, false);
+      setLastCalculationResult({});
+    } catch (error) {
+      console.error('Ошибка при загрузке новой методики:', error);
+      message.error('Не удалось загрузить актуальную методику');
+      setMethodologyChoiceModalOpen(true);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [loadResearchMethodForEdit, methodologyChoice]);
+
+  const handleMethodologyChoiceCancel = useCallback(() => {
+    setMethodologyChoiceModalOpen(false);
+    if (labId && deptId !== undefined) {
+      navigate(`/samples/laboratory/${labId}/department/${deptId}`);
+    } else if (labId) {
+      navigate(`/samples/laboratory/${labId}`);
+    } else {
+      navigate('/samples');
+    }
+  }, [deptId, labId, navigate]);
 
   useEffect(() => {
     const fetchMethodsOrEditCalculation = async () => {
@@ -166,13 +237,25 @@ const CalculationsPage: React.FC = () => {
             return;
           }
 
-          const fullMethod = await researchApi.getResearchMethod(calculation.research_method_id);
-          setAvailableMethods(buildAvailableMethodsFromResearchMethod(fullMethod));
-          setSelectedMethodId(fullMethod.id);
-          setCurrentMethod(fullMethod);
+          const choice = await calculationApi.getMethodologyChoice(editCalculationId);
           setEditCalculation(calculation);
-          // Результат не показываем до «Рассчитать»: префилл только формы через calculationFormPrefill.
+          setMethodologyChoice(choice);
           setLastCalculationResult({});
+
+          if (choice.methodology_changed) {
+            setMethodologyChoiceModalOpen(true);
+            setEditMethodologyVersion(null);
+            setCurrentMethod(null);
+            setSelectedMethodId(null);
+            setAvailableMethods([]);
+            return;
+          }
+
+          setEditMethodologyVersion('stored');
+          await loadResearchMethodForEdit(
+            calculation.research_method_id,
+            choice.stored_method_deleted
+          );
           return;
         }
 
@@ -213,20 +296,23 @@ const CalculationsPage: React.FC = () => {
     };
 
     void fetchMethodsOrEditCalculation();
-  }, [labId, deptId, sampleIdNum, isEditMode, editCalculationId]);
+  }, [labId, deptId, sampleIdNum, isEditMode, editCalculationId, loadResearchMethodForEdit]);
 
   const calculationFormPrefill = useMemo(() => {
-    if (!isEditMode || !editCalculation || !currentMethod) {
+    if (!isEditMode || !editCalculation || !currentMethod || !editMethodologyVersion) {
       return null;
     }
-    if (editCalculation.research_method_id !== currentMethod.id) {
+    if (
+      editCalculation.research_method_id !== currentMethod.id &&
+      editMethodologyVersion !== 'current'
+    ) {
       return null;
     }
     return {
       methodId: currentMethod.id,
       ...buildCalculationFormPrefill(currentMethod, editCalculation),
     };
-  }, [isEditMode, editCalculation, currentMethod]);
+  }, [isEditMode, editCalculation, currentMethod, editMethodologyVersion]);
 
   const handleMethodClick = async (methodId: number) => {
     try {
@@ -563,8 +649,17 @@ const CalculationsPage: React.FC = () => {
     <div className="calculations-page-right-panel">
       {!selectedMethodId || !currentMethod ? (
         <div className="calculations-page-placeholder">
-          <h3>Выберите метод исследования</h3>
-          <p>Выберите метод исследования слева, чтобы начать расчет.</p>
+          {methodologyChoiceModalOpen ? (
+            <>
+              <h3>Выберите версию методики</h3>
+              <p>Для продолжения укажите, по старой или новой методике редактировать расчёт.</p>
+            </>
+          ) : (
+            <>
+              <h3>Выберите метод исследования</h3>
+              <p>Выберите метод исследования слева, чтобы начать расчет.</p>
+            </>
+          )}
         </div>
       ) : (
         <CalculationPanel
@@ -655,12 +750,21 @@ const CalculationsPage: React.FC = () => {
           laboratoryId={labId!}
           departmentId={deptId}
           researchMethodId={currentMethod.id}
+          researchMethodIncludeDeleted={editMethodologyVersion === 'stored'}
           equipment_data={lastCalculationResult[currentMethod.id].equipment_data}
           editingCalculationId={isEditMode ? editCalculationId : undefined}
           existingEquipmentData={editCalculation?.equipment_data}
           previousExecutorHash={isEditMode ? editCalculation?.executor : undefined}
         />
       )}
+
+      <MethodologyVersionChoiceModal
+        open={methodologyChoiceModalOpen}
+        choice={methodologyChoice}
+        onChooseStored={handleChooseStoredMethodology}
+        onChooseCurrent={handleChooseCurrentMethodology}
+        onCancel={handleMethodologyChoiceCancel}
+      />
     </Layout>
   );
 };

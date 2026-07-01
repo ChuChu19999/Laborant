@@ -11,7 +11,14 @@ import { researchApi } from '../../../../shared/api/research';
 import { useTestObjectSampleTypeOptions } from '../../../../shared/model/hooks';
 import { Input, Select } from '../../../../shared/ui/FormItems';
 import { Modal } from '../../../../shared/ui/Modal';
-import type { ResearchMethod, ResearchMethodCreate } from '../../../../shared/api/research';
+import type {
+  ResearchMethod,
+  ResearchMethodConvergenceConditionsPayload,
+  ResearchMethodCreate,
+  ResearchMethodIntermediateDataPayload,
+  ResearchMethodIntermediateField,
+  ResearchMethodMeasurementErrorPayload,
+} from '../../../../shared/api/research';
 import type { InputRef, TreeSelectProps } from 'antd';
 import './CreateCalculationModal.css';
 
@@ -47,7 +54,7 @@ type IntermediateFieldForm = {
   };
 };
 
-type IntermediateFieldApi = ResearchMethodCreate['intermediate_data']['fields'][number];
+type IntermediateFieldApi = ResearchMethodIntermediateField;
 
 function mapIntermediateFieldFromApi(
   field: IntermediateFieldForm & Record<string, unknown>
@@ -103,6 +110,112 @@ function serializeIntermediateFieldForApi(field: IntermediateFieldForm): Interme
   return payload;
 }
 
+function isEmptyRecord(value: unknown): boolean {
+  return (
+    value != null &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    Object.keys(value as Record<string, unknown>).length === 0
+  );
+}
+
+function hasIntermediateFields(
+  data: ResearchMethod['intermediate_data'] | FixtureData['intermediate_data'] | undefined
+): data is ResearchMethodIntermediateDataPayload {
+  return !!data && !isEmptyRecord(data) && 'fields' in data;
+}
+
+function hasConvergenceFormulas(
+  data: ResearchMethod['convergence_conditions'] | FixtureData['convergence_conditions'] | undefined
+): data is ResearchMethodConvergenceConditionsPayload {
+  return !!data && !isEmptyRecord(data) && 'formulas' in data && data.formulas.length > 0;
+}
+
+function getIntermediateFieldsFromApiData(
+  data: ResearchMethod['intermediate_data'] | FixtureData['intermediate_data'] | undefined
+): IntermediateFieldForm[] {
+  if (!hasIntermediateFields(data)) {
+    return [];
+  }
+  return data.fields.map(field =>
+    mapIntermediateFieldFromApi(field as IntermediateFieldForm & Record<string, unknown>)
+  );
+}
+
+function getConvergenceConditionsFromApiData(
+  data: ResearchMethod['convergence_conditions'] | FixtureData['convergence_conditions'] | undefined
+): ResearchMethodConvergenceConditionsPayload | { formulas: [] } {
+  if (!hasConvergenceFormulas(data)) {
+    return { formulas: [] };
+  }
+  return { formulas: [...data.formulas] };
+}
+
+function parseMeasurementErrorFromApi(
+  measurementError: ResearchMethod['measurement_error'] | undefined
+): {
+  type: 'fixed' | 'formula' | 'range' | 'none';
+  value: string;
+  ranges: Array<{ formula: string; value: string }>;
+} {
+  if (isEmptyRecord(measurementError)) {
+    return { type: 'none', value: '', ranges: [] };
+  }
+  const me = measurementError as ResearchMethodMeasurementErrorPayload;
+  const hasRanges = Array.isArray(me?.ranges) && me.ranges.length > 0;
+  const errorType: 'fixed' | 'formula' | 'range' = hasRanges
+    ? 'range'
+    : me?.type === 'formula'
+      ? 'formula'
+      : 'fixed';
+  return {
+    type: errorType,
+    value: me?.value ?? '',
+    ranges: me?.ranges ?? [],
+  };
+}
+
+function serializeMeasurementErrorForApi(measurementError: {
+  type: 'fixed' | 'formula' | 'range' | 'none';
+  value: string;
+  ranges: Array<{ formula: string; value: string }>;
+}): Record<string, unknown> {
+  if (measurementError.type === 'none') {
+    return {};
+  }
+  const payload: Record<string, unknown> = {
+    type: measurementError.type === 'range' ? 'fixed' : measurementError.type,
+    value: measurementError.value,
+  };
+  if (measurementError.type === 'range' && measurementError.ranges.length > 0) {
+    payload.ranges = measurementError.ranges;
+  }
+  return payload;
+}
+
+function serializeIntermediateDataForApi(fields: IntermediateFieldForm[]): Record<string, unknown> {
+  if (fields.length === 0) {
+    return {};
+  }
+  return {
+    fields: fields.map(serializeIntermediateFieldForApi),
+  };
+}
+
+function serializeConvergenceConditionsForApi(conditions: {
+  formulas: Array<{
+    formula: string;
+    convergence_value: string;
+    custom_value?: string;
+  }>;
+}): Record<string, unknown> {
+  const formulas = conditions.formulas.filter(condition => condition.formula.trim() !== '');
+  if (formulas.length === 0) {
+    return {};
+  }
+  return { formulas };
+}
+
 type FixtureTreeNode = NonNullable<TreeSelectProps['treeData']>[number];
 
 interface CreateCalculationModalProps {
@@ -118,22 +231,11 @@ interface CreateCalculationModalProps {
 }
 
 function methodToFormData(method: ResearchMethod) {
-  const me = method.measurement_error;
-  const hasRanges = Array.isArray(me?.ranges) && me.ranges.length > 0;
-  const errorType: 'fixed' | 'formula' | 'range' = hasRanges
-    ? 'range'
-    : me?.type === 'formula'
-      ? 'formula'
-      : 'fixed';
   return {
     name: method.name,
     sample_type: Array.isArray(method.sample_type) ? method.sample_type : [],
     formula: method.formula ?? '',
-    measurement_error: {
-      type: errorType,
-      value: me?.value ?? '',
-      ranges: me?.ranges ?? [],
-    },
+    measurement_error: parseMeasurementErrorFromApi(method.measurement_error),
     unit: method.unit ?? '',
     measurement_method: method.measurement_method ?? '',
     nd_code: method.nd_code ?? '',
@@ -142,13 +244,9 @@ function methodToFormData(method: ResearchMethod) {
       fields: [{ name: '', description: '', unit: '', card_index: 1 }],
     },
     intermediate_data: {
-      fields: (method.intermediate_data?.fields ?? []).map(f =>
-        mapIntermediateFieldFromApi(f as IntermediateFieldForm & Record<string, unknown>)
-      ),
+      fields: getIntermediateFieldsFromApiData(method.intermediate_data),
     },
-    convergence_conditions: method.convergence_conditions?.formulas?.length
-      ? method.convergence_conditions
-      : { formulas: [{ formula: '', convergence_value: 'satisfactory' }] },
+    convergence_conditions: getConvergenceConditionsFromApiData(method.convergence_conditions),
     rounding_type: (method.rounding_type as 'decimal' | 'significant') ?? 'decimal',
     rounding_decimal: method.rounding_decimal ?? 0,
   };
@@ -269,7 +367,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
     sample_type: string[];
     formula: string;
     measurement_error: {
-      type: 'fixed' | 'formula' | 'range';
+      type: 'fixed' | 'formula' | 'range' | 'none';
       value: string;
       ranges: Array<{ formula: string; value: string }>;
     };
@@ -314,28 +412,10 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
       fields: [{ name: '', description: '', unit: '', card_index: 1 }],
     },
     intermediate_data: {
-      fields: [
-        {
-          name: '',
-          formula: '',
-          description: '',
-          unit: '',
-          show_calculation: true,
-          use_multiple_rounding: false,
-          multiple_value: '',
-          use_result_rounding: true,
-          rounding_type: 'decimal',
-          rounding_decimal: 0,
-        },
-      ],
+      fields: [],
     },
     convergence_conditions: {
-      formulas: [
-        {
-          formula: '',
-          convergence_value: 'satisfactory',
-        },
-      ],
+      formulas: [],
     },
     rounding_type: 'decimal',
     rounding_decimal: 0,
@@ -418,11 +498,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
           ? [fixtureData.sample_type]
           : [],
       formula: fixtureData.formula || '',
-      measurement_error: {
-        type: (fixtureData.measurement_error?.type || 'fixed') as 'fixed' | 'formula',
-        value: fixtureData.measurement_error?.value || '',
-        ranges: fixtureData.measurement_error?.ranges || [],
-      },
+      measurement_error: parseMeasurementErrorFromApi(fixtureData.measurement_error),
       unit: fixtureData.unit || '',
       measurement_method: fixtureData.measurement_method || '',
       nd_code: fixtureData.nd_code || '',
@@ -431,38 +507,16 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
         fields: [{ name: '', description: '', unit: '', card_index: 1 }],
       },
       intermediate_data: {
-        fields: fixtureData.intermediate_data?.fields
-          ? fixtureData.intermediate_data.fields.map(field =>
-              mapIntermediateFieldFromApi(field as IntermediateFieldForm & Record<string, unknown>)
-            )
-          : [
-              {
-                name: '',
-                formula: '',
-                description: '',
-                unit: '',
-                show_calculation: true,
-                use_multiple_rounding: false,
-                multiple_value: '',
-                use_result_rounding: true,
-                rounding_type: 'decimal' as const,
-                rounding_decimal: 0,
-              },
-            ],
+        fields: getIntermediateFieldsFromApiData(fixtureData.intermediate_data),
       },
-      convergence_conditions: fixtureData.convergence_conditions || {
-        formulas: [
-          {
-            formula: '',
-            convergence_value: 'satisfactory',
-          },
-        ],
-      },
+      convergence_conditions: getConvergenceConditionsFromApiData(
+        fixtureData.convergence_conditions
+      ),
       rounding_type: fixtureData.rounding_type || 'decimal',
       rounding_decimal: fixtureData.rounding_decimal || 0,
     });
 
-    message.success('Поля заполнены по типовому описанию из справочника');
+    message.success('Поля заполнены по типовому описанию из конфигурации');
   }, []);
 
   const applyTemplateSelection = useCallback(
@@ -488,7 +542,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
           applyFixtureDataToForm(fixtureData);
         } catch (err) {
           console.error('Ошибка при загрузке типового описания:', err);
-          message.error('Не удалось загрузить выбранный типовой метод из справочника');
+          message.error('Не удалось загрузить выбранный типовой метод из конфигурации');
         }
         return;
       }
@@ -1296,7 +1350,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
     </div>
   );
 
-  const handleMeasurementErrorTypeChange = (type: 'fixed' | 'formula' | 'range') => {
+  const handleMeasurementErrorTypeChange = (type: 'fixed' | 'formula' | 'range' | 'none') => {
     setFormData(prev => ({
       ...prev,
       measurement_error: {
@@ -1335,30 +1389,20 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
     name: formData.name,
     sample_type: formData.sample_type.filter(tag => catalogTagSet.has(tag)),
     formula: formData.formula,
-    measurement_error: {
-      type: formData.measurement_error.type === 'range' ? 'fixed' : formData.measurement_error.type,
-      value: formData.measurement_error.value,
-    },
+    measurement_error: serializeMeasurementErrorForApi(
+      formData.measurement_error
+    ) as ResearchMethodCreate['measurement_error'],
     unit: formData.unit,
     measurement_method: formData.measurement_method,
     nd_code: formData.nd_code,
     nd_name: formData.nd_name,
     input_data: formData.input_data,
-    intermediate_data: {
-      fields: formData.intermediate_data.fields.map(serializeIntermediateFieldForApi),
-    },
-    convergence_conditions:
-      formData.convergence_conditions.formulas.length > 0 &&
-      formData.convergence_conditions.formulas[0].formula
-        ? formData.convergence_conditions
-        : {
-            formulas: [
-              {
-                formula: '',
-                convergence_value: 'satisfactory',
-              },
-            ],
-          },
+    intermediate_data: serializeIntermediateDataForApi(
+      formData.intermediate_data.fields
+    ) as ResearchMethodCreate['intermediate_data'],
+    convergence_conditions: serializeConvergenceConditionsForApi(
+      formData.convergence_conditions
+    ) as ResearchMethodCreate['convergence_conditions'],
     rounding_type: formData.rounding_type,
     rounding_decimal: formData.rounding_decimal,
     laboratory_id: laboratoryId,
@@ -1475,28 +1519,10 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
             fields: [{ name: '', description: '', unit: '', card_index: 1 }],
           },
           intermediate_data: {
-            fields: [
-              {
-                name: '',
-                formula: '',
-                description: '',
-                unit: '',
-                show_calculation: true,
-                use_multiple_rounding: false,
-                multiple_value: '',
-                use_result_rounding: true,
-                rounding_type: 'decimal',
-                rounding_decimal: 0,
-              },
-            ],
+            fields: [],
           },
           convergence_conditions: {
-            formulas: [
-              {
-                formula: '',
-                convergence_value: 'satisfactory',
-              },
-            ],
+            formulas: [],
           },
           rounding_type: 'decimal',
           rounding_decimal: 0,
@@ -2419,9 +2445,17 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                       </Checkbox>
                     </div>
                   ))}
-                  <button type="button" onClick={addIntermediateField} className="add-field-btn">
-                    + Добавить промежуточную переменную
-                  </button>
+                  <div
+                    className={
+                      formData.intermediate_data.fields.length === 0
+                        ? 'empty-fields-container'
+                        : undefined
+                    }
+                  >
+                    <button type="button" onClick={addIntermediateField} className="add-field-btn">
+                      + Добавить промежуточную переменную
+                    </button>
+                  </div>
                 </div>
 
                 <div className="form-group">
@@ -2483,15 +2517,13 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                   <h3>Условия повторяемости</h3>
                   {formData.convergence_conditions.formulas.map((condition, index) => (
                     <div key={index} className="field-group">
-                      {formData.convergence_conditions.formulas.length > 1 && (
-                        <button
-                          type="button"
-                          className="delete-field-btn"
-                          onClick={() => deleteConvergenceCondition(index)}
-                        >
-                          ×
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        className="delete-field-btn"
+                        onClick={() => deleteConvergenceCondition(index)}
+                      >
+                        ×
+                      </button>
                       <div className="form-group">
                         <label>Формула условия</label>
                         {renderFormulaInput(
@@ -2534,9 +2566,21 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                       )}
                     </div>
                   ))}
-                  <button type="button" onClick={addConvergenceCondition} className="add-field-btn">
-                    + Добавить условие повторяемости
-                  </button>
+                  <div
+                    className={
+                      formData.convergence_conditions.formulas.length === 0
+                        ? 'empty-fields-container'
+                        : undefined
+                    }
+                  >
+                    <button
+                      type="button"
+                      onClick={addConvergenceCondition}
+                      className="add-field-btn"
+                    >
+                      + Добавить условие повторяемости
+                    </button>
+                  </div>
                 </div>
 
                 <div className="form-group">
@@ -2544,43 +2588,50 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                   <Select
                     value={formData.measurement_error.type}
                     onChange={value => {
-                      if (value === 'fixed' || value === 'formula' || value === 'range') {
+                      if (
+                        value === 'fixed' ||
+                        value === 'formula' ||
+                        value === 'range' ||
+                        value === 'none'
+                      ) {
                         handleMeasurementErrorTypeChange(value);
                       }
                     }}
                     placeholder="Выберите тип погрешности"
                     listHeight={100}
                   >
+                    <Option value="none">Отсутствует</Option>
                     <Option value="fixed">Фиксированное значение</Option>
                     <Option value="formula">Формула</Option>
                   </Select>
                 </div>
 
-                {formData.measurement_error.type !== 'range' && (
-                  <div className="form-group">
-                    <label>
-                      {formData.measurement_error.type === 'fixed'
-                        ? 'Значение погрешности'
-                        : 'Формула погрешности'}
-                    </label>
-                    {formData.measurement_error.type === 'formula' ? (
-                      renderFormulaInput(
-                        formData.measurement_error.value,
-                        e => handleMeasurementErrorValueChange(e),
-                        'error',
-                        null,
-                        'Введите формулу для расчета погрешности'
-                      )
-                    ) : (
-                      <Input
-                        value={formData.measurement_error.value}
-                        onChange={e => handleMeasurementErrorValueChange(e.target.value)}
-                        placeholder="Введите числовое значение"
-                        required
-                      />
-                    )}
-                  </div>
-                )}
+                {formData.measurement_error.type !== 'range' &&
+                  formData.measurement_error.type !== 'none' && (
+                    <div className="form-group">
+                      <label>
+                        {formData.measurement_error.type === 'fixed'
+                          ? 'Значение погрешности'
+                          : 'Формула погрешности'}
+                      </label>
+                      {formData.measurement_error.type === 'formula' ? (
+                        renderFormulaInput(
+                          formData.measurement_error.value,
+                          e => handleMeasurementErrorValueChange(e),
+                          'error',
+                          null,
+                          'Введите формулу для расчета погрешности'
+                        )
+                      ) : (
+                        <Input
+                          value={formData.measurement_error.value}
+                          onChange={e => handleMeasurementErrorValueChange(e.target.value)}
+                          placeholder="Введите числовое значение"
+                          required
+                        />
+                      )}
+                    </div>
+                  )}
 
                 <div className="form-group">
                   <label>Тип округления</label>

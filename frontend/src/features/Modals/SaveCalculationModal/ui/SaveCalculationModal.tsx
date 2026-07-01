@@ -31,6 +31,7 @@ interface SaveCalculationModalProps {
   laboratoryId: number;
   departmentId?: number;
   researchMethodId: number;
+  researchMethodIncludeDeleted?: boolean;
   equipment_data?: number[];
   editingCalculationId?: number;
   /** ID приборов из сохранённого расчёта (включая обязательные); для выбора необязательных при редактировании. */
@@ -49,6 +50,7 @@ const SaveCalculationModal: React.FC<SaveCalculationModalProps> = ({
   laboratoryId,
   departmentId,
   researchMethodId,
+  researchMethodIncludeDeleted = false,
   equipment_data,
   editingCalculationId,
   existingEquipmentData,
@@ -90,8 +92,11 @@ const SaveCalculationModal: React.FC<SaveCalculationModalProps> = ({
 
   // Запрос на получение метода исследования
   const { data: researchMethod } = useAutoRefetchQuery(
-    ['research-method', researchMethodId],
-    () => researchApi.getResearchMethod(researchMethodId),
+    ['research-method', researchMethodId, researchMethodIncludeDeleted],
+    () =>
+      researchApi.getResearchMethod(researchMethodId, {
+        include_deleted: researchMethodIncludeDeleted,
+      }),
     {
       enabled: open && !!researchMethodId,
     }
@@ -227,7 +232,7 @@ const SaveCalculationModal: React.FC<SaveCalculationModalProps> = ({
           unit: calculationData.unit,
           laboratory_activity_date: laboratoryActivityDate.format('YYYY-MM-DD'),
         });
-        message.success('Сохранена новая версия расчёта; предыдущая помечена удалена');
+        message.success('Расчёт успешно заменён');
       } else {
         await calculationApi.createCalculation({
           sample_id: finalSampleId,

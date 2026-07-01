@@ -36,7 +36,8 @@ interface MethodsPanelProps {
   onAddMethod: () => void;
   onMethodClick: (itemId: number, itemType: 'method' | 'group') => void;
   onMethodEdit?: (methodId: number) => void;
-  onMethodDelete: (itemId: number, itemType: 'method' | 'group') => void;
+  onMethodDelete: (itemId: number) => void;
+  onGroupDisconnect: (groupId: number) => void;
   onDragStart: (event: DragStartEvent) => void;
   onDragEnd: (event: DragEndEvent) => void;
   onDragCancel: () => void;
@@ -53,6 +54,7 @@ const MethodsPanel: React.FC<MethodsPanelProps> = ({
   onMethodClick,
   onMethodEdit,
   onMethodDelete,
+  onGroupDisconnect,
   onDragStart,
   onDragEnd,
   onDragCancel,
@@ -120,7 +122,7 @@ const MethodsPanel: React.FC<MethodsPanelProps> = ({
                         isEditable={true}
                         onClick={() => onMethodClick(method.id, 'method')}
                         onEdit={onMethodEdit ? () => onMethodEdit(method.id) : undefined}
-                        onDelete={() => onMethodDelete(method.id, 'method')}
+                        onDelete={() => onMethodDelete(method.id)}
                       />
                     );
                   } else {
@@ -144,7 +146,7 @@ const MethodsPanel: React.FC<MethodsPanelProps> = ({
                             ? () => onMethodEdit(selectedMethodId)
                             : undefined
                         }
-                        onDelete={() => onMethodDelete(group.id, 'group')}
+                        onDisconnect={() => onGroupDisconnect(group.id)}
                       />
                     );
                   }

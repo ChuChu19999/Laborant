@@ -260,10 +260,13 @@ async def get_available_research_methods(
 # @IsAuthenticated
 async def get_research_method(
     method_id: int,
+    include_deleted: bool = Query(False),
     db: AsyncSession = Depends(get_db),
 ):
     """Возвращает информацию о методе исследования по его идентификатору."""
-    method = await get_research_method_by_id(db, method_id)
+    method = await get_research_method_by_id(
+        db, method_id, include_deleted=include_deleted
+    )
     if not method:
         raise NotFoundError("Метод исследования не найден")
     return ResearchMethodResponse.model_validate(method)
@@ -494,7 +497,7 @@ async def update_research_method_group_endpoint(
     "/research-method-groups/{group_id}/",
     status_code=204,
     summary="Удаление группы методов исследования",
-    description="Выполняет мягкое удаление группы методов исследования. Группа помечается как удаленная.",
+    description="Выполняет мягкое удаление группы методов исследования. Методы группы остаются активными.",
     responses={
         204: {"description": "Группа методов исследования успешно удалена"},
         404: {"description": "Группа методов исследования не найдена"},
@@ -505,7 +508,7 @@ async def delete_research_method_group_endpoint(
     group_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """Выполняет мягкое удаление группы методов исследования. Группа помечается как удаленная."""
+    """Выполняет мягкое удаление группы методов исследования. Методы группы остаются активными."""
     await delete_research_method_group(db, group_id)
     await db.commit()
 

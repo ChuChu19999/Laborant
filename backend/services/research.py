@@ -42,6 +42,41 @@ async def get_research_method_by_id(
     return result.scalar_one_or_none()
 
 
+async def get_active_research_method_by_name(
+    db: AsyncSession,
+    name: str,
+    laboratory_id: int,
+    department_id: Optional[int] = None,
+) -> Optional[ResearchMethod]:
+    """Найти актуальную (не удалённую) методику по имени в лаборатории и подразделении."""
+    conditions = [
+        ResearchMethod.name == name,
+        ResearchMethod.laboratory_id == laboratory_id,
+        ResearchMethod.deleted_at.is_(None),
+    ]
+    if department_id is not None:
+        conditions.append(ResearchMethod.department_id == department_id)
+    else:
+        conditions.append(ResearchMethod.department_id.is_(None))
+
+    query = (
+        select(ResearchMethod)
+        .where(*conditions)
+        .options(
+            selectinload(ResearchMethod.laboratory),
+            selectinload(ResearchMethod.department),
+            selectinload(ResearchMethod.groups),
+        )
+    )
+    result = await db.execute(query)
+    methods = result.scalars().all()
+    if len(methods) > 1:
+        raise ValidationError(
+            "Найдено несколько актуальных методик с одинаковым наименованием"
+        )
+    return methods[0] if methods else None
+
+
 async def get_research_methods(
     db: AsyncSession,
     laboratory_id: Optional[int] = None,
@@ -595,15 +630,23 @@ async def update_research_method_group(
 
 
 async def delete_research_method_group(db: AsyncSession, group_id: int) -> None:
-    """Удалить группу методов исследования (мягкое удаление)."""
+    """Удалить группу методов исследования (мягкое удаление). Методы остаются активными."""
     group = await get_research_method_group_by_id(db, group_id)
     if not group:
         raise NotFoundError("Группа методов исследования не найдена")
 
     if group.methods:
+        method_ids = [method.id for method in group.methods]
         for method in group.methods:
             method.is_group_member = False
-            method.soft_delete()
+
+        await db.execute(
+            delete(research_method_groups_association).where(
+                research_method_groups_association.c.research_method_group_id
+                == group.id,
+                research_method_groups_association.c.research_method_id.in_(method_ids),
+            )
+        )
 
     group.soft_delete()
     await db.flush()

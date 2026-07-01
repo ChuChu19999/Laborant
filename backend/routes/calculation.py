@@ -15,6 +15,7 @@ from schemas.calculation import (
     CalculationResponse,
     CalculationUpdate,
     EquipmentBrief,
+    MethodologyChoiceResponse,
 )
 from schemas.pagination import PaginatedResponse
 from schemas.sample import SampleResponse
@@ -22,6 +23,7 @@ from services.calculation import (
     create_calculation,
     delete_calculation,
     get_calculation_by_id,
+    get_calculation_methodology_choice,
     get_calculations,
     get_calculations_by_sample,
     replace_calculation,
@@ -320,6 +322,28 @@ async def create_calculation_endpoint(
 
 
 @router.get(
+    "/calculations/{calculation_id}/methodology-choice/",
+    response_model=MethodologyChoiceResponse,
+    summary="Проверка версии методики при редактировании расчёта",
+    description=(
+        "Возвращает, изменилась ли методика с момента сохранения расчёта, "
+        "и идентификаторы старой и актуальной версий."
+    ),
+    responses={
+        200: {"description": "Статус методики успешно получен"},
+        404: {"description": "Расчёт или метод не найден"},
+    },
+)
+# @IsAuthenticated
+async def get_calculation_methodology_choice_endpoint(
+    calculation_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """Проверить, нужен ли выбор версии методики при редактировании расчёта."""
+    return await get_calculation_methodology_choice(db, calculation_id)
+
+
+@router.get(
     "/calculations/{calculation_id}/",
     response_model=CalculationResponse,
     summary="Получение расчета по ID",
@@ -446,9 +470,7 @@ async def delete_calculation_endpoint(
         "для той же пробы и того же метода исследования."
     ),
     responses={
-        201: {
-            "description": "Новый расчёт создан, предыдущая версия помечена удалённой"
-        },
+        201: {"description": "Расчёт успешно заменён"},
         400: {"description": "Некорректные данные или попытка сменить пробу или метод"},
         404: {"description": "Расчёт не найден"},
     },
@@ -547,7 +569,7 @@ async def calculate_endpoint(
     try:
         # Получаем метод исследования
         research_method_obj = await get_research_method_by_id(
-            db, request.research_method_id
+            db, request.research_method_id, include_deleted=True
         )
         if not research_method_obj:
             raise NotFoundError("Метод исследования не найден")
