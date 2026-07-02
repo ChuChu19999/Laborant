@@ -6,7 +6,7 @@ BRANCH_NGDU = "НГДУ"
 BRANCH_UGPU = "УГПУ"
 BRANCH_GPU_PRAO = "ГПУпРАО"
 
-# Места отбора: цехи ДГГКН (для товарной/эксплуатационной/калибровочной нефти).
+# Места отбора: цехи ДГГКН (для товарной/эксплуатационной нефти).
 SAMPLING_LOCATION_CDGGKN_1 = "Цех по ДГГКН №1"
 SAMPLING_LOCATION_CDGGKN_2 = "Цех по ДГГКН №2"
 SAMPLING_LOCATIONS_CDGGKN = (SAMPLING_LOCATION_CDGGKN_1, SAMPLING_LOCATION_CDGGKN_2)

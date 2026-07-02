@@ -17,6 +17,7 @@ export interface Sample {
   test_object: string;
   sampling_date?: string;
   receiving_date?: string;
+  indicators_count: number;
   branch_id?: number;
   sampling_location_id?: number;
   well?: string;
@@ -42,6 +43,7 @@ export interface SampleCreate {
   test_object: string;
   sampling_date?: string;
   receiving_date?: string;
+  indicators_count: number;
   branch_id?: number;
   sampling_location_id?: number;
   well?: string;
@@ -59,6 +61,7 @@ export interface SampleUpdate {
   test_object?: string;
   sampling_date?: string;
   receiving_date?: string;
+  indicators_count: number;
   branch_id?: number;
   sampling_location_id?: number;
   well?: string;

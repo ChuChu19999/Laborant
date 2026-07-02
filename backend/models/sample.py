@@ -53,6 +53,7 @@ class Sample(BaseModel):
     )
     well = Column(String(255), nullable=True, comment="Название скважины")
     mode = Column(String(255), nullable=True, comment="Режим работы скважины")
+    indicators_count = Column(Integer, nullable=False, comment="Количество показателей")
     phone = Column(String(50), nullable=True, comment="Номер телефона филиала")
     selection_conditions = Column(
         JSON, nullable=True, comment="JSON с условиями отбора и их значениями"

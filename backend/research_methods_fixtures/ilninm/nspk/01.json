@@ -82,7 +82,7 @@
                 "convergence_value": "absence"
             },
             {
-                "formula": "((V₀₁<=0.03) and (V₀₁>0)) or ((V₀₂<=0.03) and (V₀₂>0))",
+                "formula": "Xср<=0.03",
                 "custom_value": "0,03 ± 0,14 %",
                 "convergence_value": "custom"
             }

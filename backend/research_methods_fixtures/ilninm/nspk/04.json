@@ -136,7 +136,7 @@
     "convergence_conditions": {
         "formulas": [
             {
-                "formula": "abs(X₁+X₂)<=r",
+                "formula": "abs(X₁-X₂)<=r",
                 "convergence_value": "satisfactory"
             },
             {
@@ -144,7 +144,7 @@
                 "convergence_value": "absence"
             },
             {
-                "formula": "abs(X₁+X₂)>r",
+                "formula": "abs(X₁-X₂)>r",
                 "convergence_value": "unsatisfactory"
             }
         ]

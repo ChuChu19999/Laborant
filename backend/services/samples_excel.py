@@ -104,7 +104,6 @@ def _build_sample_row(
         added_by_name = employee.get("fullName") or "-"
 
     calculations = sample.calculations or []
-    calculations_count = len(calculations)
 
     return [
         sample.registration_number or "-",
@@ -119,7 +118,7 @@ def _build_sample_row(
         added_by_name,
         _format_selection_conditions(sample.selection_conditions),
         format_sample_calculations_column(calculations),
-        calculations_count,
+        sample.indicators_count,
     ]
 
 

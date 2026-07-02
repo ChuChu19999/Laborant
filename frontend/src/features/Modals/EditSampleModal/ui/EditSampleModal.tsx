@@ -26,6 +26,19 @@ dayjs.locale('ru');
 
 const { Option } = Select;
 
+type EditSampleFormData = {
+  registration_number: string;
+  sample_type: string | undefined;
+  test_object: string | undefined;
+  sampling_date: dayjs.Dayjs | null;
+  receiving_date: dayjs.Dayjs | null;
+  branch_id: number | undefined;
+  sampling_location_id: number | undefined;
+  well: string;
+  mode: string | undefined;
+  indicators_count: number | undefined;
+};
+
 interface EditSampleModalProps {
   open: boolean;
   onClose: () => void;
@@ -44,7 +57,7 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({
   departmentId,
 }) => {
   const updateSampleMutation = useUpdateSample();
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<EditSampleFormData>({
     registration_number: sample.registration_number,
     sample_type: sample.sample_type as string | undefined,
     test_object: sample.test_object as string | undefined,
@@ -54,6 +67,7 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({
     sampling_location_id: sample.sampling_location_id as number | undefined,
     well: sample.well || '',
     mode: sample.mode || undefined,
+    indicators_count: sample.indicators_count,
   });
   const [errors, setErrors] = useState<Record<string, boolean>>({});
 
@@ -160,6 +174,7 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({
         sampling_location_id: sample.sampling_location_id as number | undefined,
         well: sample.well || '',
         mode: sample.mode || undefined,
+        indicators_count: sample.indicators_count,
       });
       setErrors({});
 
@@ -221,12 +236,36 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({
     [errors]
   );
 
+  const handleIndicatorsCountChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const raw = e.target.value;
+      if (raw === '') {
+        setFormData(prev => ({ ...prev, indicators_count: undefined }));
+      } else {
+        const parsed = Number(raw);
+        if (Number.isInteger(parsed) && parsed >= 0) {
+          setFormData(prev => ({ ...prev, indicators_count: parsed }));
+        }
+      }
+      if (errors.indicators_count) {
+        setErrors(prev => ({ ...prev, indicators_count: false }));
+      }
+    },
+    [errors.indicators_count]
+  );
+
   const validateForm = useCallback((): boolean => {
-    const requiredFields = ['registration_number', 'sample_type', 'test_object'];
+    const requiredFields = [
+      'registration_number',
+      'sample_type',
+      'test_object',
+      'indicators_count',
+    ];
     const newErrors: Record<string, boolean> = {};
 
     requiredFields.forEach(field => {
-      if (!formData[field as keyof typeof formData]) {
+      const value = formData[field as keyof typeof formData];
+      if (value === undefined || value === null || value === '') {
         newErrors[field] = true;
       }
     });
@@ -268,6 +307,7 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({
       sampling_location_id: formData.sampling_location_id || undefined,
       well: formData.well || undefined,
       mode: formData.mode || undefined,
+      indicators_count: formData.indicators_count!,
       selection_conditions:
         Object.keys(processedSelectionConditions).length > 0
           ? processedSelectionConditions
@@ -293,6 +333,7 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({
       sampling_location_id: sample.sampling_location_id as number | undefined,
       well: sample.well || '',
       mode: sample.mode || undefined,
+      indicators_count: sample.indicators_count,
     });
     setSelectionConditions({});
     setErrors({});
@@ -370,6 +411,21 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({
               </Option>
             ))}
           </Select>
+        </div>
+
+        <div className="form-group">
+          <label>
+            Количество показателей <span className="required">*</span>
+          </label>
+          <Input
+            type="number"
+            min={0}
+            step={1}
+            value={formData.indicators_count ?? ''}
+            onChange={handleIndicatorsCountChange}
+            placeholder="Введите количество показателей"
+            status={errors.indicators_count ? 'error' : ''}
+          />
         </div>
 
         <div className="form-group">

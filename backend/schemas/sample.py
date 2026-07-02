@@ -28,6 +28,7 @@ class SampleBase(BaseModel):
     mode: Optional[str] = Field(
         None, max_length=255, description="Режим работы скважины"
     )
+    indicators_count: int = Field(..., ge=0, description="Количество показателей")
     phone: Optional[str] = Field(
         None, max_length=50, description="Номер телефона филиала"
     )
@@ -61,6 +62,7 @@ class SampleUpdate(BaseModel):
     sampling_location_id: Optional[int] = None
     well: Optional[str] = Field(None, max_length=255)
     mode: Optional[str] = Field(None, max_length=255)
+    indicators_count: int = Field(..., ge=0, description="Количество показателей")
     phone: Optional[str] = Field(None, max_length=50)
     selection_conditions: Optional[Dict[str, Any]] = None
     added_by: Optional[str] = Field(None, max_length=150)

@@ -348,6 +348,7 @@ async def create_sample(db: AsyncSession, sample_data: SampleCreate) -> Sample:
         sampling_location_id=sample_data.sampling_location_id,
         well=sample_data.well,
         mode=sample_data.mode,
+        indicators_count=sample_data.indicators_count,
         phone=sample_data.phone,
         selection_conditions=sample_data.selection_conditions,
         added_by=sample_data.added_by,
