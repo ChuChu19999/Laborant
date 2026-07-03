@@ -1,5 +1,7 @@
 from copy import copy
+from typing import Optional
 import openpyxl
+from openpyxl.utils import get_column_letter
 from core.logger import logger
 from utils.calculation_result_display import get_chloride_salts_result_display
 
@@ -169,6 +171,161 @@ def copy_row_formatting(
                     max_row=target_row + (merged_range.max_row - merged_range.min_row),
                 )
                 merged_cells_map.add(new_range)
+
+
+def get_template_content_bounds(
+    sheet,
+    col_limit: int = 60,
+) -> tuple[int, int]:
+    """
+    Возвращает последнюю строку и столбец с содержимым в шаблоне.
+
+    Excel часто раздувает max_row/max_column из-за пустых отформатированных
+    ячеек далеко от реальной таблицы — это ограничивает обход шаблона.
+    """
+    last_row = 1
+    last_col = 1
+    max_col = min(sheet.max_column, col_limit)
+
+    for merged_range in sheet.merged_cells.ranges:
+        last_row = max(last_row, merged_range.max_row)
+        if merged_range.max_col <= max_col:
+            last_col = max(last_col, merged_range.max_col)
+
+    for row in range(sheet.max_row, 0, -1):
+        for col in range(1, max_col + 1):
+            if sheet.cell(row=row, column=col).value is not None:
+                return max(last_row, row), max(last_col, col)
+
+    return last_row, last_col
+
+
+def get_row_last_used_col(
+    sheet,
+    row_num: int,
+    min_col: int = 1,
+    col_limit: Optional[int] = None,
+) -> int:
+    """Возвращает последний столбец с значением в строке шаблона."""
+    max_col = col_limit or min(sheet.max_column, 60)
+    for col in range(max_col, min_col - 1, -1):
+        if sheet.cell(row=row_num, column=col).value is not None:
+            return col
+    return min_col
+
+
+def template_contains_marker(sheet, marker: str) -> bool:
+    """Проверяет, есть ли метка в любом месте листа шаблона."""
+    marker = marker.strip()
+    last_row, last_col = get_template_content_bounds(sheet)
+    for row_num in range(1, last_row + 1):
+        for col_num in range(1, last_col + 1):
+            cell_value = sheet.cell(row=row_num, column=col_num).value
+            if cell_value and isinstance(cell_value, str) and marker in cell_value:
+                return True
+    return False
+
+
+def find_marker_cells(
+    sheet,
+    markers: set[str],
+    min_row: int = 1,
+    max_row: Optional[int] = None,
+) -> list[tuple[int, int]]:
+    """Возвращает список координат ячеек с точным совпадением метки."""
+    if max_row is None:
+        max_row = sheet.max_row
+    found: list[tuple[int, int]] = []
+    for row_num in range(min_row, max_row + 1):
+        for col_num in range(1, sheet.max_column + 1):
+            cell_value = sheet.cell(row=row_num, column=col_num).value
+            if cell_value and str(cell_value).strip() in markers:
+                found.append((row_num, col_num))
+    return found
+
+
+def copy_cell_block(
+    source_sheet,
+    target_sheet,
+    source_col_start: int,
+    source_col_end: int,
+    source_row_start: int,
+    source_row_end: int,
+    target_col_start: int,
+    target_row_start: int,
+    merged_cells_map=None,
+) -> None:
+    """Копирует прямоугольный блок ячеек с сохранением стилей и объединений."""
+    block_width = source_col_end - source_col_start + 1
+    block_height = source_row_end - source_row_start + 1
+    col_shift = target_col_start - source_col_start
+    row_shift = target_row_start - source_row_start
+
+    for row_offset in range(block_height):
+        src_row = source_row_start + row_offset
+        tgt_row = target_row_start + row_offset
+        if src_row in source_sheet.row_dimensions:
+            target_sheet.row_dimensions[tgt_row] = copy(
+                source_sheet.row_dimensions[src_row]
+            )
+        for col_offset in range(block_width):
+            src_col = source_col_start + col_offset
+            tgt_col = target_col_start + col_offset
+            src_cell = source_sheet.cell(row=src_row, column=src_col)
+            tgt_cell = target_sheet.cell(row=tgt_row, column=tgt_col)
+            tgt_cell.value = src_cell.value
+            copy_cell_style(src_cell, tgt_cell)
+
+    if merged_cells_map is None:
+        return
+
+    for merged_range in source_sheet.merged_cells.ranges:
+        if (
+            merged_range.min_col >= source_col_start
+            and merged_range.max_col <= source_col_end
+            and merged_range.min_row >= source_row_start
+            and merged_range.max_row <= source_row_end
+        ):
+            new_range = openpyxl.worksheet.cell_range.CellRange(
+                min_col=merged_range.min_col + col_shift,
+                min_row=merged_range.min_row + row_shift,
+                max_col=merged_range.max_col + col_shift,
+                max_row=merged_range.max_row + row_shift,
+            )
+            merged_cells_map.add(new_range)
+
+
+def copy_column_dimensions_range(
+    source_sheet,
+    target_sheet,
+    source_col_start: int,
+    source_col_end: int,
+    target_col_start: int,
+) -> None:
+    """Копирует ширину столбцов из диапазона в смещённый диапазон."""
+    block_width = source_col_end - source_col_start + 1
+    block_default_letter = get_column_letter(source_col_start)
+    block_default_width = None
+    if block_default_letter in source_sheet.column_dimensions:
+        block_default_width = source_sheet.column_dimensions[block_default_letter].width
+
+    for offset in range(block_width):
+        src_col = source_col_start + offset
+        tgt_col = target_col_start + offset
+        src_letter = get_column_letter(src_col)
+        tgt_letter = get_column_letter(tgt_col)
+        width = block_default_width
+        if src_letter in source_sheet.column_dimensions:
+            src_dim = source_sheet.column_dimensions[src_letter]
+            if src_dim.width is not None:
+                width = src_dim.width
+        if width is None:
+            continue
+        target_sheet.column_dimensions[tgt_letter].width = width
+        if src_letter in source_sheet.column_dimensions:
+            target_sheet.column_dimensions[tgt_letter].hidden = (
+                source_sheet.column_dimensions[src_letter].hidden
+            )
 
 
 def copy_column_dimensions(source_sheet, target_sheet):

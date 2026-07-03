@@ -18,6 +18,7 @@ from core.exceptions import NotFoundError, ValidationError
 from core.logger import logger
 from models.calculation import Calculation
 from models.equipment import Equipment
+from models.nd_norm import NdNorm
 from models.protocol import Protocol
 from models.research import ResearchMethod
 from models.sample import Sample, SelectionConditions
@@ -28,17 +29,48 @@ from services.employees import (
 from utils.protocol_generator_utils import (
     adjust_cell_height_if_needed,
     check_method_name,
+    copy_cell_block,
     copy_cell_style,
     copy_column_dimensions,
+    copy_column_dimensions_range,
     copy_row_formatting,
     copy_row_with_styles,
     format_protocol_calculation_result,
+    get_row_last_used_col,
+    get_template_content_bounds,
     map_test_object_to_suffix,
+    template_contains_marker,
 )
 
 _CM_TO_INCH = 2.54
 
 MASS_FRACTION_OIL_GROUP_DISPLAY_NAME = "Массовая доля нефти"
+
+TABLE1_HORIZONTAL_START_MARKERS = {
+    "{{start_table1_horizontal}}",
+    "{start_table1_horizontal}",
+}
+TABLE1_HORIZONTAL_END_MARKERS = {
+    "{{end_table1_horizontal}}",
+    "{end_table1_horizontal}",
+}
+TABLE1_HORIZONTAL_ALL_MARKERS = (
+    TABLE1_HORIZONTAL_START_MARKERS | TABLE1_HORIZONTAL_END_MARKERS
+)
+TABLE1_HORIZONTAL_METHOD_MARKERS = (
+    "{name_method}",
+    "{result}",
+    "{nd_code}",
+    "{norma_value}",
+    "{measurement_error}",
+    "{unit}",
+    "{measurement_method}",
+)
+TABLE1_END_MARKERS = {
+    "{end_table1}",
+    "{{end_table1}}",
+    *TABLE1_HORIZONTAL_END_MARKERS,
+}
 
 
 def _protocol_group_uses_merged_display_name(group_data: dict) -> bool:
@@ -74,6 +106,7 @@ async def process_cell_markers(
     samples: List[Sample],
     cell_value: str,
     selection_conditions_templates: Optional[List[Dict[str, Any]]] = None,
+    sampling_location_name_only: bool = False,
 ) -> str:
     """Обрабатывает все метки в ячейке."""
     if not cell_value or not isinstance(cell_value, str):
@@ -96,7 +129,12 @@ async def process_cell_markers(
 
             marker = result[start + 1 : end]
             if not marker.startswith("sel_cond_") and not marker == "bu":
-                value = await get_marker_value_title(protocol, samples, marker)
+                value = await get_marker_value_title(
+                    protocol,
+                    samples,
+                    marker,
+                    sampling_location_name_only=sampling_location_name_only,
+                )
                 result = result.replace(f"{{{marker}}}", value)
 
             start = end + 1
@@ -114,7 +152,11 @@ async def process_cell_markers(
 
 
 async def get_marker_value_title(
-    protocol: Protocol, samples: List[Sample], marker: str
+    protocol: Protocol,
+    samples: List[Sample],
+    marker: str,
+    *,
+    sampling_location_name_only: bool = False,
 ) -> str:
     """Возвращает значение для метки в заголовке протокола."""
     try:
@@ -167,18 +209,27 @@ async def get_marker_value_title(
                 if sample.sampling_location and sample.sampling_location.name:
                     location_parts.append(sample.sampling_location.name.strip())
 
-                if sample.well and sample.well.strip():
-                    well_value = sample.well.strip()
-                    if re.match(r"^\d", well_value):
-                        well_value = f"скв. {well_value}"
-                    location_parts.append(well_value)
+                if not sampling_location_name_only:
+                    if sample.well and sample.well.strip():
+                        well_value = sample.well.strip()
+                        if re.match(r"^\d", well_value):
+                            well_value = f"скв. {well_value}"
+                        location_parts.append(well_value)
 
-                if sample.mode and sample.mode.strip():
-                    location_parts.append(sample.mode.strip())
+                    if sample.mode and sample.mode.strip():
+                        location_parts.append(sample.mode.strip())
 
                 if location_parts:
                     locations.append(" ".join(location_parts))
             return ", ".join(locations) if locations else ""
+
+        elif marker == "mode":
+            modes = [
+                sample.mode.strip()
+                for sample in samples
+                if sample.mode and sample.mode.strip()
+            ]
+            return ", ".join(modes) if modes else ""
 
         elif marker == "sampling_date":
             dates = sorted(
@@ -297,6 +348,151 @@ async def get_marker_value_title(
         return ""
     except Exception as e:
         logger.error(f"Ошибка при получении значения для метки {marker}: {str(e)}")
+        return ""
+
+
+def get_marker_value_sync(
+    protocol: Protocol,
+    samples: List[Sample],
+    marker: str,
+    *,
+    sampling_location_name_only: bool = False,
+) -> str:
+    """Синхронная подстановка меток без обращений к HR API."""
+    try:
+        if marker == "test_protocol_number":
+            if not protocol.test_protocol_number:
+                return ""
+
+            base_number = protocol.test_protocol_number
+            if protocol.is_accredited:
+                suffix = ""
+                for sample in samples:
+                    suffix = map_test_object_to_suffix(sample.test_object)
+                    if suffix:
+                        break
+                base_number = (
+                    f"{protocol.test_protocol_number}/07/{suffix}"
+                    if suffix
+                    else f"{protocol.test_protocol_number}/07"
+                )
+
+            if protocol.test_protocol_date:
+                date_str = pendulum.instance(protocol.test_protocol_date).format(
+                    "DD.MM.YYYY"
+                )
+                return f"{base_number} от {date_str}"
+            return base_number
+
+        if marker == "subd":
+            branches = [
+                sample.branch.name
+                for sample in samples
+                if sample.branch and sample.branch.name
+            ]
+            return ", ".join(set(branches)) if branches else ""
+
+        if marker == "tel":
+            phones = [sample.phone for sample in samples if sample.phone]
+            return ", ".join(set(phones)) if phones else ""
+
+        if marker == "res_object":
+            objects = [sample.test_object for sample in samples if sample.test_object]
+            return ", ".join(objects) if objects else ""
+
+        if marker == "sampling_location":
+            locations = []
+            for sample in samples:
+                location_parts = []
+                if sample.sampling_location and sample.sampling_location.name:
+                    location_parts.append(sample.sampling_location.name.strip())
+                if not sampling_location_name_only:
+                    if sample.well and sample.well.strip():
+                        well_value = sample.well.strip()
+                        if re.match(r"^\d", well_value):
+                            well_value = f"скв. {well_value}"
+                        location_parts.append(well_value)
+                    if sample.mode and sample.mode.strip():
+                        location_parts.append(sample.mode.strip())
+                if location_parts:
+                    locations.append(" ".join(location_parts))
+            return ", ".join(locations) if locations else ""
+
+        if marker == "mode":
+            modes = [
+                sample.mode.strip()
+                for sample in samples
+                if sample.mode and sample.mode.strip()
+            ]
+            return ", ".join(modes) if modes else ""
+
+        if marker == "sampling_date":
+            dates = sorted(
+                set(
+                    pendulum.instance(sample.sampling_date).format("DD.MM.YYYY")
+                    for sample in samples
+                    if sample.sampling_date
+                )
+            )
+            return ", ".join(dates) if dates else ""
+
+        if marker == "receiving_date":
+            dates = sorted(
+                set(
+                    pendulum.instance(sample.receiving_date).format("DD.MM.YYYY")
+                    for sample in samples
+                    if sample.receiving_date
+                )
+            )
+            return ", ".join(dates) if dates else ""
+
+        if marker == "laboratory_activity_dates":
+            dates = []
+            for sample in samples:
+                for calc in sample.calculations:
+                    if calc.deleted_at is None and calc.laboratory_activity_date:
+                        dates.append(calc.laboratory_activity_date)
+            if dates:
+                min_date = pendulum.instance(min(dates)).format("DD.MM.YYYY")
+                max_date = pendulum.instance(max(dates)).format("DD.MM.YYYY")
+                return f"{min_date}-{max_date}" if min_date != max_date else min_date
+            return ""
+
+        if marker == "lab_location":
+            if (
+                protocol.department
+                and hasattr(protocol.department, "laboratory_location")
+                and protocol.department.laboratory_location
+            ):
+                return protocol.department.laboratory_location
+            if (
+                protocol.laboratory
+                and hasattr(protocol.laboratory, "laboratory_location")
+                and protocol.laboratory.laboratory_location
+            ):
+                return protocol.laboratory.laboratory_location
+            return ""
+
+        if marker == "sampling_act_number":
+            return protocol.sampling_act_number or ""
+
+        if marker == "registration_number":
+            numbers = [
+                sample.registration_number
+                for sample in samples
+                if sample.registration_number
+            ]
+            return ", ".join(numbers) if numbers else ""
+
+        if marker == "workplace_issued":
+            return protocol.issued_position or ""
+
+        if marker == "workplace_approved":
+            return protocol.approved_position or ""
+
+        return ""
+    except Exception as e:
+        logger.error(f"Ошибка при синхронной подстановке метки {marker}: {str(e)}")
         return ""
 
 
@@ -452,6 +648,7 @@ async def process_header(
     new_sheet,
     merged_cells_map,
     selection_conditions_templates: Optional[List[Dict[str, Any]]] = None,
+    sampling_location_name_only: bool = False,
 ):
     """Обрабатывает шапку протокола."""
     current_row_new = 1
@@ -502,7 +699,11 @@ async def process_header(
             cell = new_sheet.cell(row=current_row_new, column=col)
             if cell.value:
                 processed_value = await process_cell_markers(
-                    protocol, samples, str(cell.value), selection_conditions_templates
+                    protocol,
+                    samples,
+                    str(cell.value),
+                    selection_conditions_templates,
+                    sampling_location_name_only,
                 )
                 if processed_value == "HIDE_ROW":
                     skip_row = True
@@ -527,18 +728,25 @@ async def process_header_and_conditions(
     start_row,
     merged_cells_map,
     selection_conditions_templates: Optional[List[Dict[str, Any]]] = None,
+    sampling_location_name_only: bool = False,
 ):
     """Обрабатывает заголовок и условия отбора после шапки до начала таблицы."""
     current_row_new = new_sheet.max_row + 1
+    template_last_row, _ = get_template_content_bounds(template_sheet)
 
-    for current_row in range(start_row, template_sheet.max_row + 1):
+    for current_row in range(start_row, template_last_row + 1):
         row = list(
             template_sheet.iter_rows(
                 min_row=current_row, max_row=current_row, values_only=True
             )
         )[0]
 
-        if any(cell and str(cell).strip() == "{{start_table1}}" for cell in row):
+        if any(
+            cell
+            and str(cell).strip()
+            in ["{{start_table1}}", *TABLE1_HORIZONTAL_START_MARKERS]
+            for cell in row
+        ):
             return current_row
 
         skip_row = False
@@ -547,7 +755,11 @@ async def process_header_and_conditions(
         for cell_value in row:
             if cell_value:
                 processed_value = await process_cell_markers(
-                    protocol, samples, str(cell_value), selection_conditions_templates
+                    protocol,
+                    samples,
+                    str(cell_value),
+                    selection_conditions_templates,
+                    sampling_location_name_only,
                 )
                 if processed_value == "HIDE_ROW":
                     skip_row = True
@@ -629,11 +841,13 @@ async def process_footer(
     merged_cells_map,
     current_row,
     selection_conditions_templates: Optional[List[Dict[str, Any]]] = None,
+    sampling_location_name_only: bool = False,
 ):
     """Обрабатывает оставшиеся строки после последней таблицы (подвал протокола)."""
     sheet_merged_cells_map = current_sheet.merged_cells
+    template_last_row, template_last_col = get_template_content_bounds(template_sheet)
 
-    for row_num in range(footer_start + 1, template_sheet.max_row + 1):
+    for row_num in range(footer_start + 1, template_last_row + 1):
         row = list(
             template_sheet.iter_rows(min_row=row_num, max_row=row_num, values_only=True)
         )[0]
@@ -647,6 +861,7 @@ async def process_footer(
                 "{{end_table1}}",
                 "{{end_table2}}",
                 "{{end_table3}}",
+                *TABLE1_HORIZONTAL_END_MARKERS,
             ]
             for cell in row
         ):
@@ -667,18 +882,22 @@ async def process_footer(
                 )
                 sheet_merged_cells_map.add(new_range)
 
-        for col in range(1, template_sheet.max_column + 1):
+        for col in range(1, template_last_col + 1):
             source_cell = template_sheet.cell(row=row_num, column=col)
             target_cell = current_sheet.cell(row=current_row, column=col)
 
             target_cell.value = source_cell.value
             copy_cell_style(source_cell, target_cell)
 
-        for col in range(1, template_sheet.max_column + 1):
+        for col in range(1, template_last_col + 1):
             cell = current_sheet.cell(row=current_row, column=col)
             if cell.value:
                 processed_value = await process_cell_markers(
-                    protocol, samples, str(cell.value), selection_conditions_templates
+                    protocol,
+                    samples,
+                    str(cell.value),
+                    selection_conditions_templates,
+                    sampling_location_name_only,
                 )
                 if processed_value is not None:
                     cell.value = processed_value
@@ -697,12 +916,14 @@ async def process_between_tables(
     merged_cells_map,
     current_row,
     selection_conditions_templates: Optional[List[Dict[str, Any]]] = None,
+    sampling_location_name_only: bool = False,
 ):
     """Обрабатывает данные между таблицами."""
     sheet_merged_cells_map = current_sheet.merged_cells
+    template_last_row, _ = get_template_content_bounds(template_sheet)
 
     next_table_start = None
-    for row_num in range(table_end + 1, template_sheet.max_row + 1):
+    for row_num in range(table_end + 1, template_last_row + 1):
         row = list(
             template_sheet.iter_rows(min_row=row_num, max_row=row_num, values_only=True)
         )[0]
@@ -779,6 +1000,7 @@ async def process_between_tables(
                 "{{end_table1}}",
                 "{{end_table2}}",
                 "{{end_table3}}",
+                *TABLE1_HORIZONTAL_END_MARKERS,
             ]
             for cell in row
         ):
@@ -808,6 +1030,7 @@ async def process_between_tables(
                 "{{end_table1}}",
                 "{{end_table2}}",
                 "{{end_table3}}",
+                *TABLE1_HORIZONTAL_END_MARKERS,
             ]
             for cell in row
         ):
@@ -829,6 +1052,7 @@ async def process_between_tables(
                             samples,
                             str(cell.value),
                             selection_conditions_templates,
+                            sampling_location_name_only,
                         )
                         if processed_value is not None:
                             cell.value = processed_value
@@ -862,6 +1086,7 @@ async def process_between_tables(
                         samples,
                         str(cell.value),
                         selection_conditions_templates,
+                        sampling_location_name_only,
                     )
                     if processed_value is not None:
                         cell.value = processed_value
@@ -1583,30 +1808,29 @@ def _restore_last_row_bottom_border_from_template_row(
         target.border = new_border
 
 
-def process_methods_table(
-    protocol: Protocol,
-    samples: List[Sample],
-    template_sheet,
-    new_sheet,
-    table_start,
-    merged_cells_map,
-    current_row,
-):
-    """Обрабатывает таблицу с методами исследования."""
-    current_sheet = new_sheet
+def _template_has_horizontal_table1(template_sheet, table_start: int) -> bool:
+    """Проверяет, что в шаблоне используется горизонтальная таблица 1."""
+    for row_num in range(table_start, template_sheet.max_row + 1):
+        row = list(
+            template_sheet.iter_rows(min_row=row_num, max_row=row_num, values_only=True)
+        )[0]
+        if any(
+            cell and str(cell).strip() == "{{start_table1_horizontal}}" for cell in row
+        ):
+            return True
+    return False
 
-    test_objects = []
-    for sample in samples:
-        if sample.test_object:
-            test_objects.append(sample.test_object)
 
-    calculations = []
+def _collect_valid_calculations(samples: List[Sample]) -> List[Calculation]:
+    """Собирает расчёты для таблицы методов с фильтрацией по объекту испытаний."""
+    test_objects = [sample.test_object for sample in samples if sample.test_object]
+    calculations: List[Calculation] = []
     for sample in samples:
         for calc in sample.calculations:
             if calc.deleted_at is None and calc.research_method:
                 calculations.append(calc)
 
-    valid_calculations = []
+    valid_calculations: List[Calculation] = []
     for calc in calculations:
         method_name = calc.research_method.name.lower()
         if "фракционный состав" in method_name and method_name not in [
@@ -1614,15 +1838,9 @@ def process_methods_table(
             "фракционный состав (нефть)",
         ]:
             continue
-
         if check_method_name(calc.research_method.name, test_objects):
             valid_calculations.append(calc)
 
-    if not valid_calculations:
-        return current_sheet
-
-    # Сортируем расчеты как на странице расчётов: sort_order, затем имя.
-    # Для группы с sort_order=None используем sort_order метода, чтобы не ставить блок в начало.
     def get_sort_key(calc):
         method = calc.research_method
         method_name = method.name or ""
@@ -1636,11 +1854,816 @@ def process_methods_table(
         return (method_sort_order, 0, method_name)
 
     valid_calculations.sort(key=get_sort_key)
+    return valid_calculations
 
+
+def _unique_method_calculations(
+    valid_calculations: List[Calculation],
+) -> List[Calculation]:
+    """Оставляет по одному расчёту на метод для горизонтальных столбцов."""
+    seen_ids: set[int] = set()
+    unique: List[Calculation] = []
+    for calc in valid_calculations:
+        method_id = calc.research_method.id
+        if method_id in seen_ids:
+            continue
+        seen_ids.add(method_id)
+        unique.append(calc)
+    return unique
+
+
+def _get_merged_col_bounds(sheet, row: int, col: int) -> tuple[int, int]:
+    """Возвращает горизонтальные границы объединения, содержащего ячейку."""
+    for merged_range in sheet.merged_cells.ranges:
+        if (
+            merged_range.min_row <= row <= merged_range.max_row
+            and merged_range.min_col <= col <= merged_range.max_col
+        ):
+            return merged_range.min_col, merged_range.max_col
+    return col, col
+
+
+def _detect_horizontal_method_block_cols(
+    template_sheet,
+    table_header_start: int,
+    table_end_row: int,
+    last_col: int,
+) -> Optional[tuple[int, int]]:
+    """Определяет ширину блока метода по объединённым ячейкам с метками методов."""
+    block_starts: List[int] = []
+    block_ends: List[int] = []
+
+    for row_num in range(table_header_start, table_end_row + 1):
+        for col_num in range(1, last_col + 1):
+            cell_value = template_sheet.cell(row=row_num, column=col_num).value
+            if not cell_value or not isinstance(cell_value, str):
+                continue
+            if not any(
+                marker in cell_value for marker in TABLE1_HORIZONTAL_METHOD_MARKERS
+            ):
+                continue
+            min_col, max_col = _get_merged_col_bounds(template_sheet, row_num, col_num)
+            block_starts.append(min_col)
+            block_ends.append(max_col)
+
+    if not block_starts:
+        return None
+
+    return min(block_starts), max(block_ends)
+
+
+def _horizontal_template_row_is_empty(
+    template_sheet,
+    row_num: int,
+    last_col: int,
+) -> bool:
+    """Проверяет, что строка шаблона не содержит значимого текста."""
+    for col_num in range(1, last_col + 1):
+        cell_value = template_sheet.cell(row=row_num, column=col_num).value
+        if cell_value and str(cell_value).strip():
+            return False
+    return True
+
+
+def _find_horizontal_table_bounds(template_sheet, table_start: int) -> Optional[dict]:
+    """Находит границы горизонтальной таблицы 1 в шаблоне."""
+    template_last_row, template_last_col = get_template_content_bounds(template_sheet)
+    table_header_start = None
+    table_header_end = None
+    table_end_row = None
+
+    for row_num in range(table_start, template_last_row + 1):
+        row = list(
+            template_sheet.iter_rows(min_row=row_num, max_row=row_num, values_only=True)
+        )[0]
+        for cell in row:
+            if not cell:
+                continue
+            cell_str = str(cell).strip()
+            if table_header_start is None and cell_str == "{{start_table1_horizontal}}":
+                table_header_start = row_num
+                break
+            if (
+                table_header_start is not None
+                and table_header_end is None
+                and cell_str == "{start_table1_horizontal}"
+            ):
+                table_header_end = row_num
+                break
+
+    if table_header_start is None:
+        return None
+
+    if table_header_end is None:
+        table_header_end = table_header_start + 1
+
+    for row_num in range(table_header_end, template_last_row + 1):
+        row = list(
+            template_sheet.iter_rows(min_row=row_num, max_row=row_num, values_only=True)
+        )[0]
+        if any(
+            cell and str(cell).strip() in TABLE1_HORIZONTAL_END_MARKERS for cell in row
+        ):
+            table_end_row = row_num
+            break
+
+    if table_end_row is None:
+        return None
+
+    h_start_col = None
+    h_end_col = None
+    name_method_col = None
+    name_method_row = None
+
+    for row_num in range(table_header_start, table_end_row + 1):
+        for col_num in range(1, template_last_col + 1):
+            cell_value = template_sheet.cell(row=row_num, column=col_num).value
+            if not cell_value:
+                continue
+            cell_str = str(cell_value).strip()
+            if cell_str in {"{{start_table1_horizontal}}", "{start_table1_horizontal}"}:
+                h_start_col = col_num
+            if cell_str in TABLE1_HORIZONTAL_END_MARKERS:
+                h_end_col = col_num
+            if "{name_method}" in cell_str:
+                name_method_col = col_num
+                name_method_row = row_num
+
+    if (
+        h_start_col is not None
+        and h_end_col is not None
+        and h_end_col > h_start_col
+        and name_method_col is not None
+        and h_start_col < name_method_col < h_end_col
+    ):
+        h_block_start = h_start_col + 1
+        h_block_end = h_end_col - 1
+    elif name_method_col is not None:
+        detected_block = _detect_horizontal_method_block_cols(
+            template_sheet,
+            table_header_start,
+            table_end_row,
+            template_last_col,
+        )
+        if detected_block:
+            h_block_start, h_block_end = detected_block
+        elif name_method_row is not None:
+            h_block_start, h_block_end = _get_merged_col_bounds(
+                template_sheet,
+                name_method_row,
+                name_method_col,
+            )
+        else:
+            h_block_start = name_method_col
+            h_block_end = name_method_col
+    else:
+        return None
+
+    sample_template_rows: List[int] = []
+    norm_template_rows: List[int] = []
+    static_template_rows: List[int] = []
+
+    for row_num in range(table_header_end + 1, table_end_row):
+        row_values = list(
+            template_sheet.iter_rows(min_row=row_num, max_row=row_num, values_only=True)
+        )[0]
+        row_text = " ".join(str(v) for v in row_values if v)
+        if "{norma}" in row_text or "{norma_value}" in row_text:
+            norm_template_rows.append(row_num)
+        elif "{registration_number}" in row_text or "{result}" in row_text:
+            sample_template_rows.append(row_num)
+        else:
+            static_template_rows.append(row_num)
+
+    if not sample_template_rows and static_template_rows:
+        sample_template_rows.append(static_template_rows.pop(0))
+
+    norm_tail_rows: List[int] = []
+    if norm_template_rows:
+        for row_num in range(max(norm_template_rows) + 1, table_end_row):
+            if _horizontal_template_row_is_empty(
+                template_sheet, row_num, template_last_col
+            ):
+                norm_tail_rows.append(row_num)
+
+    static_template_rows = [
+        row_num for row_num in static_template_rows if row_num not in norm_tail_rows
+    ]
+
+    body_rows: List[tuple[int, str]] = []
+    for row_num in range(table_header_end + 1, table_end_row):
+        if row_num in norm_template_rows:
+            body_rows.append((row_num, "norm"))
+        elif row_num in norm_tail_rows:
+            body_rows.append((row_num, "norm_tail"))
+        elif row_num in sample_template_rows:
+            body_rows.append((row_num, "sample"))
+        else:
+            body_rows.append((row_num, "static"))
+
+    return {
+        "table_header_start": table_header_start,
+        "table_header_end": table_header_end,
+        "table_end_row": table_end_row,
+        "h_block_start": h_block_start,
+        "h_block_end": h_block_end,
+        "body_rows": body_rows,
+        "norm_template_rows": norm_template_rows,
+    }
+
+
+def _apply_horizontal_method_column_dimensions(
+    template_sheet,
+    target_sheet,
+    table_start: int,
+    methods: List[Calculation],
+) -> None:
+    """Проставляет ширину столбцов для горизонтально размноженных методов."""
+    bounds = _find_horizontal_table_bounds(template_sheet, table_start)
+    if not bounds or not methods:
+        return
+
+    h_block_start = bounds["h_block_start"]
+    h_block_end = bounds["h_block_end"]
+    block_width = h_block_end - h_block_start + 1
+
+    for method_idx in range(len(methods)):
+        copy_column_dimensions_range(
+            template_sheet,
+            target_sheet,
+            h_block_start,
+            h_block_end,
+            h_block_start + method_idx * block_width,
+        )
+
+
+def _strip_table_markers(value: str) -> str:
+    """Убирает служебные метки таблицы из текста ячейки."""
+    result = value
+    for marker in TABLE1_HORIZONTAL_ALL_MARKERS:
+        result = result.replace(marker, "")
+    return result.strip()
+
+
+def _format_measurement_error(error_value: Optional[str]) -> str:
+    """Форматирует погрешность для ячейки протокола."""
+    if error_value and error_value.startswith("-"):
+        return error_value
+    if error_value and error_value != "-":
+        return f"±{error_value}"
+    return "-"
+
+
+def _resolve_horizontal_cell_value_sync(
+    protocol: Protocol,
+    sample: Optional[Sample],
+    calc: Optional[Calculation],
+    method_calc: Optional[Calculation],
+    norm_name: Optional[str],
+    norm_values_by_method: Optional[Dict[int, str]],
+    method_id: Optional[int],
+    cell_value: str,
+    *,
+    sampling_location_name_only: bool,
+    selection_conditions_templates: Optional[List[Dict[str, Any]]],
+) -> str:
+    """Синхронная подстановка меток в ячейку горизонтальной таблицы 1."""
+    value = _strip_table_markers(cell_value)
+    if not value:
+        return ""
+
+    samples = [sample] if sample else []
+
+    if "{norma}" in value:
+        return value.replace("{norma}", norm_name or "")
+    if "{norma_value}" in value:
+        norm_text = ""
+        if norm_values_by_method and method_id is not None:
+            norm_text = norm_values_by_method.get(method_id, "")
+        return value.replace("{norma_value}", norm_text)
+    if "{name_method}" in value and calc and calc.research_method:
+        method_name = calc.research_method.name or ""
+        value = value.replace("{name_method}", method_name)
+    if "{nd_code}" in value and calc and calc.research_method:
+        value = value.replace("{nd_code}", calc.research_method.nd_code or "")
+    if ("{nd_name}" in value or "{name_nd}" in value) and calc and calc.research_method:
+        nd_name = calc.research_method.nd_name or ""
+        value = value.replace("{nd_name}", nd_name).replace("{name_nd}", nd_name)
+    if "{unit}" in value and method_calc:
+        value = value.replace("{unit}", method_calc.unit or "-")
+    if "{measurement_method}" in value and calc and calc.research_method:
+        measurement_method = calc.research_method.measurement_method or "-"
+        value = value.replace("{measurement_method}", measurement_method)
+    if "{result}" in value:
+        result_text = (
+            format_protocol_calculation_result(method_calc) if method_calc else ""
+        )
+        value = value.replace("{result}", result_text)
+    if "{measurement_error}" in value:
+        error_text = (
+            _format_measurement_error(method_calc.measurement_error)
+            if method_calc
+            else "-"
+        )
+        value = value.replace("{measurement_error}", error_text)
+
+    if "{" in value:
+        start = 0
+        while True:
+            start = value.find("{", start)
+            if start == -1:
+                break
+            end = value.find("}", start)
+            if end == -1:
+                break
+            marker = value[start + 1 : end]
+            if marker.startswith("sel_cond_") or marker == "bu":
+                start = end + 1
+                continue
+            marker_value = get_marker_value_sync(
+                protocol,
+                samples,
+                marker,
+                sampling_location_name_only=sampling_location_name_only,
+            )
+            value = value.replace(f"{{{marker}}}", marker_value)
+            start = end + 1
+
+    if samples:
+        processed = process_selection_conditions_row(
+            samples, value, selection_conditions_templates
+        )
+        if processed is None:
+            return ""
+        return processed
+
+    return value
+
+
+def _copy_horizontal_row_segment(
+    template_sheet,
+    current_sheet,
+    template_row: int,
+    target_row: int,
+    col_start: int,
+    col_end: int,
+    target_col_start: int,
+    merged_cells_map,
+) -> None:
+    """Копирует фрагмент строки с горизонтальным смещением."""
+    if col_start > col_end:
+        return
+    copy_cell_block(
+        template_sheet,
+        current_sheet,
+        col_start,
+        col_end,
+        template_row,
+        template_row,
+        target_col_start,
+        target_row,
+        merged_cells_map,
+    )
+
+
+def _horizontal_method_row_has_markers(
+    template_sheet,
+    template_row: int,
+    h_block_start: int,
+    h_block_end: int,
+) -> bool:
+    """Проверяет, есть ли в строке метки данных метода в блоке столбцов."""
+    for col_num in range(h_block_start, h_block_end + 1):
+        cell_value = template_sheet.cell(row=template_row, column=col_num).value
+        if not cell_value or not isinstance(cell_value, str):
+            continue
+        if any(marker in cell_value for marker in TABLE1_HORIZONTAL_METHOD_MARKERS):
+            return True
+    return False
+
+
+def _write_horizontal_table_row(
+    protocol: Protocol,
+    template_sheet,
+    current_sheet,
+    template_row: int,
+    target_row: int,
+    bounds: dict,
+    methods: List[Calculation],
+    merged_cells_map,
+    sample_calcs_by_method: Dict[int, Calculation],
+    *,
+    sample: Optional[Sample] = None,
+    norm_name: Optional[str] = None,
+    norm_values_by_method: Optional[Dict[int, str]] = None,
+    sampling_location_name_only: bool = False,
+    selection_conditions_templates: Optional[List[Dict[str, Any]]] = None,
+) -> None:
+    """Записывает строку горизонтальной таблицы с размножением столбцов методов."""
+    h_block_start = bounds["h_block_start"]
+    h_block_end = bounds["h_block_end"]
+    block_width = h_block_end - h_block_start + 1
+    methods_count = len(methods)
+    trailing_shift = (methods_count - 1) * block_width if methods_count else 0
+    template_row_last_col = get_row_last_used_col(template_sheet, template_row)
+    output_last_col = max(
+        template_row_last_col + trailing_shift,
+        h_block_end + trailing_shift,
+    )
+
+    if template_row in template_sheet.row_dimensions:
+        current_sheet.row_dimensions[target_row] = copy(
+            template_sheet.row_dimensions[template_row]
+        )
+
+    row_has_method_markers = _horizontal_method_row_has_markers(
+        template_sheet, template_row, h_block_start, h_block_end
+    )
+
+    for merged_range in template_sheet.merged_cells.ranges:
+        if merged_range.min_row != template_row:
+            continue
+
+        is_method_block_merge = (
+            merged_range.min_col >= h_block_start
+            and merged_range.max_col <= h_block_end
+        )
+        if is_method_block_merge and methods_count > 0:
+            if row_has_method_markers:
+                for method_idx in range(methods_count):
+                    col_shift = method_idx * block_width
+                    new_range = openpyxl.worksheet.cell_range.CellRange(
+                        min_col=merged_range.min_col + col_shift,
+                        min_row=target_row,
+                        max_col=merged_range.max_col + col_shift,
+                        max_row=target_row
+                        + (merged_range.max_row - merged_range.min_row),
+                    )
+                    merged_cells_map.add(new_range)
+            else:
+                new_range = openpyxl.worksheet.cell_range.CellRange(
+                    min_col=h_block_start,
+                    min_row=target_row,
+                    max_col=h_block_end + trailing_shift,
+                    max_row=target_row + (merged_range.max_row - merged_range.min_row),
+                )
+                merged_cells_map.add(new_range)
+            continue
+
+        col_shift = 0
+        if merged_range.min_col > h_block_end:
+            col_shift = trailing_shift
+        new_range = openpyxl.worksheet.cell_range.CellRange(
+            min_col=merged_range.min_col + col_shift,
+            min_row=target_row,
+            max_col=min(merged_range.max_col + col_shift, output_last_col),
+            max_row=target_row + (merged_range.max_row - merged_range.min_row),
+        )
+        if new_range.min_col > output_last_col:
+            continue
+        merged_cells_map.add(new_range)
+
+    for col in range(1, h_block_start):
+        src_cell = template_sheet.cell(row=template_row, column=col)
+        tgt_cell = current_sheet.cell(row=target_row, column=col)
+        tgt_cell.value = src_cell.value
+        copy_cell_style(src_cell, tgt_cell)
+        if tgt_cell.value and isinstance(tgt_cell.value, str):
+            tgt_cell.value = _resolve_horizontal_cell_value_sync(
+                protocol,
+                sample,
+                None,
+                None,
+                norm_name,
+                norm_values_by_method,
+                None,
+                str(tgt_cell.value),
+                sampling_location_name_only=sampling_location_name_only,
+                selection_conditions_templates=selection_conditions_templates,
+            )
+
+    if row_has_method_markers:
+        for method_idx, method_calc in enumerate(methods):
+            target_col_start = h_block_start + method_idx * block_width
+            _copy_horizontal_row_segment(
+                template_sheet,
+                current_sheet,
+                template_row,
+                target_row,
+                h_block_start,
+                h_block_end,
+                target_col_start,
+                None,
+            )
+            sample_method_calc = (
+                sample_calcs_by_method.get(method_calc.research_method.id)
+                if sample
+                else None
+            )
+            for col_offset in range(block_width):
+                col = target_col_start + col_offset
+                cell = current_sheet.cell(row=target_row, column=col)
+                if not cell.value or not isinstance(cell.value, str):
+                    continue
+                template_value = template_sheet.cell(
+                    row=template_row, column=h_block_start + col_offset
+                ).value
+                cell.value = _resolve_horizontal_cell_value_sync(
+                    protocol,
+                    sample,
+                    method_calc,
+                    sample_method_calc,
+                    norm_name,
+                    norm_values_by_method,
+                    method_calc.research_method.id,
+                    cell.value,
+                    sampling_location_name_only=sampling_location_name_only,
+                    selection_conditions_templates=selection_conditions_templates,
+                )
+                if template_value and "{measurement_method}" in str(template_value):
+                    adjust_cell_height_if_needed(
+                        current_sheet,
+                        target_row,
+                        col,
+                        method_calc.research_method.measurement_method or "-",
+                    )
+    else:
+        _copy_horizontal_row_segment(
+            template_sheet,
+            current_sheet,
+            template_row,
+            target_row,
+            h_block_start,
+            h_block_end,
+            h_block_start,
+            None,
+        )
+        shared_cell = current_sheet.cell(row=target_row, column=h_block_start)
+        if shared_cell.value and isinstance(shared_cell.value, str):
+            shared_cell.value = _resolve_horizontal_cell_value_sync(
+                protocol,
+                sample,
+                None,
+                None,
+                norm_name,
+                norm_values_by_method,
+                None,
+                str(shared_cell.value),
+                sampling_location_name_only=sampling_location_name_only,
+                selection_conditions_templates=selection_conditions_templates,
+            )
+        for col in range(h_block_start + 1, h_block_end + trailing_shift + 1):
+            template_col = h_block_start + (col - h_block_start) % block_width
+            src_cell = template_sheet.cell(row=template_row, column=template_col)
+            tgt_cell = current_sheet.cell(row=target_row, column=col)
+            tgt_cell.value = None
+            copy_cell_style(src_cell, tgt_cell)
+
+    trailing_start = h_block_end + 1
+    if trailing_start <= template_row_last_col:
+        for col in range(trailing_start, template_row_last_col + 1):
+            src_col = col
+            tgt_col = col + trailing_shift
+            src_cell = template_sheet.cell(row=template_row, column=src_col)
+            tgt_cell = current_sheet.cell(row=target_row, column=tgt_col)
+            tgt_cell.value = src_cell.value
+            copy_cell_style(src_cell, tgt_cell)
+            if tgt_cell.value and isinstance(tgt_cell.value, str):
+                tgt_cell.value = _resolve_horizontal_cell_value_sync(
+                    protocol,
+                    sample,
+                    None,
+                    None,
+                    norm_name,
+                    norm_values_by_method,
+                    None,
+                    str(tgt_cell.value),
+                    sampling_location_name_only=sampling_location_name_only,
+                    selection_conditions_templates=selection_conditions_templates,
+                )
+
+
+async def _load_applicable_nd_norms(
+    db: AsyncSession,
+    protocol: Protocol,
+    samples: List[Sample],
+    method_ids: set[int],
+) -> List[tuple[NdNorm, Dict[int, str]]]:
+    """Загружает нормы НД, применимые к методам протокола."""
+    if not method_ids:
+        return []
+
+    test_objects = {
+        sample.test_object.strip().lower()
+        for sample in samples
+        if sample.test_object and sample.test_object.strip()
+    }
+    if not test_objects:
+        return []
+
+    conditions = [
+        NdNorm.deleted_at.is_(None),
+        NdNorm.laboratory_id == protocol.laboratory_id,
+    ]
+    if protocol.department_id:
+        conditions.append(
+            (NdNorm.department_id == protocol.department_id)
+            | (NdNorm.department_id.is_(None))
+        )
+
+    result = await db.execute(select(NdNorm).where(*conditions).order_by(NdNorm.name))
+    applicable: List[tuple[NdNorm, Dict[int, str]]] = []
+    for norm in result.scalars().all():
+        if norm.test_object.strip().lower() not in test_objects:
+            continue
+        values_by_method: Dict[int, str] = {}
+        for item in norm.method_data or []:
+            method_id = item.get("method_id")
+            if method_id in method_ids:
+                values_by_method[int(method_id)] = str(item.get("text") or "").strip()
+        if values_by_method:
+            applicable.append((norm, values_by_method))
+    return applicable
+
+
+def _build_sample_calcs_by_method(sample: Sample) -> Dict[int, Calculation]:
+    """Индекс расчётов пробы по ID метода."""
+    return {
+        calc.research_method.id: calc
+        for calc in sample.calculations
+        if calc.deleted_at is None and calc.research_method
+    }
+
+
+async def process_methods_table_horizontal(
+    protocol: Protocol,
+    samples: List[Sample],
+    template_sheet,
+    new_sheet,
+    table_start: int,
+    merged_cells_map,
+    current_row: int,
+    db: AsyncSession,
+    selection_conditions_templates: Optional[List[Dict[str, Any]]] = None,
+):
+    """Обрабатывает горизонтальную таблицу 1: методы вправо, пробы и нормы вниз."""
+    current_sheet = new_sheet
+    bounds = _find_horizontal_table_bounds(template_sheet, table_start)
+    if not bounds:
+        return current_sheet
+
+    valid_calculations = _collect_valid_calculations(samples)
+    methods = _unique_method_calculations(valid_calculations)
+    if not methods:
+        return current_sheet
+
+    method_ids = {calc.research_method.id for calc in methods}
+    nd_norms = await _load_applicable_nd_norms(db, protocol, samples, method_ids)
+    sampling_location_name_only = template_contains_marker(template_sheet, "{mode}")
+
+    h_block_start = bounds["h_block_start"]
+    h_block_end = bounds["h_block_end"]
+    block_width = h_block_end - h_block_start + 1
+
+    for method_idx in range(len(methods)):
+        copy_column_dimensions_range(
+            template_sheet,
+            current_sheet,
+            h_block_start,
+            h_block_end,
+            h_block_start + method_idx * block_width,
+        )
+
+    for row_num in range(bounds["table_header_start"] + 1, bounds["table_header_end"]):
+        _write_horizontal_table_row(
+            protocol,
+            template_sheet,
+            current_sheet,
+            row_num,
+            current_row,
+            bounds,
+            methods,
+            merged_cells_map,
+            {},
+            sampling_location_name_only=sampling_location_name_only,
+            selection_conditions_templates=selection_conditions_templates,
+        )
+        current_row += 1
+
+    norms_to_render = nd_norms
+
+    for row_num, row_type in bounds["body_rows"]:
+        if row_type == "static":
+            _write_horizontal_table_row(
+                protocol,
+                template_sheet,
+                current_sheet,
+                row_num,
+                current_row,
+                bounds,
+                methods,
+                merged_cells_map,
+                {},
+                sampling_location_name_only=sampling_location_name_only,
+                selection_conditions_templates=selection_conditions_templates,
+            )
+            current_row += 1
+        elif row_type == "sample":
+            for sample in samples:
+                _write_horizontal_table_row(
+                    protocol,
+                    template_sheet,
+                    current_sheet,
+                    row_num,
+                    current_row,
+                    bounds,
+                    methods,
+                    merged_cells_map,
+                    _build_sample_calcs_by_method(sample),
+                    sample=sample,
+                    sampling_location_name_only=sampling_location_name_only,
+                    selection_conditions_templates=selection_conditions_templates,
+                )
+                current_row += 1
+        elif row_type == "norm":
+            if not norms_to_render:
+                continue
+            for norm, values_by_method in norms_to_render:
+                _write_horizontal_table_row(
+                    protocol,
+                    template_sheet,
+                    current_sheet,
+                    row_num,
+                    current_row,
+                    bounds,
+                    methods,
+                    merged_cells_map,
+                    {},
+                    norm_name=norm.name if norm else "",
+                    norm_values_by_method=values_by_method,
+                    sampling_location_name_only=sampling_location_name_only,
+                    selection_conditions_templates=selection_conditions_templates,
+                )
+                current_row += 1
+        elif row_type == "norm_tail":
+            if not norms_to_render:
+                continue
+            _write_horizontal_table_row(
+                protocol,
+                template_sheet,
+                current_sheet,
+                row_num,
+                current_row,
+                bounds,
+                methods,
+                merged_cells_map,
+                {},
+                sampling_location_name_only=sampling_location_name_only,
+                selection_conditions_templates=selection_conditions_templates,
+            )
+            current_row += 1
+
+    return current_sheet
+
+
+async def process_methods_table(
+    protocol: Protocol,
+    samples: List[Sample],
+    template_sheet,
+    new_sheet,
+    table_start,
+    merged_cells_map,
+    current_row,
+    db: Optional[AsyncSession] = None,
+    selection_conditions_templates: Optional[List[Dict[str, Any]]] = None,
+):
+    """Обрабатывает таблицу с методами исследования."""
+    if _template_has_horizontal_table1(template_sheet, table_start):
+        if db is None:
+            return new_sheet
+        return await process_methods_table_horizontal(
+            protocol,
+            samples,
+            template_sheet,
+            new_sheet,
+            table_start,
+            merged_cells_map,
+            current_row,
+            db,
+            selection_conditions_templates,
+        )
+
+    current_sheet = new_sheet
+
+    valid_calculations = _collect_valid_calculations(samples)
+    if not valid_calculations:
+        return current_sheet
+
+    template_last_row, _ = get_template_content_bounds(template_sheet)
     table_header_start = None
     table_header_end = None
 
-    for row_num in range(table_start, template_sheet.max_row + 1):
+    for row_num in range(table_start, template_last_row + 1):
         row = list(
             template_sheet.iter_rows(min_row=row_num, max_row=row_num, values_only=True)
         )[0]
@@ -1663,7 +2686,7 @@ def process_methods_table(
 
     template_row_num = None
 
-    for row_num in range(table_header_end, template_sheet.max_row + 1):
+    for row_num in range(table_header_end, template_last_row + 1):
         row = list(
             template_sheet.iter_rows(min_row=row_num, max_row=row_num, values_only=True)
         )[0]
@@ -2100,10 +3123,11 @@ def process_equipment_table(
     if not equipment_list:
         return current_sheet
 
+    template_last_row, _ = get_template_content_bounds(template_sheet)
     table_header_start = None
     table_header_end = None
 
-    for row_num in range(table_start, template_sheet.max_row + 1):
+    for row_num in range(table_start, template_last_row + 1):
         row = list(
             template_sheet.iter_rows(min_row=row_num, max_row=row_num, values_only=True)
         )[0]
@@ -2125,7 +3149,7 @@ def process_equipment_table(
 
     template_row_num = None
 
-    for row_num in range(table_header_end, template_sheet.max_row + 1):
+    for row_num in range(table_header_end, template_last_row + 1):
         row = list(
             template_sheet.iter_rows(min_row=row_num, max_row=row_num, values_only=True)
         )[0]
@@ -2263,10 +3287,11 @@ def process_nd_table(
     if not nd_list:
         return current_sheet
 
+    template_last_row, _ = get_template_content_bounds(template_sheet)
     table_header_start = None
     table_header_end = None
 
-    for row_num in range(table_start, template_sheet.max_row + 1):
+    for row_num in range(table_start, template_last_row + 1):
         row = list(
             template_sheet.iter_rows(min_row=row_num, max_row=row_num, values_only=True)
         )[0]
@@ -2290,7 +3315,7 @@ def process_nd_table(
 
     template_row_num = None
 
-    for row_num in range(table_header_end, template_sheet.max_row + 1):
+    for row_num in range(table_header_end, template_last_row + 1):
         row = list(
             template_sheet.iter_rows(min_row=row_num, max_row=row_num, values_only=True)
         )[0]
@@ -2437,6 +3462,10 @@ async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> Respons
 
         template_workbook = openpyxl.load_workbook(template_bytes)
         template_sheet = template_workbook.active
+        sampling_location_name_only = template_contains_marker(template_sheet, "{mode}")
+        template_last_row, template_last_col = get_template_content_bounds(
+            template_sheet
+        )
 
         new_workbook = openpyxl.Workbook()
         new_sheet = new_workbook.active
@@ -2484,6 +3513,7 @@ async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> Respons
             new_sheet,
             merged_cells_map,
             selection_conditions_templates,
+            sampling_location_name_only,
         )
         if header_end == 0:
             raise ValidationError("Ошибка при обработке шапки протокола")
@@ -2496,9 +3526,10 @@ async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> Respons
             header_end,
             merged_cells_map,
             selection_conditions_templates,
+            sampling_location_name_only,
         )
 
-        current_sheet = process_methods_table(
+        current_sheet = await process_methods_table(
             protocol,
             samples,
             template_sheet,
@@ -2506,18 +3537,20 @@ async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> Respons
             table_start,
             merged_cells_map,
             new_sheet.max_row + 1,
+            db,
+            selection_conditions_templates,
         )
         if not current_sheet:
             raise ValidationError("Ошибка при обработке таблицы методов")
 
         table1_end = None
-        for row_num in range(table_start, template_sheet.max_row + 1):
+        for row_num in range(table_start, template_last_row + 1):
             row = list(
                 template_sheet.iter_rows(
                     min_row=row_num, max_row=row_num, values_only=True
                 )
             )[0]
-            if any(cell and str(cell).strip() == "{end_table1}" for cell in row):
+            if any(cell and str(cell).strip() in TABLE1_END_MARKERS for cell in row):
                 table1_end = row_num
                 break
 
@@ -2531,6 +3564,7 @@ async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> Respons
                 merged_cells_map,
                 current_sheet.max_row + 1,
                 selection_conditions_templates,
+                sampling_location_name_only,
             )
 
             current_sheet = process_equipment_table(
@@ -2547,7 +3581,7 @@ async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> Respons
                 raise ValidationError("Ошибка при обработке таблицы оборудования")
 
             table2_end = None
-            for row_num in range(table1_end + 1, template_sheet.max_row + 1):
+            for row_num in range(table1_end + 1, template_last_row + 1):
                 row = list(
                     template_sheet.iter_rows(
                         min_row=row_num, max_row=row_num, values_only=True
@@ -2567,6 +3601,7 @@ async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> Respons
                     merged_cells_map,
                     current_sheet.max_row + 1,
                     selection_conditions_templates,
+                    sampling_location_name_only,
                 )
 
                 current_sheet = process_nd_table(
@@ -2582,7 +3617,7 @@ async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> Respons
                     raise ValidationError("Ошибка при обработке таблицы НД")
 
                 table3_end = None
-                for row_num in range(table2_end + 1, template_sheet.max_row + 1):
+                for row_num in range(table2_end + 1, template_last_row + 1):
                     row = list(
                         template_sheet.iter_rows(
                             min_row=row_num, max_row=row_num, values_only=True
@@ -2604,10 +3639,21 @@ async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> Respons
                         merged_cells_map,
                         current_sheet.max_row + 1,
                         selection_conditions_templates,
+                        sampling_location_name_only,
                     )
 
         set_sheet_margins(new_sheet)
         copy_column_dimensions(template_sheet, new_sheet)
+        if _template_has_horizontal_table1(template_sheet, table_start):
+            horizontal_methods = _unique_method_calculations(
+                _collect_valid_calculations(samples)
+            )
+            _apply_horizontal_method_column_dimensions(
+                template_sheet,
+                new_sheet,
+                table_start,
+                horizontal_methods,
+            )
         enforce_fit_to_page(new_sheet)
 
         output = BytesIO()
