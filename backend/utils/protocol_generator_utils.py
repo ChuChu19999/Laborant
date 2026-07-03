@@ -14,6 +14,21 @@ LINE_HEIGHT_PIXELS = 21  # Высота строки в пикселях
 PIXELS_TO_POINTS = 0.75  # Коэффициент перевода пикселей в точки Excel
 
 
+def join_unique_values(values: list[str], separator: str = ", ") -> str:
+    """Склеивает значения без дубликатов, сохраняя порядок первого появления."""
+    unique: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        if value is None:
+            continue
+        text = str(value).strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        unique.append(text)
+    return separator.join(unique)
+
+
 def format_decimal_ru(value) -> str:
     """
     Форматирует десятичное число для отображения в русском формате.
@@ -120,15 +135,15 @@ def copy_row_with_styles(
     target_sheet: openpyxl.worksheet.worksheet.Worksheet,
     source_row: int,
     target_row: int,
+    max_col: Optional[int] = None,
 ) -> None:
     """
     Копирует строку с сохранением стилей из исходного листа в целевой.
     """
     try:
-        # Получаем максимальное количество столбцов
-        max_col = source_sheet.max_column
+        if max_col is None:
+            max_col = get_row_copy_max_col(source_sheet, source_row)
 
-        # Копируем каждую ячейку в строке
         for col in range(1, max_col + 1):
             try:
                 source_cell = source_sheet.cell(row=source_row, column=col)
@@ -212,6 +227,111 @@ def get_row_last_used_col(
         if sheet.cell(row=row_num, column=col).value is not None:
             return col
     return min_col
+
+
+def get_row_copy_max_col(
+    sheet,
+    row_num: int,
+    col_limit: Optional[int] = None,
+) -> int:
+    """Возвращает последний столбец строки, который нужно копировать."""
+    limit = col_limit or min(sheet.max_column, 60)
+    max_col = get_row_last_used_col(sheet, row_num, col_limit=limit)
+    for merged_range in sheet.merged_cells.ranges:
+        if merged_range.min_row <= row_num <= merged_range.max_row:
+            max_col = max(max_col, min(merged_range.max_col, limit))
+    return max(max_col, 1)
+
+
+def get_sheet_print_bounds(
+    sheet,
+    col_limit: int = 80,
+    max_row: Optional[int] = None,
+) -> tuple[int, int]:
+    """Возвращает границы листа для печати по данным и объединениям."""
+    last_row = 1
+    last_col = 1
+    row_limit = max_row if max_row is not None else sheet.max_row
+    max_col = min(sheet.max_column, col_limit)
+
+    for merged_range in sheet.merged_cells.ranges:
+        if merged_range.min_row > row_limit:
+            continue
+        last_row = max(last_row, min(merged_range.max_row, row_limit))
+        if merged_range.max_col <= max_col:
+            last_col = max(last_col, merged_range.max_col)
+
+    for row in sheet.iter_rows(min_row=1, max_row=row_limit, max_col=max_col):
+        for cell in row:
+            if cell.value is None:
+                continue
+            if isinstance(cell.value, str) and not cell.value.strip():
+                continue
+            last_row = max(last_row, cell.row)
+            last_col = max(last_col, cell.column)
+
+    return last_row, last_col
+
+
+def find_protocol_end_row(sheet) -> Optional[int]:
+    """Находит строку с фразой «конец протокола»."""
+    phrase = "конец протокола"
+    max_col = min(sheet.max_column, 80)
+    for row_num in range(1, sheet.max_row + 1):
+        for col_num in range(1, max_col + 1):
+            cell_value = sheet.cell(row=row_num, column=col_num).value
+            if (
+                cell_value
+                and isinstance(cell_value, str)
+                and phrase in cell_value.lower()
+            ):
+                return row_num
+    return None
+
+
+def _unmerge_ranges_below_row(sheet, end_row: int) -> None:
+    """Снимает объединения целиком ниже указанной строки."""
+    for merged_range in list(sheet.merged_cells.ranges):
+        if merged_range.min_row > end_row:
+            sheet.unmerge_cells(str(merged_range))
+
+
+def _delete_rows_below(sheet, end_row: int) -> None:
+    """Удаляет строки ниже конца протокола вместе с ячейками и оформлением."""
+    if sheet.max_row <= end_row:
+        return
+    _unmerge_ranges_below_row(sheet, end_row)
+    rows_to_delete = sheet.max_row - end_row
+    sheet.delete_rows(end_row + 1, rows_to_delete)
+    for row_idx in list(sheet.row_dimensions.keys()):
+        if row_idx > end_row:
+            del sheet.row_dimensions[row_idx]
+
+
+def finalize_protocol_sheet(
+    sheet,
+    col_limit: int = 80,
+) -> None:
+    """Обрезает лист после «конец протокола» и задаёт область печати."""
+    end_row = find_protocol_end_row(sheet)
+    if end_row is not None:
+        _delete_rows_below(sheet, end_row)
+        last_row, last_col = get_sheet_print_bounds(sheet, col_limit, max_row=end_row)
+        last_row = min(last_row, end_row)
+    else:
+        last_row, last_col = get_sheet_print_bounds(sheet, col_limit)
+
+    if last_row < 1 or last_col < 1:
+        return
+    sheet.print_area = f"A1:{get_column_letter(last_col)}{last_row}"
+
+
+def apply_sheet_print_area(
+    sheet,
+    col_limit: int = 80,
+) -> None:
+    """Ограничивает область печати реальным содержимым листа."""
+    finalize_protocol_sheet(sheet, col_limit)
 
 
 def template_contains_marker(sheet, marker: str) -> bool:
@@ -338,6 +458,15 @@ def copy_column_dimensions(source_sheet, target_sheet):
             target_sheet.column_dimensions[key].hidden = value.hidden
     except Exception as e:
         logger.error(f"Ошибка при копировании размеров столбцов: {str(e)}")
+
+
+def copy_sheet_page_settings(source_sheet, target_sheet) -> None:
+    """Копирует ориентацию, поля и прочие параметры печати из шаблона."""
+    target_sheet.page_setup = copy(source_sheet.page_setup)
+    target_sheet.page_margins = copy(source_sheet.page_margins)
+    target_sheet.print_options = copy(source_sheet.print_options)
+    target_sheet.sheet_format = copy(source_sheet.sheet_format)
+    target_sheet.sheet_properties = copy(source_sheet.sheet_properties)
 
 
 def get_cell_width(sheet, row, col):

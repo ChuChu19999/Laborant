@@ -26,8 +26,10 @@ from services.employees import (
     get_employee_position_and_name,
     get_employees_by_hashes,
 )
+from services.research import build_research_method_display_name
 from utils.protocol_generator_utils import (
     adjust_cell_height_if_needed,
+    apply_sheet_print_area,
     check_method_name,
     copy_cell_block,
     copy_cell_style,
@@ -35,14 +37,15 @@ from utils.protocol_generator_utils import (
     copy_column_dimensions_range,
     copy_row_formatting,
     copy_row_with_styles,
+    copy_sheet_page_settings,
+    find_protocol_end_row,
     format_protocol_calculation_result,
     get_row_last_used_col,
     get_template_content_bounds,
+    join_unique_values,
     map_test_object_to_suffix,
     template_contains_marker,
 )
-
-_CM_TO_INCH = 2.54
 
 MASS_FRACTION_OIL_GROUP_DISPLAY_NAME = "Массовая доля нефти"
 
@@ -84,21 +87,6 @@ def _protocol_group_uses_merged_display_name(group_data: dict) -> bool:
         "нефть" in method.name.lower() or "конденсат" in method.name.lower()
         for method in group_data["methods"]
     )
-
-
-def set_sheet_margins(sheet):
-    """Устанавливает фиксированные поля страницы на листе Excel."""
-    sheet.page_margins.left = 1.5 / _CM_TO_INCH
-    sheet.page_margins.right = 1.0 / _CM_TO_INCH
-    sheet.page_margins.top = 1.1 / _CM_TO_INCH
-    sheet.page_margins.bottom = 0.9 / _CM_TO_INCH
-
-
-def enforce_fit_to_page(sheet):
-    """Устанавливает подгонку по ширине страницы и включает fitToPage."""
-    sheet.page_setup.fitToWidth = 1
-    sheet.page_setup.fitToHeight = 0
-    sheet.page_setup.fitToPage = True
 
 
 async def process_cell_markers(
@@ -192,15 +180,15 @@ async def get_marker_value_title(
                 for sample in samples
                 if sample.branch and sample.branch.name
             ]
-            return ", ".join(set(branches)) if branches else ""
+            return join_unique_values(branches)
 
         elif marker == "tel":
             phones = [sample.phone for sample in samples if sample.phone]
-            return ", ".join(set(phones)) if phones else ""
+            return join_unique_values(phones)
 
         elif marker == "res_object":
             objects = [sample.test_object for sample in samples if sample.test_object]
-            return ", ".join(objects) if objects else ""
+            return join_unique_values(objects)
 
         elif marker == "sampling_location":
             locations = []
@@ -221,7 +209,7 @@ async def get_marker_value_title(
 
                 if location_parts:
                     locations.append(" ".join(location_parts))
-            return ", ".join(locations) if locations else ""
+            return join_unique_values(locations)
 
         elif marker == "mode":
             modes = [
@@ -229,7 +217,7 @@ async def get_marker_value_title(
                 for sample in samples
                 if sample.mode and sample.mode.strip()
             ]
-            return ", ".join(modes) if modes else ""
+            return join_unique_values(modes)
 
         elif marker == "sampling_date":
             dates = sorted(
@@ -287,7 +275,7 @@ async def get_marker_value_title(
                 for sample in samples
                 if sample.registration_number
             ]
-            return ", ".join(numbers) if numbers else ""
+            return join_unique_values(numbers)
 
         elif marker == "workplace_issued":
             if protocol.issued_position:
@@ -390,15 +378,15 @@ def get_marker_value_sync(
                 for sample in samples
                 if sample.branch and sample.branch.name
             ]
-            return ", ".join(set(branches)) if branches else ""
+            return join_unique_values(branches)
 
         if marker == "tel":
             phones = [sample.phone for sample in samples if sample.phone]
-            return ", ".join(set(phones)) if phones else ""
+            return join_unique_values(phones)
 
         if marker == "res_object":
             objects = [sample.test_object for sample in samples if sample.test_object]
-            return ", ".join(objects) if objects else ""
+            return join_unique_values(objects)
 
         if marker == "sampling_location":
             locations = []
@@ -416,7 +404,7 @@ def get_marker_value_sync(
                         location_parts.append(sample.mode.strip())
                 if location_parts:
                     locations.append(" ".join(location_parts))
-            return ", ".join(locations) if locations else ""
+            return join_unique_values(locations)
 
         if marker == "mode":
             modes = [
@@ -424,7 +412,7 @@ def get_marker_value_sync(
                 for sample in samples
                 if sample.mode and sample.mode.strip()
             ]
-            return ", ".join(modes) if modes else ""
+            return join_unique_values(modes)
 
         if marker == "sampling_date":
             dates = sorted(
@@ -482,7 +470,7 @@ def get_marker_value_sync(
                 for sample in samples
                 if sample.registration_number
             ]
-            return ", ".join(numbers) if numbers else ""
+            return join_unique_values(numbers)
 
         if marker == "workplace_issued":
             return protocol.issued_position or ""
@@ -901,6 +889,10 @@ async def process_footer(
                 )
                 if processed_value is not None:
                     cell.value = processed_value
+
+        if find_protocol_end_row(current_sheet) == current_row:
+            current_row += 1
+            break
 
         current_row += 1
 
@@ -2142,22 +2134,31 @@ def _resolve_horizontal_cell_value_sync(
             norm_text = norm_values_by_method.get(method_id, "")
         return value.replace("{norma_value}", norm_text)
     if "{name_method}" in value and calc and calc.research_method:
-        method_name = calc.research_method.name or ""
+        method_name = build_research_method_display_name(
+            calc.research_method,
+            horizontal_table=True,
+        )
         value = value.replace("{name_method}", method_name)
     if "{nd_code}" in value and calc and calc.research_method:
         value = value.replace("{nd_code}", calc.research_method.nd_code or "")
     if ("{nd_name}" in value or "{name_nd}" in value) and calc and calc.research_method:
         nd_name = calc.research_method.nd_name or ""
         value = value.replace("{nd_name}", nd_name).replace("{name_nd}", nd_name)
-    if "{unit}" in value and method_calc:
-        value = value.replace("{unit}", method_calc.unit or "-")
+    if "{unit}" in value:
+        if method_calc:
+            value = value.replace("{unit}", method_calc.unit or "-")
+        elif sample:
+            value = value.replace("{unit}", "-")
     if "{measurement_method}" in value and calc and calc.research_method:
         measurement_method = calc.research_method.measurement_method or "-"
         value = value.replace("{measurement_method}", measurement_method)
     if "{result}" in value:
-        result_text = (
-            format_protocol_calculation_result(method_calc) if method_calc else ""
-        )
+        if method_calc:
+            result_text = format_protocol_calculation_result(method_calc)
+        elif sample:
+            result_text = "-"
+        else:
+            result_text = ""
         value = value.replace("{result}", result_text)
     if "{measurement_error}" in value:
         error_text = (
@@ -3470,8 +3471,7 @@ async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> Respons
         new_workbook = openpyxl.Workbook()
         new_sheet = new_workbook.active
         new_sheet.title = "Лист 1"
-        set_sheet_margins(new_sheet)
-        enforce_fit_to_page(new_sheet)
+        copy_sheet_page_settings(template_sheet, new_sheet)
 
         if hasattr(template_sheet, "oddFooter") and hasattr(new_sheet, "oddFooter"):
             new_sheet.oddFooter.left = await process_footer_test_protocol_number(
@@ -3642,7 +3642,7 @@ async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> Respons
                         sampling_location_name_only,
                     )
 
-        set_sheet_margins(new_sheet)
+        copy_sheet_page_settings(template_sheet, new_sheet)
         copy_column_dimensions(template_sheet, new_sheet)
         if _template_has_horizontal_table1(template_sheet, table_start):
             horizontal_methods = _unique_method_calculations(
@@ -3654,7 +3654,8 @@ async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> Respons
                 table_start,
                 horizontal_methods,
             )
-        enforce_fit_to_page(new_sheet)
+
+        apply_sheet_print_area(new_sheet)
 
         output = BytesIO()
         new_workbook.save(output)
