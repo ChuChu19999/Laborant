@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { BoldOutlined, DownloadOutlined, ItalicOutlined } from '@ant-design/icons';
-import { Button, Spin, Tooltip, message } from 'antd';
+import { Button, Spin, message } from 'antd';
 import { read, utils } from 'xlsx';
 import { protocolsApi, type CellStyle } from '../../../shared/api/protocols';
 import { Select } from '../../../shared/ui/FormItems';
+import Tooltip from '../../../shared/ui/Tooltip/Tooltip';
 import './ExcelEditor.css';
 
 const { Option } = Select;
@@ -285,7 +286,7 @@ const ExcelEditor: React.FC<ExcelEditorProps> = ({ templateId, section, onDataCh
   return (
     <div className="excel-editor">
       <div className="toolbar">
-        <Tooltip title="Жирный">
+        <Tooltip title="Жирный" placement="top">
           <Button
             icon={<BoldOutlined />}
             onClick={() => applyFormatting({ type: 'bold' })}
@@ -293,7 +294,7 @@ const ExcelEditor: React.FC<ExcelEditorProps> = ({ templateId, section, onDataCh
             className={isStyleActive('bold') ? 'active' : ''}
           />
         </Tooltip>
-        <Tooltip title="Курсив">
+        <Tooltip title="Курсив" placement="top">
           <Button
             icon={<ItalicOutlined />}
             onClick={() => applyFormatting({ type: 'italic' })}
@@ -301,7 +302,7 @@ const ExcelEditor: React.FC<ExcelEditorProps> = ({ templateId, section, onDataCh
             className={isStyleActive('italic') ? 'active' : ''}
           />
         </Tooltip>
-        <Tooltip title="Размер шрифта">
+        <Tooltip title="Размер шрифта" placement="top">
           <Select
             className="font-size-select"
             onChange={size => applyFormatting({ type: 'fontSize', size: size as number })}
@@ -317,7 +318,7 @@ const ExcelEditor: React.FC<ExcelEditorProps> = ({ templateId, section, onDataCh
           </Select>
         </Tooltip>
         <div className="toolbar-separator" />
-        <Tooltip title="Скачать текущий файл">
+        <Tooltip title="Скачать текущий файл" placement="top">
           <Button icon={<DownloadOutlined />} onClick={downloadCurrentFile} />
         </Tooltip>
       </div>

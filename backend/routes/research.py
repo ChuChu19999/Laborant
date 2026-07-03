@@ -21,6 +21,7 @@ from schemas.research import (
 from services.calculation import get_calculations
 from services.research import (
     batch_update_sort_order,
+    build_research_method_group_response,
     create_research_method,
     create_research_method_group,
     delete_research_method,
@@ -417,7 +418,7 @@ async def list_research_method_groups(
         sort_order=sort_order,
     )
     return PaginatedResponse(
-        items=[ResearchMethodGroupResponse.model_validate(group) for group in groups],
+        items=[build_research_method_group_response(group) for group in groups],
         total=total,
         page=page if page is not None else 1,
         page_size=page_size if page_size is not None else total,
@@ -446,7 +447,7 @@ async def create_research_method_group_endpoint(
     """Добавляет новую группу методов исследования на основе переданных данных."""
     group = await create_research_method_group(db, group_data)
     await db.commit()
-    return ResearchMethodGroupResponse.model_validate(group)
+    return build_research_method_group_response(group)
 
 
 @router.get(
@@ -462,13 +463,19 @@ async def create_research_method_group_endpoint(
 # @IsAuthenticated
 async def get_research_method_group(
     group_id: int,
+    include_deleted: bool = Query(
+        False,
+        description="Включить скрытые группы (для сохранения связи при редактировании методики)",
+    ),
     db: AsyncSession = Depends(get_db),
 ):
     """Возвращает информацию о группе методов исследования по ее идентификатору."""
-    group = await get_research_method_group_by_id(db, group_id)
+    group = await get_research_method_group_by_id(
+        db, group_id, include_deleted=include_deleted
+    )
     if not group:
         raise NotFoundError("Группа методов исследования не найдена")
-    return ResearchMethodGroupResponse.model_validate(group)
+    return build_research_method_group_response(group)
 
 
 @router.patch(
@@ -490,14 +497,14 @@ async def update_research_method_group_endpoint(
     """Обновляет существующую группу методов исследования. Можно обновить только указанные поля."""
     group = await update_research_method_group(db, group_id, group_data)
     await db.commit()
-    return ResearchMethodGroupResponse.model_validate(group)
+    return build_research_method_group_response(group)
 
 
 @router.delete(
     "/research-method-groups/{group_id}/",
     status_code=204,
     summary="Удаление группы методов исследования",
-    description="Выполняет мягкое удаление группы методов исследования. Методы группы остаются активными.",
+    description="Выполняет мягкое удаление группы методов исследования вместе с её методами.",
     responses={
         204: {"description": "Группа методов исследования успешно удалена"},
         404: {"description": "Группа методов исследования не найдена"},
@@ -508,7 +515,7 @@ async def delete_research_method_group_endpoint(
     group_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """Выполняет мягкое удаление группы методов исследования. Методы группы остаются активными."""
+    """Выполняет мягкое удаление группы методов исследования вместе с её методами."""
     await delete_research_method_group(db, group_id)
     await db.commit()
 

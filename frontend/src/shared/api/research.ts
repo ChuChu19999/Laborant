@@ -63,7 +63,7 @@ export interface ResearchMethod {
   rounding_type: 'decimal' | 'significant';
   rounding_decimal: number;
   is_group_member: boolean;
-  groups?: Array<{ id: number; name: string }>;
+  groups?: Array<{ id: number; name: string; deleted_at?: string | null }>;
   equipment_data_default?: number[];
   sort_order?: number;
   laboratory_id?: number;
@@ -192,8 +192,17 @@ export const researchApi = {
     return response.data;
   },
 
-  getResearchMethodGroup: async (id: number): Promise<ResearchMethodGroup> => {
-    const response = await axiosInstance.get(`/api/research-method-groups/${id}/`);
+  getResearchMethodGroup: async (
+    id: number,
+    options?: { include_deleted?: boolean }
+  ): Promise<ResearchMethodGroup> => {
+    const params: Record<string, boolean> = {};
+    if (options?.include_deleted) {
+      params.include_deleted = true;
+    }
+    const response = await axiosInstance.get(`/api/research-method-groups/${id}/`, {
+      params,
+    });
     return response.data;
   },
 

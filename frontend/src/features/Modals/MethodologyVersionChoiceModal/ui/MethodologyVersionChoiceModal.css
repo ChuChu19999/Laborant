@@ -27,3 +27,14 @@
   flex-wrap: wrap;
   gap: 8px;
 }
+
+.methodology-version-choice-modal-candidates {
+  margin-top: 8px;
+}
+
+.methodology-version-choice-modal-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 8px 0 0 18px;
+}

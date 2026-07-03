@@ -1,7 +1,7 @@
 import React from 'react';
 import { EditOutlined } from '@ant-design/icons';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
-import LinkOffIcon from '@mui/icons-material/LinkOff';
+import Tooltip from '../../../shared/ui/Tooltip/Tooltip';
 import './MethodListItem.css';
 
 interface MethodListItemProps {
@@ -11,7 +11,6 @@ interface MethodListItemProps {
   onClick?: () => void;
   onEdit?: (e: React.MouseEvent) => void;
   onDelete?: (e: React.MouseEvent) => void;
-  onDisconnect?: (e: React.MouseEvent) => void;
   dragHandleProps?: React.HTMLAttributes<HTMLDivElement>;
 }
 
@@ -22,7 +21,6 @@ const MethodListItem: React.FC<MethodListItemProps> = ({
   onClick,
   onEdit,
   onDelete,
-  onDisconnect,
   dragHandleProps,
 }) => {
   const displayName =
@@ -60,51 +58,38 @@ const MethodListItem: React.FC<MethodListItemProps> = ({
         </div>
         <div className="method-list-item-actions">
           {onEdit && (
-            <button
-              className="method-list-item-edit"
-              onClick={e => {
-                e.stopPropagation();
-                onEdit(e);
-              }}
-              onPointerDown={e => {
-                e.stopPropagation();
-              }}
-              type="button"
-              title="Редактировать метод"
-            >
-              <EditOutlined />
-            </button>
-          )}
-          {onDisconnect && (
-            <button
-              className="method-list-item-disconnect"
-              onClick={e => {
-                e.stopPropagation();
-                onDisconnect(e);
-              }}
-              onPointerDown={e => {
-                e.stopPropagation();
-              }}
-              type="button"
-              title="Разорвать группу"
-            >
-              <LinkOffIcon className="method-list-item-disconnect-icon" />
-            </button>
+            <Tooltip title="Редактировать метод" placement="top">
+              <button
+                className="method-list-item-edit"
+                onClick={e => {
+                  e.stopPropagation();
+                  onEdit(e);
+                }}
+                onPointerDown={e => {
+                  e.stopPropagation();
+                }}
+                type="button"
+              >
+                <EditOutlined />
+              </button>
+            </Tooltip>
           )}
           {onDelete && (
-            <button
-              className="method-list-item-delete"
-              onClick={e => {
-                e.stopPropagation();
-                onDelete(e);
-              }}
-              onPointerDown={e => {
-                e.stopPropagation();
-              }}
-              type="button"
-            >
-              ×
-            </button>
+            <Tooltip title="Удалить метод" placement="top">
+              <button
+                className="method-list-item-delete"
+                onClick={e => {
+                  e.stopPropagation();
+                  onDelete(e);
+                }}
+                onPointerDown={e => {
+                  e.stopPropagation();
+                }}
+                type="button"
+              >
+                ×
+              </button>
+            </Tooltip>
           )}
         </div>
       </div>

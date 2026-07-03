@@ -77,12 +77,21 @@ export interface CalculationFilters {
   research_method_id?: number;
 }
 
+export interface MethodologyChoiceCandidate {
+  id: number;
+  name: string;
+}
+
 export interface MethodologyChoice {
   methodology_changed: boolean;
   method_name: string;
   stored_method_id: number;
   stored_method_deleted: boolean;
   current_method_id: number | null;
+  methodology_ambiguous?: boolean;
+  candidate_methods?: MethodologyChoiceCandidate[];
+  stored_method_group_id?: number | null;
+  stored_method_group_name?: string | null;
 }
 
 export const calculationApi = {

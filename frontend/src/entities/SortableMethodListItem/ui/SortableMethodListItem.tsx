@@ -12,7 +12,6 @@ interface SortableMethodListItemProps {
   onClick: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
-  onDisconnect?: () => void;
 }
 
 const SortableMethodListItem: React.FC<SortableMethodListItemProps> = ({
@@ -23,7 +22,6 @@ const SortableMethodListItem: React.FC<SortableMethodListItemProps> = ({
   onClick,
   onEdit,
   onDelete,
-  onDisconnect,
 }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
@@ -39,12 +37,6 @@ const SortableMethodListItem: React.FC<SortableMethodListItemProps> = ({
     e.stopPropagation();
     e.preventDefault();
     onDelete?.();
-  };
-
-  const handleDisconnect = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    onDisconnect?.();
   };
 
   return (
@@ -66,7 +58,6 @@ const SortableMethodListItem: React.FC<SortableMethodListItemProps> = ({
         onClick={onClick}
         onEdit={onEdit ? handleEdit : undefined}
         onDelete={onDelete ? handleDelete : undefined}
-        onDisconnect={onDisconnect ? handleDisconnect : undefined}
         dragHandleProps={{ ...attributes, ...listeners }}
       />
     </div>

@@ -88,6 +88,13 @@ class CalculationResponse(CalculationBase):
         from_attributes = True
 
 
+class MethodologyChoiceCandidate(BaseModel):
+    """Кандидат актуальной методики при неоднозначном совпадении."""
+
+    id: int = Field(..., description="ID методики")
+    name: str = Field(..., description="Отображаемое наименование методики")
+
+
 class MethodologyChoiceResponse(BaseModel):
     """Статус методики при редактировании сохранённого расчёта."""
 
@@ -104,6 +111,20 @@ class MethodologyChoiceResponse(BaseModel):
     )
     current_method_id: Optional[int] = Field(
         None, description="ID актуальной методики с тем же именем"
+    )
+    methodology_ambiguous: bool = Field(
+        default=False,
+        description="Несколько подходящих актуальных методик, нужен выбор пользователя",
+    )
+    candidate_methods: List[MethodologyChoiceCandidate] = Field(
+        default_factory=list,
+        description="Список актуальных методик при неоднозначном совпадении",
+    )
+    stored_method_group_id: Optional[int] = Field(
+        None, description="ID группы методики на момент расчёта"
+    )
+    stored_method_group_name: Optional[str] = Field(
+        None, description="Наименование группы методики на момент расчёта"
     )
 
 

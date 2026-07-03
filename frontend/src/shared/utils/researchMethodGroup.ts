@@ -35,3 +35,13 @@ export function enrichGroupMethodsWithSortOrder(
     };
   });
 }
+
+/** Активные методы группы для выбора в UI (без скрытых версий из association). */
+export function getActiveGroupMethodsForSelect(
+  groupMethodRefs: Array<{ id: number; name: string }>,
+  activeMethods: Array<{ id: number; name: string; sort_order?: number }>
+): GroupMethodSortable[] {
+  const activeIds = new Set(activeMethods.map(method => method.id));
+  const activeRefs = groupMethodRefs.filter(ref => activeIds.has(ref.id));
+  return enrichGroupMethodsWithSortOrder(activeRefs, activeMethods);
+}

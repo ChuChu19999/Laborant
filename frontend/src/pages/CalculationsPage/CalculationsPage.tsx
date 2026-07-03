@@ -12,6 +12,7 @@ import {
 import { laboratoriesApi } from '../../shared/api/laboratories';
 import { researchApi } from '../../shared/api/research';
 import { samplesApi, type Sample } from '../../shared/api/samples';
+import { extractErrorMessage } from '../../shared/lib/errors/extractErrorMessage';
 import { useAutoRefetchQuery } from '../../shared/model/lib/useQuery';
 import { Select } from '../../shared/ui/FormItems';
 import Layout from '../../shared/ui/Layout/Layout';
@@ -175,25 +176,24 @@ const CalculationsPage: React.FC = () => {
     }
   }, [loadResearchMethodForEdit, methodologyChoice]);
 
-  const handleChooseCurrentMethodology = useCallback(async () => {
-    if (!methodologyChoice?.current_method_id) {
-      message.error('Актуальная методика не найдена');
-      return;
-    }
-    try {
-      setIsLoading(true);
-      setMethodologyChoiceModalOpen(false);
-      setEditMethodologyVersion('current');
-      await loadResearchMethodForEdit(methodologyChoice.current_method_id, false);
-      setLastCalculationResult({});
-    } catch (error) {
-      console.error('Ошибка при загрузке новой методики:', error);
-      message.error('Не удалось загрузить актуальную методику');
-      setMethodologyChoiceModalOpen(true);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [loadResearchMethodForEdit, methodologyChoice]);
+  const handleChooseCurrentMethodology = useCallback(
+    async (methodId: number) => {
+      try {
+        setIsLoading(true);
+        setMethodologyChoiceModalOpen(false);
+        setEditMethodologyVersion('current');
+        await loadResearchMethodForEdit(methodId, false);
+        setLastCalculationResult({});
+      } catch (error) {
+        console.error('Ошибка при загрузке новой методики:', error);
+        message.error('Не удалось загрузить актуальную методику');
+        setMethodologyChoiceModalOpen(true);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [loadResearchMethodForEdit]
+  );
 
   const handleMethodologyChoiceCancel = useCallback(() => {
     setMethodologyChoiceModalOpen(false);
@@ -285,10 +285,7 @@ const CalculationsPage: React.FC = () => {
         }
       } catch (error) {
         console.error('Ошибка при загрузке методов:', error);
-        const errorMessage =
-          (error as { response?: { data?: { error?: string } } })?.response?.data?.error ||
-          (error as Error)?.message ||
-          'Не удалось загрузить методы исследования';
+        const errorMessage = extractErrorMessage(error, 'Не удалось загрузить методы исследования');
         setError(errorMessage);
       } finally {
         setIsLoading(false);

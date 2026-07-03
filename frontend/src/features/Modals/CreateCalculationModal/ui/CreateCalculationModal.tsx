@@ -477,9 +477,10 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
         department_id: departmentId,
         page_size: 100,
       });
-      const individual_methods = response.items.filter(
-        method => !method.is_group_member && (!method.groups || method.groups.length === 0)
-      );
+      const individual_methods = response.items.filter(method => {
+        const hasActiveGroup = method.groups?.some(group => group.deleted_at == null);
+        return !hasActiveGroup;
+      });
       setAvailableMethods({ individual_methods, groups: [] });
     } catch (err) {
       console.error('Ошибка при загрузке доступных методов:', err);
@@ -1423,7 +1424,9 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
         const groupId = loadedMethod.groups?.[0]?.id;
         let groupMethodIds: number[] | null = null;
         if (groupId != null) {
-          const group = await researchApi.getResearchMethodGroup(groupId);
+          const group = await researchApi.getResearchMethodGroup(groupId, {
+            include_deleted: true,
+          });
           groupMethodIds = group.methods.map(m => m.id);
         }
         await researchApi.deleteResearchMethod(editMethodId!);
@@ -1438,6 +1441,9 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
         const response = await researchApi.createResearchMethod(dataToSend);
         if (groupId != null && groupMethodIds != null) {
           const newMethodIds = groupMethodIds.map(id => (id === editMethodId ? response.id : id));
+          if (!newMethodIds.includes(editMethodId!)) {
+            newMethodIds.push(editMethodId!);
+          }
           await researchApi.updateResearchMethodGroup(groupId, { method_ids: newMethodIds });
         }
         message.success('Метод исследования успешно обновлён');

@@ -320,7 +320,13 @@ class ResearchMethodResponse(ResearchMethodBase):
                 if isinstance(item, dict):
                     result.append(item)
                 else:
-                    result.append({"id": item.id, "name": item.name})
+                    result.append(
+                        {
+                            "id": item.id,
+                            "name": item.name,
+                            "deleted_at": item.deleted_at,
+                        }
+                    )
             return result
         return []
 

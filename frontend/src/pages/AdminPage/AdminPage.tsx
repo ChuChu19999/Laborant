@@ -30,7 +30,7 @@ import Layout from '../../shared/ui/Layout/Layout';
 import { buildCalculationFormPrefill } from '../../shared/utils/calculationFormPrefill';
 import { isMassFractionOilResearchMethod } from '../../shared/utils/massFractionOilMethod';
 import {
-  enrichGroupMethodsWithSortOrder,
+  getActiveGroupMethodsForSelect,
   getFirstGroupMethodId,
   sortGroupMethods,
 } from '../../shared/utils/researchMethodGroup';
@@ -88,20 +88,13 @@ const AdminPage: React.FC = () => {
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
     isOpen: boolean;
     itemId: number | null;
+    itemType: 'method' | 'group' | null;
     itemName: string | null;
   }>({
     isOpen: false,
     itemId: null,
+    itemType: null,
     itemName: null,
-  });
-  const [disconnectConfirmation, setDisconnectConfirmation] = useState<{
-    isOpen: boolean;
-    groupId: number | null;
-    groupName: string | null;
-  }>({
-    isOpen: false,
-    groupId: null,
-    groupName: null,
   });
   const [registrationNumber, setRegistrationNumber] = useState('');
   const [isLoadingRegistrationData, setIsLoadingRegistrationData] = useState(false);
@@ -223,9 +216,8 @@ const AdminPage: React.FC = () => {
       } else {
         const group = groups.find(g => g.id === firstItem.id);
         if (group && group.methods.length > 0) {
-          const firstGroupMethodId = getFirstGroupMethodId(
-            enrichGroupMethodsWithSortOrder(group.methods, methods)
-          );
+          const activeGroupMethods = getActiveGroupMethodsForSelect(group.methods, methods);
+          const firstGroupMethodId = getFirstGroupMethodId(activeGroupMethods);
           if (firstGroupMethodId != null) {
             setSelectedMethodId(firstGroupMethodId);
           }
@@ -284,9 +276,8 @@ const AdminPage: React.FC = () => {
     } else {
       const group = groups.find(g => g.id === itemId);
       if (group && group.methods.length > 0) {
-        const firstGroupMethodId = getFirstGroupMethodId(
-          enrichGroupMethodsWithSortOrder(group.methods, methods)
-        );
+        const activeGroupMethods = getActiveGroupMethodsForSelect(group.methods, methods);
+        const firstGroupMethodId = getFirstGroupMethodId(activeGroupMethods);
         if (firstGroupMethodId != null) {
           setSelectedMethodId(firstGroupMethodId);
         }
@@ -294,37 +285,33 @@ const AdminPage: React.FC = () => {
     }
   };
 
-  const handleMethodDelete = (itemId: number) => {
-    const item = displayItems.find(i => i.id === itemId && i.type === 'method');
-    if (!item || item.type !== 'method') return;
+  const handleMethodDelete = (itemId: number, itemType: 'method' | 'group') => {
+    const item = displayItems.find(i => i.id === itemId && i.type === itemType);
+    if (!item) return;
 
+    const itemName = item.type === 'method' ? item.data.name : item.data.name;
     setDeleteConfirmation({
       isOpen: true,
       itemId,
-      itemName: item.data.name,
-    });
-  };
-
-  const handleGroupDisconnect = (groupId: number) => {
-    const item = displayItems.find(i => i.id === groupId && i.type === 'group');
-    if (!item || item.type !== 'group') return;
-
-    setDisconnectConfirmation({
-      isOpen: true,
-      groupId,
-      groupName: item.data.name,
+      itemType,
+      itemName,
     });
   };
 
   const handleDeleteConfirm = async () => {
-    if (!deleteConfirmation.itemId) return;
+    if (!deleteConfirmation.itemId || !deleteConfirmation.itemType) return;
 
     try {
-      await deleteMethodMutation.mutateAsync(deleteConfirmation.itemId);
+      if (deleteConfirmation.itemType === 'method') {
+        await deleteMethodMutation.mutateAsync(deleteConfirmation.itemId);
+      } else {
+        await deleteGroupMutation.mutateAsync(deleteConfirmation.itemId);
+      }
       await researchMethods.refetch();
       setDeleteConfirmation({
         isOpen: false,
         itemId: null,
+        itemType: null,
         itemName: null,
       });
     } catch (error) {
@@ -332,35 +319,12 @@ const AdminPage: React.FC = () => {
     }
   };
 
-  const handleDisconnectConfirm = async () => {
-    if (!disconnectConfirmation.groupId) return;
-
-    try {
-      await deleteGroupMutation.mutateAsync(disconnectConfirmation.groupId);
-      await researchMethods.refetch();
-      setDisconnectConfirmation({
-        isOpen: false,
-        groupId: null,
-        groupName: null,
-      });
-    } catch (error) {
-      console.error('Ошибка при удалении группы:', error);
-    }
-  };
-
   const handleDeleteCancel = () => {
     setDeleteConfirmation({
       isOpen: false,
       itemId: null,
+      itemType: null,
       itemName: null,
-    });
-  };
-
-  const handleDisconnectCancel = () => {
-    setDisconnectConfirmation({
-      isOpen: false,
-      groupId: null,
-      groupName: null,
     });
   };
 
@@ -779,7 +743,6 @@ const AdminPage: React.FC = () => {
       onMethodClick={handleMethodClick}
       onMethodEdit={handleEditCalculationMethod}
       onMethodDelete={handleMethodDelete}
-      onGroupDisconnect={handleGroupDisconnect}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
@@ -902,22 +865,20 @@ const AdminPage: React.FC = () => {
       />
       <ConfirmationModal
         open={deleteConfirmation.isOpen}
-        title="Скрытие метода исследования"
-        message={`Вы действительно хотите скрыть метод исследования "${deleteConfirmation.itemName}"?`}
-        confirmText="Скрыть"
+        title={
+          deleteConfirmation.itemType === 'method'
+            ? 'Скрытие метода исследования'
+            : 'Удаление группы методов'
+        }
+        message={
+          deleteConfirmation.itemType === 'method'
+            ? `Вы действительно хотите скрыть метод исследования "${deleteConfirmation.itemName}"?`
+            : `Вы действительно хотите удалить группу "${deleteConfirmation.itemName}"? Методы группы тоже будут скрыты.`
+        }
+        confirmText={deleteConfirmation.itemType === 'method' ? 'Скрыть' : 'Удалить группу'}
         cancelText="Отмена"
         onConfirm={handleDeleteConfirm}
         onCancel={handleDeleteCancel}
-        modalWidth="450"
-      />
-      <ConfirmationModal
-        open={disconnectConfirmation.isOpen}
-        title="Удаление группы методов"
-        message={`Вы действительно хотите удалить группу "${disconnectConfirmation.groupName}"? Методы группы останутся в списке как отдельные элементы.`}
-        confirmText="Удалить группу"
-        cancelText="Отмена"
-        onConfirm={handleDisconnectConfirm}
-        onCancel={handleDisconnectCancel}
         modalWidth="450"
       />
       {isSelectionConditionsModalOpen && (

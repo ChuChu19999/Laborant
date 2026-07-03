@@ -13,10 +13,13 @@ from models.sample import MassFractionOilRefractionTable, Sample
 from schemas.calculation import (
     CalculationCreate,
     CalculationUpdate,
+    MethodologyChoiceCandidate,
     MethodologyChoiceResponse,
 )
 from services.research import (
+    build_research_method_display_name,
     get_active_research_method_by_name,
+    get_active_research_methods_by_name,
     get_research_method_by_id,
 )
 from utils.pagination import apply_pagination, calculate_total_pages, get_total_count
@@ -316,25 +319,82 @@ async def get_calculation_methodology_choice(
         raise NotFoundError("Метод исследования не найден")
 
     stored_method_deleted = stored_method.deleted_at is not None
-    current_method = await get_active_research_method_by_name(
+    stored_group = None
+    if stored_method.groups:
+        stored_group = next(
+            (group for group in stored_method.groups if group.deleted_at is None),
+            stored_method.groups[0],
+        )
+    stored_group_id = stored_group.id if stored_group else None
+    stored_group_name = stored_group.name if stored_group else None
+    method_display_name = build_research_method_display_name(stored_method)
+
+    if not stored_method_deleted:
+        return MethodologyChoiceResponse(
+            methodology_changed=False,
+            method_name=method_display_name,
+            stored_method_id=stored_method.id,
+            stored_method_deleted=False,
+            current_method_id=stored_method.id,
+            stored_method_group_id=stored_group_id,
+            stored_method_group_name=stored_group_name,
+        )
+
+    active_methods = await get_active_research_methods_by_name(
         db,
         name=stored_method.name,
         laboratory_id=calculation.laboratory_id,
         department_id=calculation.department_id,
     )
 
-    methodology_changed = (
-        stored_method_deleted
-        and current_method is not None
-        and current_method.id != stored_method.id
-    )
+    if stored_group_name is not None:
+        grouped_methods = [
+            method
+            for method in active_methods
+            if any(group.name == stored_group_name for group in method.groups)
+        ]
+        if grouped_methods:
+            active_methods = grouped_methods
 
+    if not active_methods:
+        return MethodologyChoiceResponse(
+            methodology_changed=False,
+            method_name=method_display_name,
+            stored_method_id=stored_method.id,
+            stored_method_deleted=True,
+            current_method_id=None,
+            stored_method_group_id=stored_group_id,
+            stored_method_group_name=stored_group_name,
+        )
+
+    if len(active_methods) > 1:
+        return MethodologyChoiceResponse(
+            methodology_changed=True,
+            method_name=method_display_name,
+            stored_method_id=stored_method.id,
+            stored_method_deleted=True,
+            current_method_id=None,
+            methodology_ambiguous=True,
+            candidate_methods=[
+                MethodologyChoiceCandidate(
+                    id=method.id,
+                    name=build_research_method_display_name(method),
+                )
+                for method in active_methods
+            ],
+            stored_method_group_id=stored_group_id,
+            stored_method_group_name=stored_group_name,
+        )
+
+    current_method = active_methods[0]
     return MethodologyChoiceResponse(
-        methodology_changed=methodology_changed,
-        method_name=stored_method.name,
+        methodology_changed=current_method.id != stored_method.id,
+        method_name=method_display_name,
         stored_method_id=stored_method.id,
-        stored_method_deleted=stored_method_deleted,
-        current_method_id=current_method.id if current_method else None,
+        stored_method_deleted=True,
+        current_method_id=current_method.id,
+        stored_method_group_id=stored_group_id,
+        stored_method_group_name=stored_group_name,
     )
 
 
@@ -375,11 +435,19 @@ async def _validate_research_method_version_change(
     if old_method.deleted_at is None:
         raise ValidationError("При замене расчёта нельзя менять метод исследования")
 
+    stored_group = None
+    if old_method.groups:
+        stored_group = next(
+            (group for group in old_method.groups if group.deleted_at is None),
+            old_method.groups[0],
+        )
+    stored_group_name = stored_group.name if stored_group else None
     active_method = await get_active_research_method_by_name(
         db,
         name=new_method.name,
         laboratory_id=laboratory_id,
         department_id=department_id,
+        group_name=stored_group_name,
     )
     if not active_method or active_method.id != new_method.id:
         raise ValidationError(

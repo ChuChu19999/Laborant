@@ -11,8 +11,10 @@ from models.research import (
     research_method_groups_association,
 )
 from schemas.research import (
+    ResearchMethodBrief,
     ResearchMethodCreate,
     ResearchMethodGroupCreate,
+    ResearchMethodGroupResponse,
     ResearchMethodGroupUpdate,
     ResearchMethodSortOrderUpdate,
     ResearchMethodUpdate,
@@ -21,6 +23,29 @@ from schemas.research import (
 from services.test_object import validate_research_method_sample_types
 from utils.pagination import apply_pagination, calculate_total_pages, get_total_count
 from utils.sorting import build_order_by
+
+
+def build_research_method_group_response(
+    group: ResearchMethodGroup,
+) -> ResearchMethodGroupResponse:
+    """Собрать ответ по группе без скрытых методов в списке members."""
+    return ResearchMethodGroupResponse(
+        id=group.id,
+        name=group.name,
+        sort_order=group.sort_order,
+        created_at=group.created_at,
+        deleted_at=group.deleted_at,
+        methods=[
+            ResearchMethodBrief(id=method.id, name=method.name)
+            for method in group.methods
+            if method.deleted_at is None
+        ],
+    )
+
+
+def method_belongs_to_active_group(method: ResearchMethod) -> bool:
+    """Проверить, входит ли метод в активную (не скрытую) группу."""
+    return any(group.deleted_at is None for group in (method.groups or []))
 
 
 async def get_research_method_by_id(
@@ -42,13 +67,33 @@ async def get_research_method_by_id(
     return result.scalar_one_or_none()
 
 
-async def get_active_research_method_by_name(
+def build_research_method_display_name(method: ResearchMethod) -> str:
+    """Собрать отображаемое имя методики с учётом активной группы."""
+    base_name = method.name or ""
+    if not method.is_group_member or not method.groups:
+        return base_name
+
+    active_group = next(
+        (group for group in method.groups if group.deleted_at is None),
+        None,
+    )
+    if not active_group:
+        return base_name
+
+    group_name = active_group.name
+    if group_name == "Вязкость кинематическая":
+        return f"{group_name} ({base_name.lower()})"
+    return group_name
+
+
+async def get_active_research_methods_by_name(
     db: AsyncSession,
     name: str,
     laboratory_id: int,
     department_id: Optional[int] = None,
-) -> Optional[ResearchMethod]:
-    """Найти актуальную (не удалённую) методику по имени в лаборатории и подразделении."""
+    group_name: Optional[str] = None,
+) -> List[ResearchMethod]:
+    """Найти актуальные методики по имени в лаборатории и подразделении."""
     conditions = [
         ResearchMethod.name == name,
         ResearchMethod.laboratory_id == laboratory_id,
@@ -59,17 +104,46 @@ async def get_active_research_method_by_name(
     else:
         conditions.append(ResearchMethod.department_id.is_(None))
 
-    query = (
-        select(ResearchMethod)
-        .where(*conditions)
-        .options(
-            selectinload(ResearchMethod.laboratory),
-            selectinload(ResearchMethod.department),
-            selectinload(ResearchMethod.groups),
+    query = select(ResearchMethod).where(*conditions)
+    if group_name is not None:
+        query = (
+            query.join(
+                research_method_groups_association,
+                ResearchMethod.id
+                == research_method_groups_association.c.research_method_id,
+            )
+            .join(
+                ResearchMethodGroup,
+                ResearchMethodGroup.id
+                == research_method_groups_association.c.research_method_group_id,
+            )
+            .where(ResearchMethodGroup.name == group_name)
         )
+
+    query = query.options(
+        selectinload(ResearchMethod.laboratory),
+        selectinload(ResearchMethod.department),
+        selectinload(ResearchMethod.groups),
     )
     result = await db.execute(query)
-    methods = result.scalars().all()
+    return list(result.scalars().unique().all())
+
+
+async def get_active_research_method_by_name(
+    db: AsyncSession,
+    name: str,
+    laboratory_id: int,
+    department_id: Optional[int] = None,
+    group_name: Optional[str] = None,
+) -> Optional[ResearchMethod]:
+    """Найти единственную актуальную методику по имени в лаборатории и подразделении."""
+    methods = await get_active_research_methods_by_name(
+        db,
+        name=name,
+        laboratory_id=laboratory_id,
+        department_id=department_id,
+        group_name=group_name,
+    )
     if len(methods) > 1:
         raise ValidationError(
             "Найдено несколько актуальных методик с одинаковым наименованием"
@@ -482,10 +556,12 @@ async def create_research_method_group(
         raise ValidationError("Необходимо выбрать хотя бы один метод")
 
     methods = await db.execute(
-        select(ResearchMethod).where(
+        select(ResearchMethod)
+        .where(
             ResearchMethod.id.in_(group_data.method_ids),
             ResearchMethod.deleted_at.is_(None),
         )
+        .options(selectinload(ResearchMethod.groups))
     )
     methods_list = methods.scalars().all()
 
@@ -493,7 +569,7 @@ async def create_research_method_group(
         raise NotFoundError("Один или несколько методов не найдены")
 
     for method in methods_list:
-        if method.is_group_member:
+        if method_belongs_to_active_group(method):
             raise ConflictError(f"Метод '{method.name}' уже входит в другую группу")
 
     sort_order = group_data.sort_order
@@ -540,7 +616,7 @@ async def update_research_method_group(
     db: AsyncSession, group_id: int, group_data: ResearchMethodGroupUpdate
 ) -> ResearchMethodGroup:
     """Обновить группу методов исследования."""
-    group = await get_research_method_group_by_id(db, group_id)
+    group = await get_research_method_group_by_id(db, group_id, include_deleted=True)
     if not group:
         raise NotFoundError("Группа методов исследования не найдена")
 
@@ -590,10 +666,12 @@ async def update_research_method_group(
 
         if methods_to_add:
             methods = await db.execute(
-                select(ResearchMethod).where(
+                select(ResearchMethod)
+                .where(
                     ResearchMethod.id.in_(list(methods_to_add)),
                     ResearchMethod.deleted_at.is_(None),
                 )
+                .options(selectinload(ResearchMethod.groups))
             )
             methods_list = methods.scalars().all()
 
@@ -601,7 +679,10 @@ async def update_research_method_group(
                 raise NotFoundError("Один или несколько методов не найдены")
 
             for method in methods_list:
-                if method.is_group_member and method.id not in old_method_ids:
+                if (
+                    method_belongs_to_active_group(method)
+                    and method.id not in old_method_ids
+                ):
                     raise ConflictError(
                         f"Метод '{method.name}' уже входит в другую группу"
                     )
@@ -630,23 +711,19 @@ async def update_research_method_group(
 
 
 async def delete_research_method_group(db: AsyncSession, group_id: int) -> None:
-    """Удалить группу методов исследования (мягкое удаление). Методы остаются активными."""
+    """Удалить группу методов исследования (мягкое удаление).
+
+    Группа и все её методы помечаются как удалённые.
+    Связь method-group в association сохраняется, is_group_member не меняется.
+    """
     group = await get_research_method_group_by_id(db, group_id)
     if not group:
         raise NotFoundError("Группа методов исследования не найдена")
 
     if group.methods:
-        method_ids = [method.id for method in group.methods]
         for method in group.methods:
-            method.is_group_member = False
-
-        await db.execute(
-            delete(research_method_groups_association).where(
-                research_method_groups_association.c.research_method_group_id
-                == group.id,
-                research_method_groups_association.c.research_method_id.in_(method_ids),
-            )
-        )
+            if method.deleted_at is None:
+                method.soft_delete()
 
     group.soft_delete()
     await db.flush()
