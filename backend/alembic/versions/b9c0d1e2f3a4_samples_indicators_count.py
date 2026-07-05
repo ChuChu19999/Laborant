@@ -5,17 +5,15 @@ Revises: a7b8c9d0e1f2
 Create Date: 2026-07-02 12:00:00.000000
 
 """
+
 from collections import defaultdict
 from typing import Optional
-
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
-
+from alembic import op
 from models.calculation import Calculation
 from models.sample import Sample
-
 
 revision = "b9c0d1e2f3a4"
 down_revision = "a7b8c9d0e1f2"
@@ -82,11 +80,15 @@ def _backfill_samples_indicators_count() -> None:
     bind = op.get_bind()
     session = Session(bind=bind)
     try:
-        calculations = session.execute(
-            select(Calculation)
-            .where(Calculation.deleted_at.is_(None))
-            .options(selectinload(Calculation.research_method))
-        ).scalars().all()
+        calculations = (
+            session.execute(
+                select(Calculation)
+                .where(Calculation.deleted_at.is_(None))
+                .options(selectinload(Calculation.research_method))
+            )
+            .scalars()
+            .all()
+        )
         by_sample: dict[int, list[Calculation]] = defaultdict(list)
         for calc in calculations:
             by_sample[calc.sample_id].append(calc)

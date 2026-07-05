@@ -5,9 +5,9 @@ Revises: 2a2272d64c04
 Create Date: 2026-05-27 12:00:00.000000
 
 """
-from alembic import op
-import sqlalchemy as sa
 
+import sqlalchemy as sa
+from alembic import op
 
 revision = "a8f3c1d92e40"
 down_revision = "2a2272d64c04"
@@ -147,13 +147,23 @@ def downgrade() -> None:
         schema="laborant",
     )
     op.drop_index(
-        op.f("ix_laborant_test_objects_tag"), table_name="test_objects", schema="laborant"
+        op.f("ix_laborant_test_objects_tag"),
+        table_name="test_objects",
+        schema="laborant",
     )
     op.drop_index(
-        op.f("ix_laborant_test_objects_name"), table_name="test_objects", schema="laborant"
+        op.f("ix_laborant_test_objects_name"),
+        table_name="test_objects",
+        schema="laborant",
     )
-    op.drop_index("idx_test_object_updated_at", table_name="test_objects", schema="laborant")
-    op.drop_index("idx_test_object_created_at", table_name="test_objects", schema="laborant")
+    op.drop_index(
+        "idx_test_object_updated_at", table_name="test_objects", schema="laborant"
+    )
+    op.drop_index(
+        "idx_test_object_created_at", table_name="test_objects", schema="laborant"
+    )
     op.drop_index("idx_test_object_tag", table_name="test_objects", schema="laborant")
-    op.drop_index("unique_test_object_name", table_name="test_objects", schema="laborant")
+    op.drop_index(
+        "unique_test_object_name", table_name="test_objects", schema="laborant"
+    )
     op.drop_table("test_objects", schema="laborant")
