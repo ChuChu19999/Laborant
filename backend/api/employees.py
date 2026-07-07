@@ -1,7 +1,7 @@
 from __future__ import annotations
 from fastapi import APIRouter, Body, Query
 from core.auth_decorators import IsAuthenticated
-from core.exceptions import NotFoundError, ValidationError
+from core.exceptions import NotFoundError, ServiceUnavailableError, ValidationError
 from schemas.employees import EmployeesByHsnilsRequest
 from services.employees import (
     get_employee_by_hsnils,
@@ -9,6 +9,13 @@ from services.employees import (
     search_employees_by_fio,
     search_employees_by_fio_and_laboratory,
 )
+
+_HR_API_ERROR_MSG = "Ошибка при обращении к HR API"
+
+
+def _raise_hr_api_unavailable(exc: Exception) -> None:
+    raise ServiceUnavailableError(f"{_HR_API_ERROR_MSG}: {exc}") from exc
+
 
 router = APIRouter()
 
@@ -61,7 +68,7 @@ async def search_employees(
     except ValueError as exc:
         raise ValidationError(str(exc)) from exc
     except Exception as exc:
-        raise ValidationError(f"Ошибка при обращении к HR API: {str(exc)}") from exc
+        _raise_hr_api_unavailable(exc)
 
 
 @router.get(
@@ -128,7 +135,7 @@ async def search_employees_by_laboratory(
     except ValueError as exc:
         raise ValidationError(str(exc)) from exc
     except Exception as exc:
-        raise ValidationError(f"Ошибка при обращении к HR API: {str(exc)}") from exc
+        _raise_hr_api_unavailable(exc)
 
 
 @router.get(
@@ -180,7 +187,7 @@ async def get_employee(
     except ValueError as exc:
         raise ValidationError(str(exc)) from exc
     except Exception as exc:
-        raise ValidationError(f"Ошибка при обращении к HR API: {str(exc)}") from exc
+        _raise_hr_api_unavailable(exc)
 
 
 @router.post(
@@ -227,4 +234,4 @@ async def get_employees_by_hsnils_endpoint(
     except ValueError as exc:
         raise ValidationError(str(exc)) from exc
     except Exception as exc:
-        raise ValidationError(f"Ошибка при обращении к HR API: {str(exc)}") from exc
+        _raise_hr_api_unavailable(exc)

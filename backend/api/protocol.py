@@ -371,7 +371,6 @@ async def save_excel_endpoint(
         return result
     except Exception as e:
         logger.error(f"Ошибка при сохранении Excel файла: {str(e)}", exc_info=True)
-        await db.rollback()
         raise ValidationError(f"Ошибка при сохранении: {str(e)}")
 
 

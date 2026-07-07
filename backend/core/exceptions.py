@@ -46,6 +46,13 @@ class ConflictError(BusinessLogicError):
         super().__init__(message, status_code=status.HTTP_409_CONFLICT)
 
 
+class ServiceUnavailableError(BusinessLogicError):
+    """Исключение при недоступности внешнего сервиса."""
+
+    def __init__(self, message: str):
+        super().__init__(message, status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+
 async def validation_exception_handler(
     request: Request, exc: RequestValidationError
 ) -> ORJSONResponse:

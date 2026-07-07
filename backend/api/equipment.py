@@ -9,7 +9,9 @@ from services.equipment import (
     build_equipment_response,
     create_equipment,
     delete_equipment,
-    get_equipment,
+)
+from services.equipment import get_equipment as get_equipment_list
+from services.equipment import (
     get_equipment_by_id,
     update_equipment,
 )
@@ -34,7 +36,7 @@ async def list_equipment(
     filters: EquipmentListFilters = Depends(),
 ):
     """Возвращает список оборудования с пагинацией или без."""
-    equipment_list, total, total_pages = await get_equipment(
+    equipment_list, total, total_pages = await get_equipment_list(
         db,
         laboratory_id=filters.laboratory_id,
         department_id=filters.department_id,
@@ -95,7 +97,7 @@ async def create_equipment_endpoint(
     },
 )
 # @IsAuthenticated
-async def get_equipment(
+async def get_equipment_endpoint(
     equipment_id: int,
     db: DbSession,
 ):

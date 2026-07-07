@@ -2,10 +2,9 @@ from __future__ import annotations
 from typing import List, Optional
 import pendulum
 from sqlalchemy.ext.asyncio import AsyncSession
-from core.exceptions import NotFoundError, ValidationError
+from core.exceptions import NotFoundError
 from models.equipment import Equipment
 from repositories import equipment as equipment_repo
-from repositories import laboratory as laboratory_repo
 from repositories.base import flush_entity
 from schemas.equipment import EquipmentCreate, EquipmentResponse, EquipmentUpdate
 from services.visibility import validate_lab_and_department
@@ -174,17 +173,11 @@ async def update_equipment(
         else old_equipment.department_id
     )
 
-    if not await laboratory_repo.get_laboratory_by_id(db, lab_id):
-        raise NotFoundError("Лаборатория не найдена")
-
-    if dept_id:
-        dept = await laboratory_repo.get_department_by_id(db, dept_id)
-        if not dept:
-            raise NotFoundError("Подразделение не найдено")
-        if dept.laboratory_id != lab_id:
-            raise ValidationError(
-                "Подразделение должно принадлежать выбранной лаборатории"
-            )
+    if (
+        equipment_data.laboratory_id is not None
+        or equipment_data.department_id is not None
+    ):
+        await validate_lab_and_department(db, lab_id, dept_id)
 
     next_version = next_version_string(old_equipment.version)
 

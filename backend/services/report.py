@@ -10,15 +10,26 @@ from repositories import laboratory as laboratory_repo
 from repositories import report as report_repo
 from repositories.base import flush_entity
 from schemas.report import (
+    GenerateKgsReportRequest,
+    GenerateNksReportRequest,
+    GeneratePhysicochemicalReportRequest,
     GenerateSampleCountReportRequest,
     ReportTemplateCreate,
     ReportTemplateResponse,
     ReportTemplateUpdate,
 )
 from services.ilninm_reports import LABORATORY_NAME_ILNINM
+from services.ilninm_reports.kgs_generator import build_kgs_excel
+from services.ilninm_reports.nks_generator import build_nks_excel
+from services.ilninm_reports.physicochemical_generator import (
+    build_physicochemical_excel,
+)
 from services.ilninm_reports.sample_count_generator import build_sample_count_excel
 from services.visibility import validate_lab_and_department
+from utils.ilninm_sampling_location import resolve_sampling_location_db_name
 from utils.pagination import calculate_total_pages
+
+_EXCEL_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
 def require_active_report_template(template: ReportTemplate) -> ReportTemplate:
@@ -287,3 +298,112 @@ async def generate_sample_count_report_file(
 
     filename = f"Количество_проб_{body.date_from}_{body.date_to}.zip"
     return zip_buffer.getvalue(), filename
+
+
+async def generate_physicochemical_report_file(
+    db: AsyncSession, body: GeneratePhysicochemicalReportRequest
+) -> tuple[bytes, str, str]:
+    """Сформировать Excel-файл отчёта «Физико-химическая характеристика»."""
+    template = await resolve_ilninm_report_template(
+        db,
+        laboratory_id=body.laboratory_id,
+        report_type=ReportType.PHYSICOCHEMICAL_CHARACTERISTIC.value,
+        template_id=body.template_id,
+        department_id=body.department_id,
+        report_type_label="Физико-химическая характеристика",
+        template_not_found_msg=(
+            "Не найден шаблон отчёта «Физико-химическая характеристика» "
+            "для данной лаборатории"
+            + (" и подразделения" if body.department_id is not None else "")
+        ),
+    )
+
+    try:
+        resolve_sampling_location_db_name(body.sampling_location)
+    except ValueError as exc:
+        raise ValidationError(str(exc)) from exc
+
+    date_from, date_to = parse_report_period_bounds(body.date_from, body.date_to)
+
+    excel_bytes = await build_physicochemical_excel(
+        db,
+        template_file_base64=template.file,
+        laboratory_id=body.laboratory_id,
+        sampling_date_from=date_from,
+        sampling_date_to=date_to,
+        sampling_location=body.sampling_location,
+        department_id=body.department_id,
+    )
+
+    location_slug = body.sampling_location.replace(" ", "_")
+    filename = (
+        f"Физико_химическая_характеристика_{location_slug}_"
+        f"{body.date_from}_{body.date_to}.xlsx"
+    )
+    return excel_bytes, filename, _EXCEL_MEDIA_TYPE
+
+
+async def generate_kgs_report_file(
+    db: AsyncSession, body: GenerateKgsReportRequest
+) -> tuple[bytes, str, str]:
+    """Сформировать Excel-файл отчёта «Результаты КГС»."""
+    template = await resolve_ilninm_report_template(
+        db,
+        laboratory_id=body.laboratory_id,
+        report_type=ReportType.KGS_RESULTS.value,
+        template_id=body.template_id,
+        department_id=body.department_id,
+        report_type_label="Результаты КГС",
+        template_not_found_msg=(
+            "Не найден шаблон отчёта «Результаты КГС» для данной лаборатории"
+            + (" и подразделения" if body.department_id is not None else "")
+        ),
+    )
+
+    date_from, date_to = parse_report_period_bounds(body.date_from, body.date_to)
+
+    excel_bytes = await build_kgs_excel(
+        db,
+        template_file_base64=template.file,
+        laboratory_id=body.laboratory_id,
+        sampling_date_from=date_from,
+        sampling_date_to=date_to,
+        department_id=body.department_id,
+    )
+
+    filename = f"Результаты_КГС_{body.date_from}_{body.date_to}.xlsx"
+    return excel_bytes, filename, _EXCEL_MEDIA_TYPE
+
+
+async def generate_nks_report_file(
+    db: AsyncSession, body: GenerateNksReportRequest
+) -> tuple[bytes, str, str]:
+    """Сформировать Excel-файл отчёта «Результаты НКС»."""
+    template = await resolve_ilninm_report_template(
+        db,
+        laboratory_id=body.laboratory_id,
+        report_type=ReportType.NKS_RESULTS.value,
+        template_id=body.template_id,
+        department_id=body.department_id,
+        report_type_label="Результаты НКС",
+        template_not_found_msg=(
+            "Не найден шаблон отчёта «Результаты НКС» для данной лаборатории"
+            + (" и подразделения" if body.department_id is not None else "")
+        ),
+    )
+
+    date_from, date_to = parse_report_period_bounds(body.date_from, body.date_to)
+
+    excel_bytes = await build_nks_excel(
+        db,
+        template_file_base64=template.file,
+        laboratory_id=body.laboratory_id,
+        sampling_date_from=date_from,
+        sampling_date_to=date_to,
+        report_month=body.report_month,
+        report_year=body.report_year,
+        department_id=body.department_id,
+    )
+
+    filename = f"Результаты_НКС_{body.date_from}_{body.date_to}.xlsx"
+    return excel_bytes, filename, _EXCEL_MEDIA_TYPE

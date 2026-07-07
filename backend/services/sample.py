@@ -208,14 +208,7 @@ async def update_sample(
             else sample.department_id
         )
 
-        if dept_id:
-            dept = await laboratory_repo.get_department_by_id(db, dept_id)
-            if not dept:
-                raise NotFoundError("Подразделение не найдено")
-            if lab_id and dept.laboratory_id != lab_id:
-                raise ValidationError(
-                    "Подразделение должно принадлежать выбранной лаборатории"
-                )
+        await validate_lab_and_department(db, lab_id, dept_id)
 
     if sample.branch_id:
         branch_obj = await laboratory_repo.get_branch_by_id(db, sample.branch_id)
