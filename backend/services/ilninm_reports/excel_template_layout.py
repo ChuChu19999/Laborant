@@ -1,7 +1,3 @@
-"""
-Сдвиг нижней части шаблона Excel при выводе нескольких строк данных.
-"""
-
 import openpyxl.worksheet.worksheet
 
 

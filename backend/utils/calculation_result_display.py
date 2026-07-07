@@ -1,5 +1,3 @@
-"""Отображение итога расчёта там, где в БД хранится число, а в интерфейсе — текстовая подпись."""
-
 from typing import Any, Optional
 
 CHLORIDE_SALTS_METHOD_NAME = "Массовая концентрация хлористых солей"
@@ -25,9 +23,7 @@ def format_calculation_result_for_display(
     method_name: Optional[str],
     input_data: Any,
 ) -> str:
-    """
-    Числовой итог из БД подменяется подписью условия повторяемости, если она сохранена.
-    """
+    """Числовой итог из БД подменяется подписью условия повторяемости, если она сохранена."""
     label = get_chloride_salts_result_display(input_data)
     if label and is_chloride_salts_method_name(method_name):
         return label

@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
+from api import api_router
 from core.config import settings
 from core.exceptions import (
     BusinessLogicError,
@@ -13,7 +14,6 @@ from core.http_clients import close_all_clients
 from core.middleware import LogHeadersMiddleware
 from core.responses import ORJSONResponse
 from core.swagger import setup_swagger_ui
-from routes import api_router
 
 
 @asynccontextmanager

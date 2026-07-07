@@ -364,7 +364,7 @@ const CalculationsTable: React.FC<CalculationsTableProps> = ({
   const [methodSortOrders, setMethodSortOrders] = useState<Record<number, number | null>>({});
   const [methodsById, setMethodsById] = useState<Record<number, ResearchMethod>>({});
 
-  // Загружаем информацию о сотрудниках по массиву executor hashMd5
+  // Загружаем информацию о сотрудниках по массиву hsnils исполнителей
   useEffect(() => {
     const loadEmployees = async () => {
       const uniqueExecutors = Array.from(
@@ -377,7 +377,7 @@ const CalculationsTable: React.FC<CalculationsTableProps> = ({
       }
 
       try {
-        const employees = await employeesApi.getByHashes(uniqueExecutors, false);
+        const employees = await employeesApi.getByHsnilsList(uniqueExecutors, false);
         setEmployeesMap(employees);
       } catch (error) {
         console.error('Ошибка при загрузке информации о сотрудниках:', error);

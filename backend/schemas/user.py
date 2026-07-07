@@ -1,15 +1,14 @@
-from typing import Optional
-from pydantic import BaseModel
+from __future__ import annotations
+from pydantic import BaseModel, ConfigDict
 
 
 class UserResponse(BaseModel):
-    personnel_number: Optional[str] = None
-    department_number: Optional[int] = None
-    full_name: Optional[str] = None
-    ad_login: Optional[str] = None
-    email: Optional[str] = None
-    hsnils: Optional[str] = None
-    is_staff: bool = False
+    model_config = ConfigDict(from_attributes=True)
 
-    class Config:
-        from_attributes = True
+    personnel_number: str | None = None
+    department_number: int | None = None
+    full_name: str | None = None
+    ad_login: str | None = None
+    email: str | None = None
+    hsnils: str | None = None
+    is_staff: bool = False

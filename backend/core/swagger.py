@@ -27,6 +27,25 @@ def get_swagger_ui_html_local(*args, **kwargs):
     )
 
 
+async def custom_swagger_ui_html(request: Request):
+    """Локальный Swagger UI без доступа в интернет."""
+    if not SWAGGER_UI_AVAILABLE:
+        return ORJSONResponse(
+            status_code=503,
+            content={
+                "detail": "Swagger UI недоступен: swagger-ui-bundle не установлен"
+            },
+        )
+
+    app = request.app
+    openapi_url = app.openapi_url
+
+    return get_swagger_ui_html_local(
+        openapi_url=openapi_url,
+        title=app.title + " - Swagger UI",
+    )
+
+
 def setup_swagger_ui(app: FastAPI) -> None:
     """
     Настройка Swagger UI для приложения.
@@ -93,20 +112,9 @@ def setup_swagger_ui(app: FastAPI) -> None:
             f"Ошибка при монтировании Swagger UI статики: {e}", exc_info=True
         )
 
-    @app.get("/api/docs", include_in_schema=False)
-    async def custom_swagger_ui_html(request: Request):
-        """Локальный Swagger UI без доступа в интернет."""
-        if not SWAGGER_UI_AVAILABLE:
-            return ORJSONResponse(
-                status_code=503,
-                content={
-                    "detail": "Swagger UI недоступен: swagger-ui-bundle не установлен"
-                },
-            )
-
-        openapi_url = app.openapi_url
-
-        return get_swagger_ui_html_local(
-            openapi_url=openapi_url,
-            title=app.title + " - Swagger UI",
-        )
+    app.add_api_route(
+        "/api/docs",
+        custom_swagger_ui_html,
+        include_in_schema=False,
+        methods=["GET"],
+    )

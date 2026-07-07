@@ -49,10 +49,10 @@ interface NdNormsTableProps {
   onDelete: (ndNormId: number) => void;
 }
 
-const getMethodText = (ndNorm: NdNorm, methodId: number): string => {
+const getMethodValue = (ndNorm: NdNorm, methodId: number): string => {
   const item = ndNorm.method_data?.find(entry => entry.method_id === methodId);
-  const text = item?.text?.trim();
-  return text || '-';
+  const value = item?.value?.trim();
+  return value || '-';
 };
 
 const NdNormsTable: React.FC<NdNormsTableProps> = ({
@@ -167,7 +167,9 @@ const NdNormsTable: React.FC<NdNormsTableProps> = ({
       id: `method_${method.id}`,
       header: method.displayName,
       cell: ({ row }) => (
-        <span className="nd-norms-table-method-cell">{getMethodText(row.original, method.id)}</span>
+        <span className="nd-norms-table-method-cell">
+          {getMethodValue(row.original, method.id)}
+        </span>
       ),
       enableSorting: false,
       enableColumnFilter: false,

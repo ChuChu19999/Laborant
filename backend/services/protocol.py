@@ -1,48 +1,32 @@
-from typing import Any, Dict, List, Optional
+from __future__ import annotations
+from typing import Any, List, Optional
 import pendulum
-from sqlalchemy import desc, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
-from sqlalchemy.sql import bindparam
 from core.exceptions import ConflictError, NotFoundError, ValidationError
-from models.laboratory import Department, Laboratory
 from models.protocol import Protocol, ProtocolTemplate
-from models.sample import Sample
+from repositories import laboratory as laboratory_repo
+from repositories import protocol as protocol_repo
+from repositories.base import flush_entity
 from schemas.protocol import (
     ProtocolCreate,
+    ProtocolResponse,
     ProtocolTemplateCreate,
+    ProtocolTemplateResponse,
     ProtocolTemplateUpdate,
     ProtocolUpdate,
 )
-from utils.filters import add_date_range_filter
-from utils.pagination import apply_pagination, calculate_total_pages, get_total_count
+from services.calculation import get_calculations_by_sample
+from services.sample import build_sample_response
+from services.visibility import validate_lab_and_department
+from utils.pagination import calculate_total_pages
 from utils.protocol_formatting import format_protocol_number
-from utils.protocol_search_filter import protocol_list_row_matches_display_ilike
-from utils.protocol_sort import (
-    protocol_row_sort_combined,
-    protocols_list_samples_registration_sort_subquery,
-    sampling_act_number_sort_expression,
-)
-from utils.sorting import build_order_by
 
 
 async def get_protocol_by_id(
     db: AsyncSession, protocol_id: int, include_deleted: bool = False
 ) -> Optional[Protocol]:
     """Получить протокол по ID."""
-    query = (
-        select(Protocol)
-        .where(Protocol.id == protocol_id)
-        .options(
-            selectinload(Protocol.laboratory),
-            selectinload(Protocol.department),
-            selectinload(Protocol.protocol_template),
-        )
-    )
-    if not include_deleted:
-        query = query.where(Protocol.deleted_at.is_(None))
-    result = await db.execute(query)
-    return result.scalar_one_or_none()
+    return await protocol_repo.get_protocol_by_id(db, protocol_id, include_deleted)
 
 
 async def get_protocols(
@@ -65,245 +49,65 @@ async def get_protocols(
     created_at_to: Optional[pendulum.DateTime] = None,
 ) -> tuple[List[Protocol], int, int]:
     """Получить список протоколов."""
-    query = select(Protocol).options(
-        selectinload(Protocol.laboratory), selectinload(Protocol.department)
-    )
-
-    if not include_deleted:
-        query = query.where(Protocol.deleted_at.is_(None))
-
-    conditions = []
-    if laboratory_id:
-        conditions.append(Protocol.laboratory_id == laboratory_id)
-    if department_id:
-        conditions.append(Protocol.department_id == department_id)
-    if is_accredited is not None:
-        conditions.append(Protocol.is_accredited == is_accredited)
-
-    # Поиск по номеру и дате протокола
-    if search and search_date:
-        # Если указаны и номер, и дата - ищем по обоим одновременно (AND)
-        if search.strip():
-            conditions.append(protocol_list_row_matches_display_ilike(search))
-        try:
-            search_date_parsed = pendulum.parse(search_date)
-            if search_date_parsed:
-                conditions.append(
-                    func.date(Protocol.test_protocol_date) == search_date_parsed.date()
-                )
-        except Exception:
-            pass
-    elif search and search.strip():
-        conditions.append(protocol_list_row_matches_display_ilike(search))
-    elif search_date:
-        # Если указана только дата - ищем по дате
-        try:
-            search_date_parsed = pendulum.parse(search_date)
-            if search_date_parsed:
-                conditions.append(
-                    func.date(Protocol.test_protocol_date) == search_date_parsed.date()
-                )
-        except Exception:
-            pass
-
-    if search_sampling_act:
-        conditions.append(
-            Protocol.sampling_act_number.ilike(f"%{search_sampling_act}%")
-        )
+    sample_ids_for_search = None
+    no_sample_match = False
     if search_samples:
-        matching_samples = await db.execute(
-            select(Sample.id).where(
-                Sample.registration_number.ilike(f"%{search_samples}%"),
-                Sample.deleted_at.is_(None),
+        sample_ids_for_search = (
+            await protocol_repo.get_sample_ids_by_registration_search(
+                db, search_samples
             )
         )
-        sample_ids = [row[0] for row in matching_samples.fetchall()]
-        if sample_ids:
-            sample_conditions = []
-            for sample_id in sample_ids:
-                sample_conditions.append(
-                    func.cast(Protocol.samples, func.JSONB).contains([sample_id])
-                )
-            if sample_conditions:
-                conditions.append(or_(*sample_conditions))
-        else:
-            conditions.append(text("1 = 0"))
+        if not sample_ids_for_search:
+            no_sample_match = True
 
-    add_date_range_filter(
-        conditions,
-        test_protocol_date_from,
-        test_protocol_date_to,
-        Protocol.test_protocol_date,
+    protocols, total = await protocol_repo.get_protocols(
+        db,
+        laboratory_id=laboratory_id,
+        department_id=department_id,
+        include_deleted=include_deleted,
+        page=page,
+        page_size=page_size,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        is_accredited=is_accredited,
+        search=search,
+        search_date=search_date,
+        search_sampling_act=search_sampling_act,
+        sample_ids_for_search=sample_ids_for_search,
+        no_sample_match=no_sample_match,
+        test_protocol_date_from=test_protocol_date_from,
+        test_protocol_date_to=test_protocol_date_to,
+        created_at_from=created_at_from,
+        created_at_to=created_at_to,
     )
-    add_date_range_filter(
-        conditions, created_at_from, created_at_to, Protocol.created_at
-    )
-
-    if conditions:
-        query = query.where(*conditions)
-
-    sort_mapping = {
-        "test_protocol_date": Protocol.test_protocol_date,
-        "is_accredited": Protocol.is_accredited,
-        "created_at": Protocol.created_at,
-    }
-    if sort_by == "test_protocol_number":
-        sort_expr = protocol_row_sort_combined()
-        if sort_order == "asc":
-            query = query.order_by(sort_expr.asc(), Protocol.id.asc())
-        else:
-            query = query.order_by(sort_expr.desc(), Protocol.id.desc())
-    elif sort_by == "samples_data":
-        samples_sort = protocols_list_samples_registration_sort_subquery()
-        if sort_order == "asc":
-            query = query.order_by(samples_sort.asc().nulls_last(), Protocol.id.asc())
-        else:
-            query = query.order_by(
-                samples_sort.desc().nulls_first(), Protocol.id.desc()
-            )
-    elif sort_by == "sampling_act_number":
-        act_sort = sampling_act_number_sort_expression()
-        if sort_order == "asc":
-            query = query.order_by(act_sort.asc(), Protocol.id.asc())
-        else:
-            query = query.order_by(act_sort.desc(), Protocol.id.desc())
-    else:
-        order_by = build_order_by(
-            sort_by, sort_order, sort_mapping, Protocol.created_at
-        )
-        query = query.order_by(order_by)
-
-    count_query = select(func.count()).select_from(Protocol)
-    if not include_deleted:
-        count_query = count_query.where(Protocol.deleted_at.is_(None))
-    count_conditions = []
-    if laboratory_id:
-        count_conditions.append(Protocol.laboratory_id == laboratory_id)
-    if department_id:
-        count_conditions.append(Protocol.department_id == department_id)
-    if is_accredited is not None:
-        count_conditions.append(Protocol.is_accredited == is_accredited)
-
-    # Поиск по номеру и дате протокола (та же логика, что и в основном запросе)
-    if search and search_date:
-        if search.strip():
-            count_conditions.append(protocol_list_row_matches_display_ilike(search))
-        try:
-            search_date_parsed = pendulum.parse(search_date)
-            if search_date_parsed:
-                count_conditions.append(
-                    func.date(Protocol.test_protocol_date) == search_date_parsed.date()
-                )
-        except Exception:
-            pass
-    elif search and search.strip():
-        count_conditions.append(protocol_list_row_matches_display_ilike(search))
-    elif search_date:
-        # Если указана только дата - ищем по дате
-        try:
-            search_date_parsed = pendulum.parse(search_date)
-            if search_date_parsed:
-                count_conditions.append(
-                    func.date(Protocol.test_protocol_date) == search_date_parsed.date()
-                )
-        except Exception:
-            pass
-
-    if search_sampling_act:
-        count_conditions.append(
-            Protocol.sampling_act_number.ilike(f"%{search_sampling_act}%")
-        )
-    if search_samples:
-        matching_samples = await db.execute(
-            select(Sample.id).where(
-                Sample.registration_number.ilike(f"%{search_samples}%"),
-                Sample.deleted_at.is_(None),
-            )
-        )
-        sample_ids = [row[0] for row in matching_samples.fetchall()]
-        if sample_ids:
-            sample_conditions = []
-            for sample_id in sample_ids:
-                sample_conditions.append(
-                    func.cast(Protocol.samples, func.JSONB).contains([sample_id])
-                )
-            if sample_conditions:
-                count_conditions.append(or_(*sample_conditions))
-        else:
-            count_conditions.append(text("1 = 0"))
-    add_date_range_filter(
-        count_conditions,
-        test_protocol_date_from,
-        test_protocol_date_to,
-        Protocol.test_protocol_date,
-    )
-    add_date_range_filter(
-        count_conditions, created_at_from, created_at_to, Protocol.created_at
-    )
-    if count_conditions:
-        count_query = count_query.where(*count_conditions)
-
-    total = await get_total_count(db, count_query)
 
     if page is not None and page_size is not None:
         total_pages = calculate_total_pages(total, page_size)
-        query = apply_pagination(query, page, page_size)
     else:
         total_pages = 1 if total > 0 else 0
-
-    result = await db.execute(query)
-    protocols = result.scalars().all()
 
     return protocols, total, total_pages
 
 
 async def create_protocol(db: AsyncSession, protocol_data: ProtocolCreate) -> Protocol:
     """Создать протокол."""
-    laboratory = await db.execute(
-        select(Laboratory).where(Laboratory.id == protocol_data.laboratory_id)
+    await validate_lab_and_department(
+        db, protocol_data.laboratory_id, protocol_data.department_id
     )
-    if not laboratory.scalar_one_or_none():
-        raise NotFoundError("Лаборатория не найдена")
-
-    if protocol_data.department_id:
-        department = await db.execute(
-            select(Department).where(Department.id == protocol_data.department_id)
-        )
-        dept = department.scalar_one_or_none()
-        if not dept:
-            raise NotFoundError("Подразделение не найдено")
-        if dept.laboratory_id != protocol_data.laboratory_id:
-            raise ValidationError(
-                "Подразделение должно принадлежать выбранной лаборатории"
-            )
 
     if protocol_data.protocol_template_id:
-        template = await db.execute(
-            select(ProtocolTemplate).where(
-                ProtocolTemplate.id == protocol_data.protocol_template_id
-            )
-        )
-        if not template.scalar_one_or_none():
+        if not await protocol_repo.get_protocol_template_by_id_simple(
+            db, protocol_data.protocol_template_id
+        ):
             raise NotFoundError("Шаблон протокола не найден")
 
-    # Валидация уникальности номера акта отбора для неудаленных записей
-    existing_protocol = await db.execute(
-        select(Protocol).where(
-            Protocol.sampling_act_number == protocol_data.sampling_act_number,
-            Protocol.deleted_at.is_(None),
-        )
-    )
-    if existing_protocol.scalars().first():
+    if await protocol_repo.exists_protocol_by_sampling_act(
+        db, protocol_data.sampling_act_number
+    ):
         raise ConflictError("Протокол с таким номером акта отбора уже существует")
 
     if protocol_data.samples:
-        samples = await db.execute(
-            select(Sample).where(
-                Sample.id.in_(protocol_data.samples),
-                Sample.deleted_at.is_(None),
-            )
-        )
-        samples_list = samples.scalars().all()
+        samples_list = await protocol_repo.get_samples_by_ids(db, protocol_data.samples)
 
         if len(samples_list) != len(protocol_data.samples):
             raise NotFoundError("Одна или несколько проб не найдены")
@@ -331,9 +135,7 @@ async def create_protocol(db: AsyncSession, protocol_data: ProtocolCreate) -> Pr
         department_id=protocol_data.department_id,
         samples=protocol_data.samples or [],
     )
-    db.add(protocol)
-    await db.flush()
-    return protocol
+    return await protocol_repo.add_protocol(db, protocol)
 
 
 async def update_protocol(
@@ -349,26 +151,18 @@ async def update_protocol(
 
     update_data = protocol_data.model_dump(exclude_unset=True)
 
-    # Валидация уникальности номера акта отбора для неудаленных записей
     if "sampling_act_number" in update_data:
-        existing_protocol = await db.execute(
-            select(Protocol).where(
-                Protocol.sampling_act_number == update_data["sampling_act_number"],
-                Protocol.deleted_at.is_(None),
-                Protocol.id != protocol_id,
-            )
-        )
-        if existing_protocol.scalars().first():
+        if await protocol_repo.exists_protocol_by_sampling_act(
+            db,
+            update_data["sampling_act_number"],
+            exclude_id=protocol_id,
+        ):
             raise ConflictError("Протокол с таким номером акта отбора уже существует")
 
     if "samples" in update_data and update_data["samples"] is not None:
-        samples = await db.execute(
-            select(Sample).where(
-                Sample.id.in_(update_data["samples"]),
-                Sample.deleted_at.is_(None),
-            )
+        samples_list = await protocol_repo.get_samples_by_ids(
+            db, update_data["samples"]
         )
-        samples_list = samples.scalars().all()
 
         if len(samples_list) != len(update_data["samples"]):
             raise NotFoundError("Одна или несколько проб не найдены")
@@ -401,10 +195,7 @@ async def update_protocol(
         )
 
         if dept_id:
-            department = await db.execute(
-                select(Department).where(Department.id == dept_id)
-            )
-            dept = department.scalar_one_or_none()
+            dept = await laboratory_repo.get_department_by_id(db, dept_id)
             if not dept:
                 raise NotFoundError("Подразделение не найдено")
             if lab_id and dept.laboratory_id != lab_id:
@@ -412,7 +203,7 @@ async def update_protocol(
                     "Подразделение должно принадлежать выбранной лаборатории"
                 )
 
-    await db.flush()
+    await flush_entity(db)
     return protocol
 
 
@@ -423,25 +214,16 @@ async def delete_protocol(db: AsyncSession, protocol_id: int) -> None:
         raise NotFoundError("Протокол не найден")
 
     protocol.soft_delete()
-    await db.flush()
+    await flush_entity(db)
 
 
 async def get_protocol_template_by_id(
     db: AsyncSession, template_id: int, include_deleted: bool = False
 ) -> Optional[ProtocolTemplate]:
     """Получить шаблон протокола по ID."""
-    query = (
-        select(ProtocolTemplate)
-        .where(ProtocolTemplate.id == template_id)
-        .options(
-            selectinload(ProtocolTemplate.laboratory),
-            selectinload(ProtocolTemplate.department),
-        )
+    return await protocol_repo.get_protocol_template_by_id(
+        db, template_id, include_deleted
     )
-    if not include_deleted:
-        query = query.where(ProtocolTemplate.deleted_at.is_(None))
-    result = await db.execute(query)
-    return result.scalar_one_or_none()
 
 
 async def get_protocol_templates(
@@ -455,64 +237,21 @@ async def get_protocol_templates(
     sort_order: Optional[str] = None,
 ) -> tuple[List[ProtocolTemplate], int, int]:
     """Получить список шаблонов протоколов."""
-    query = select(ProtocolTemplate).options(
-        selectinload(ProtocolTemplate.laboratory),
-        selectinload(ProtocolTemplate.department),
+    templates, total = await protocol_repo.get_protocol_templates(
+        db,
+        laboratory_id,
+        department_id,
+        include_deleted,
+        page,
+        page_size,
+        sort_by,
+        sort_order,
     )
-
-    if not include_deleted:
-        query = query.where(ProtocolTemplate.deleted_at.is_(None))
-
-    conditions = []
-    if laboratory_id:
-        conditions.append(ProtocolTemplate.laboratory_id == laboratory_id)
-    if department_id:
-        conditions.append(ProtocolTemplate.department_id == department_id)
-    if conditions:
-        query = query.where(*conditions)
-
-    sort_mapping = {
-        "name": ProtocolTemplate.name,
-        "version": ProtocolTemplate.version,
-        "created_at": ProtocolTemplate.created_at,
-    }
-
-    # Если сортировка не указана, сортируем по версии по убыванию (последние версии первыми)
-    # Используем числовую сортировку версий: извлекаем число из строки "v1", "v2" и т.д.
-    if not sort_by:
-        version_num_expr = text(
-            "CAST(REGEXP_REPLACE(REGEXP_REPLACE(version, '^[vV]', ''), '[^0-9]', '', 'g') AS INTEGER)"
-        )
-        query = query.order_by(
-            desc(version_num_expr), ProtocolTemplate.created_at.desc()
-        )
-    else:
-        order_by = build_order_by(
-            sort_by, sort_order, sort_mapping, ProtocolTemplate.created_at
-        )
-        query = query.order_by(order_by)
-
-    count_query = select(func.count()).select_from(ProtocolTemplate)
-    if not include_deleted:
-        count_query = count_query.where(ProtocolTemplate.deleted_at.is_(None))
-    count_conditions = []
-    if laboratory_id:
-        count_conditions.append(ProtocolTemplate.laboratory_id == laboratory_id)
-    if department_id:
-        count_conditions.append(ProtocolTemplate.department_id == department_id)
-    if count_conditions:
-        count_query = count_query.where(*count_conditions)
-
-    total = await get_total_count(db, count_query)
 
     if page is not None and page_size is not None:
         total_pages = calculate_total_pages(total, page_size)
-        query = apply_pagination(query, page, page_size)
     else:
         total_pages = 1 if total > 0 else 0
-
-    result = await db.execute(query)
-    templates = result.scalars().all()
 
     return templates, total, total_pages
 
@@ -521,17 +260,13 @@ async def create_protocol_template(
     db: AsyncSession, template_data: ProtocolTemplateCreate
 ) -> ProtocolTemplate:
     """Создать шаблон протокола."""
-    laboratory = await db.execute(
-        select(Laboratory).where(Laboratory.id == template_data.laboratory_id)
-    )
-    if not laboratory.scalar_one_or_none():
+    if not await laboratory_repo.get_laboratory_by_id(db, template_data.laboratory_id):
         raise NotFoundError("Лаборатория не найдена")
 
     if template_data.department_id:
-        department = await db.execute(
-            select(Department).where(Department.id == template_data.department_id)
+        dept = await laboratory_repo.get_department_by_id(
+            db, template_data.department_id
         )
-        dept = department.scalar_one_or_none()
         if not dept:
             raise NotFoundError("Подразделение не найдено")
         if dept.laboratory_id != template_data.laboratory_id:
@@ -539,17 +274,12 @@ async def create_protocol_template(
                 "Подразделение должно принадлежать выбранной лаборатории"
             )
 
-    latest = await db.execute(
-        select(ProtocolTemplate)
-        .where(
-            ProtocolTemplate.name == template_data.name,
-            ProtocolTemplate.laboratory_id == template_data.laboratory_id,
-            ProtocolTemplate.department_id == template_data.department_id,
-            ProtocolTemplate.deleted_at.is_(None),
-        )
-        .order_by(ProtocolTemplate.version.desc())
+    latest_template = await protocol_repo.get_latest_protocol_template(
+        db,
+        template_data.name,
+        template_data.laboratory_id,
+        template_data.department_id,
     )
-    latest_template = latest.scalar_one_or_none()
 
     if latest_template:
         try:
@@ -569,9 +299,7 @@ async def create_protocol_template(
         laboratory_id=template_data.laboratory_id,
         department_id=template_data.department_id,
     )
-    db.add(template)
-    await db.flush()
-    return template
+    return await protocol_repo.add_protocol_template(db, template)
 
 
 async def update_protocol_template(
@@ -586,72 +314,168 @@ async def update_protocol_template(
     for key, value in update_data.items():
         setattr(template, key, value)
 
-    await db.flush()
+    await flush_entity(db)
     return template
 
 
-async def delete_protocol_template(db: AsyncSession, template_id: int) -> None:
-    """Удалить шаблон протокола (мягкое удаление)."""
-    template = await get_protocol_template_by_id(db, template_id)
+async def get_protocol_response_data(
+    db: AsyncSession, protocol_id: int
+) -> ProtocolResponse:
+    """Получить протокол с данными для ответа API."""
+    protocol = await protocol_repo.get_protocol_by_id(db, protocol_id)
+    if not protocol:
+        raise NotFoundError("Протокол не найден")
+    protocol_dict = ProtocolResponse.model_validate(protocol).model_dump()
+    if protocol.laboratory:
+        protocol_dict["laboratory_name"] = protocol.laboratory.name
+    if protocol.department:
+        protocol_dict["department_name"] = protocol.department.name
+
+    test_object = None
+    if protocol.samples:
+        samples_list = await protocol_repo.get_samples_by_ids(db, protocol.samples)
+        for sample in samples_list:
+            if sample.test_object:
+                test_object = sample.test_object
+                break
+
+    if test_object:
+        protocol_dict["formatted_protocol_number"] = format_protocol_number(
+            protocol.test_protocol_number,
+            protocol.test_protocol_date,
+            protocol.is_accredited,
+            test_object,
+        )
+
+    return ProtocolResponse(**protocol_dict)
+
+
+def build_protocol_template_response(
+    template: ProtocolTemplate,
+) -> ProtocolTemplateResponse:
+    """Собрать ответ API по шаблону протокола с наименованиями связей."""
+    template_dict = ProtocolTemplateResponse.model_validate(template).model_dump()
+    if template.laboratory:
+        template_dict["laboratory_name"] = template.laboratory.name
+    if template.department:
+        template_dict["department_name"] = template.department.name
+    return ProtocolTemplateResponse(**template_dict)
+
+
+async def get_protocol_template_response_data(
+    db: AsyncSession, template_id: int
+) -> ProtocolTemplateResponse:
+    """Получить шаблон протокола с данными для ответа API."""
+    template = await protocol_repo.get_protocol_template_by_id(db, template_id)
     if not template:
         raise NotFoundError("Шаблон протокола не найден")
-
-    template.soft_delete()
-    await db.flush()
+    return build_protocol_template_response(template)
 
 
-async def get_protocols_by_sample_ids(
-    db: AsyncSession, sample_ids: List[int]
-) -> Dict[int, List[Dict[str, Any]]]:
-    """Получить протоколы для списка проб."""
-    if not sample_ids:
-        return {}
+async def get_samples_by_ids(db: AsyncSession, sample_ids: list[int]):
+    """Получить пробы по списку ID."""
+    return await protocol_repo.get_samples_by_ids(db, sample_ids)
 
-    protocols_result = await db.execute(
-        select(Protocol).where(
-            Protocol.deleted_at.is_(None),
-            text(
-                "EXISTS (SELECT 1 FROM jsonb_array_elements_text(samples::jsonb) AS elem WHERE elem::int = ANY(:sample_ids))"
-            ).bindparams(bindparam("sample_ids")),
-        ),
-        {"sample_ids": sample_ids},
+
+def _enrich_protocol_dict(
+    protocol: Protocol,
+    protocol_dict: dict,
+    samples_by_id: dict[int, Any],
+    sample_ids_with_calculations: set[int],
+) -> dict:
+    """Дополнить словарь протокола пробами и признаками расчётов."""
+    if protocol.laboratory:
+        protocol_dict["laboratory_name"] = protocol.laboratory.name
+    if protocol.department:
+        protocol_dict["department_name"] = protocol.department.name
+
+    test_object = None
+    if protocol.samples:
+        samples_data = []
+        for sample_id in protocol.samples:
+            sample = samples_by_id.get(sample_id)
+            if sample:
+                samples_data.append(build_sample_response(sample).model_dump())
+                if not test_object and sample.test_object:
+                    test_object = sample.test_object
+        protocol_dict["samples_data"] = samples_data
+        protocol_dict["has_undeleted_calculations"] = any(
+            sample_id in sample_ids_with_calculations for sample_id in protocol.samples
+        )
+    else:
+        protocol_dict["has_undeleted_calculations"] = False
+
+    protocol_dict["formatted_protocol_number"] = format_protocol_number(
+        protocol.test_protocol_number,
+        protocol.test_protocol_date,
+        protocol.is_accredited,
+        test_object,
     )
-    all_protocols = protocols_result.scalars().all()
+    return protocol_dict
 
-    # Получаем пробы для определения test_object
-    samples_result = await db.execute(
-        select(Sample).where(Sample.id.in_(sample_ids), Sample.deleted_at.is_(None))
-    )
-    samples_list = samples_result.scalars().all()
-    samples_by_id = {sample.id: sample for sample in samples_list}
 
-    result: Dict[int, List[Dict[str, Any]]] = {
-        sample_id: [] for sample_id in sample_ids
-    }
-
-    for protocol in all_protocols:
+async def build_protocols_list_response(
+    db: AsyncSession, protocols: list[Protocol]
+) -> list[ProtocolResponse]:
+    """Собрать список ответов по протоколам с пакетной загрузкой проб и расчётов."""
+    all_sample_ids: set[int] = set()
+    for protocol in protocols:
         if protocol.samples:
-            for sample_id in protocol.samples:
-                if sample_id in result:
-                    sample = samples_by_id.get(sample_id)
-                    test_object = sample.test_object if sample else None
+            all_sample_ids.update(protocol.samples)
 
-                    protocol_dict = {
-                        "id": protocol.id,
-                        "test_protocol_number": protocol.test_protocol_number,
-                        "test_protocol_date": (
-                            protocol.test_protocol_date.isoformat()
-                            if protocol.test_protocol_date
-                            else None
-                        ),
-                        "is_accredited": protocol.is_accredited,
-                        "formatted_protocol_number": format_protocol_number(
-                            protocol.test_protocol_number,
-                            protocol.test_protocol_date,
-                            protocol.is_accredited,
-                            test_object,
-                        ),
-                    }
-                    result[sample_id].append(protocol_dict)
+    samples_by_id: dict[int, Any] = {}
+    if all_sample_ids:
+        samples_list = await get_samples_by_ids(db, list(all_sample_ids))
+        samples_by_id = {sample.id: sample for sample in samples_list}
 
-    return result
+    sample_ids_with_calculations: set[int] = set()
+    if all_sample_ids:
+        calculations = await get_calculations_by_sample(
+            db, sample_ids=list(all_sample_ids), include_deleted=False
+        )
+        sample_ids_with_calculations = {
+            calculation.sample_id for calculation in calculations
+        }
+
+    items = []
+    for protocol in protocols:
+        protocol_dict = ProtocolResponse.model_validate(protocol).model_dump()
+        protocol_dict = _enrich_protocol_dict(
+            protocol,
+            protocol_dict,
+            samples_by_id,
+            sample_ids_with_calculations,
+        )
+        items.append(ProtocolResponse(**protocol_dict))
+
+    return items
+
+
+async def get_protocol_detail_response(
+    db: AsyncSession, protocol_id: int
+) -> ProtocolResponse:
+    """Получить детальный ответ по протоколу с пробами и расчётами."""
+    protocol = await get_protocol_by_id(db, protocol_id)
+    if not protocol:
+        raise NotFoundError("Протокол не найден")
+
+    samples_by_id: dict[int, Any] = {}
+    sample_ids_with_calculations: set[int] = set()
+    if protocol.samples:
+        samples_list = await get_samples_by_ids(db, protocol.samples)
+        samples_by_id = {sample.id: sample for sample in samples_list}
+        calculations = await get_calculations_by_sample(
+            db, sample_ids=protocol.samples, include_deleted=False
+        )
+        sample_ids_with_calculations = {
+            calculation.sample_id for calculation in calculations
+        }
+
+    protocol_dict = ProtocolResponse.model_validate(protocol).model_dump()
+    protocol_dict = _enrich_protocol_dict(
+        protocol,
+        protocol_dict,
+        samples_by_id,
+        sample_ids_with_calculations,
+    )
+    return ProtocolResponse(**protocol_dict)

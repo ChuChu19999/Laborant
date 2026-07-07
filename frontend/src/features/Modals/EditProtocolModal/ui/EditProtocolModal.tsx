@@ -69,16 +69,16 @@ const EditProtocolModal: React.FC<EditProtocolModalProps> = ({
 
   // Загрузка данных сотрудников для issued и approved
   const loadEmployee = useCallback(
-    async (hash: string | undefined, setEmployee: (emp: Employee | null) => void) => {
-      if (!hash) {
+    async (hsnils: string | undefined, setEmployee: (emp: Employee | null) => void) => {
+      if (!hsnils) {
         setEmployee(null);
         return;
       }
       try {
-        const employee = await employeesApi.getByHash(hash, true);
+        const employee = await employeesApi.getByHsnils(hsnils, true);
         if (employee) {
           setEmployee({
-            hashMd5: employee.hashMd5,
+            hsnils: employee.hsnils,
             fullName: employee.fullName,
             employeePhoto: employee.employeePhoto,
             jobTitle: employee.jobTitle,
@@ -256,8 +256,8 @@ const EditProtocolModal: React.FC<EditProtocolModalProps> = ({
         : undefined,
       is_accredited: formData.is_accredited,
       sampling_act_number: formData.sampling_act_number,
-      issued: formData.issued?.hashMd5 || undefined,
-      approved: formData.approved?.hashMd5 || undefined,
+      issued: formData.issued?.hsnils || undefined,
+      approved: formData.approved?.hsnils || undefined,
       issued_position: formData.issued_position || undefined,
       approved_position: formData.approved_position || undefined,
       protocol_template_id: formData.protocol_template_id || undefined,

@@ -1,50 +1,51 @@
-from sqlalchemy import JSON, Column, ForeignKey, Index, Integer, String
-from sqlalchemy.orm import relationship
+from __future__ import annotations
+from typing import TYPE_CHECKING, Any, Optional
+from sqlalchemy import JSON, ForeignKey, Index, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from core.config import get_database_schema
 from models.base import BaseModel
+
+if TYPE_CHECKING:
+    from models.laboratory import Department, Laboratory
 
 
 class NdNorm(BaseModel):
     __tablename__ = "nd_norms"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
-        index=True,
         comment="Наименование нормы",
     )
-    test_object = Column(
+    test_object: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
-        index=True,
         comment="Объект испытаний",
     )
-    laboratory_id = Column(
+    laboratory_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey(f"{get_database_schema()}.laboratories.id", ondelete="CASCADE"),
         nullable=False,
     )
-    department_id = Column(
+    department_id: Mapped[Optional[int]] = mapped_column(
         Integer,
         ForeignKey(f"{get_database_schema()}.departments.id", ondelete="CASCADE"),
         nullable=True,
     )
-    method_data = Column(
+    method_data: Mapped[list[Any]] = mapped_column(
         JSON,
         nullable=False,
         default=list,
-        comment="Тексты нормы по методам исследования: method_id и text",
+        comment="Значения нормы по методам: method_id и value",
     )
 
-    laboratory = relationship("Laboratory", back_populates="nd_norms")
-    department = relationship("Department", back_populates="nd_norms")
+    laboratory: Mapped["Laboratory"] = relationship(back_populates="nd_norms")
+    department: Mapped[Optional["Department"]] = relationship(back_populates="nd_norms")
 
     __table_args__ = (
         Index("idx_nd_norm_name", "name"),
         Index("idx_nd_norm_test_object", "test_object"),
-        Index("idx_nd_norm_created_at", "created_at"),
-        Index("idx_nd_norm_updated_at", "updated_at"),
         {"schema": get_database_schema()},
     )
 

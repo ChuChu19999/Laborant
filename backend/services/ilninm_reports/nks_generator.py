@@ -1,7 +1,3 @@
-"""
-Формирование Excel-отчёта «Результаты НКС».
-"""
-
 import base64
 from io import BytesIO
 from typing import Any, Optional

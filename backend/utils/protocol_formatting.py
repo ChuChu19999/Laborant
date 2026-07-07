@@ -1,13 +1,14 @@
+from __future__ import annotations
 from datetime import date
-from typing import Optional, Union
 import pendulum
+from utils.protocol_suffix_rules import get_protocol_object_suffix
 
 
 def format_protocol_number(
-    number: Optional[str],
-    protocol_date: Optional[Union[date, pendulum.Date]],
+    number: str | None,
+    protocol_date: date | pendulum.Date | None,
     is_accredited: bool,
-    test_object: Optional[str] = None,
+    test_object: str | None = None,
 ) -> str:
     """
     Форматирует номер протокола для отображения.
@@ -28,31 +29,7 @@ def format_protocol_number(
     if not is_accredited:
         return number or "-"
 
-    def get_object_suffix(test_obj: Optional[str]) -> str:
-        """Определяет суффикс на основе объекта исследования."""
-        if not test_obj:
-            return ""
-
-        test_object_lower = test_obj.lower()
-        if "дегазированный конденсат" in test_object_lower:
-            return "дк"
-        if "нефть" in test_object_lower or "нефть калибровочная" in test_object_lower:
-            return "н"
-        if "нефтеконденсатная смесь" in test_object_lower:
-            return "нкс"
-        if "дизельное топливо" in test_object_lower:
-            return "дт"
-        if "отработанные нефтепродукты" in test_object_lower:
-            return "он"
-        if "масло" in test_object_lower:
-            return "м"
-        if "смесь жидких углеводородов" in test_object_lower:
-            return "с"
-        if "ингибитор коррозии" in test_object_lower:
-            return "ик"
-        return ""
-
-    suffix = get_object_suffix(test_object)
+    suffix = get_protocol_object_suffix(test_object)
 
     if protocol_date:
         if isinstance(protocol_date, pendulum.Date):

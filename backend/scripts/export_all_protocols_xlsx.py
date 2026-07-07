@@ -34,23 +34,23 @@ from sqlalchemy import select
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BACKEND_DIR))
 
-import services.employees as employees_module
-import services.protocol_generator as protocol_generator_module
-from core.config import settings
-from core.database import AsyncSessionLocal
-from core.http_clients import get_hr_client
-from models.calculation import Calculation
-from models.protocol import Protocol
-from models.research import ResearchMethod
-from services.employees import get_employees_by_hashes
-from services.protocol_generator import generate_protocol_excel
-from utils.date import ensure_datetime, parse_date_string
+import services.employees as employees_module  # noqa: E402
+import services.protocol_generator as protocol_generator_module  # noqa: E402
+from core.config import settings  # noqa: E402
+from core.database import AsyncSessionLocal  # noqa: E402
+from core.http_clients import get_hr_client  # noqa: E402
+from models.calculation import Calculation  # noqa: E402
+from models.protocol import Protocol  # noqa: E402
+from models.research import ResearchMethod  # noqa: E402
+from services.employees import get_employees_by_hsnils  # noqa: E402
+from services.protocol_generator import generate_protocol_excel  # noqa: E402
+from utils.date import ensure_datetime, parse_datetime_string  # noqa: E402
 
 INVALID_SHEET_NAME_CHARS = re.compile(r"[\\/*?\[\]:]")
 MAX_SHEET_NAME_LEN = 31
 HR_BATCH_SIZE = 200
 
-_employees_by_hash_store: dict[str, dict] = {}
+_employees_by_hsnils_store: dict[str, dict] = {}
 _hr_cache_installed = False
 
 
@@ -64,35 +64,35 @@ def resolve_protocol_target_date(protocol: Protocol):
     return target_date
 
 
-async def _cached_get_employees_by_hashes(
-    hashes_md5: list[str], include_photo: bool = False
+async def _cached_get_employees_by_hsnils(
+    hsnils_list: list[str], include_photo: bool = False
 ) -> dict[str, dict]:
     """Вернуть сотрудников из предзагруженного кэша без повторных запросов к HR."""
     del include_photo
-    unique_hashes = [h for h in dict.fromkeys(hashes_md5) if h]
+    unique_hsnils = [h for h in dict.fromkeys(hsnils_list) if h]
     return {
-        h: _employees_by_hash_store[h]
-        for h in unique_hashes
-        if h in _employees_by_hash_store
+        h: _employees_by_hsnils_store[h]
+        for h in unique_hsnils
+        if h in _employees_by_hsnils_store
     }
 
 
 def install_hr_employees_cache() -> None:
-    """Подменить get_employees_by_hashes в модулях, где функция уже импортирована."""
+    """Подменить get_employees_by_hsnils в модулях, где функция уже импортирована."""
     global _hr_cache_installed
-    employees_module.get_employees_by_hashes = _cached_get_employees_by_hashes
-    protocol_generator_module.get_employees_by_hashes = _cached_get_employees_by_hashes
+    employees_module.get_employees_by_hsnils = _cached_get_employees_by_hsnils
+    protocol_generator_module.get_employees_by_hsnils = _cached_get_employees_by_hsnils
     _hr_cache_installed = True
 
 
 def restore_hr_employees_cache() -> None:
-    """Вернуть оригинальный get_employees_by_hashes после экспорта."""
+    """Вернуть оригинальный get_employees_by_hsnils после экспорта."""
     global _hr_cache_installed
     if not _hr_cache_installed:
         return
 
-    employees_module.get_employees_by_hashes = get_employees_by_hashes
-    protocol_generator_module.get_employees_by_hashes = get_employees_by_hashes
+    employees_module.get_employees_by_hsnils = get_employees_by_hsnils
+    protocol_generator_module.get_employees_by_hsnils = get_employees_by_hsnils
     _hr_cache_installed = False
 
 
@@ -199,9 +199,9 @@ def resolve_position_and_name(
             continue
 
         try:
-            begin_datetime = ensure_datetime(parse_date_string(begin_date_str))
+            begin_datetime = ensure_datetime(parse_datetime_string(begin_date_str))
             end_datetime = (
-                ensure_datetime(parse_date_string(end_date_str))
+                ensure_datetime(parse_datetime_string(end_date_str))
                 if end_date_str
                 else None
             )
@@ -221,7 +221,7 @@ def resolve_position_and_name(
                     target_position = position_name
                 else:
                     best_begin_datetime = ensure_datetime(
-                        parse_date_string(best_appointment.get("beginDate", ""))
+                        parse_datetime_string(best_appointment.get("beginDate", ""))
                     )
                     if best_begin_datetime and begin_datetime > best_begin_datetime:
                         best_appointment = appointment
@@ -237,24 +237,24 @@ def resolve_position_and_name(
 
 def warm_position_cache(position_keys: set[tuple[str, object]]) -> None:
     """Заполнить _position_cache без отдельных GET-запросов к HR."""
-    for hash_md5, target_date in position_keys:
+    for hsnils, target_date in position_keys:
         target_datetime = ensure_datetime(target_date)
         if not target_datetime:
             continue
 
-        employee_data = _employees_by_hash_store.get(hash_md5)
+        employee_data = _employees_by_hsnils_store.get(hsnils)
         if employee_data:
             result = resolve_position_and_name(employee_data, target_date)
         else:
             result = ("", "")
 
-        cache_key = f"position_{hash_md5}_{target_datetime.strftime('%Y-%m-%d')}"
+        cache_key = f"position_{hsnils}_{target_datetime.strftime('%Y-%m-%d')}"
         employees_module._position_cache[cache_key] = result
 
 
 async def prefetch_hr_for_protocols(db, protocols: list[Protocol]) -> None:
     """Один раз загрузить всех сотрудников и должности, нужные для экспорта."""
-    _employees_by_hash_store.clear()
+    _employees_by_hsnils_store.clear()
 
     all_hashes: set[str] = set()
     position_keys: set[tuple[str, object]] = set()
@@ -298,12 +298,12 @@ async def prefetch_hr_for_protocols(db, protocols: list[Protocol]) -> None:
     for offset in range(0, len(hash_list), HR_BATCH_SIZE):
         chunk = hash_list[offset : offset + HR_BATCH_SIZE]
         fetched = await fetch_employees_by_hashes_post(chunk)
-        _employees_by_hash_store.update(fetched)
+        _employees_by_hsnils_store.update(fetched)
 
     warm_position_cache(position_keys)
     install_hr_employees_cache()
     logger.info(
-        f"HR: кэш готов ({len(_employees_by_hash_store)} сотрудников, "
+        f"HR: кэш готов ({len(_employees_by_hsnils_store)} сотрудников, "
         f"{len(position_keys)} должностей, только POST-батчи)"
     )
 

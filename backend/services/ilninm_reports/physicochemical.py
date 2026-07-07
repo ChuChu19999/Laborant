@@ -11,16 +11,12 @@ from datetime import date
 from typing import Any, Optional
 import orjson
 import pendulum
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 from models.calculation import Calculation
-from models.laboratory import SamplingLocation
-from models.research import ResearchMethod
 from models.sample import Sample
+from repositories import calculation as calculation_repo
+from repositories import sample as sample_repo
 from services.ilninm_reports.constants import (
-    DB_NAME_TO_DISPLAY_CDGGKN,
-    DISPLAY_TO_DB_NAME_CDGGKN,
     FRACTIONAL_RESULT_FIELD_100,
     FRACTIONAL_RESULT_FIELD_150,
     FRACTIONAL_RESULT_FIELD_200,
@@ -43,10 +39,11 @@ from services.ilninm_reports.constants import (
     METHOD_VISCOSITY_20,
     METHOD_VISCOSITY_50,
     REPORT_EMPTY_CELL_VALUE,
-    SAMPLING_LOCATIONS_CDGGKN,
 )
 from utils.calculation_result_display import format_calculation_result_for_display
 from utils.filters import add_date_range_filter
+from utils.ilninm_constants import DB_NAME_TO_DISPLAY_CDGGKN
+from utils.ilninm_sampling_location import resolve_sampling_location_db_name
 from utils.protocol_generator_utils import format_decimal_ru
 
 
@@ -126,19 +123,6 @@ METHOD_COLUMNS: tuple[MethodColumnSpec, ...] = (
     MethodColumnSpec(18, METHOD_PARAFFIN, None),
     MethodColumnSpec(19, METHOD_PARAFFIN_MELTING, None),
 )
-
-
-def resolve_sampling_location_db_name(sampling_location: str) -> str:
-    """Преобразует подпись ЦДГГКН или имя из БД в имя места отбора для фильтра."""
-    key = (sampling_location or "").strip()
-    if key in DISPLAY_TO_DB_NAME_CDGGKN:
-        return DISPLAY_TO_DB_NAME_CDGGKN[key]
-    if key in SAMPLING_LOCATIONS_CDGGKN:
-        return key
-    raise ValueError(
-        "Место отбора должно быть «ЦДГГКН №1», «ЦДГГКН №2» "
-        "или «Цех по ДГГКН №1», «Цех по ДГГКН №2»"
-    )
 
 
 def resolve_sampling_location_display(sampling_location: str) -> str:
@@ -283,68 +267,33 @@ async def _get_samples_for_report(
     sampling_date_to: pendulum.DateTime,
     sampling_location_db_name: str,
 ) -> list[Sample]:
-    conditions = [
-        Sample.laboratory_id == laboratory_id,
-        Sample.deleted_at.is_(None),
-        Sample.sampling_location_id.isnot(None),
-    ]
-    add_date_range_filter(
-        conditions, sampling_date_from, sampling_date_to, Sample.sampling_date
+    samples = await sample_repo.get_oil_samples_by_sampling_location_name(
+        db,
+        laboratory_id,
+        sampling_location_db_name,
+        sampling_date_from,
+        sampling_date_to,
+        department_id,
     )
-    if department_id is not None:
-        conditions.append(Sample.department_id == department_id)
-
-    query = (
-        select(Sample)
-        .join(
-            SamplingLocation,
-            Sample.sampling_location_id == SamplingLocation.id,
-        )
-        .where(
-            *conditions,
-            SamplingLocation.name == sampling_location_db_name,
-            SamplingLocation.deleted_at.is_(None),
-        )
-        .options(selectinload(Sample.sampling_location))
-    )
-    result = await db.execute(query)
     samples = [
-        s
-        for s in result.scalars().unique().all()
-        if _is_oil_test_object(s) and _has_well(s)
+        sample
+        for sample in samples
+        if _is_oil_test_object(sample) and _has_well(sample)
     ]
     samples.sort(
-        key=lambda s: (
-            s.sampling_date is None,
-            s.sampling_date or date.min,
-            s.id,
+        key=lambda sample: (
+            sample.sampling_date is None,
+            sample.sampling_date or date.min,
+            sample.id,
         )
     )
     return samples
 
 
-async def _get_calculations_by_sample(
+async def get_calculations_by_sample(
     db: AsyncSession, sample_ids: list[int]
 ) -> dict[int, list[Calculation]]:
-    if not sample_ids:
-        return {}
-    query = (
-        select(Calculation)
-        .where(
-            Calculation.sample_id.in_(sample_ids),
-            Calculation.deleted_at.is_(None),
-        )
-        .options(
-            selectinload(Calculation.research_method).selectinload(
-                ResearchMethod.groups
-            ),
-        )
-    )
-    result = await db.execute(query)
-    by_sample: dict[int, list[Calculation]] = {}
-    for calc in result.scalars().unique().all():
-        by_sample.setdefault(calc.sample_id, []).append(calc)
-    return by_sample
+    return await calculation_repo.get_calculations_grouped_by_sample_ids(db, sample_ids)
 
 
 def _find_value_for_column(
@@ -387,7 +336,7 @@ async def get_physicochemical_report_rows(
         return []
 
     sample_ids = [s.id for s in samples]
-    calcs_by_sample = await _get_calculations_by_sample(db, sample_ids)
+    calcs_by_sample = await get_calculations_by_sample(db, sample_ids)
     rows: list[PhysicochemicalReportRow] = []
 
     for sample in samples:

@@ -24,7 +24,7 @@ from models.research import ResearchMethod
 from models.sample import Sample, SelectionConditions
 from services.employees import (
     get_employee_position_and_name,
-    get_employees_by_hashes,
+    get_employees_by_hsnils,
 )
 from services.research import build_research_method_display_name
 from utils.protocol_generator_utils import (
@@ -933,7 +933,7 @@ async def process_between_tables(
     elif isinstance(target_date, str):
         target_date = pendulum.parse(target_date).date()
 
-    # Собираем все уникальные hashMd5 исполнителей
+    # Собираем все уникальные hsnils исполнителей
     unique_executors = set()
     for sample in samples:
         for calc in sample.calculations:
@@ -946,7 +946,7 @@ async def process_between_tables(
     employees_data = {}
     if unique_executors:
         try:
-            employees_data = await get_employees_by_hashes(
+            employees_data = await get_employees_by_hsnils(
                 list(unique_executors), include_photo=False
             )
         except Exception as e:
@@ -955,9 +955,9 @@ async def process_between_tables(
     # Для каждого уникального исполнителя получаем позицию и имя
     # get_employee_position_and_name использует кэш, поэтому повторные вызовы
     # для одного и того же исполнителя будут быстрыми
-    for executor_hash in unique_executors:
+    for executor_hsnils in unique_executors:
         position, formatted_name = await get_employee_position_and_name(
-            executor_hash, target_date
+            executor_hsnils, target_date
         )
         if formatted_name:
             logger.info(
@@ -2481,7 +2481,7 @@ async def _load_applicable_nd_norms(
         for item in norm.method_data or []:
             method_id = item.get("method_id")
             if method_id in method_ids:
-                values_by_method[int(method_id)] = str(item.get("text") or "").strip()
+                values_by_method[int(method_id)] = str(item.get("value") or "").strip()
         if values_by_method:
             applicable.append((norm, values_by_method))
     return applicable

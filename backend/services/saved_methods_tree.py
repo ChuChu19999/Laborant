@@ -1,40 +1,28 @@
-"""Дерево расчётных методов по лабораториям: лаборатория → подразделение (если указано) → методы."""
-
+from __future__ import annotations
 from collections import defaultdict
-from typing import Any, Dict, List, Optional
-from sqlalchemy import select
+from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 from models.research import ResearchMethod
+from repositories import research as research_repo
 
 
-async def build_saved_methods_tree(db: AsyncSession) -> Dict[str, Any]:
+async def build_saved_methods_tree(db: AsyncSession) -> dict[str, Any]:
     """
     Все методы исследования (в том числе входящие в группы), по лаборатории и подразделению.
 
     У методов без laboratory_id — блок «Без привязки к лаборатории».
     У методов с лабораторией, но без department_id — строки сразу под лабораторией.
     """
-    stmt = (
-        select(ResearchMethod)
-        .where(ResearchMethod.deleted_at.is_(None))
-        .options(
-            selectinload(ResearchMethod.laboratory),
-            selectinload(ResearchMethod.department),
-            selectinload(ResearchMethod.groups),
-        )
-    )
-    result = await db.execute(stmt)
-    methods = list(result.scalars().all())
+    methods = await research_repo.get_all_active_research_methods_for_tree(db)
 
-    by_lab_id: Dict[Optional[int], List[ResearchMethod]] = defaultdict(list)
-    for m in methods:
-        by_lab_id[m.laboratory_id].append(m)
+    by_lab_id: dict[int | None, list[ResearchMethod]] = defaultdict(list)
+    for method in methods:
+        by_lab_id[method.laboratory_id].append(method)
 
-    def lab_key(v: Optional[int]) -> tuple:
-        return (v is None, v or 0)
+    def lab_key(value: int | None) -> tuple:
+        return (value is None, value or 0)
 
-    laboratories_out: List[Dict[str, Any]] = []
+    laboratories_out: list[dict[str, Any]] = []
 
     for lab_id in sorted(by_lab_id.keys(), key=lab_key):
         lab_methods = by_lab_id[lab_id]
@@ -47,31 +35,31 @@ async def build_saved_methods_tree(db: AsyncSession) -> Dict[str, Any]:
                 (lab_obj.full_name or lab_obj.name) if lab_obj else str(lab_id)
             )
 
-        by_dept_id: Dict[Optional[int], List[ResearchMethod]] = defaultdict(list)
-        for m in lab_methods:
-            by_dept_id[m.department_id].append(m)
+        by_dept_id: dict[int | None, list[ResearchMethod]] = defaultdict(list)
+        for method in lab_methods:
+            by_dept_id[method.department_id].append(method)
 
-        dept_blocks: List[Dict[str, Any]] = []
-        methods_without_department: List[Dict[str, Any]] = []
+        dept_blocks: list[dict[str, Any]] = []
+        methods_without_department: list[dict[str, Any]] = []
 
         for dept_id in sorted(by_dept_id.keys(), key=lab_key):
-            ms = sorted(
+            dept_methods = sorted(
                 by_dept_id[dept_id],
-                key=lambda x: ((x.name or "").lower(), x.id),
+                key=lambda item: ((item.name or "").lower(), item.id),
             )
             rows = [
                 {
-                    "id": m.id,
-                    "name": m.name,
-                    "nd_code": m.nd_code or "",
-                    "group_name": m.groups[0].name if m.groups else None,
+                    "id": method.id,
+                    "name": method.name,
+                    "nd_code": method.nd_code or "",
+                    "group_name": method.groups[0].name if method.groups else None,
                 }
-                for m in ms
+                for method in dept_methods
             ]
             if dept_id is None:
                 methods_without_department.extend(rows)
             else:
-                dep_obj = ms[0].department
+                dep_obj = dept_methods[0].department
                 department_name = dep_obj.name if dep_obj else str(dept_id)
                 dept_blocks.append(
                     {
@@ -81,9 +69,7 @@ async def build_saved_methods_tree(db: AsyncSession) -> Dict[str, Any]:
                     }
                 )
 
-        dept_blocks.sort(
-            key=lambda d: (d.get("department_name") or "").lower(),
-        )
+        dept_blocks.sort(key=lambda item: (item.get("department_name") or "").lower())
 
         laboratories_out.append(
             {
@@ -94,8 +80,6 @@ async def build_saved_methods_tree(db: AsyncSession) -> Dict[str, Any]:
             }
         )
 
-    laboratories_out.sort(
-        key=lambda x: (x.get("laboratory_name") or "").lower(),
-    )
+    laboratories_out.sort(key=lambda item: (item.get("laboratory_name") or "").lower())
 
     return {"laboratories": laboratories_out}

@@ -1,5 +1,5 @@
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any
 import orjson
 from schemas.sample_export import ResearchMethodExportInfo, SampleExportCalculation
 from utils.calculation_result_display import get_chloride_salts_result_display
@@ -42,7 +42,7 @@ def _round_value_for_condensate_fractional(value: str, field_name: str) -> str:
 
 
 def get_method_display_name(
-    method: Optional[ResearchMethodExportInfo],
+    method: ResearchMethodExportInfo | None,
 ) -> str:
     if not method:
         return "-"
@@ -72,7 +72,7 @@ def _format_fractional_result_text(result: str, method_name: str) -> str:
 
         is_condensate = method_name == "Фракционный состав (конденсат)"
         is_oil = method_name == "Фракционный состав (нефть)"
-        lines: List[str] = []
+        lines: list[str] = []
 
         for key, value in parsed.items():
             if value is None or value == "-":
@@ -119,9 +119,9 @@ def _format_fractional_result_text(result: str, method_name: str) -> str:
 
 
 def _format_fractional_error_text(
-    measurement_error: Optional[str],
+    measurement_error: str | None,
     method_name: str,
-    result: Optional[str],
+    result: str | None,
 ) -> str:
     is_fractional = method_name and "фракционный состав" in method_name.lower()
 
@@ -135,7 +135,7 @@ def _format_fractional_error_text(
                     orjson.loads(result) if isinstance(result, str) else result
                 )
                 if isinstance(parsed_result, dict):
-                    error_map: Dict[str, str] = {}
+                    error_map: dict[str, str] = {}
 
                     if is_condensate:
                         for key in parsed_result:
@@ -172,7 +172,7 @@ def _format_fractional_error_text(
                             else:
                                 error_map[corrected_key] = "-"
 
-                    error_lines: List[str] = []
+                    error_lines: list[str] = []
                     for key, value in parsed_result.items():
                         corrected_key = key.replace("н,к.", "н.к.")
                         if value is not None and value != "-":
@@ -226,7 +226,7 @@ def _format_fractional_unit_text(
 
             return unit or method.unit or "-"
 
-        unit_lines: List[str] = []
+        unit_lines: list[str] = []
         for key, value in entries:
             corrected_key = key.replace("н,к.", "н.к.")
             if value is None or value == "-":
@@ -255,7 +255,7 @@ def _format_fractional_lines(
     unit_lines = _format_fractional_unit_text(calc, method).split("\n")
 
     max_lines = max(len(result_lines), len(error_lines), len(unit_lines))
-    combined: List[str] = []
+    combined: list[str] = []
 
     for index in range(max_lines):
         line = _join_result_error_unit(
@@ -311,7 +311,7 @@ def format_calculation_export_entry(calc: SampleExportCalculation) -> str:
 
 
 def format_sample_calculations_column(
-    calculations: Optional[List[SampleExportCalculation]],
+    calculations: list[SampleExportCalculation] | None,
 ) -> str:
     if not calculations:
         return "-"

@@ -1,34 +1,35 @@
+from __future__ import annotations
 from typing import List, Optional
 import pendulum
-from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 from core.exceptions import NotFoundError, ValidationError
 from models.equipment import Equipment
-from models.laboratory import Department, Laboratory
-from models.research import ResearchMethod
-from schemas.equipment import EquipmentCreate, EquipmentUpdate
-from utils.filters import add_date_range_filter
-from utils.pagination import apply_pagination, calculate_total_pages, get_total_count
-from utils.sorting import build_order_by
+from repositories import equipment as equipment_repo
+from repositories import laboratory as laboratory_repo
+from repositories.base import flush_entity
+from schemas.equipment import EquipmentCreate, EquipmentResponse, EquipmentUpdate
+from services.visibility import validate_lab_and_department
+from utils.pagination import calculate_total_pages
+from utils.versioning import next_version_string
 
 
 async def get_equipment_by_id(
     db: AsyncSession, equipment_id: int, include_deleted: bool = False
 ) -> Optional[Equipment]:
     """Получить оборудование по ID."""
-    query = (
-        select(Equipment)
-        .where(Equipment.id == equipment_id)
-        .options(selectinload(Equipment.laboratory), selectinload(Equipment.department))
-    )
-    if not include_deleted:
-        query = query.where(Equipment.deleted_at.is_(None))
-    result = await db.execute(query)
-    return result.scalar_one_or_none()
+    return await equipment_repo.get_equipment_by_id(db, equipment_id, include_deleted)
 
 
-async def get_equipment_list(
+async def get_equipment_by_ids(
+    db: AsyncSession,
+    equipment_ids: list[int],
+    include_deleted: bool = True,
+) -> dict[int, Equipment]:
+    """Получить оборудование по списку ID."""
+    return await equipment_repo.get_equipment_by_ids(db, equipment_ids, include_deleted)
+
+
+async def get_equipment(
     db: AsyncSession,
     laboratory_id: Optional[int] = None,
     department_id: Optional[int] = None,
@@ -46,156 +47,56 @@ async def get_equipment_list(
     created_at_to: Optional[pendulum.DateTime] = None,
 ) -> tuple[List[Equipment], int, int]:
     """Получить список оборудования."""
-    query = (
-        select(Equipment)
-        .where(Equipment.deleted_at.is_(None))
-        .options(selectinload(Equipment.laboratory), selectinload(Equipment.department))
-    )
-
-    conditions = []
-    if laboratory_id:
-        conditions.append(Equipment.laboratory_id == laboratory_id)
-    if department_id:
-        conditions.append(Equipment.department_id == department_id)
-    if equipment_types:
-        conditions.append(Equipment.type.in_(equipment_types))
-    if search:
-        conditions.append(
-            or_(
-                Equipment.name.ilike(f"%{search}%"),
-                Equipment.serial_number.ilike(f"%{search}%"),
-            )
-        )
-
-    add_date_range_filter(
-        conditions,
+    equipment_list, total = await equipment_repo.get_equipment(
+        db,
+        laboratory_id,
+        department_id,
+        equipment_types,
+        page,
+        page_size,
+        search,
+        sort_by,
+        sort_order,
         verification_date_from,
         verification_date_to,
-        Equipment.verification_date,
-    )
-    add_date_range_filter(
-        conditions,
         verification_end_date_from,
         verification_end_date_to,
-        Equipment.verification_end_date,
+        created_at_from,
+        created_at_to,
     )
-    add_date_range_filter(
-        conditions, created_at_from, created_at_to, Equipment.created_at
-    )
-    if conditions:
-        query = query.where(*conditions)
-
-    if sort_by == "type":
-        type_sort = case(
-            (Equipment.type == "test_equipment", "Испытательное оборудование"),
-            (Equipment.type == "measuring_instrument", "Средство измерения"),
-            else_=Equipment.type,
-        )
-        if sort_order == "asc":
-            query = query.order_by(type_sort.asc())
-        else:
-            query = query.order_by(type_sort.desc())
-    else:
-        sort_mapping = {
-            "name": Equipment.name,
-            "serial_number": Equipment.serial_number,
-            "version": Equipment.version,
-            "verification_date": Equipment.verification_date,
-            "verification_end_date": Equipment.verification_end_date,
-            "created_at": Equipment.created_at,
-        }
-        order_by = build_order_by(sort_by, sort_order, sort_mapping, Equipment.name)
-        query = query.order_by(order_by)
-
-    count_query = (
-        select(func.count())
-        .select_from(Equipment)
-        .where(Equipment.deleted_at.is_(None))
-    )
-    count_conditions = []
-    if laboratory_id:
-        count_conditions.append(Equipment.laboratory_id == laboratory_id)
-    if department_id:
-        count_conditions.append(Equipment.department_id == department_id)
-    if equipment_types:
-        count_conditions.append(Equipment.type.in_(equipment_types))
-    if search:
-        count_conditions.append(
-            or_(
-                Equipment.name.ilike(f"%{search}%"),
-                Equipment.serial_number.ilike(f"%{search}%"),
-            )
-        )
-    add_date_range_filter(
-        count_conditions,
-        verification_date_from,
-        verification_date_to,
-        Equipment.verification_date,
-    )
-    add_date_range_filter(
-        count_conditions,
-        verification_end_date_from,
-        verification_end_date_to,
-        Equipment.verification_end_date,
-    )
-    add_date_range_filter(
-        count_conditions, created_at_from, created_at_to, Equipment.created_at
-    )
-    if count_conditions:
-        count_query = count_query.where(*count_conditions)
-
-    total = await get_total_count(db, count_query)
 
     if page is not None and page_size is not None:
         total_pages = calculate_total_pages(total, page_size)
-        query = apply_pagination(query, page, page_size)
     else:
         total_pages = 1 if total > 0 else 0
 
-    result = await db.execute(query)
-    equipment_list = result.scalars().all()
-
     return equipment_list, total, total_pages
+
+
+def build_equipment_response(equipment: Equipment) -> EquipmentResponse:
+    """Собрать ответ API по оборудованию с наименованиями связей."""
+    eq_dict = EquipmentResponse.model_validate(equipment).model_dump()
+    if equipment.laboratory:
+        eq_dict["laboratory_name"] = equipment.laboratory.name
+    if equipment.department:
+        eq_dict["department_name"] = equipment.department.name
+    return EquipmentResponse(**eq_dict)
 
 
 async def create_equipment(
     db: AsyncSession, equipment_data: EquipmentCreate
 ) -> Equipment:
     """Создать оборудование."""
-    laboratory = await db.execute(
-        select(Laboratory).where(Laboratory.id == equipment_data.laboratory_id)
-    )
-    if not laboratory.scalar_one_or_none():
-        raise NotFoundError("Лаборатория не найдена")
-
-    if equipment_data.department_id:
-        department = await db.execute(
-            select(Department).where(Department.id == equipment_data.department_id)
-        )
-        dept = department.scalar_one_or_none()
-        if not dept:
-            raise NotFoundError("Подразделение не найдено")
-        if dept.laboratory_id != equipment_data.laboratory_id:
-            raise ValidationError(
-                "Подразделение должно принадлежать выбранной лаборатории"
-            )
-
-    latest_query = select(Equipment).where(
-        Equipment.name == equipment_data.name,
-        Equipment.laboratory_id == equipment_data.laboratory_id,
-        Equipment.deleted_at.is_(None),
+    await validate_lab_and_department(
+        db, equipment_data.laboratory_id, equipment_data.department_id
     )
 
-    if equipment_data.department_id:
-        latest_query = latest_query.where(
-            Equipment.department_id == equipment_data.department_id
-        )
-    else:
-        latest_query = latest_query.where(Equipment.department_id.is_(None))
-
-    latest_query = latest_query.order_by(Equipment.version.desc()).limit(1)
-    latest = await db.execute(latest_query)
-    latest_equipment = latest.scalar_one_or_none()
+    latest_equipment = await equipment_repo.get_latest_equipment_version(
+        db,
+        equipment_data.name,
+        equipment_data.laboratory_id,
+        equipment_data.department_id,
+    )
 
     if latest_equipment:
         try:
@@ -218,8 +119,7 @@ async def create_equipment(
         department_id=equipment_data.department_id,
         method_data_default=equipment_data.method_data_default or [],
     )
-    db.add(equipment)
-    await db.flush()
+    equipment = await equipment_repo.add_equipment(db, equipment)
 
     if latest_equipment:
         old_equipment_id = latest_equipment.id
@@ -231,13 +131,9 @@ async def create_equipment(
             equipment_data.department_id,
         )
 
-    query = (
-        select(Equipment)
-        .where(Equipment.id == equipment.id)
-        .options(selectinload(Equipment.laboratory), selectinload(Equipment.department))
-    )
-    result = await db.execute(query)
-    equipment = result.scalar_one()
+    equipment = await equipment_repo.get_equipment_by_id(db, equipment.id)
+    if not equipment:
+        raise NotFoundError("Оборудование не найдено")
     return equipment
 
 
@@ -278,15 +174,11 @@ async def update_equipment(
         else old_equipment.department_id
     )
 
-    laboratory = await db.execute(select(Laboratory).where(Laboratory.id == lab_id))
-    if not laboratory.scalar_one_or_none():
+    if not await laboratory_repo.get_laboratory_by_id(db, lab_id):
         raise NotFoundError("Лаборатория не найдена")
 
     if dept_id:
-        department = await db.execute(
-            select(Department).where(Department.id == dept_id)
-        )
-        dept = department.scalar_one_or_none()
+        dept = await laboratory_repo.get_department_by_id(db, dept_id)
         if not dept:
             raise NotFoundError("Подразделение не найдено")
         if dept.laboratory_id != lab_id:
@@ -294,15 +186,11 @@ async def update_equipment(
                 "Подразделение должно принадлежать выбранной лаборатории"
             )
 
-    try:
-        current_num = int(old_equipment.version[1:])
-        next_version = f"v{current_num + 1}"
-    except (ValueError, IndexError):
-        next_version = "v1"
+    next_version = next_version_string(old_equipment.version)
 
     old_equipment_id = old_equipment.id
     old_equipment.soft_delete()
-    await db.flush()
+    await flush_entity(db)
 
     new_equipment = Equipment(
         type=new_type,
@@ -316,21 +204,16 @@ async def update_equipment(
         department_id=dept_id,
         method_data_default=new_method_data_default,
     )
-    db.add(new_equipment)
-    await db.flush()
+    new_equipment = await equipment_repo.add_equipment(db, new_equipment)
 
     await _update_research_methods_with_new_equipment_version(
         db, old_equipment_id, new_equipment.id, lab_id, dept_id
     )
 
-    query = (
-        select(Equipment)
-        .where(Equipment.id == new_equipment.id)
-        .options(selectinload(Equipment.laboratory), selectinload(Equipment.department))
-    )
-    result = await db.execute(query)
-    new_equipment = result.scalar_one()
-    return new_equipment
+    equipment = await equipment_repo.get_equipment_by_id(db, new_equipment.id)
+    if not equipment:
+        raise NotFoundError("Оборудование не найдено")
+    return equipment
 
 
 async def _update_research_methods_with_new_equipment_version(
@@ -340,23 +223,10 @@ async def _update_research_methods_with_new_equipment_version(
     laboratory_id: int,
     department_id: Optional[int],
 ) -> None:
-    """Обновить методы исследования, привязанные к старой версии прибора.
-
-    Находит все методы в той же лаборатории (и подразделении при наличии),
-    которые используют старую версию прибора, и заменяет её на новую версию.
-    """
-    methods_query = select(ResearchMethod).where(
-        ResearchMethod.deleted_at.is_(None),
-        ResearchMethod.laboratory_id == laboratory_id,
+    """Обновить методы исследования, привязанные к старой версии прибора."""
+    methods = await equipment_repo.get_research_methods_for_equipment_update(
+        db, laboratory_id, department_id
     )
-
-    if department_id:
-        methods_query = methods_query.where(
-            ResearchMethod.department_id == department_id
-        )
-
-    methods_result = await db.execute(methods_query)
-    methods = methods_result.scalars().all()
 
     has_updates = False
     for method in methods:
@@ -376,21 +246,14 @@ async def _update_research_methods_with_new_equipment_version(
             has_updates = True
 
     if has_updates:
-        await db.flush()
+        await flush_entity(db)
 
 
 async def _remove_equipment_from_research_methods(
     db: AsyncSession, equipment_id: int
 ) -> None:
-    """Удалить прибор из equipment_data_default во всех методах исследования.
-
-    Находит все не удаленные методы исследования, которые содержат
-    указанный ID прибора в equipment_data_default, и удаляет этот ID из списка.
-    """
-    methods_query = select(ResearchMethod).where(ResearchMethod.deleted_at.is_(None))
-
-    methods_result = await db.execute(methods_query)
-    methods = methods_result.scalars().all()
+    """Удалить прибор из equipment_data_default во всех методах исследования."""
+    methods = await equipment_repo.get_all_research_methods_for_equipment_removal(db)
 
     has_updates = False
     for method in methods:
@@ -407,7 +270,7 @@ async def _remove_equipment_from_research_methods(
             has_updates = True
 
     if has_updates:
-        await db.flush()
+        await flush_entity(db)
 
 
 async def delete_equipment(db: AsyncSession, equipment_id: int) -> None:
@@ -418,4 +281,4 @@ async def delete_equipment(db: AsyncSession, equipment_id: int) -> None:
 
     await _remove_equipment_from_research_methods(db, equipment_id)
     equipment.soft_delete()
-    await db.flush()
+    await flush_entity(db)

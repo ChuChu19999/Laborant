@@ -50,7 +50,7 @@ const EditNdNormModal: React.FC<EditNdNormModalProps> = ({
       setTestObject(ndNorm.test_object || undefined);
       const texts: Record<number, string> = {};
       ndNorm.method_data?.forEach(item => {
-        texts[item.method_id] = item.text || '';
+        texts[item.method_id] = item.value || '';
       });
       setMethodTexts(texts);
       setErrors({});
@@ -118,7 +118,7 @@ const EditNdNormModal: React.FC<EditNdNormModalProps> = ({
       test_object: testObject,
       method_data: methods.map(method => ({
         method_id: method.id,
-        text: (methodTexts[method.id] || '').trim(),
+        value: (methodTexts[method.id] || '').trim(),
       })),
     };
 

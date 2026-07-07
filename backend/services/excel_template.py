@@ -1,20 +1,22 @@
 import base64
 from copy import copy
 from io import BytesIO
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 import openpyxl
 from openpyxl.cell.cell import MergedCell
 from openpyxl.styles import Alignment, Font
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.exceptions import NotFoundError, ValidationError
 from core.logger import logger
 from models.protocol import ProtocolTemplate
+from repositories import protocol as protocol_repo
+from repositories.base import flush_entity
 from services.protocol import get_protocol_template_by_id
+from utils.versioning import next_version_string
 
 
 async def get_template_file(
-    template: ProtocolTemplate, section: Optional[str] = None
+    template: ProtocolTemplate, section: str | None = None
 ) -> bytes:
     """Получить файл шаблона в виде байтов."""
     file_data = template.file
@@ -29,7 +31,6 @@ async def get_template_file(
                 file_data.encode() if isinstance(file_data, str) else file_data
             )
 
-    workbook = openpyxl.load_workbook(template_bytes)
     return template_bytes.getvalue()
 
 
@@ -124,31 +125,19 @@ async def save_excel_section(
         raise NotFoundError("Шаблон протокола не найден")
 
     # Деактивируем текущий шаблон и получаем следующую версию
-    latest_query = (
-        select(ProtocolTemplate)
-        .where(
-            ProtocolTemplate.name == current_template.name,
-            ProtocolTemplate.laboratory_id == current_template.laboratory_id,
-            ProtocolTemplate.department_id == current_template.department_id,
-            ProtocolTemplate.deleted_at.is_(None),
-        )
-        .order_by(ProtocolTemplate.version.desc())
+    latest_template = await protocol_repo.get_latest_protocol_template(
+        db,
+        current_template.name,
+        current_template.laboratory_id,
+        current_template.department_id,
     )
-    latest = await db.execute(latest_query)
-    latest_template = latest.scalar_one_or_none()
-
-    if latest_template:
-        try:
-            current_num = int(latest_template.version[1:])
-            next_version = f"v{current_num + 1}"
-        except (ValueError, IndexError):
-            next_version = "v1"
-    else:
-        next_version = "v1"
+    next_version = next_version_string(
+        latest_template.version if latest_template else None
+    )
 
     # Помечаем текущий шаблон как удаленный
     current_template.soft_delete()
-    await db.flush()
+    await flush_entity(db)
 
     file_data = current_template.file
     try:
@@ -330,8 +319,8 @@ async def save_excel_section(
         department_id=current_template.department_id,
         accreditation_header_row=current_template.accreditation_header_row,
     )
-    db.add(new_template)
-    await db.flush()
+    new_template = await protocol_repo.add_protocol_template(db, new_template)
+    await flush_entity(db)
 
     return {
         "message": "Файл успешно обновлен",

@@ -17,7 +17,7 @@ export interface EmployeePhoto {
 }
 
 export interface Employee {
-  hashMd5: string;
+  hsnils: string;
   fullName: string;
   employeePhoto?: EmployeePhoto | null;
   jobTitle?: string;
@@ -284,7 +284,7 @@ const UserPicker: React.FC<UserPickerProps> = ({
             const photoUrl = getPhotoUrl(emp.employeePhoto);
             return (
               <div
-                key={emp.hashMd5}
+                key={emp.hsnils}
                 className="user-picker-option"
                 onClick={() => handleSelect(emp)}
               >

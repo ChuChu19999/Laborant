@@ -2,10 +2,9 @@ import re
 from collections import defaultdict
 from typing import Any, Dict, List, Optional
 import pendulum
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 from models.research import ResearchMethod
+from repositories import research as research_repo
 from schemas.sample import SampleResponse
 from schemas.sample_export import (
     ResearchMethodExportInfo,
@@ -13,7 +12,7 @@ from schemas.sample_export import (
     SampleExportItem,
 )
 from services.calculation import get_calculations_by_sample
-from services.protocol import get_protocols_by_sample_ids
+from services.protocol_sample_map import get_protocols_by_sample_ids
 from services.sample import get_samples
 
 
@@ -40,12 +39,7 @@ async def _load_research_methods_map(
     if not method_ids:
         return {}
 
-    result = await db.execute(
-        select(ResearchMethod)
-        .where(ResearchMethod.id.in_(method_ids))
-        .options(selectinload(ResearchMethod.groups))
-    )
-    methods = result.scalars().all()
+    methods = await research_repo.get_research_methods_by_ids_any(db, method_ids)
     return {method.id: method for method in methods}
 
 

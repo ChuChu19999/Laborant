@@ -1,5 +1,6 @@
+from __future__ import annotations
 from fastapi import APIRouter, Request
-from routes import (
+from . import (
     calculation,
     employees,
     equipment,
@@ -34,7 +35,7 @@ api_router.include_router(fixtures.router, tags=("fixtures",))
 
 @api_router.get("/")
 async def root(request: Request):
-    """Информация о доступных API эндпоинтах."""
+    """Возвращает информацию о доступных API эндпоинтах."""
     app = request.app
     endpoints = []
     for route in app.routes:
@@ -57,22 +58,18 @@ async def root(request: Request):
 
 @api_router.get(
     "/health/",
-    summary="Проверка состояния API",
+    summary="Проверка работоспособности приложения",
     description=(
-        "Эндпоинт для проверки работоспособности API. "
+        "Возвращает статус работоспособности приложения. "
         "Используется для мониторинга и health checks."
     ),
     responses={
         200: {
-            "description": "API работает",
+            "description": "Приложение работает",
             "content": {"application/json": {"example": {"status": "ok"}}},
         }
     },
 )
 async def health():
-    """
-    Проверка состояния API.
-
-    Возвращает статус "ok" если API работает.
-    """
+    """Возвращает статус работоспособности приложения."""
     return {"status": "ok"}

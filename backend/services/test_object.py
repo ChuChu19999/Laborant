@@ -1,16 +1,19 @@
 from typing import List, Optional, Set, Tuple
-from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.exceptions import ConflictError, NotFoundError, ValidationError
-from models.laboratory import Department, Laboratory
 from models.test_object import TestObject
+from repositories import test_object as test_object_repo
+from repositories.base import flush_entity, refresh_entity
 from schemas.test_object import (
     TestObjectCreate,
+    TestObjectResponse,
     TestObjectUpdate,
+    VisibilityScope,
+    VisibilityScopeEntity,
     visibility_scope_to_dict,
 )
+from services.visibility import enrich_visibility_scope_labels
 from utils.pagination import calculate_total_pages
-from utils.sorting import build_order_by
 from utils.test_object_visibility import (
     is_visible_in_scope,
     normalize_visibility_scope,
@@ -24,10 +27,7 @@ def _serialize_test_object(item: TestObject) -> TestObject:
 
 async def get_test_object_tags(db: AsyncSession) -> Set[str]:
     """Получить теги из справочника объектов испытаний."""
-    result = await db.execute(
-        select(TestObject.tag).where(TestObject.deleted_at.is_(None)).distinct()
-    )
-    return {row[0] for row in result.all() if row[0]}
+    return await test_object_repo.get_test_object_tags(db)
 
 
 async def validate_research_method_sample_types(
@@ -62,11 +62,9 @@ async def get_test_object_by_id(
     include_deleted: bool = False,
 ) -> Optional[TestObject]:
     """Получить объект испытаний по ID."""
-    query = select(TestObject).where(TestObject.id == test_object_id)
-    if not include_deleted:
-        query = query.where(TestObject.deleted_at.is_(None))
-    result = await db.execute(query)
-    item = result.scalar_one_or_none()
+    item = await test_object_repo.get_test_object_by_id(
+        db, test_object_id, include_deleted
+    )
     if item:
         return _serialize_test_object(item)
     return None
@@ -84,35 +82,12 @@ async def get_test_objects_list(
     for_select: bool = False,
 ) -> Tuple[List[TestObject], int, int]:
     """Получить список объектов испытаний из справочника."""
-    query = select(TestObject).where(TestObject.deleted_at.is_(None))
-
-    if search:
-        query = query.where(
-            or_(
-                TestObject.name.ilike(f"%{search}%"),
-                TestObject.tag.ilike(f"%{search}%"),
-            )
+    items = [
+        _serialize_test_object(item)
+        for item in await test_object_repo.get_test_objects(
+            db, search, sort_by, sort_order
         )
-
-    sort_mapping = {
-        "name": TestObject.name,
-        "tag": TestObject.tag,
-        "created_at": TestObject.created_at,
-        "updated_at": TestObject.updated_at,
-    }
-    # Для справочника объектов испытаний по умолчанию сортируем по id (по возрастанию),
-    # чтобы порядок элементов был стабильным во всех селектах/фильтрах/листингах.
-    order_by = build_order_by(
-        sort_by,
-        sort_order,
-        sort_mapping,
-        TestObject.id,
-        default_order="asc",
-    )
-    query = query.order_by(order_by)
-
-    result = await db.execute(query)
-    items = [_serialize_test_object(item) for item in result.scalars().all()]
+    ]
 
     if for_select or laboratory_id or department_id:
         items = [
@@ -161,30 +136,78 @@ async def resolve_tag_by_name(
     if not test_object_name or not test_object_name.strip():
         return None
 
-    query = (
-        select(TestObject.tag)
-        .where(
-            TestObject.deleted_at.is_(None),
-            func.lower(TestObject.name) == test_object_name.strip().lower(),
-        )
-        .limit(1)
+    return await test_object_repo.resolve_tag_by_name(db, test_object_name)
+
+
+async def build_test_object_response(
+    db: AsyncSession, item: TestObject
+) -> TestObjectResponse:
+    """Собрать ответ API по объекту испытаний."""
+    scope = item.visibility_scope
+    labels = await enrich_visibility_scope_labels(db, scope)
+    return TestObjectResponse(
+        id=item.id,
+        name=item.name,
+        tag=item.tag,
+        visibility_scope=VisibilityScope(
+            laboratory_ids=scope.get("laboratory_ids", []),
+            department_ids=scope.get("department_ids", []),
+            laboratories=[
+                VisibilityScopeEntity(**entry)
+                for entry in labels.get("laboratories", [])
+            ],
+            departments=[
+                VisibilityScopeEntity(**entry)
+                for entry in labels.get("departments", [])
+            ],
+        ),
+        created_at=item.created_at,
+        updated_at=item.updated_at,
+        deleted_at=item.deleted_at,
     )
-    result = await db.execute(query)
-    return result.scalar_one_or_none()
+
+
+async def get_test_object_response(
+    db: AsyncSession,
+    test_object_id: int,
+    include_deleted: bool = False,
+) -> TestObjectResponse | None:
+    item = await get_test_object_by_id(db, test_object_id, include_deleted)
+    if not item:
+        return None
+    return await build_test_object_response(db, item)
+
+
+async def get_test_objects_response_list(
+    db: AsyncSession,
+    page: Optional[int] = None,
+    page_size: Optional[int] = None,
+    search: Optional[str] = None,
+    sort_by: Optional[str] = None,
+    sort_order: Optional[str] = None,
+    laboratory_id: Optional[int] = None,
+    department_id: Optional[int] = None,
+) -> Tuple[List[TestObjectResponse], int, int]:
+    items, total, total_pages = await get_test_objects_list(
+        db,
+        page=page,
+        page_size=page_size,
+        search=search,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        laboratory_id=laboratory_id,
+        department_id=department_id,
+    )
+    responses = [await build_test_object_response(db, item) for item in items]
+    return responses, total, total_pages
 
 
 async def create_test_object(
     db: AsyncSession,
     data: TestObjectCreate,
-) -> TestObject:
+) -> TestObjectResponse:
     """Создать объект испытаний в справочнике."""
-    existing = await db.execute(
-        select(TestObject).where(
-            func.lower(TestObject.name) == data.name.lower(),
-            TestObject.deleted_at.is_(None),
-        )
-    )
-    if existing.scalar_one_or_none():
+    if await test_object_repo.exists_test_object_by_name(db, data.name):
         raise ConflictError("Объект испытаний с таким наименованием уже существует")
 
     item = TestObject(
@@ -192,17 +215,15 @@ async def create_test_object(
         tag=data.tag,
         visibility_scope=visibility_scope_to_dict(data.visibility_scope),
     )
-    db.add(item)
-    await db.flush()
-    await db.refresh(item)
-    return _serialize_test_object(item)
+    item = await test_object_repo.add_test_object(db, item)
+    return await build_test_object_response(db, _serialize_test_object(item))
 
 
 async def update_test_object(
     db: AsyncSession,
     test_object_id: int,
     data: TestObjectUpdate,
-) -> TestObject:
+) -> TestObjectResponse:
     """Обновить объект испытаний в справочнике."""
     item = await get_test_object_by_id(db, test_object_id)
     if not item:
@@ -210,14 +231,9 @@ async def update_test_object(
 
     if data.name is not None and data.name != item.name:
         if data.name.lower() != item.name.lower():
-            existing = await db.execute(
-                select(TestObject).where(
-                    func.lower(TestObject.name) == data.name.lower(),
-                    TestObject.deleted_at.is_(None),
-                    TestObject.id != test_object_id,
-                )
-            )
-            if existing.scalar_one_or_none():
+            if await test_object_repo.exists_test_object_by_name(
+                db, data.name, exclude_id=test_object_id
+            ):
                 raise ConflictError(
                     "Объект испытаний с таким наименованием уже существует"
                 )
@@ -229,9 +245,9 @@ async def update_test_object(
     if data.visibility_scope is not None:
         item.visibility_scope = visibility_scope_to_dict(data.visibility_scope)
 
-    await db.flush()
-    await db.refresh(item)
-    return _serialize_test_object(item)
+    await flush_entity(db)
+    await refresh_entity(db, item)
+    return await build_test_object_response(db, _serialize_test_object(item))
 
 
 async def delete_test_object(db: AsyncSession, test_object_id: int) -> None:
@@ -240,52 +256,4 @@ async def delete_test_object(db: AsyncSession, test_object_id: int) -> None:
     if not item:
         raise NotFoundError("Объект испытаний не найден")
     item.soft_delete()
-    await db.flush()
-
-
-async def enrich_visibility_scope_labels(
-    db: AsyncSession,
-    visibility_scope: dict,
-) -> dict:
-    """Добавить названия лабораторий и подразделений для отображения в таблице."""
-    scope = normalize_visibility_scope(visibility_scope)
-    laboratory_ids = scope["laboratory_ids"]
-    department_ids = scope["department_ids"]
-
-    laboratories: List[dict] = []
-    departments: List[dict] = []
-
-    if laboratory_ids:
-        lab_result = await db.execute(
-            select(Laboratory.id, Laboratory.name).where(
-                Laboratory.id.in_(laboratory_ids),
-                Laboratory.deleted_at.is_(None),
-            )
-        )
-        laboratories = [{"id": row[0], "name": row[1]} for row in lab_result.all()]
-
-    if department_ids:
-        dept_result = await db.execute(
-            select(
-                Department.id, Department.name, Laboratory.name, Laboratory.full_name
-            )
-            .join(Laboratory, Department.laboratory_id == Laboratory.id)
-            .where(
-                Department.id.in_(department_ids),
-                Department.deleted_at.is_(None),
-                Laboratory.deleted_at.is_(None),
-            )
-        )
-        departments = [
-            {
-                "id": row[0],
-                "name": f"{row[3] or row[2]} — {row[1]}",
-            }
-            for row in dept_result.all()
-        ]
-
-    return {
-        **scope,
-        "laboratories": laboratories,
-        "departments": departments,
-    }
+    await flush_entity(db)

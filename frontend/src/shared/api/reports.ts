@@ -99,10 +99,6 @@ export const reportsApi = {
     return response.data;
   },
 
-  deleteReportTemplate: async (id: number): Promise<void> => {
-    await axiosInstance.delete(`/api/report-templates/${id}/`);
-  },
-
   getReportTemplateFile: async (templateId: number): Promise<Blob> => {
     const response = await axiosInstance.get(`/api/report-templates/${templateId}/`, {
       params: {

@@ -1,4 +1,7 @@
-from sqlalchemy import JSON, Column, Index, Integer, String, text
+from __future__ import annotations
+from typing import Any
+from sqlalchemy import JSON, Index, Integer, String, text
+from sqlalchemy.orm import Mapped, mapped_column
 from core.config import get_database_schema
 from models.base import BaseModel
 
@@ -6,20 +9,18 @@ from models.base import BaseModel
 class TestObject(BaseModel):
     __tablename__ = "test_objects"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
-        index=True,
         comment="Наименование объекта испытаний",
     )
-    tag = Column(
+    tag: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
-        index=True,
         comment="Тег для связи с методами исследования",
     )
-    visibility_scope = Column(
+    visibility_scope: Mapped[dict[str, Any]] = mapped_column(
         JSON,
         nullable=False,
         default=lambda: {"laboratory_ids": [], "department_ids": []},
@@ -34,8 +35,6 @@ class TestObject(BaseModel):
             postgresql_where=text("deleted_at IS NULL"),
         ),
         Index("idx_test_object_tag", "tag"),
-        Index("idx_test_object_created_at", "created_at"),
-        Index("idx_test_object_updated_at", "updated_at"),
         {"schema": get_database_schema()},
     )
 

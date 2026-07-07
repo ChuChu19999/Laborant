@@ -1,26 +1,12 @@
-from typing import Optional
 import pendulum
+from utils.date import _parse_pendulum
 
 
-def parse_date_string(date_str: Optional[str]) -> Optional[pendulum.DateTime]:
-    """
-    Парсинг строки даты в pendulum.DateTime.
-    """
+def parse_query_datetime(date_str: str | None) -> pendulum.DateTime | None:
+    """Парсинг даты из query-параметров API: naive, без логирования."""
     if not date_str:
         return None
     try:
-        return pendulum.parse(date_str).naive()
-    except Exception:
-        return None
-
-
-def parse_date_only_string(date_str: Optional[str]) -> Optional[pendulum.Date]:
-    """
-    Парсинг строки даты в pendulum.Date (только дата, без времени).
-    """
-    if not date_str:
-        return None
-    try:
-        return pendulum.parse(date_str).date()
+        return _parse_pendulum(date_str, naive=True)
     except Exception:
         return None

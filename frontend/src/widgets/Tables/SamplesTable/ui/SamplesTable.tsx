@@ -230,7 +230,7 @@ const SamplesTable: React.FC<SamplesTableProps> = ({
   const [employeesMap, setEmployeesMap] = React.useState<Record<string, { fullName: string }>>({});
   const previousHashesRef = React.useRef<string>('');
 
-  // Загружаем информацию о сотрудниках по массиву added_by hashMd5
+  // Загружаем информацию о сотрудниках по массиву hsnils добавивших пробу
   React.useEffect(() => {
     const loadEmployees = async () => {
       const uniqueAddedBy = Array.from(
@@ -252,7 +252,7 @@ const SamplesTable: React.FC<SamplesTableProps> = ({
       }
 
       try {
-        const employees = await employeesApi.getByHashes(uniqueAddedBy, false);
+        const employees = await employeesApi.getByHsnilsList(uniqueAddedBy, false);
         setEmployeesMap(employees);
       } catch (error) {
         console.error('Ошибка при загрузке информации о сотрудниках:', error);

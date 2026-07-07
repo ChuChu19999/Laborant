@@ -1,10 +1,7 @@
-"""
-Поиск протокола в списке проб по строке как на экране (format_protocol_number).
-"""
-
 from sqlalchemy import and_, case, exists, func, literal, not_, or_, select, text
 from models.protocol import Protocol
 from models.sample import Sample
+from utils.protocol_suffix_rules import build_protocol_object_suffix_sql_case
 
 
 def _escape_ilike_pattern(fragment: str) -> str:
@@ -13,33 +10,13 @@ def _escape_ilike_pattern(fragment: str) -> str:
 
 
 def _suffix_from_test_object_sql():
-    """
-    Суффикс объекта — тот же порядок проверок, что в utils.protocol_formatting.get_object_suffix.
-    """
+    """Суффикс объекта — правила из utils.protocol_suffix_rules."""
     obj = func.lower(func.coalesce(Sample.test_object, literal("")))
-    return case(
-        (obj.like("%дегазированный конденсат%"), literal("дк")),
-        (
-            or_(
-                obj.like("%нефть%"),
-                obj.like("%нефть калибровочная%"),
-            ),
-            literal("н"),
-        ),
-        (obj.like("%нефтеконденсатная смесь%"), literal("нкс")),
-        (obj.like("%дизельное топливо%"), literal("дт")),
-        (obj.like("%отработанные нефтепродукты%"), literal("он")),
-        (obj.like("%масло%"), literal("м")),
-        (obj.like("%смесь жидких углеводородов%"), literal("с")),
-        (obj.like("%ингибитор коррозии%"), literal("ик")),
-        else_=literal(""),
-    )
+    return build_protocol_object_suffix_sql_case(obj)
 
 
 def _protocol_display_sql():
-    """
-    Строка отображения протокола для пары (проба + протокол), как format_protocol_number.
-    """
+    """Строка отображения протокола для пары (проба + протокол), как format_protocol_number."""
     suffix_sql = _suffix_from_test_object_sql()
     num_blank = or_(
         Protocol.test_protocol_number.is_(None),

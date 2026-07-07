@@ -1,7 +1,13 @@
 from models.base import BaseModel
 from models.calculation import Calculation
 from models.equipment import Equipment, EquipmentType
-from models.laboratory import Branch, Department, Laboratory, SamplingLocation
+from models.laboratory import (
+    Branch,
+    Department,
+    Laboratory,
+    SamplingLocation,
+    WellMode,
+)
 from models.nd_norm import NdNorm
 from models.protocol import Protocol, ProtocolTemplate
 from models.report import ReportTemplate, ReportType
@@ -22,8 +28,10 @@ __all__ = [
     "Department",
     "Branch",
     "SamplingLocation",
+    "WellMode",
     "ResearchMethod",
     "ResearchMethodGroup",
+    "research_method_groups_association",
     "RoundingType",
     "SampleType",
     "Sample",

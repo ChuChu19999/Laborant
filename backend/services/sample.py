@@ -1,50 +1,65 @@
+from __future__ import annotations
+from decimal import Decimal
 from typing import List, Optional
 import pendulum
-from sqlalchemy import Float, case, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 from core.exceptions import ConflictError, NotFoundError, ValidationError
-from models.calculation import Calculation
-from models.laboratory import Branch, Department, Laboratory, SamplingLocation
-from models.research import ResearchMethod
 from models.sample import MassFractionOilRefractionTable, Sample, SelectionConditions
+from repositories import laboratory as laboratory_repo
+from repositories import mass_fraction as mass_fraction_repo
+from repositories import research as research_repo
+from repositories import sample as sample_repo
+from repositories import selection_conditions as selection_conditions_repo
+from repositories.base import flush_entity
 from schemas.sample import (
+    MassFractionOilRefractionTableBulkUpdate,
     MassFractionOilRefractionTableCreate,
+    MassFractionOilRefractionTableResponse,
     MassFractionOilRefractionTableUpdate,
     SampleCreate,
+    SampleResponse,
     SampleUpdate,
     SelectionConditionsCreate,
+    SelectionConditionsResponse,
     SelectionConditionsUpdate,
 )
 from services.employees import search_employees_by_fio
-from utils.filters import add_date_range_filter
-from utils.pagination import apply_pagination, calculate_total_pages, get_total_count
-from utils.protocol_search_filter import sample_has_protocol_display_ilike
-from utils.sample_sort import (
-    protocols_sort_scalar_subquery,
-    registration_number_sort_columns,
-)
-from utils.sorting import build_order_by
+from services.protocol_sample_map import get_protocols_by_sample_ids
+from services.visibility import validate_lab_and_department
+from utils.pagination import calculate_total_pages
+
+
+async def _resolve_added_by_hsnils(
+    search_added_by: Optional[str],
+) -> tuple[Optional[List[str]], bool]:
+    """Поиск по ФИО добавившего в список hsnils."""
+    if not search_added_by:
+        return None, False
+
+    normalized_added_by = search_added_by.strip()
+    if not normalized_added_by:
+        return None, False
+
+    if len(normalized_added_by) < 3:
+        return None, True
+
+    employees = await search_employees_by_fio(normalized_added_by, include_photo=False)
+    matching_hsnils = [
+        employee.get("hsnils")
+        for employee in employees
+        if isinstance(employee, dict) and employee.get("hsnils")
+    ]
+
+    if matching_hsnils:
+        return matching_hsnils, False
+    return None, True
 
 
 async def get_sample_by_id(
     db: AsyncSession, sample_id: int, include_deleted: bool = False
 ) -> Optional[Sample]:
     """Получить пробу по ID."""
-    query = (
-        select(Sample)
-        .where(Sample.id == sample_id)
-        .options(
-            selectinload(Sample.laboratory),
-            selectinload(Sample.department),
-            selectinload(Sample.branch),
-            selectinload(Sample.sampling_location),
-        )
-    )
-    if not include_deleted:
-        query = query.where(Sample.deleted_at.is_(None))
-    result = await db.execute(query)
-    return result.scalar_one_or_none()
+    return await sample_repo.get_sample_by_id(db, sample_id, include_deleted)
 
 
 async def get_samples(
@@ -71,267 +86,62 @@ async def get_samples(
     created_at_to: Optional[pendulum.DateTime] = None,
 ) -> tuple[List[Sample], int, int]:
     """Получить список проб."""
-    query = (
-        select(Sample)
-        .where(Sample.deleted_at.is_(None))
-        .options(
-            selectinload(Sample.laboratory),
-            selectinload(Sample.department),
-            selectinload(Sample.branch),
-            selectinload(Sample.sampling_location),
-        )
+    added_by_hsnils, no_added_by_match = await _resolve_added_by_hsnils(search_added_by)
+
+    samples, total = await sample_repo.get_samples(
+        db,
+        laboratory_id=laboratory_id,
+        department_id=department_id,
+        page=page,
+        page_size=page_size,
+        search=search,
+        search_sampling_location=search_sampling_location,
+        search_protocols=search_protocols,
+        added_by_hsnils=added_by_hsnils,
+        no_added_by_match=no_added_by_match,
+        sample_type=sample_type,
+        sample_types=sample_types,
+        test_object=test_object,
+        test_objects=test_objects,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        sampling_date_from=sampling_date_from,
+        sampling_date_to=sampling_date_to,
+        receiving_date_from=receiving_date_from,
+        receiving_date_to=receiving_date_to,
+        created_at_from=created_at_from,
+        created_at_to=created_at_to,
     )
-
-    conditions = []
-    if laboratory_id:
-        conditions.append(Sample.laboratory_id == laboratory_id)
-    if department_id:
-        conditions.append(Sample.department_id == department_id)
-    if search:
-        conditions.append(Sample.registration_number.ilike(f"%{search}%"))
-
-    if search_protocols and search_protocols.strip():
-        conditions.append(sample_has_protocol_display_ilike(search_protocols))
-
-    if search_added_by:
-        normalized_added_by = search_added_by.strip()
-        if normalized_added_by:
-            matching_hashes = []
-            if len(normalized_added_by) >= 3:
-                employees = await search_employees_by_fio(
-                    normalized_added_by, include_photo=False
-                )
-                matching_hashes = [
-                    employee.get("hashMd5")
-                    for employee in employees
-                    if isinstance(employee, dict) and employee.get("hashMd5")
-                ]
-
-            if matching_hashes:
-                conditions.append(Sample.added_by.in_(matching_hashes))
-            else:
-                conditions.append(Sample.id == -1)
-
-    if sample_types:
-        conditions.append(Sample.sample_type.in_(sample_types))
-    elif sample_type:
-        conditions.append(Sample.sample_type == sample_type)
-    if test_objects:
-        conditions.append(Sample.test_object.in_(test_objects))
-    elif test_object:
-        conditions.append(Sample.test_object == test_object)
-
-    needs_sampling_location_join = (
-        search_sampling_location or sort_by == "sampling_location"
-    )
-    if needs_sampling_location_join:
-        query = query.join(
-            SamplingLocation,
-            Sample.sampling_location_id == SamplingLocation.id,
-            isouter=True,
-        )
-
-    if search_sampling_location:
-        sampling_location_search = search_sampling_location.lower()
-        well_part = case(
-            (Sample.well.isnot(None), func.concat("скв. ", Sample.well)), else_=""
-        )
-        sampling_location_text = func.concat(
-            func.coalesce(SamplingLocation.name, ""),
-            " ",
-            well_part,
-            " ",
-            func.coalesce(Sample.mode, ""),
-        )
-        conditions.append(
-            func.lower(sampling_location_text).ilike(f"%{sampling_location_search}%")
-        )
-
-    add_date_range_filter(
-        conditions, sampling_date_from, sampling_date_to, Sample.sampling_date
-    )
-    add_date_range_filter(
-        conditions, receiving_date_from, receiving_date_to, Sample.receiving_date
-    )
-    add_date_range_filter(conditions, created_at_from, created_at_to, Sample.created_at)
-
-    if conditions:
-        query = query.where(*conditions)
-
-    sort_mapping = {
-        "sample_type": Sample.sample_type,
-        "test_object": Sample.test_object,
-        "sampling_date": Sample.sampling_date,
-        "receiving_date": Sample.receiving_date,
-        "created_at": Sample.created_at,
-    }
-
-    if sort_by == "sampling_location":
-        well_part = case(
-            (Sample.well.isnot(None), func.concat("скв. ", Sample.well)), else_=""
-        )
-        sampling_location_sort = func.concat(
-            func.coalesce(SamplingLocation.name, ""),
-            " ",
-            well_part,
-            " ",
-            func.coalesce(Sample.mode, ""),
-        )
-        if sort_order == "asc":
-            query = query.order_by(sampling_location_sort.asc())
-        else:
-            query = query.order_by(sampling_location_sort.desc())
-    elif sort_by == "registration_number":
-        reg_num, reg_year = registration_number_sort_columns()
-        if sort_order == "asc":
-            query = query.order_by(reg_num.asc(), reg_year.asc(), Sample.id.asc())
-        else:
-            query = query.order_by(reg_num.desc(), reg_year.desc(), Sample.id.desc())
-    elif sort_by == "protocols":
-        protocol_sort = protocols_sort_scalar_subquery()
-        if sort_order == "asc":
-            query = query.order_by(protocol_sort.asc().nulls_last(), Sample.id.asc())
-        else:
-            query = query.order_by(protocol_sort.desc().nulls_first(), Sample.id.desc())
-    else:
-        order_by = build_order_by(sort_by, sort_order, sort_mapping, Sample.created_at)
-        query = query.order_by(order_by)
-
-    count_query = (
-        select(func.count()).select_from(Sample).where(Sample.deleted_at.is_(None))
-    )
-    count_conditions = []
-    if laboratory_id:
-        count_conditions.append(Sample.laboratory_id == laboratory_id)
-    if department_id:
-        count_conditions.append(Sample.department_id == department_id)
-    if search:
-        count_conditions.append(Sample.registration_number.ilike(f"%{search}%"))
-
-    if search_protocols and search_protocols.strip():
-        count_conditions.append(sample_has_protocol_display_ilike(search_protocols))
-
-    if search_added_by:
-        normalized_added_by = search_added_by.strip()
-        if normalized_added_by:
-            matching_hashes = []
-            if len(normalized_added_by) >= 3:
-                employees = await search_employees_by_fio(
-                    normalized_added_by, include_photo=False
-                )
-                matching_hashes = [
-                    employee.get("hashMd5")
-                    for employee in employees
-                    if isinstance(employee, dict) and employee.get("hashMd5")
-                ]
-
-            if matching_hashes:
-                count_conditions.append(Sample.added_by.in_(matching_hashes))
-            else:
-                count_conditions.append(Sample.id == -1)
-
-    if sample_types:
-        count_conditions.append(Sample.sample_type.in_(sample_types))
-    elif sample_type:
-        count_conditions.append(Sample.sample_type == sample_type)
-    if test_objects:
-        count_conditions.append(Sample.test_object.in_(test_objects))
-    elif test_object:
-        count_conditions.append(Sample.test_object == test_object)
-
-    if search_sampling_location:
-        sampling_location_search = search_sampling_location.lower()
-        count_query = count_query.join(
-            SamplingLocation,
-            Sample.sampling_location_id == SamplingLocation.id,
-            isouter=True,
-        )
-        well_part = case(
-            (Sample.well.isnot(None), func.concat("скв. ", Sample.well)), else_=""
-        )
-        sampling_location_text = func.concat(
-            func.coalesce(SamplingLocation.name, ""),
-            " ",
-            well_part,
-            " ",
-            func.coalesce(Sample.mode, ""),
-        )
-        count_conditions.append(
-            func.lower(sampling_location_text).ilike(f"%{sampling_location_search}%")
-        )
-
-    add_date_range_filter(
-        count_conditions, sampling_date_from, sampling_date_to, Sample.sampling_date
-    )
-    add_date_range_filter(
-        count_conditions, receiving_date_from, receiving_date_to, Sample.receiving_date
-    )
-    add_date_range_filter(
-        count_conditions, created_at_from, created_at_to, Sample.created_at
-    )
-
-    if count_conditions:
-        count_query = count_query.where(*count_conditions)
-
-    total = await get_total_count(db, count_query)
 
     if page is not None and page_size is not None:
         total_pages = calculate_total_pages(total, page_size)
-        query = apply_pagination(query, page, page_size)
     else:
         total_pages = 1 if total > 0 else 0
-
-    result = await db.execute(query)
-    samples = result.scalars().all()
 
     return samples, total, total_pages
 
 
 async def create_sample(db: AsyncSession, sample_data: SampleCreate) -> Sample:
     """Добавить пробу."""
-    laboratory = await db.execute(
-        select(Laboratory).where(Laboratory.id == sample_data.laboratory_id)
+    await validate_lab_and_department(
+        db, sample_data.laboratory_id, sample_data.department_id
     )
-    if not laboratory.scalar_one_or_none():
-        raise NotFoundError("Лаборатория не найдена")
-
-    if sample_data.department_id:
-        department = await db.execute(
-            select(Department).where(Department.id == sample_data.department_id)
-        )
-        dept = department.scalar_one_or_none()
-        if not dept:
-            raise NotFoundError("Подразделение не найдено")
-        if dept.laboratory_id != sample_data.laboratory_id:
-            raise ValidationError(
-                "Подразделение должно принадлежать выбранной лаборатории"
-            )
-
     if sample_data.branch_id:
-        branch = await db.execute(
-            select(Branch).where(Branch.id == sample_data.branch_id)
-        )
-        if not branch.scalar_one_or_none():
+        if not await laboratory_repo.get_branch_by_id(db, sample_data.branch_id):
             raise NotFoundError("Филиал не найден")
 
     if sample_data.sampling_location_id:
-        sampling_location = await db.execute(
-            select(SamplingLocation).where(
-                SamplingLocation.id == sample_data.sampling_location_id
-            )
-        )
-        if not sampling_location.scalar_one_or_none():
+        if not await laboratory_repo.get_sampling_location_by_id(
+            db, sample_data.sampling_location_id
+        ):
             raise NotFoundError("Место отбора пробы не найдено")
 
-    existing = await db.execute(
-        select(Sample).where(
-            Sample.registration_number == sample_data.registration_number,
-            Sample.laboratory_id == sample_data.laboratory_id,
-            Sample.department_id == sample_data.department_id,
-            Sample.deleted_at.is_(None),
-        )
-    )
-    if existing.scalar_one_or_none():
+    if await sample_repo.exists_sample_by_registration(
+        db,
+        sample_data.registration_number,
+        sample_data.laboratory_id,
+        sample_data.department_id,
+    ):
         raise ConflictError(
             "Проба с таким регистрационным номером уже существует для данной лаборатории и подразделения"
         )
@@ -355,16 +165,11 @@ async def create_sample(db: AsyncSession, sample_data: SampleCreate) -> Sample:
     )
 
     if sample.branch_id:
-        branch_result = await db.execute(
-            select(Branch).where(Branch.id == sample.branch_id)
-        )
-        branch_obj = branch_result.scalar_one()
-        if branch_obj.phone:
+        branch_obj = await laboratory_repo.get_branch_by_id(db, sample.branch_id)
+        if branch_obj and branch_obj.phone:
             sample.phone = branch_obj.phone
 
-    db.add(sample)
-    await db.flush()
-    return sample
+    return await sample_repo.add_sample(db, sample)
 
 
 async def update_sample(
@@ -376,22 +181,16 @@ async def update_sample(
         raise NotFoundError("Проба не найдена")
 
     update_data = sample_data.model_dump(exclude_unset=True)
-    # Исключаем added_by из обновления, так как это поле нельзя изменять
     update_data.pop("added_by", None)
     for key, value in update_data.items():
         if key == "registration_number" and value:
-            existing = await db.execute(
-                select(Sample).where(
-                    Sample.registration_number == value.strip(),
-                    Sample.laboratory_id
-                    == (sample_data.laboratory_id or sample.laboratory_id),
-                    Sample.department_id
-                    == (sample_data.department_id or sample.department_id),
-                    Sample.id != sample_id,
-                    Sample.deleted_at.is_(None),
-                )
-            )
-            if existing.scalar_one_or_none():
+            if await sample_repo.exists_sample_by_registration(
+                db,
+                value.strip(),
+                sample_data.laboratory_id or sample.laboratory_id,
+                sample_data.department_id or sample.department_id,
+                exclude_id=sample_id,
+            ):
                 raise ConflictError(
                     "Проба с таким регистрационным номером уже существует для данной лаборатории и подразделения"
                 )
@@ -410,10 +209,7 @@ async def update_sample(
         )
 
         if dept_id:
-            department = await db.execute(
-                select(Department).where(Department.id == dept_id)
-            )
-            dept = department.scalar_one_or_none()
+            dept = await laboratory_repo.get_department_by_id(db, dept_id)
             if not dept:
                 raise NotFoundError("Подразделение не найдено")
             if lab_id and dept.laboratory_id != lab_id:
@@ -422,14 +218,11 @@ async def update_sample(
                 )
 
     if sample.branch_id:
-        branch_result = await db.execute(
-            select(Branch).where(Branch.id == sample.branch_id)
-        )
-        branch_obj = branch_result.scalar_one()
-        if branch_obj.phone:
+        branch_obj = await laboratory_repo.get_branch_by_id(db, sample.branch_id)
+        if branch_obj and branch_obj.phone:
             sample.phone = branch_obj.phone
 
-    await db.flush()
+    await flush_entity(db)
     return sample
 
 
@@ -439,34 +232,70 @@ async def delete_sample(db: AsyncSession, sample_id: int) -> None:
     if not sample:
         raise NotFoundError("Проба не найдена")
 
-    calculations = await db.execute(
-        select(Calculation).where(
-            Calculation.sample_id == sample_id, Calculation.deleted_at.is_(None)
-        )
-    )
-    for calc in calculations.scalars().all():
+    for calc in await sample_repo.get_calculations_by_sample_id(db, sample_id):
         calc.soft_delete()
 
     sample.soft_delete()
-    await db.flush()
+    await flush_entity(db)
+
+
+def build_sample_response(
+    sample: Sample, protocols: list | None = None
+) -> SampleResponse:
+    """Собрать ответ API по пробе с наименованиями связей."""
+    sample_dict = SampleResponse.model_validate(sample).model_dump()
+    if sample.laboratory:
+        sample_dict["laboratory_name"] = sample.laboratory.name
+    if sample.department:
+        sample_dict["department_name"] = sample.department.name
+    if sample.branch:
+        sample_dict["branch_name"] = sample.branch.name
+    if sample.sampling_location:
+        sample_dict["sampling_location_name"] = sample.sampling_location.name
+    if protocols is not None:
+        sample_dict["protocols"] = protocols
+    return SampleResponse(**sample_dict)
+
+
+async def build_samples_list_response(
+    db: AsyncSession, samples: list[Sample]
+) -> list[SampleResponse]:
+    """Собрать ответы API по списку проб с пакетной загрузкой протоколов."""
+    sample_ids = [sample.id for sample in samples]
+    protocols_by_sample = await get_protocols_by_sample_ids(db, sample_ids)
+    return [
+        build_sample_response(sample, protocols=protocols_by_sample.get(sample.id, []))
+        for sample in samples
+    ]
+
+
+def build_selection_conditions_response(
+    conditions: SelectionConditions,
+) -> SelectionConditionsResponse:
+    """Собрать ответ API по условиям отбора с наименованиями связей."""
+    cond_dict = SelectionConditionsResponse.model_validate(conditions).model_dump()
+    if conditions.laboratory:
+        cond_dict["laboratory_name"] = conditions.laboratory.name
+    if conditions.department:
+        cond_dict["department_name"] = conditions.department.name
+    return SelectionConditionsResponse(**cond_dict)
+
+
+async def get_sample_response_data(db: AsyncSession, sample_id: int) -> SampleResponse:
+    """Получить пробу с данными для ответа API."""
+    sample = await get_sample_by_id(db, sample_id)
+    if not sample:
+        raise NotFoundError("Проба не найдена")
+    return build_sample_response(sample)
 
 
 async def get_selection_conditions_by_id(
     db: AsyncSession, conditions_id: int, include_deleted: bool = False
 ) -> Optional[SelectionConditions]:
     """Получить условия отбора по ID."""
-    query = (
-        select(SelectionConditions)
-        .where(SelectionConditions.id == conditions_id)
-        .options(
-            selectinload(SelectionConditions.laboratory),
-            selectinload(SelectionConditions.department),
-        )
+    return await selection_conditions_repo.get_selection_conditions_by_id(
+        db, conditions_id, include_deleted
     )
-    if not include_deleted:
-        query = query.where(SelectionConditions.deleted_at.is_(None))
-    result = await db.execute(query)
-    return result.scalar_one_or_none()
 
 
 async def get_selection_conditions(
@@ -479,54 +308,16 @@ async def get_selection_conditions(
     sort_order: Optional[str] = None,
 ) -> tuple[List[SelectionConditions], int, int]:
     """Получить список условий отбора."""
-    query = (
-        select(SelectionConditions)
-        .where(SelectionConditions.deleted_at.is_(None))
-        .options(
-            selectinload(SelectionConditions.laboratory),
-            selectinload(SelectionConditions.department),
+    selection_conditions, total = (
+        await selection_conditions_repo.get_selection_conditions(
+            db, laboratory_id, department_id, page, page_size, sort_by, sort_order
         )
     )
 
-    conditions = []
-    if laboratory_id:
-        conditions.append(SelectionConditions.laboratory_id == laboratory_id)
-    if department_id:
-        conditions.append(SelectionConditions.department_id == department_id)
-    if conditions:
-        query = query.where(*conditions)
-
-    sort_mapping = {
-        "created_at": SelectionConditions.created_at,
-    }
-    order_by = build_order_by(
-        sort_by, sort_order, sort_mapping, SelectionConditions.created_at
-    )
-    query = query.order_by(order_by)
-
-    count_query = (
-        select(func.count())
-        .select_from(SelectionConditions)
-        .where(SelectionConditions.deleted_at.is_(None))
-    )
-    count_conditions = []
-    if laboratory_id:
-        count_conditions.append(SelectionConditions.laboratory_id == laboratory_id)
-    if department_id:
-        count_conditions.append(SelectionConditions.department_id == department_id)
-    if count_conditions:
-        count_query = count_query.where(*count_conditions)
-
-    total = await get_total_count(db, count_query)
-
     if page is not None and page_size is not None:
         total_pages = calculate_total_pages(total, page_size)
-        query = apply_pagination(query, page, page_size)
     else:
         total_pages = 1 if total > 0 else 0
-
-    result = await db.execute(query)
-    selection_conditions = result.scalars().all()
 
     return selection_conditions, total, total_pages
 
@@ -541,17 +332,15 @@ async def create_selection_conditions(
         )
 
     if conditions_data.laboratory_id:
-        laboratory = await db.execute(
-            select(Laboratory).where(Laboratory.id == conditions_data.laboratory_id)
-        )
-        if not laboratory.scalar_one_or_none():
+        if not await laboratory_repo.get_laboratory_by_id(
+            db, conditions_data.laboratory_id
+        ):
             raise NotFoundError("Лаборатория не найдена")
 
     if conditions_data.department_id:
-        department = await db.execute(
-            select(Department).where(Department.id == conditions_data.department_id)
+        dept = await laboratory_repo.get_department_by_id(
+            db, conditions_data.department_id
         )
-        dept = department.scalar_one_or_none()
         if not dept:
             raise NotFoundError("Подразделение не найдено")
         if (
@@ -567,9 +356,9 @@ async def create_selection_conditions(
         laboratory_id=conditions_data.laboratory_id,
         department_id=conditions_data.department_id,
     )
-    db.add(selection_conditions)
-    await db.flush()
-    return selection_conditions
+    return await selection_conditions_repo.add_selection_conditions(
+        db, selection_conditions
+    )
 
 
 async def update_selection_conditions(
@@ -605,10 +394,7 @@ async def update_selection_conditions(
             )
 
         if dept_id:
-            department = await db.execute(
-                select(Department).where(Department.id == dept_id)
-            )
-            dept = department.scalar_one_or_none()
+            dept = await laboratory_repo.get_department_by_id(db, dept_id)
             if not dept:
                 raise NotFoundError("Подразделение не найдено")
             if lab_id and dept.laboratory_id != lab_id:
@@ -616,7 +402,7 @@ async def update_selection_conditions(
                     "Подразделение должно принадлежать выбранной лаборатории"
                 )
 
-    await db.flush()
+    await flush_entity(db)
     return selection_conditions
 
 
@@ -627,22 +413,41 @@ async def delete_selection_conditions(db: AsyncSession, conditions_id: int) -> N
         raise NotFoundError("Условия отбора не найдены")
 
     selection_conditions.soft_delete()
-    await db.flush()
+    await flush_entity(db)
+
+
+async def get_selection_conditions_response_data(
+    db: AsyncSession, conditions_id: int
+) -> SelectionConditionsResponse:
+    """Получить условия отбора с данными для ответа API."""
+    conditions = await get_selection_conditions_by_id(db, conditions_id)
+    if not conditions:
+        raise NotFoundError("Условия отбора не найдены")
+    return build_selection_conditions_response(conditions)
+
+
+async def get_mass_fraction_table_response_data(
+    db: AsyncSession, table_id: int
+) -> MassFractionOilRefractionTableResponse:
+    """Получить точку градуировочного графика с данными для ответа API."""
+    table = await get_mass_fraction_oil_refraction_table_by_id(db, table_id)
+    if not table:
+        raise NotFoundError("Точка градуировочного графика не найдена")
+    table_dict = MassFractionOilRefractionTableResponse.model_validate(
+        table
+    ).model_dump()
+    if table.research_method:
+        table_dict["research_method_name"] = table.research_method.name
+    return MassFractionOilRefractionTableResponse(**table_dict)
 
 
 async def get_mass_fraction_oil_refraction_table_by_id(
     db: AsyncSession, table_id: int, include_deleted: bool = False
 ) -> Optional[MassFractionOilRefractionTable]:
-    """Получить таблицу соотношения C к n по ID."""
-    query = (
-        select(MassFractionOilRefractionTable)
-        .where(MassFractionOilRefractionTable.id == table_id)
-        .options(selectinload(MassFractionOilRefractionTable.research_method))
+    """Получить точку градуировочного графика по ID."""
+    return await mass_fraction_repo.get_mass_fraction_oil_refraction_table_by_id(
+        db, table_id, include_deleted
     )
-    if not include_deleted:
-        query = query.where(MassFractionOilRefractionTable.deleted_at.is_(None))
-    result = await db.execute(query)
-    return result.scalar_one_or_none()
 
 
 async def get_mass_fraction_oil_refraction_tables(
@@ -653,58 +458,15 @@ async def get_mass_fraction_oil_refraction_tables(
     sort_by: Optional[str] = None,
     sort_order: Optional[str] = None,
 ) -> tuple[List[MassFractionOilRefractionTable], int, int]:
-    """Получить список таблиц соотношения C, к, n."""
-    query = (
-        select(MassFractionOilRefractionTable)
-        .where(MassFractionOilRefractionTable.deleted_at.is_(None))
-        .options(selectinload(MassFractionOilRefractionTable.research_method))
+    """Получить точки градуировочного графика."""
+    tables, total = await mass_fraction_repo.get_mass_fraction_oil_refraction_tables(
+        db, research_method_id, page, page_size, sort_by, sort_order
     )
-
-    if research_method_id:
-        query = query.where(
-            MassFractionOilRefractionTable.research_method_id == research_method_id
-        )
-
-    # Для числовой сортировки c_value используем cast в Float
-    if sort_by == "c_value":
-        c_value_numeric = cast(MassFractionOilRefractionTable.c_value, Float)
-        if sort_order == "desc":
-            query = query.order_by(c_value_numeric.desc())
-        else:
-            query = query.order_by(c_value_numeric.asc())
-    else:
-        sort_mapping = {
-            "created_at": MassFractionOilRefractionTable.created_at,
-        }
-        order_by = build_order_by(
-            sort_by,
-            sort_order,
-            sort_mapping,
-            cast(MassFractionOilRefractionTable.c_value, Float),
-            default_order="asc",
-        )
-        query = query.order_by(order_by)
-
-    count_query = (
-        select(func.count())
-        .select_from(MassFractionOilRefractionTable)
-        .where(MassFractionOilRefractionTable.deleted_at.is_(None))
-    )
-    if research_method_id:
-        count_query = count_query.where(
-            MassFractionOilRefractionTable.research_method_id == research_method_id
-        )
-
-    total = await get_total_count(db, count_query)
 
     if page is not None and page_size is not None:
         total_pages = calculate_total_pages(total, page_size)
-        query = apply_pagination(query, page, page_size)
     else:
         total_pages = 1 if total > 0 else 0
-
-    result = await db.execute(query)
-    tables = result.scalars().all()
 
     return tables, total, total_pages
 
@@ -712,11 +474,10 @@ async def get_mass_fraction_oil_refraction_tables(
 async def create_mass_fraction_oil_refraction_table(
     db: AsyncSession, table_data: MassFractionOilRefractionTableCreate
 ) -> MassFractionOilRefractionTable:
-    """Создать таблицу соотношения C к n."""
-    research_method = await db.execute(
-        select(ResearchMethod).where(ResearchMethod.id == table_data.research_method_id)
-    )
-    if not research_method.scalar_one_or_none():
+    """Создать точку градуировочного графика."""
+    if not await research_repo.get_research_method_by_id(
+        db, table_data.research_method_id
+    ):
         raise NotFoundError("Метод исследования не найден")
 
     table = MassFractionOilRefractionTable(
@@ -724,34 +485,105 @@ async def create_mass_fraction_oil_refraction_table(
         c_value=table_data.c_value,
         n_value=table_data.n_value,
     )
-    db.add(table)
-    await db.flush()
-    return table
+    return await mass_fraction_repo.add_mass_fraction_oil_refraction_table(db, table)
 
 
 async def update_mass_fraction_oil_refraction_table(
     db: AsyncSession, table_id: int, table_data: MassFractionOilRefractionTableUpdate
 ) -> MassFractionOilRefractionTable:
-    """Обновить таблицу соотношения C к n."""
+    """Обновить точку градуировочного графика."""
     table = await get_mass_fraction_oil_refraction_table_by_id(db, table_id)
     if not table:
-        raise NotFoundError("Таблица соотношения C к n не найдена")
+        raise NotFoundError("Точка градуировочного графика не найдена")
 
     update_data = table_data.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(table, key, value)
 
-    await db.flush()
+    await flush_entity(db)
     return table
+
+
+async def get_registration_number_samples(
+    db: AsyncSession,
+    method_id: int,
+    laboratory_id: Optional[int] = None,
+    department_id: Optional[int] = None,
+    search: Optional[str] = None,
+) -> list[Sample]:
+    """Получить пробы с расчётами по методу для автодополнения регистрационных номеров."""
+    return await sample_repo.get_samples_with_calculations_by_method(
+        db, method_id, laboratory_id, department_id, search
+    )
 
 
 async def delete_mass_fraction_oil_refraction_table(
     db: AsyncSession, table_id: int
 ) -> None:
-    """Удалить таблицу соотношения C к n (мягкое удаление)."""
+    """Удалить точку градуировочного графика (мягкое удаление)."""
     table = await get_mass_fraction_oil_refraction_table_by_id(db, table_id)
     if not table:
-        raise NotFoundError("Таблица соотношения C к n не найдена")
+        raise NotFoundError("Точка градуировочного графика не найдена")
 
     table.soft_delete()
-    await db.flush()
+    await flush_entity(db)
+
+
+async def bulk_update_mass_fraction_oil_refraction_tables(
+    db: AsyncSession, bulk_data: MassFractionOilRefractionTableBulkUpdate
+) -> dict:
+    """Массовое обновление градуировочного графика."""
+    research_method_id = bulk_data.research_method_id
+    new_entries = bulk_data.entries
+
+    active_tables, _, _ = await get_mass_fraction_oil_refraction_tables(
+        db, research_method_id=research_method_id
+    )
+    active_tables = [table for table in active_tables if not table.deleted_at]
+
+    existing_entries_map = {}
+    for entry in active_tables:
+        key = (Decimal(str(entry.c_value)), Decimal(str(entry.n_value)))
+        existing_entries_map[key] = entry
+
+    new_entries_map = {}
+    for entry in new_entries:
+        c_value = Decimal(str(entry.get("c_value", 0)))
+        n_value = Decimal(str(entry.get("n_value", 0)))
+        key = (c_value, n_value)
+        new_entries_map[key] = entry
+
+    entries_to_deactivate = []
+    entries_to_create = []
+
+    for key, existing_entry in existing_entries_map.items():
+        if key not in new_entries_map:
+            entries_to_deactivate.append(existing_entry)
+
+    for key, new_entry_data in new_entries_map.items():
+        if key not in existing_entries_map:
+            entries_to_create.append(new_entry_data)
+
+    if not entries_to_deactivate and not entries_to_create:
+        return {"message": "Изменений не обнаружено"}
+
+    for entry in entries_to_deactivate:
+        await delete_mass_fraction_oil_refraction_table(db, entry.id)
+
+    created_count = 0
+    for entry_data in entries_to_create:
+        await create_mass_fraction_oil_refraction_table(
+            db,
+            MassFractionOilRefractionTableCreate(
+                research_method_id=research_method_id,
+                c_value=str(entry_data.get("c_value")),
+                n_value=str(entry_data.get("n_value")),
+            ),
+        )
+        created_count += 1
+
+    return {
+        "message": "Градуировочный график успешно обновлен",
+        "created": created_count,
+        "deactivated": len(entries_to_deactivate),
+    }

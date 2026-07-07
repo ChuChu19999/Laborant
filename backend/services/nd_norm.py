@@ -1,17 +1,20 @@
+from __future__ import annotations
 from typing import List, Optional
 import pendulum
-from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 from core.exceptions import NotFoundError, ValidationError
-from models.laboratory import Department, Laboratory
 from models.nd_norm import NdNorm
-from models.research import ResearchMethod
-from schemas.nd_norm import NdNormCreate, NdNormMethodDataItem, NdNormUpdate
+from repositories import nd_norm as nd_norm_repo
+from repositories.base import flush_entity
+from schemas.nd_norm import (
+    NdNormCreate,
+    NdNormMethodDataItem,
+    NdNormResponse,
+    NdNormUpdate,
+)
 from services.test_object import get_test_object_names
-from utils.filters import add_date_range_filter
-from utils.pagination import apply_pagination, calculate_total_pages, get_total_count
-from utils.sorting import build_order_by
+from services.visibility import validate_lab_and_department
+from utils.pagination import calculate_total_pages
 
 
 def _normalize_method_data(
@@ -19,37 +22,7 @@ def _normalize_method_data(
 ) -> List[dict]:
     if not method_data:
         return []
-    return [{"method_id": item.method_id, "text": item.text} for item in method_data]
-
-
-async def _validate_lab_and_department(
-    db: AsyncSession,
-    laboratory_id: int,
-    department_id: Optional[int],
-) -> None:
-    laboratory = await db.execute(
-        select(Laboratory).where(
-            Laboratory.id == laboratory_id,
-            Laboratory.deleted_at.is_(None),
-        )
-    )
-    if not laboratory.scalar_one_or_none():
-        raise NotFoundError("Лаборатория не найдена")
-
-    if department_id:
-        department = await db.execute(
-            select(Department).where(
-                Department.id == department_id,
-                Department.deleted_at.is_(None),
-            )
-        )
-        dept = department.scalar_one_or_none()
-        if not dept:
-            raise NotFoundError("Подразделение не найдено")
-        if dept.laboratory_id != laboratory_id:
-            raise ValidationError(
-                "Подразделение должно принадлежать выбранной лаборатории"
-            )
+    return [{"method_id": item.method_id, "value": item.value} for item in method_data]
 
 
 async def _validate_test_object(
@@ -74,16 +47,9 @@ async def _validate_method_data(
         return
 
     method_ids = {item.method_id for item in method_data}
-    query = select(ResearchMethod.id).where(
-        ResearchMethod.id.in_(method_ids),
-        ResearchMethod.deleted_at.is_(None),
-        ResearchMethod.laboratory_id == laboratory_id,
+    found_ids = await nd_norm_repo.get_valid_method_ids(
+        db, method_ids, laboratory_id, department_id
     )
-    if department_id:
-        query = query.where(ResearchMethod.department_id == department_id)
-
-    result = await db.execute(query)
-    found_ids = {row[0] for row in result.all()}
     missing_ids = method_ids - found_ids
     if missing_ids:
         raise ValidationError(
@@ -98,18 +64,20 @@ async def get_nd_norm_by_id(
     include_deleted: bool = False,
 ) -> Optional[NdNorm]:
     """Получить норму НД по ID."""
-    query = (
-        select(NdNorm)
-        .where(NdNorm.id == nd_norm_id)
-        .options(selectinload(NdNorm.laboratory), selectinload(NdNorm.department))
-    )
-    if not include_deleted:
-        query = query.where(NdNorm.deleted_at.is_(None))
-    result = await db.execute(query)
-    return result.scalar_one_or_none()
+    return await nd_norm_repo.get_nd_norm_by_id(db, nd_norm_id, include_deleted)
 
 
-async def get_nd_norms_list(
+def build_nd_norm_response(nd_norm: NdNorm) -> NdNormResponse:
+    """Собрать ответ API по норме НД с наименованиями связей."""
+    response_data = NdNormResponse.model_validate(nd_norm).model_dump()
+    if nd_norm.laboratory:
+        response_data["laboratory_name"] = nd_norm.laboratory.name
+    if nd_norm.department:
+        response_data["department_name"] = nd_norm.department.name
+    return NdNormResponse(**response_data)
+
+
+async def get_nd_norms(
     db: AsyncSession,
     laboratory_id: Optional[int] = None,
     department_id: Optional[int] = None,
@@ -124,71 +92,32 @@ async def get_nd_norms_list(
     created_at_to: Optional[pendulum.DateTime] = None,
 ) -> tuple[List[NdNorm], int, int]:
     """Получить список норм НД."""
-    query = (
-        select(NdNorm)
-        .where(NdNorm.deleted_at.is_(None))
-        .options(selectinload(NdNorm.laboratory), selectinload(NdNorm.department))
+    items, total = await nd_norm_repo.get_nd_norms(
+        db,
+        laboratory_id,
+        department_id,
+        page,
+        page_size,
+        search,
+        test_object,
+        test_objects,
+        sort_by,
+        sort_order,
+        created_at_from,
+        created_at_to,
     )
-
-    conditions = []
-    if laboratory_id:
-        conditions.append(NdNorm.laboratory_id == laboratory_id)
-    if department_id:
-        conditions.append(NdNorm.department_id == department_id)
-    if search:
-        conditions.append(NdNorm.name.ilike(f"%{search}%"))
-    if test_objects:
-        conditions.append(NdNorm.test_object.in_(test_objects))
-    elif test_object:
-        conditions.append(NdNorm.test_object == test_object)
-    add_date_range_filter(conditions, created_at_from, created_at_to, NdNorm.created_at)
-    if conditions:
-        query = query.where(*conditions)
-
-    sort_mapping = {
-        "name": NdNorm.name,
-        "test_object": NdNorm.test_object,
-        "created_at": NdNorm.created_at,
-        "updated_at": NdNorm.updated_at,
-    }
-    order_by = build_order_by(sort_by, sort_order, sort_mapping, NdNorm.name)
-    query = query.order_by(order_by)
-
-    count_query = (
-        select(func.count()).select_from(NdNorm).where(NdNorm.deleted_at.is_(None))
-    )
-    count_conditions = []
-    if laboratory_id:
-        count_conditions.append(NdNorm.laboratory_id == laboratory_id)
-    if department_id:
-        count_conditions.append(NdNorm.department_id == department_id)
-    if search:
-        count_conditions.append(NdNorm.name.ilike(f"%{search}%"))
-    if test_objects:
-        count_conditions.append(NdNorm.test_object.in_(test_objects))
-    elif test_object:
-        count_conditions.append(NdNorm.test_object == test_object)
-    add_date_range_filter(
-        count_conditions, created_at_from, created_at_to, NdNorm.created_at
-    )
-    if count_conditions:
-        count_query = count_query.where(*count_conditions)
-
-    total = await get_total_count(db, count_query)
 
     if page is not None and page_size is not None:
         total_pages = calculate_total_pages(total, page_size)
-        query = apply_pagination(query, page, page_size)
     else:
         total_pages = 1 if total > 0 else 0
 
-    result = await db.execute(query)
-    return result.scalars().all(), total, total_pages
+    return items, total, total_pages
 
 
 async def create_nd_norm(db: AsyncSession, data: NdNormCreate) -> NdNorm:
     """Создать норму НД."""
-    await _validate_lab_and_department(db, data.laboratory_id, data.department_id)
+    await validate_lab_and_department(db, data.laboratory_id, data.department_id)
     await _validate_test_object(
         db, data.test_object, data.laboratory_id, data.department_id
     )
@@ -203,10 +132,11 @@ async def create_nd_norm(db: AsyncSession, data: NdNormCreate) -> NdNorm:
         department_id=data.department_id,
         method_data=_normalize_method_data(data.method_data),
     )
-    db.add(nd_norm)
-    await db.flush()
+    nd_norm = await nd_norm_repo.add_nd_norm(db, nd_norm)
 
-    return await get_nd_norm_by_id(db, nd_norm.id)
+    result = await get_nd_norm_by_id(db, nd_norm.id)
+    assert result is not None
+    return result
 
 
 async def update_nd_norm(
@@ -224,7 +154,7 @@ async def update_nd_norm(
     department_id = update_data.get("department_id", nd_norm.department_id)
 
     if "laboratory_id" in update_data or "department_id" in update_data:
-        await _validate_lab_and_department(db, laboratory_id, department_id)
+        await validate_lab_and_department(db, laboratory_id, department_id)
 
     if "method_data" in update_data and update_data["method_data"] is not None:
         method_items = [
@@ -246,8 +176,10 @@ async def update_nd_norm(
     if "department_id" in update_data:
         nd_norm.department_id = update_data["department_id"]
 
-    await db.flush()
-    return await get_nd_norm_by_id(db, nd_norm.id)
+    await flush_entity(db)
+    result = await get_nd_norm_by_id(db, nd_norm.id)
+    assert result is not None
+    return result
 
 
 async def delete_nd_norm(db: AsyncSession, nd_norm_id: int) -> None:
@@ -256,4 +188,4 @@ async def delete_nd_norm(db: AsyncSession, nd_norm_id: int) -> None:
     if not nd_norm:
         raise NotFoundError("Норма НД не найдена")
     nd_norm.soft_delete()
-    await db.flush()
+    await flush_entity(db)

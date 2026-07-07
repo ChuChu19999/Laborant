@@ -250,7 +250,7 @@ const CreateSampleModal: React.FC<CreateSampleModalProps> = ({
         Object.keys(processedSelectionConditions).length > 0
           ? processedSelectionConditions
           : undefined,
-      added_by: formData.added_by?.hashMd5 || undefined,
+      added_by: formData.added_by?.hsnils || undefined,
       laboratory_id: laboratoryId!,
       department_id: departmentId,
     };

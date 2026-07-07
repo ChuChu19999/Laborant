@@ -1,5 +1,9 @@
+from __future__ import annotations
+from datetime import datetime
+from typing import Optional
 import pendulum
-from sqlalchemy import Column, DateTime, String, event
+from sqlalchemy import DateTime, String, event
+from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 from core.config import get_database_schema
 from core.database import Base
@@ -10,23 +14,24 @@ class BaseModel(Base):
     __abstract__ = True
     __table_args__ = {"schema": get_database_schema()}
 
-    created_at = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    updated_at = Column(
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         onupdate=func.now(),
         nullable=False,
-        index=True,
     )
-    deleted_at = Column(DateTime(timezone=True), nullable=True, index=True)
-    created_by = Column(String(255), nullable=True, index=True)
-    created_by_hash = Column(String(32), nullable=True, index=True)
-    updated_by = Column(String(255), nullable=True, index=True)
-    updated_by_hash = Column(String(32), nullable=True, index=True)
-    deleted_by = Column(String(255), nullable=True, index=True)
-    deleted_by_hash = Column(String(32), nullable=True, index=True)
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_by: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    created_by_hash: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    updated_by: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    updated_by_hash: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    deleted_by: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    deleted_by_hash: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
 
     def soft_delete(self):
         """Мягкое удаление записи с установкой deleted_by, deleted_by_hash и deleted_at."""
@@ -39,7 +44,7 @@ class BaseModel(Base):
 
 
 @event.listens_for(BaseModel, "before_insert", propagate=True)
-def receive_before_insert(mapper, connection, target):
+def receive_before_insert(_mapper, _connection, target):
     """Автоматически заполняет created_by и created_by_hash при создании записи."""
     current_user = get_current_user()
     if current_user and hasattr(target, "created_by"):
@@ -50,7 +55,7 @@ def receive_before_insert(mapper, connection, target):
 
 
 @event.listens_for(BaseModel, "before_update", propagate=True)
-def receive_before_update(mapper, connection, target):
+def receive_before_update(_mapper, _connection, target):
     """Автоматически заполняет updated_by и updated_by_hash при обновлении записи."""
     current_user = get_current_user()
     if current_user and hasattr(target, "updated_by"):

@@ -2,132 +2,51 @@ from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, Dict, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.logger import logger
-from services.calculation import (
-    calculate_convergence_steps,
-    calculate_mass_fraction_from_refraction,
-    evaluate_formula,
-    parse_decimal_value,
-    round_decimal_half_up,
-    round_result,
+from services.chloride_salts import (
+    apply_custom_early_result as apply_chloride_custom_early_result,
+)
+from services.chloride_salts import (
+    enrich_early_response as enrich_chloride_early_response,
+)
+from services.chloride_salts import (
+    is_chloride_salts_input_key,
+    is_chloride_salts_method,
+    prepare_chloride_salts_input,
 )
 from services.fractional import (
     calculate_fractional_composition,
     calculate_fractional_composition_oil,
 )
-from utils.calculation_result_display import (
-    CHLORIDE_SALTS_RESULT_DISPLAY_KEY,
-    is_chloride_salts_method_name,
+from services.mass_fraction_oil import (
+    is_mass_fraction_oil_input_key,
+    is_mass_fraction_oil_method,
+    log_skip_repeatability_div_by_sum,
+    prepare_mass_fraction_oil_input,
 )
-
-MF_OIL_DISPLAY_LABELS_KEY = "_mf_oil_display_labels"
+from services.mass_fraction_oil import (
+    resolve_custom_early_result_text as resolve_mf_oil_custom_early_result_text,
+)
+from services.mass_fraction_oil import (
+    should_skip_repeatability_div_by_sum,
+)
+from utils.calculation_engine import (
+    calculate_convergence_steps,
+    evaluate_formula,
+    parse_decimal_value,
+    round_decimal_half_up,
+    round_result,
+)
 
 
 def _variables_from_input_data(input_data: Dict[str, Any]) -> Dict[str, Any]:
-    """Служебные поля input_data не участвуют в формулах."""
+    """Копия input_data только с полями, которые подставляются в формулы расчёта."""
     return {
         k: v
         for k, v in input_data.items()
         if k != "Цвет"
-        and not (isinstance(k, str) and k.startswith("_mf_oil"))
-        and k != CHLORIDE_SALTS_RESULT_DISPLAY_KEY
+        and not is_mass_fraction_oil_input_key(k)
+        and not is_chloride_salts_input_key(k)
     }
-
-
-def _is_chloride_salts_method(research_method: Dict[str, Any]) -> bool:
-    return is_chloride_salts_method_name(research_method.get("name"))
-
-
-def _chloride_salts_xsr_display_value(
-    intermediate_results_rounded: Dict[str, Any],
-) -> Optional[str]:
-    """Округлённое Xср для сохранения в БД (запятая как разделитель)."""
-    xsr_entry = intermediate_results_rounded.get("Xср")
-    if isinstance(xsr_entry, dict):
-        val = xsr_entry.get("value")
-    else:
-        val = xsr_entry
-    if val is None:
-        return None
-    return str(val).replace(".", ",")
-
-
-MASS_FRACTION_OIL_GROUP_NAME = "Массовая доля нефти"
-
-
-def _has_mass_fraction_oil_group(research_method: Dict[str, Any]) -> bool:
-    gn = str(research_method.get("group_name") or "").strip()
-    if gn == MASS_FRACTION_OIL_GROUP_NAME:
-        return True
-    for group in research_method.get("groups") or []:
-        if isinstance(group, dict):
-            if str(group.get("name") or "").strip() == MASS_FRACTION_OIL_GROUP_NAME:
-                return True
-    return False
-
-
-def _is_mass_fraction_oil_method(research_method: Dict[str, Any]) -> bool:
-    """
-    Логика массовой доли нефти: по группе «Массовая доля нефти» или по имени метода.
-    Если группа другая — учитывается только имя метода.
-    """
-    if str(research_method.get("name") or "").strip() == MASS_FRACTION_OIL_GROUP_NAME:
-        return True
-    return _has_mass_fraction_oil_group(research_method)
-
-
-def _mf_oil_c1_c2_both_zero(variables: Dict[str, Any]) -> bool:
-    """Оба значения C₁ и C₂ считаются нулевыми (после округления в variables)."""
-
-    def _to_float(x: Any) -> float:
-        if x is None:
-            return 0.0
-        if isinstance(x, Decimal):
-            return float(x)
-        if isinstance(x, (int, float)):
-            return float(x)
-        if isinstance(x, str):
-            return float(str(x).replace(",", ".").replace(" ", ""))
-        return float(x)
-
-    try:
-        c1 = variables.get("C₁")
-        if c1 is None:
-            c1 = variables.get("C1")
-        c2 = variables.get("C₂")
-        if c2 is None:
-            c2 = variables.get("C2")
-        c1 = _to_float(c1)
-        c2 = _to_float(c2)
-    except (TypeError, ValueError):
-        return False
-    return abs(c1) < 1e-12 and abs(c2) < 1e-12
-
-
-def _mf_oil_custom_is_menee_01(custom_value: Optional[str]) -> bool:
-    """Подпись условия сходимости «менее 0,1» для mf_oil (без учёта регистра и пробелов по краям)."""
-    if not custom_value:
-        return False
-    return str(custom_value).strip().casefold() == "менее 0,1".casefold()
-
-
-def _mf_oil_skip_repeatability_div_by_sum(
-    research_method: Dict[str, Any],
-    variables: Dict[str, Any],
-    condition: Dict[str, Any],
-) -> bool:
-    """
-    Условия mf_oil с (C₁+C₂) в знаменателе при C₁=C₂=0 не вычисляем — деление на ноль.
-    Для convergence_value «satisfactory» считаем условие выполненным (повторяемость пройдена).
-    """
-    if not _is_mass_fraction_oil_method(research_method):
-        return False
-    if not _mf_oil_c1_c2_both_zero(variables):
-        return False
-    formula = str(condition.get("formula") or "")
-    if "(C₁+C₂)" not in formula and "(C1+C2)" not in formula:
-        return False
-    cv = condition.get("convergence_value")
-    return cv in ("satisfactory", "unsatisfactory")
 
 
 def _intermediate_fields(research_method: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -153,7 +72,7 @@ def _intermediate_field_by_name(
 
 
 def _field_uses_custom_rounding(field: Optional[Dict[str, Any]]) -> bool:
-    """Своё округление промежуточного поля (не как итог)."""
+    """Кастомное округление промежуточного поля (не как итог)."""
     if not field:
         return False
     if field.get("use_multiple_rounding") or field.get("use_threshold_table"):
@@ -172,7 +91,7 @@ def _resolve_intermediate_rounding(
 ) -> Optional[tuple[str, int]]:
     """
     Правило округления для подстановки и отображения.
-    ("decimal", N) или ("significant", N); None — не округлять здесь.
+    ("decimal", N) или ("significant", N); None — не округлять.
     """
     if _field_uses_custom_rounding(field):
         rounding_type = field.get("rounding_type") or "decimal"
@@ -257,9 +176,7 @@ def _build_variables_rounded_chain(
     intermediate_fields_by_name: Dict[str, Dict[str, Any]],
     result_decimal_places: Optional[int],
 ) -> Dict[str, Any]:
-    """
-    Пересчитывает промежуточные поля по цепочке с округлёнными предшественниками.
-    """
+    """Пересчитывает промежуточные поля по цепочке с округлёнными предшественниками."""
     variables_rounded = _variables_from_input_data(input_data)
     logger.info("Пересчёт промежуточных с округлёнными значениями для цепочки формул")
     for field in _intermediate_fields(research_method):
@@ -415,7 +332,6 @@ def _round_value(
                 logger.error(f"Ошибка преобразования значений: {str(e)}")
                 return value
 
-            # Сравнение и выбор значения
             if formula_value < target_value:
                 logger.info(
                     f"formula_value ({formula_value}) < target_value ({target_value})"
@@ -454,9 +370,7 @@ async def calculate_result(
     input_data: Dict[str, Any],
     research_method: Dict[str, Any],
 ) -> Dict[str, Any]:
-    """
-    Вычисляет результат расчета.
-    """
+    """Вычисляет результат расчета."""
     try:
         logger.info("Начало расчета")
 
@@ -481,56 +395,10 @@ async def calculate_result(
 
         input_data = processed_input_data
 
-        if _is_chloride_salts_method(research_method):
-            input_data.pop(CHLORIDE_SALTS_RESULT_DISPLAY_KEY, None)
+        if is_chloride_salts_method(research_method):
+            prepare_chloride_salts_input(input_data)
 
-        # Обработка массовой доли нефти (группа «Массовая доля нефти» или имя метода)
-        if _is_mass_fraction_oil_method(research_method):
-            logger.info("Обработка метода массовой доли нефти")
-            input_data.pop(MF_OIL_DISPLAY_LABELS_KEY, None)
-            mf_oil_display_labels: Dict[str, str] = {}
-            try:
-                method_id = research_method.get("id")
-                if not method_id:
-                    raise ValueError("Не указан ID метода исследования")
-
-                n1_value = input_data.get("n₁") or input_data.get("n1")
-                n2_value = input_data.get("n₂") or input_data.get("n2")
-
-                # Если есть n1, всегда пересчитываем C1
-                if n1_value and (n1_value != "0" and str(n1_value).strip()):
-                    c1_key = "C₁" if "C₁" in input_data else "C1"
-                    c1_out = await calculate_mass_fraction_from_refraction(
-                        db, n1_value, method_id
-                    )
-                    input_data[c1_key] = c1_out.stored_display
-                    if c1_out.below_detection_limit:
-                        mf_oil_display_labels[c1_key] = "менее 0,1"
-                    logger.info(
-                        f"Рассчитано C1: stored={c1_out.stored_display}, numeric={c1_out.numeric}, "
-                        f"below_dl={c1_out.below_detection_limit} для n1={n1_value}"
-                    )
-
-                # Если есть n2, всегда пересчитываем C2
-                if n2_value and (n2_value != "0" and str(n2_value).strip()):
-                    c2_key = "C₂" if "C₂" in input_data else "C2"
-                    c2_out = await calculate_mass_fraction_from_refraction(
-                        db, n2_value, method_id
-                    )
-                    input_data[c2_key] = c2_out.stored_display
-                    if c2_out.below_detection_limit:
-                        mf_oil_display_labels[c2_key] = "менее 0,1"
-                    logger.info(
-                        f"Рассчитано C2: stored={c2_out.stored_display}, numeric={c2_out.numeric}, "
-                        f"below_dl={c2_out.below_detection_limit} для n2={n2_value}"
-                    )
-                if mf_oil_display_labels:
-                    input_data[MF_OIL_DISPLAY_LABELS_KEY] = mf_oil_display_labels
-            except Exception as e:
-                logger.error(
-                    f"Ошибка при расчете C1/C2 для массовой доли нефти: {str(e)}"
-                )
-                raise ValueError(f"Ошибка при расчете массовой доли нефти: {str(e)}")
+        await prepare_mass_fraction_oil_input(db, input_data, research_method)
 
         # Обработка для фракционного состава конденсата
         if research_method.get("name") == "Фракционный состав (конденсат)":
@@ -554,7 +422,7 @@ async def calculate_result(
         logger.info("Начало вычисления промежуточных результатов")
         intermediate_results = {}
         intermediate_results_unrounded = {}  # Сохраняем неокругленные значения
-        # Исключаем поле "Цвет" из переменных для вычисления формул (это строка, не число)
+        # Исключаем поле "Цвет" из переменных для вычисления формул (это строка)
         variables = _variables_from_input_data(input_data)
 
         intermediate_fields_by_name = _intermediate_field_by_name(research_method)
@@ -585,7 +453,7 @@ async def calculate_result(
                 # Добавляем результат в словарь только если show_calculation = true
                 if field.get("show_calculation", True):
                     intermediate_results[field["name"]] = str(intermediate_value)
-                # В переменные для последующих формул подставляем округленное значение (как на экране)
+                # В переменные для последующих формул подставляем округленное значение
                 chain_rounding = _resolve_intermediate_rounding(
                     field, research_method, None
                 )
@@ -679,15 +547,12 @@ async def calculate_result(
             if not formula or not convergence_value:
                 continue
             try:
-                if _mf_oil_skip_repeatability_div_by_sum(
+                if should_skip_repeatability_div_by_sum(
                     research_method, variables_rounded, condition
                 ):
                     if convergence_value == "satisfactory":
                         satisfied_conditions.append("satisfactory")
-                        logger.info(
-                            "Массовая доля нефти: C₁=C₂=0 — удовлетворительная повторяемость "
-                            "принята без вычисления формулы с (C₁+C₂) в знаменателе."
-                        )
+                        log_skip_repeatability_div_by_sum()
                     continue
                 logger.info(f"Проверка условия: {formula}")
                 condition_result = evaluate_formula(
@@ -749,7 +614,7 @@ async def calculate_result(
             if convergence_value != convergence_result or not formula:
                 continue
             try:
-                if _mf_oil_skip_repeatability_div_by_sum(
+                if should_skip_repeatability_div_by_sum(
                     research_method, variables_rounded, condition
                 ):
                     conditions_info.append(
@@ -820,40 +685,23 @@ async def calculate_result(
                     f"(справка: {formatted['reference']})"
                 )
 
-            if (
-                _is_chloride_salts_method(research_method)
-                and convergence_result == "custom"
-                and custom_value
-            ):
-                numeric_xsr = _chloride_salts_xsr_display_value(
-                    intermediate_results_rounded
-                )
-                if numeric_xsr is not None:
-                    result_text = numeric_xsr
-                    input_data[CHLORIDE_SALTS_RESULT_DISPLAY_KEY] = str(
-                        custom_value
-                    ).strip()
+            chloride_result_text = apply_chloride_custom_early_result(
+                research_method,
+                convergence_result,
+                custom_value,
+                intermediate_results_rounded,
+                input_data,
+            )
+            if chloride_result_text is not None:
+                result_text = chloride_result_text
 
-            if (
-                _is_mass_fraction_oil_method(research_method)
-                and convergence_result == "custom"
-                and _mf_oil_custom_is_menee_01(custom_value)
-            ):
-                csr_entry = intermediate_results_rounded.get("Cср")
-                if isinstance(csr_entry, dict) and csr_entry.get("value") is not None:
-                    result_text = str(csr_entry["value"]).replace(".", ",")
-                elif research_method.get("rounding_type") == "decimal":
-                    places = research_method.get("rounding_decimal")
-                    if places is not None:
-                        zero_d = Decimal("0").quantize(
-                            Decimal("0.1") ** int(places),
-                            rounding=ROUND_HALF_UP,
-                        )
-                        result_text = str(zero_d).replace(".", ",")
-                    else:
-                        result_text = "0"
-                else:
-                    result_text = "0"
+            mf_oil_result_text = resolve_mf_oil_custom_early_result_text(
+                research_method,
+                custom_value,
+                intermediate_results_rounded,
+            )
+            if mf_oil_result_text is not None:
+                result_text = mf_oil_result_text
 
             response_data_early = {
                 "convergence": convergence_result,
@@ -867,13 +715,11 @@ async def calculate_result(
                 "conditions_info": conditions_info,
             }
 
-            chloride_display = input_data.get(CHLORIDE_SALTS_RESULT_DISPLAY_KEY)
-            if chloride_display is not None and str(chloride_display).strip():
-                response_data_early["result_display"] = str(chloride_display).strip()
+            enrich_chloride_early_response(response_data_early, input_data)
 
-            if _is_mass_fraction_oil_method(
+            if is_mass_fraction_oil_method(research_method) or is_chloride_salts_method(
                 research_method
-            ) or _is_chloride_salts_method(research_method):
+            ):
                 response_data_early["updated_input_data"] = input_data
 
             return response_data_early
@@ -883,7 +729,6 @@ async def calculate_result(
 
         # Если повторяемость удовлетворительная, вычисляем результат
         result = None
-        result_unrounded = None
         measurement_error = None
 
         if convergence_result == "satisfactory":
@@ -991,7 +836,7 @@ async def calculate_result(
         }
 
         # Для массовой доли нефти возвращаем обновленные input_data с рассчитанными C1 и C2
-        if _is_mass_fraction_oil_method(research_method):
+        if is_mass_fraction_oil_method(research_method):
             response_data["updated_input_data"] = input_data
 
         logger.info(f"Подготовлен ответ: {response_data}")

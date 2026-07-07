@@ -1,7 +1,9 @@
+from __future__ import annotations
 from fastapi import APIRouter, Depends
-from core.security import IsAuthenticated, get_current_user
+from core.auth_decorators import IsAuthenticated
+from core.security import get_current_user
 from schemas.user import UserResponse
-from services.user import get_user_from_token
+from utils.auth import get_user_from_token
 
 router = APIRouter()
 
@@ -12,7 +14,7 @@ router = APIRouter()
     summary="Получение информации о текущем пользователе",
     description=(
         "Возвращает информацию о текущем авторизованном пользователе на основе JWT токена. "
-        "Извлекает данные пользователя из токена, включая hashSnils и другие атрибуты."
+        "Извлекает данные пользователя из токена и возвращает hsnils."
     ),
     responses={
         200: {
@@ -20,8 +22,9 @@ router = APIRouter()
             "content": {
                 "application/json": {
                     "example": {
-                        "hashSnils": "e1cee128188b77f382eec32ca80494e6",
-                        "username": "user@example.com",
+                        "hsnils": "e1cee128188b77f382eec32ca80494e6",
+                        "full_name": "Иванов Иван Иванович",
+                        "email": "i.i.ivanov@gd-urengoy.gazprom.ru",
                     }
                 }
             },

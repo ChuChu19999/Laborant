@@ -8,9 +8,9 @@ from openpyxl.styles import Alignment, Border, Font, Side
 from openpyxl.utils import get_column_letter
 from sqlalchemy.ext.asyncio import AsyncSession
 from schemas.sample_export import SampleExportItem
-from services.employees import get_employees_by_hashes
+from services.calculation_export_format import format_sample_calculations_column
+from services.employees import get_employees_by_hsnils
 from services.sample_export import get_samples_export_data
-from utils.calculation_export_format import format_sample_calculations_column
 
 EXPORT_HEADERS = [
     "№ пробы",
@@ -195,11 +195,13 @@ async def build_samples_export_excel(
     if not items:
         return b"", 0
 
-    hashes = list({sample.added_by for sample in items if sample.added_by})
+    hsnils_list = list({sample.added_by for sample in items if sample.added_by})
     employees_map: Dict[str, Dict[str, Any]] = {}
-    if hashes:
+    if hsnils_list:
         try:
-            employees_map = await get_employees_by_hashes(hashes, include_photo=False)
+            employees_map = await get_employees_by_hsnils(
+                hsnils_list, include_photo=False
+            )
         except Exception:
             employees_map = {}
 

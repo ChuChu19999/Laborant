@@ -21,9 +21,7 @@ async def get_hr_client() -> httpx.AsyncClient:
 
 
 async def close_all_clients():
-    """
-    Закрытие всех HTTP клиентов (вызывается при завершении приложения).
-    """
+    """Закрытие всех HTTP клиентов (вызывается при завершении приложения)."""
     global _hr_client
 
     if _hr_client is not None:

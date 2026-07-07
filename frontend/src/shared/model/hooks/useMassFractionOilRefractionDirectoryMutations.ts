@@ -15,7 +15,7 @@ export const useCreateMassFractionOilRefractionTable = () => {
     MassFractionOilRefractionTableCreate
   >(data => refractionTablesApi.createRefractionTable(data), [['refraction-tables']], {
     onSuccess: () => {
-      message.success('Запись справочника успешно добавлена');
+      message.success('Точка градуировочного графика успешно добавлена');
     },
   });
 };
@@ -30,7 +30,7 @@ export const useUpdateMassFractionOilRefractionTable = () => {
     [['refraction-tables']],
     {
       onSuccess: () => {
-        message.success('Запись справочника успешно обновлена');
+        message.success('Точка градуировочного графика успешно обновлена');
       },
     }
   );
@@ -42,7 +42,7 @@ export const useDeleteMassFractionOilRefractionTable = () => {
     [['refraction-tables']],
     {
       onSuccess: () => {
-        message.success('Запись справочника успешно удалена');
+        message.success('Точка градуировочного графика успешно удалена');
       },
     }
   );
@@ -54,7 +54,7 @@ export const useBulkUpdateMassFractionOilRefractionTable = () => {
     [['refraction-tables']],
     {
       onSuccess: () => {
-        message.success('Справочник успешно обновлен');
+        message.success('Градуировочный график успешно обновлен');
       },
     }
   );

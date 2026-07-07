@@ -1,88 +1,82 @@
+from __future__ import annotations
 from datetime import date, datetime
-from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field, field_validator
+from typing import Annotated, Any
+from pydantic import BaseModel, ConfigDict, Field
+from schemas.common import NonEmptyStr, OptionalNonEmptyStr
+
+SamplingActNumber = Annotated[NonEmptyStr, Field(max_length=50)]
 
 
 class ProtocolBase(BaseModel):
-    test_protocol_number: Optional[str] = Field(
+    test_protocol_number: str | None = Field(
         None, max_length=100, description="Номер протокола испытаний"
     )
-    test_protocol_date: Optional[date] = Field(
+    test_protocol_date: date | None = Field(
         None, description="Дата протокола испытаний"
     )
     is_accredited: bool = Field(
         default=False, description="Признак аккредитации протокола"
     )
-    sampling_act_number: str = Field(
-        ..., max_length=50, description="Номер акта отбора"
-    )
-    issued: Optional[str] = Field(
+    sampling_act_number: SamplingActNumber = Field(..., description="Номер акта отбора")
+    issued: str | None = Field(
         None, max_length=150, description="hsnils лица, оформившего протокол"
     )
-    approved: Optional[str] = Field(
+    approved: str | None = Field(
         None, max_length=150, description="hsnils лица, утвердившего протокол"
     )
-    issued_position: Optional[str] = Field(
+    issued_position: str | None = Field(
         None, max_length=100, description="Должность оформившего"
     )
-    approved_position: Optional[str] = Field(
+    approved_position: str | None = Field(
         None, max_length=100, description="Должность утвердившего"
     )
-    samples: Optional[List[int]] = Field(
+    samples: list[int] | None = Field(
         None, description="Массив ID проб, привязанных к протоколу"
     )
 
 
 class ProtocolCreate(ProtocolBase):
     laboratory_id: int = Field(..., description="ID лаборатории")
-    department_id: Optional[int] = Field(None, description="ID подразделения")
-    protocol_template_id: Optional[int] = Field(
-        None, description="ID шаблона протокола"
-    )
-
-    @field_validator("samples")
-    @classmethod
-    def validate_samples(cls, v: Optional[List[int]]) -> Optional[List[int]]:
-        return v
+    department_id: int | None = Field(None, description="ID подразделения")
+    protocol_template_id: int | None = Field(None, description="ID шаблона протокола")
 
 
 class ProtocolUpdate(BaseModel):
-    test_protocol_number: Optional[str] = Field(None, max_length=100)
-    test_protocol_date: Optional[date] = None
-    is_accredited: Optional[bool] = None
-    sampling_act_number: Optional[str] = Field(None, max_length=50)
-    issued: Optional[str] = Field(None, max_length=150)
-    approved: Optional[str] = Field(None, max_length=150)
-    issued_position: Optional[str] = Field(None, max_length=100)
-    approved_position: Optional[str] = Field(None, max_length=100)
-    protocol_template_id: Optional[int] = None
-    samples: Optional[List[int]] = None
-    laboratory_id: Optional[int] = None
-    department_id: Optional[int] = None
+    test_protocol_number: str | None = Field(None, max_length=100)
+    test_protocol_date: date | None = None
+    is_accredited: bool | None = None
+    sampling_act_number: Annotated[OptionalNonEmptyStr, Field(max_length=50)] = None
+    issued: str | None = Field(None, max_length=150)
+    approved: str | None = Field(None, max_length=150)
+    issued_position: str | None = Field(None, max_length=100)
+    approved_position: str | None = Field(None, max_length=100)
+    protocol_template_id: int | None = None
+    samples: list[int] | None = None
+    laboratory_id: int | None = None
+    department_id: int | None = None
 
 
 class ProtocolResponse(ProtocolBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     laboratory_id: int
-    department_id: Optional[int] = None
-    protocol_template_id: Optional[int] = None
-    laboratory_name: Optional[str] = None
-    department_name: Optional[str] = None
-    samples_data: Optional[List[Dict[str, Any]]] = None
-    formatted_protocol_number: Optional[str] = None
-    has_undeleted_calculations: Optional[bool] = None
+    department_id: int | None = None
+    protocol_template_id: int | None = None
+    laboratory_name: str | None = None
+    department_name: str | None = None
+    samples_data: list[dict[str, Any]] | None = None
+    formatted_protocol_number: str | None = None
+    has_undeleted_calculations: bool | None = None
     created_at: datetime
     updated_at: datetime
-    deleted_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
+    deleted_at: datetime | None = None
 
 
 class ProtocolTemplateBase(BaseModel):
     name: str = Field(..., max_length=100, description="Название шаблона")
     file_name: str = Field(..., max_length=100, description="Оригинальное имя файла")
-    accreditation_header_row: Optional[int] = Field(
+    accreditation_header_row: int | None = Field(
         None, description="Строка шапки аккредитации"
     )
 
@@ -90,26 +84,25 @@ class ProtocolTemplateBase(BaseModel):
 class ProtocolTemplateCreate(ProtocolTemplateBase):
     file: str = Field(..., description="xlsx файл (base64 или путь)")
     laboratory_id: int = Field(..., description="ID лаборатории")
-    department_id: Optional[int] = Field(None, description="ID подразделения")
+    department_id: int | None = Field(None, description="ID подразделения")
 
 
 class ProtocolTemplateUpdate(BaseModel):
-    name: Optional[str] = Field(None, max_length=100)
-    file: Optional[str] = None
-    file_name: Optional[str] = Field(None, max_length=100)
-    accreditation_header_row: Optional[int] = None
+    name: str | None = Field(None, max_length=100)
+    file: str | None = None
+    file_name: str | None = Field(None, max_length=100)
+    accreditation_header_row: int | None = None
 
 
 class ProtocolTemplateResponse(ProtocolTemplateBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     version: str
     laboratory_id: int
-    department_id: Optional[int] = None
-    laboratory_name: Optional[str] = None
-    department_name: Optional[str] = None
+    department_id: int | None = None
+    laboratory_name: str | None = None
+    department_name: str | None = None
     created_at: datetime
     updated_at: datetime
-    deleted_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
+    deleted_at: datetime | None = None

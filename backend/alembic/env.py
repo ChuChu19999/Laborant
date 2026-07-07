@@ -32,6 +32,7 @@ from models import (  # noqa: F401
     SamplingLocation,
     SelectionConditions,
     TestObject,
+    WellMode,
 )
 from models.research import research_method_groups_association  # noqa: F401
 

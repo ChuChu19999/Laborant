@@ -1,4 +1,5 @@
-from typing import Any, Dict, List, Optional
+from __future__ import annotations
+from typing import Any
 from pydantic import BaseModel, Field
 from schemas.sample import SampleResponse
 
@@ -6,27 +7,27 @@ from schemas.sample import SampleResponse
 class ResearchMethodExportInfo(BaseModel):
     id: int
     name: str
-    unit: Optional[str] = None
-    sort_order: Optional[int] = None
+    unit: str | None = None
+    sort_order: int | None = None
     is_group_member: bool = False
-    groups: List[Dict[str, Any]] = Field(default_factory=list)
-    input_data: Optional[Dict[str, Any]] = None
+    groups: list[dict[str, Any]] = Field(default_factory=list)
+    input_data: dict[str, Any] | None = None
 
 
 class SampleExportCalculation(BaseModel):
     id: int
     research_method_id: int
-    input_data: Dict[str, Any]
+    input_data: dict[str, Any]
     result: str
-    measurement_error: Optional[str] = None
-    unit: Optional[str] = None
-    research_method: Optional[ResearchMethodExportInfo] = None
+    measurement_error: str | None = None
+    unit: str | None = None
+    research_method: ResearchMethodExportInfo | None = None
 
 
 class SampleExportItem(SampleResponse):
-    calculations: List[SampleExportCalculation] = Field(default_factory=list)
+    calculations: list[SampleExportCalculation] = Field(default_factory=list)
 
 
 class SamplesExportResponse(BaseModel):
-    items: List[SampleExportItem]
+    items: list[SampleExportItem]
     total: int

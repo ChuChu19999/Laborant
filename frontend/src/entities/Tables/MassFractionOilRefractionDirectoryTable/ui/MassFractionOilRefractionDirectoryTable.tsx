@@ -139,7 +139,7 @@ const MassFractionOilRefractionDirectoryTable: React.FC<
                     colSpan={columns.length}
                     className="mass-fraction-oil-refraction-directory-table-empty-cell"
                   >
-                    Записи справочника не найдены
+                    Точки градуировочного графика не найдены
                   </td>
                 </tr>
               ) : (

@@ -1,12 +1,10 @@
+from __future__ import annotations
 from typing import Optional
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from core.auth_decorators import IsAuthenticated
 from core.database import get_db
 from core.exceptions import NotFoundError
-from core.security import IsAuthenticated
-from models.laboratory import WellMode
 from schemas.laboratory import (
     BranchCreate,
     BranchResponse,
@@ -25,6 +23,11 @@ from schemas.laboratory import (
     WellModeUpdate,
 )
 from schemas.pagination import PaginatedResponse
+from services.laboratory import (
+    build_department_response,
+    build_sampling_location_response,
+    build_well_mode_response,
+)
 from services.laboratory import create_branch as create_branch_service
 from services.laboratory import create_department as create_department_service
 from services.laboratory import create_laboratory as create_laboratory_service
@@ -44,9 +47,9 @@ from services.laboratory import (
     get_departments,
     get_laboratories,
     get_laboratory_by_id,
-    get_sampling_location_by_id,
+    get_sampling_location_response_data,
     get_sampling_locations,
-    get_well_mode_by_id,
+    get_well_mode_response_data,
     get_well_modes,
 )
 from services.laboratory import update_branch as update_branch_service
@@ -124,7 +127,6 @@ async def create_laboratory(
 ):
     """Добавляет новую лабораторию на основе переданных данных."""
     laboratory = await create_laboratory_service(db, laboratory_data)
-    await db.commit()
     return LaboratoryResponse.model_validate(laboratory)
 
 
@@ -154,15 +156,7 @@ async def list_sampling_locations(
         sort_by=sort_by,
         sort_order=sort_order,
     )
-    items = []
-    for loc in sampling_locations:
-        loc_dict = SamplingLocationResponse.model_validate(loc).model_dump()
-        if hasattr(loc, "branch") and loc.branch:
-            loc_dict["branch_name"] = loc.branch.name
-            loc_dict["branch_phone"] = loc.branch.phone
-        items.append(SamplingLocationResponse(**loc_dict))
-
-    return items
+    return [build_sampling_location_response(loc) for loc in sampling_locations]
 
 
 @router.post(
@@ -185,8 +179,7 @@ async def create_sampling_location(
     sampling_location = await create_sampling_location_service(
         db, sampling_location_data
     )
-    await db.commit()
-    return SamplingLocationResponse.model_validate(sampling_location)
+    return await get_sampling_location_response_data(db, sampling_location.id)
 
 
 @router.get(
@@ -205,21 +198,14 @@ async def get_sampling_location(
     db: AsyncSession = Depends(get_db),
 ):
     """Возвращает информацию о месте отбора проб по его идентификатору."""
-    sampling_location = await get_sampling_location_by_id(db, sampling_location_id)
-    if not sampling_location:
-        raise NotFoundError("Место отбора проб не найдено")
-    loc_dict = SamplingLocationResponse.model_validate(sampling_location).model_dump()
-    if hasattr(sampling_location, "branch") and sampling_location.branch:
-        loc_dict["branch_name"] = sampling_location.branch.name
-        loc_dict["branch_phone"] = sampling_location.branch.phone
-    return SamplingLocationResponse(**loc_dict)
+    return await get_sampling_location_response_data(db, sampling_location_id)
 
 
 @router.patch(
     "/laboratories/sampling-locations/{sampling_location_id}/",
     response_model=SamplingLocationResponse,
     summary="Обновление места отбора проб",
-    description="Обновляет существующее место отбора проб. Можно обновить только указанные поля.",
+    description="Обновляет существующее место отбора проб.",
     responses={
         200: {"description": "Место отбора проб успешно обновлено"},
         404: {"description": "Место отбора проб не найдено"},
@@ -231,20 +217,18 @@ async def update_sampling_location(
     sampling_location_data: SamplingLocationUpdate,
     db: AsyncSession = Depends(get_db),
 ):
-    """Обновляет существующее место отбора проб. Можно обновить только указанные поля."""
-    sampling_location = await update_sampling_location_service(
+    """Обновляет существующее место отбора проб."""
+    await update_sampling_location_service(
         db, sampling_location_id, sampling_location_data
     )
-    await db.commit()
-    await db.refresh(sampling_location)
-    return SamplingLocationResponse.model_validate(sampling_location)
+    return await get_sampling_location_response_data(db, sampling_location_id)
 
 
 @router.delete(
     "/laboratories/sampling-locations/{sampling_location_id}/",
     status_code=204,
     summary="Удаление места отбора проб",
-    description="Выполняет мягкое удаление места отбора проб. Место отбора проб помечается как удаленное.",
+    description="Выполняет мягкое удаление места отбора проб.",
     responses={
         204: {"description": "Место отбора проб успешно удалено"},
         404: {"description": "Место отбора проб не найдено"},
@@ -255,9 +239,8 @@ async def delete_sampling_location(
     sampling_location_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """Выполняет мягкое удаление места отбора проб. Место отбора проб помечается как удаленное."""
+    """Выполняет мягкое удаление места отбора проб."""
     await delete_sampling_location_service(db, sampling_location_id)
-    await db.commit()
 
 
 @router.get(
@@ -286,14 +269,7 @@ async def list_well_modes(
         sort_by=sort_by,
         sort_order=sort_order,
     )
-    items = []
-    for mode in well_modes:
-        mode_dict = WellModeResponse.model_validate(mode).model_dump()
-        if hasattr(mode, "branch") and mode.branch:
-            mode_dict["branch_name"] = mode.branch.name
-        items.append(WellModeResponse(**mode_dict))
-
-    return items
+    return [build_well_mode_response(mode) for mode in well_modes]
 
 
 @router.post(
@@ -314,12 +290,7 @@ async def create_well_mode(
 ):
     """Добавляет новый режим скважины на основе переданных данных."""
     well_mode = await create_well_mode_service(db, well_mode_data)
-    await db.commit()
-    await db.refresh(well_mode, ["branch"])
-    mode_dict = WellModeResponse.model_validate(well_mode).model_dump()
-    if well_mode.branch:
-        mode_dict["branch_name"] = well_mode.branch.name
-    return WellModeResponse(**mode_dict)
+    return await get_well_mode_response_data(db, well_mode.id)
 
 
 @router.get(
@@ -338,20 +309,14 @@ async def get_well_mode(
     db: AsyncSession = Depends(get_db),
 ):
     """Возвращает информацию о режиме скважины по его идентификатору."""
-    well_mode = await get_well_mode_by_id(db, well_mode_id)
-    if not well_mode:
-        raise NotFoundError("Режим скважины не найден")
-    mode_dict = WellModeResponse.model_validate(well_mode).model_dump()
-    if hasattr(well_mode, "branch") and well_mode.branch:
-        mode_dict["branch_name"] = well_mode.branch.name
-    return WellModeResponse(**mode_dict)
+    return await get_well_mode_response_data(db, well_mode_id)
 
 
 @router.patch(
     "/laboratories/well-modes/{well_mode_id}/",
     response_model=WellModeResponse,
     summary="Обновление режима скважины",
-    description="Обновляет существующий режим скважины. Можно обновить только указанные поля.",
+    description="Обновляет существующий режим скважины.",
     responses={
         200: {"description": "Режим скважины успешно обновлен"},
         404: {"description": "Режим скважины не найден"},
@@ -363,27 +328,16 @@ async def update_well_mode(
     well_mode_data: WellModeUpdate,
     db: AsyncSession = Depends(get_db),
 ):
-    """Обновляет существующий режим скважины. Можно обновить только указанные поля."""
-    well_mode = await update_well_mode_service(db, well_mode_id, well_mode_data)
-    await db.commit()
-    query = (
-        select(WellMode)
-        .where(WellMode.id == well_mode.id)
-        .options(selectinload(WellMode.branch))
-    )
-    result = await db.execute(query)
-    well_mode = result.scalar_one()
-    mode_dict = WellModeResponse.model_validate(well_mode).model_dump()
-    if well_mode.branch:
-        mode_dict["branch_name"] = well_mode.branch.name
-    return WellModeResponse(**mode_dict)
+    """Обновляет существующий режим скважины."""
+    await update_well_mode_service(db, well_mode_id, well_mode_data)
+    return await get_well_mode_response_data(db, well_mode_id)
 
 
 @router.delete(
     "/laboratories/well-modes/{well_mode_id}/",
     status_code=204,
     summary="Удаление режима скважины",
-    description="Выполняет мягкое удаление режима скважины. Режим помечается как удаленный.",
+    description="Выполняет мягкое удаление режима скважины.",
     responses={
         204: {"description": "Режим скважины успешно удален"},
         404: {"description": "Режим скважины не найден"},
@@ -394,9 +348,8 @@ async def delete_well_mode(
     well_mode_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """Выполняет мягкое удаление режима скважины. Режим помечается как удаленный."""
+    """Выполняет мягкое удаление режима скважины."""
     await delete_well_mode_service(db, well_mode_id)
-    await db.commit()
 
 
 @router.get(
@@ -425,7 +378,7 @@ async def get_laboratory(
     "/laboratories/{laboratory_id}/",
     response_model=LaboratoryResponse,
     summary="Обновление лаборатории",
-    description="Обновляет существующую лабораторию. Можно обновить только указанные поля.",
+    description="Обновляет существующую лабораторию.",
     responses={
         200: {"description": "Лаборатория успешно обновлена"},
         404: {"description": "Лаборатория не найдена"},
@@ -437,10 +390,8 @@ async def update_laboratory(
     laboratory_data: LaboratoryUpdate,
     db: AsyncSession = Depends(get_db),
 ):
-    """Обновляет существующую лабораторию. Можно обновить только указанные поля."""
+    """Обновляет существующую лабораторию."""
     laboratory = await update_laboratory_service(db, laboratory_id, laboratory_data)
-    await db.commit()
-    await db.refresh(laboratory)
     return LaboratoryResponse.model_validate(laboratory)
 
 
@@ -448,7 +399,7 @@ async def update_laboratory(
     "/laboratories/{laboratory_id}/",
     status_code=204,
     summary="Удаление лаборатории",
-    description="Выполняет мягкое удаление лаборатории. Лаборатория помечается как удаленная.",
+    description="Выполняет мягкое удаление лаборатории.",
     responses={
         204: {"description": "Лаборатория успешно удалена"},
         404: {"description": "Лаборатория не найдена"},
@@ -459,9 +410,8 @@ async def delete_laboratory(
     laboratory_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """Выполняет мягкое удаление лаборатории. Лаборатория помечается как удаленная."""
+    """Выполняет мягкое удаление лаборатории."""
     await delete_laboratory_service(db, laboratory_id)
-    await db.commit()
 
 
 @router.get(
@@ -495,12 +445,7 @@ async def list_departments(
         sort_by=sort_by,
         sort_order=sort_order,
     )
-    items = []
-    for dept in departments:
-        dept_dict = DepartmentResponse.model_validate(dept).model_dump()
-        if hasattr(dept, "laboratory") and dept.laboratory:
-            dept_dict["laboratory_name"] = dept.laboratory.name
-        items.append(DepartmentResponse(**dept_dict))
+    items = [build_department_response(dept) for dept in departments]
 
     return PaginatedResponse(
         items=items,
@@ -525,12 +470,7 @@ async def get_departments_by_laboratory(
 ):
     """Возвращает список подразделений для указанной лаборатории."""
     departments, _, _ = await get_departments(db, laboratory_id=laboratory_id)
-    items = []
-    for dept in departments:
-        dept_dict = DepartmentResponse.model_validate(dept).model_dump()
-        if hasattr(dept, "laboratory") and dept.laboratory:
-            dept_dict["laboratory_name"] = dept.laboratory.name
-        items.append(DepartmentResponse(**dept_dict))
+    items = [build_department_response(dept) for dept in departments]
     return items
 
 
@@ -552,7 +492,6 @@ async def create_department(
 ):
     """Добавляет новое подразделение на основе переданных данных."""
     department = await create_department_service(db, department_data)
-    await db.commit()
     return DepartmentResponse.model_validate(department)
 
 
@@ -560,7 +499,7 @@ async def create_department(
     "/departments/{department_id}/",
     response_model=DepartmentResponse,
     summary="Обновление подразделения",
-    description="Обновляет существующее подразделение. Можно обновить только указанные поля.",
+    description="Обновляет существующее подразделение.",
     responses={
         200: {"description": "Подразделение успешно обновлено"},
         404: {"description": "Подразделение не найдено"},
@@ -572,10 +511,8 @@ async def update_department(
     department_data: DepartmentUpdate,
     db: AsyncSession = Depends(get_db),
 ):
-    """Обновляет существующее подразделение. Можно обновить только указанные поля."""
+    """Обновляет существующее подразделение."""
     department = await update_department_service(db, department_id, department_data)
-    await db.commit()
-    await db.refresh(department)
     return DepartmentResponse.model_validate(department)
 
 
@@ -583,7 +520,7 @@ async def update_department(
     "/departments/{department_id}/",
     status_code=204,
     summary="Удаление подразделения",
-    description="Выполняет мягкое удаление подразделения. Подразделение помечается как удаленное.",
+    description="Выполняет мягкое удаление подразделения.",
     responses={
         204: {"description": "Подразделение успешно удалено"},
         404: {"description": "Подразделение не найдено"},
@@ -594,9 +531,8 @@ async def delete_department(
     department_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """Выполняет мягкое удаление подразделения. Подразделение помечается как удаленное."""
+    """Выполняет мягкое удаление подразделения."""
     await delete_department_service(db, department_id)
-    await db.commit()
 
 
 @router.get(
@@ -648,7 +584,6 @@ async def create_branch(
 ):
     """Добавляет новый филиал на основе переданных данных."""
     branch = await create_branch_service(db, branch_data)
-    await db.commit()
     return BranchResponse.model_validate(branch)
 
 
@@ -656,7 +591,7 @@ async def create_branch(
     "/branches/{branch_id}/",
     response_model=BranchResponse,
     summary="Обновление филиала",
-    description="Обновляет существующий филиал. Можно обновить только указанные поля.",
+    description="Обновляет существующий филиал.",
     responses={
         200: {"description": "Филиал успешно обновлен"},
         404: {"description": "Филиал не найден"},
@@ -668,10 +603,8 @@ async def update_branch(
     branch_data: BranchUpdate,
     db: AsyncSession = Depends(get_db),
 ):
-    """Обновляет существующий филиал. Можно обновить только указанные поля."""
+    """Обновляет существующий филиал."""
     branch = await update_branch_service(db, branch_id, branch_data)
-    await db.commit()
-    await db.refresh(branch)
     return BranchResponse.model_validate(branch)
 
 
@@ -679,7 +612,7 @@ async def update_branch(
     "/branches/{branch_id}/",
     status_code=204,
     summary="Удаление филиала",
-    description="Выполняет мягкое удаление филиала. Филиал помечается как удаленный.",
+    description="Выполняет мягкое удаление филиала.",
     responses={
         204: {"description": "Филиал успешно удален"},
         404: {"description": "Филиал не найден"},
@@ -690,6 +623,5 @@ async def delete_branch(
     branch_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """Выполняет мягкое удаление филиала. Филиал помечается как удаленный."""
+    """Выполняет мягкое удаление филиала."""
     await delete_branch_service(db, branch_id)
-    await db.commit()

@@ -11,12 +11,10 @@ from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Optional
 import pendulum
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 from models.calculation import Calculation
-from models.laboratory import SamplingLocation
 from models.sample import Sample
+from repositories import sample as sample_repo
 from services.ilninm_reports.constants import (
     GROUP_DENSITY,
     GROUP_MOLECULAR_MASS,
@@ -34,9 +32,9 @@ from services.ilninm_reports.physicochemical import (
     _calculation_display_value,
     _calculation_matches_spec,
     _format_sampling_date,
-    _get_calculations_by_sample,
     _report_display,
     format_report_period,
+    get_calculations_by_sample,
 )
 from utils.filters import add_date_range_filter
 
@@ -200,31 +198,14 @@ async def _get_samples_for_kgs_report(
     sampling_date_from: pendulum.DateTime,
     sampling_date_to: pendulum.DateTime,
 ) -> list[Sample]:
-    conditions = [
-        Sample.laboratory_id == laboratory_id,
-        Sample.deleted_at.is_(None),
-        Sample.sampling_location_id.isnot(None),
-    ]
-    add_date_range_filter(
-        conditions, sampling_date_from, sampling_date_to, Sample.sampling_date
+    samples = await sample_repo.get_kgs_candidate_samples(
+        db,
+        laboratory_id,
+        sampling_date_from,
+        sampling_date_to,
+        department_id,
     )
-    if department_id is not None:
-        conditions.append(Sample.department_id == department_id)
-
-    query = (
-        select(Sample)
-        .join(
-            SamplingLocation,
-            Sample.sampling_location_id == SamplingLocation.id,
-        )
-        .where(
-            *conditions,
-            SamplingLocation.deleted_at.is_(None),
-        )
-        .options(selectinload(Sample.sampling_location))
-    )
-    result = await db.execute(query)
-    return [s for s in result.scalars().unique().all() if _is_kgs_sample(s)]
+    return [sample for sample in samples if _is_kgs_sample(sample)]
 
 
 @dataclass
@@ -283,7 +264,7 @@ async def get_kgs_report_groups(
         grouped.setdefault(key, []).append((display, sample))
 
     sample_ids = [sample.id for samples in grouped.values() for _, sample in samples]
-    calcs_by_sample = await _get_calculations_by_sample(db, sample_ids)
+    calcs_by_sample = await get_calculations_by_sample(db, sample_ids)
 
     groups: list[KgsReportLocationGroup] = []
     for key in sorted(grouped.keys(), key=lambda k: grouped[k][0][0]):

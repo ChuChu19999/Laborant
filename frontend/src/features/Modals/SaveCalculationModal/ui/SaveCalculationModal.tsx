@@ -36,7 +36,7 @@ interface SaveCalculationModalProps {
   editingCalculationId?: number;
   /** ID приборов из сохранённого расчёта (включая обязательные); для выбора необязательных при редактировании. */
   existingEquipmentData?: number[];
-  /** hashMd5 исполнителя из заменяемого расчёта — подставить в форму при открытии. */
+  /** hsnils исполнителя из заменяемого расчёта — подставить в форму при открытии. */
   previousExecutorHash?: string | null;
 }
 
@@ -171,8 +171,8 @@ const SaveCalculationModal: React.FC<SaveCalculationModalProps> = ({
       return;
     }
     let cancelled = false;
-    void employeesApi.getByHash(previousExecutorHash.trim(), false).then(data => {
-      if (!cancelled && data && typeof data === 'object' && 'hashMd5' in data) {
+    void employeesApi.getByHsnils(previousExecutorHash.trim(), false).then(data => {
+      if (!cancelled && data && typeof data === 'object' && 'hsnils' in data) {
         setExecutor(data as Employee);
       }
     });
@@ -200,7 +200,7 @@ const SaveCalculationModal: React.FC<SaveCalculationModalProps> = ({
       return;
     }
 
-    if (!executor || !executor.hashMd5) {
+    if (!executor || !executor.hsnils) {
       setExecutorError('Необходимо указать исполнителя');
       message.warning('Укажите исполнителя');
       return;
@@ -227,7 +227,7 @@ const SaveCalculationModal: React.FC<SaveCalculationModalProps> = ({
           input_data: calculationData.input_data,
           equipment_data: resolvedEquipment,
           result: calculationData.result,
-          executor: executor.hashMd5,
+          executor: executor.hsnils,
           measurement_error: calculationData.measurement_error,
           unit: calculationData.unit,
           laboratory_activity_date: laboratoryActivityDate.format('YYYY-MM-DD'),
@@ -242,7 +242,7 @@ const SaveCalculationModal: React.FC<SaveCalculationModalProps> = ({
           input_data: calculationData.input_data,
           equipment_data: resolvedEquipment,
           result: calculationData.result,
-          executor: executor.hashMd5,
+          executor: executor.hsnils,
           measurement_error: calculationData.measurement_error,
           unit: calculationData.unit,
           laboratory_activity_date: laboratoryActivityDate.format('YYYY-MM-DD'),

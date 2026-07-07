@@ -1,45 +1,48 @@
+from __future__ import annotations
 from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
+from core.auth_decorators import IsAuthenticated
 from core.database import get_db
 from core.exceptions import NotFoundError
-from core.security import IsAuthenticated
-from services.fixtures import (
+from services.saved_methods_tree import build_saved_methods_tree
+from utils.fixtures import (
     get_available_fixtures,
     get_fixture_data,
     list_fixture_files,
     list_fixture_subdirectories,
 )
-from services.saved_methods_tree import build_saved_methods_tree
 
 router = APIRouter()
 
 
 @router.get(
     "/fixtures/meta/directories/",
-    summary="Дерево каталогов фикстур лаборатории",
+    summary="Получение дерева каталогов фикстур лаборатории",
     description=(
-        "Все подкаталоги с JSON для выбранной лаборатории (например 26 съезд, нетипичные пробы). "
+        "Возвращает подкаталоги с JSON для выбранной лаборатории "
+        "(например, 26 съезда, нспк). "
         "Используется для построения дерева без привязки только к текущему подразделению."
     ),
-    responses={200: {"description": "Список каталогов"}},
+    responses={200: {"description": "Список каталогов успешно получен"}},
 )
 # @IsAuthenticated
 async def get_fixture_directories(
     laboratory_name: str = Query(..., description="Название лаборатории"),
 ):
-    """Возвращает подкаталоги фикстур для лаборатории."""
+    """Возвращает подкаталоги фикстур для указанной лаборатории."""
     return {"directories": list_fixture_subdirectories(laboratory_name)}
 
 
 @router.get(
     "/fixtures/meta/saved-methods-tree/",
-    summary="Расчётные методы, применяемые в лабораториях (по подразделениям)",
+    summary="Получение дерева расчетных методов по лабораториям",
     description=(
-        "Методы исследования из базы (включая входящие в группы), по лаборатории "
-        "и подразделению (если указано). Для дерева выбора шаблона на фронтенде."
+        "Возвращает методы исследования из базы (включая входящие в группы), "
+        "сгруппированные по лаборатории и подразделению. "
+        "Используется для дерева выбора шаблона на фронтенде."
     ),
-    responses={200: {"description": "Дерево методов"}},
+    responses={200: {"description": "Дерево методов успешно получено"}},
 )
 # @IsAuthenticated
 async def get_saved_methods_tree(db: AsyncSession = Depends(get_db)):
@@ -53,7 +56,7 @@ async def get_saved_methods_tree(db: AsyncSession = Depends(get_db)):
     description=(
         "Возвращает список доступных фикстур методов исследования. "
         "Фикстуры используются для просмотра на фронтенде (как заполнять поля метода). "
-        "Не создают методы автоматически, только для справки."
+        "Не создают методы автоматически, только для предзаполнения."
     ),
     responses={200: {"description": "Список фикстур успешно получен"}},
 )
@@ -93,10 +96,10 @@ async def list_fixture_files_endpoint(
 
 @router.get(
     "/fixtures/{fixture_path:path}",
-    summary="Получение данных конкретной фикстуры",
+    summary="Получение данных фикстуры",
     description=(
-        "Возвращает данные конкретной фикстуры по указанному пути. "
-        "Путь к фикстуре указывается в формате, например: 'ilninm/26th/01.json'."
+        "Возвращает данные фикстуры по указанному пути. "
+        "Путь указывается в формате, например: 'ilninm/26th/01.json'."
     ),
     responses={
         200: {"description": "Данные фикстуры успешно получены"},
@@ -107,7 +110,7 @@ async def list_fixture_files_endpoint(
 async def get_fixture(
     fixture_path: str,
 ):
-    """Возвращает данные конкретной фикстуры по указанному пути."""
+    """Возвращает данные фикстуры по указанному пути."""
     data = get_fixture_data(fixture_path)
     if data is None:
         raise NotFoundError("Фикстура не найдена")

@@ -20,7 +20,7 @@ class Settings(BaseSettings):
 
     KEYCLOAK_PUBLIC_KEY_URL: str = ""
 
-    CERT_PATH: str = "/usr/local/share/ca-certificates/root.crt"
+    CERT_PATH: str = ""
 
     HR_API_URL: str = ""
 

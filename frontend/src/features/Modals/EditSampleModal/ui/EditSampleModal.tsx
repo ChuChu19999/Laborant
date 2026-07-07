@@ -144,7 +144,7 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({
     const loadAddedByEmployee = async () => {
       if (sample.added_by) {
         try {
-          const employee = await employeesApi.getByHash(sample.added_by, false);
+          const employee = await employeesApi.getByHsnils(sample.added_by, false);
           if (employee) {
             setAddedByEmployee(employee);
           }

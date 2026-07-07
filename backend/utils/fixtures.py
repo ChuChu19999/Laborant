@@ -37,7 +37,7 @@ def get_available_fixtures(
             for fixture_type_dir in lab_path.iterdir():
                 if fixture_type_dir.is_dir():
                     fixture_type = fixture_type_dir.name
-                    if _matches_department_name(fixture_type, department_name):
+                    if _matches_department_name(fixture_type, dept_name_normalized):
                         fixture_path = f"{lab_name_normalized}/{fixture_type}"
                         if _has_json_files(fixture_type_dir):
                             available_fixtures.append(fixture_path)
@@ -66,9 +66,7 @@ def get_available_fixtures(
 
 
 def get_fixture_data(fixture_path: str) -> Optional[Dict[str, Any]]:
-    """
-    Получить данные фикстуры по пути.
-    """
+    """Получить данные фикстуры по пути."""
     try:
         fixture_file = FIXTURES_BASE_PATH / fixture_path
         if not fixture_file.exists() or not fixture_file.is_file():
@@ -117,9 +115,7 @@ def list_fixture_subdirectories(laboratory_name: str) -> List[Dict[str, Any]]:
 
 
 def list_fixture_files(fixture_path: str) -> List[str]:
-    """
-    Получить список файлов в директории фикстуры.
-    """
+    """Получить список файлов в директории фикстуры."""
     try:
         fixture_dir = FIXTURES_BASE_PATH / fixture_path
         if not fixture_dir.exists() or not fixture_dir.is_dir():
@@ -148,13 +144,14 @@ def _normalize_name(name: str) -> str:
     return name_mapping.get(name_lower, name_lower.replace(" ", "_"))
 
 
-def _matches_department_name(fixture_type: str, department_name: str) -> bool:
-    """Проверка соответствия типа фикстуры названию подразделения."""
-    dept_name_normalized = _normalize_name(department_name)
+def _matches_department_name(
+    fixture_type: str, department_name_normalized: str
+) -> bool:
+    """Проверка соответствия типа фикстуры нормализованному названию подразделения."""
     fixture_type_normalized = _normalize_name(fixture_type)
     return (
-        dept_name_normalized == fixture_type_normalized
-        or fixture_type_normalized in dept_name_normalized
+        department_name_normalized == fixture_type_normalized
+        or fixture_type_normalized in department_name_normalized
     )
 
 

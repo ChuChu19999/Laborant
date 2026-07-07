@@ -1,5 +1,10 @@
 import { axiosInstance } from '../config/axios';
 
+export interface EmployeeBrief {
+  hsnils: string;
+  fullName: string;
+}
+
 export const employeesApi = {
   // Поиск сотрудников по части ФИО (не менее 3 символов)
   searchByFio: async (searchFio: string, includePhoto: boolean = true) => {
@@ -45,28 +50,29 @@ export const employeesApi = {
     }
   },
 
-  // Получение ФИО по hashMd5
-  getByHash: async (hash: string, includePhoto: boolean = true) => {
-    if (!hash) return null;
+  // Получение ФИО по hsnils
+  getByHsnils: async (hsnils: string, includePhoto: boolean = true) => {
+    if (!hsnils) return null;
 
-    const response = await axiosInstance.get(`/api/employees/${hash}/`, {
-      params: { include_photo: includePhoto },
+    const response = await axiosInstance.get(`/api/employees/${hsnils}/`, {
+      params: { includePhoto },
     });
     return response.data;
   },
 
-  // Получение информации о сотрудниках по массиву hashMd5 (батч-запрос)
-  getByHashes: async (hashes: string[], includePhoto: boolean = false) => {
-    if (!hashes || hashes.length === 0) {
+  // Получение информации о сотрудниках по массиву hsnils (батч-запрос)
+  getByHsnilsList: async (hsnilsList: string[], includePhoto: boolean = false) => {
+    if (!hsnilsList || hsnilsList.length === 0) {
       return {};
     }
 
-    const response = await axiosInstance.post<
-      Record<string, { hashMd5: string; fullName: string }>
-    >('/api/employees/by-hashes/', {
-      hashesMd5: hashes,
-      includePhoto,
-    });
+    const response = await axiosInstance.post<Record<string, EmployeeBrief>>(
+      '/api/employees/by-hsnils/',
+      {
+        hsnils: hsnilsList,
+        includePhoto,
+      }
+    );
     return response.data;
   },
 };

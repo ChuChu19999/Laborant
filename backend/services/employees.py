@@ -5,9 +5,14 @@ from cachetools import TTLCache
 from core.config import settings
 from core.http_clients import get_hr_client
 from core.logger import logger
-from utils.date import ensure_datetime, parse_date_string
+from utils.date import ensure_datetime, parse_datetime_string
+from utils.hr_employee import (
+    HR_HASH_MD5_FIELD,
+    map_hr_employee_to_app,
+    map_hr_employees_by_key,
+    map_hr_employees_list,
+)
 
-# Кэш для должностей и имен сотрудников
 POSITION_CACHE_MAX_SIZE = 512
 POSITION_CACHE_TTL_SECONDS = 600
 
@@ -19,9 +24,7 @@ _position_cache: TTLCache[str, Tuple[str, str]] = TTLCache(
 async def search_employees_by_fio(
     search_fio: str, include_photo: bool = True
 ) -> list[dict[str, Any]]:
-    """
-    Поиск сотрудников по ФИО через HR API.
-    """
+    """Поиск сотрудников по ФИО через HR API."""
     if not search_fio or len(search_fio) < 3:
         return []
 
@@ -44,7 +47,7 @@ async def search_employees_by_fio(
             else:
                 employees_data = []
 
-        return employees_data
+        return map_hr_employees_list(employees_data)
 
     except httpx.RequestError as e:
         logger.error(f"Ошибка при обращении к HR API: {str(e)}")
@@ -57,14 +60,7 @@ async def search_employees_by_fio(
 async def search_employees_by_fio_and_laboratory(
     search_fio: str, laboratory_name: str, include_photo: bool = True
 ) -> list[dict[str, Any]]:
-    """
-    Поиск сотрудников по ФИО с фильтрацией по наименованию лаборатории через HR API.
-
-    Выполняет поиск сотрудников в HR API по части ФИО и фильтрует результаты
-    по наименованию лаборатории на основе поля workPlaceJson.
-    Минимальная длина поискового запроса - 3 символа.
-    Возвращает список найденных сотрудников с их данными.
-    """
+    """Поиск сотрудников по ФИО с фильтрацией по лаборатории через HR API."""
     if not search_fio or len(search_fio) < 3:
         return []
 
@@ -91,7 +87,6 @@ async def search_employees_by_fio_and_laboratory(
             else:
                 employees_data = []
 
-        # Фильтруем сотрудников по наименованию лаборатории
         filtered_employees = []
         for employee in employees_data:
             if not employee.get("workPlaceJson"):
@@ -104,7 +99,7 @@ async def search_employees_by_fio_and_laboratory(
             except (orjson.JSONDecodeError, TypeError):
                 continue
 
-        return filtered_employees
+        return map_hr_employees_list(filtered_employees)
 
     except httpx.RequestError as e:
         logger.error(f"Ошибка при обращении к HR API: {str(e)}")
@@ -114,13 +109,11 @@ async def search_employees_by_fio_and_laboratory(
         raise
 
 
-async def get_employee_by_hash(
-    hash_md5: str, include_photo: bool = True
+async def get_employee_by_hsnils(
+    hsnils: str, include_photo: bool = True
 ) -> Optional[dict[str, Any]]:
-    """
-    Получение информации о сотруднике по hashMd5 через HR API.
-    """
-    if not hash_md5:
+    """Получение информации о сотруднике по hsnils через HR API."""
+    if not hsnils:
         return None
 
     if not settings.HR_API_URL:
@@ -128,24 +121,29 @@ async def get_employee_by_hash(
         raise ValueError("HR_API_URL не настроен")
 
     try:
-        url = f"{settings.HR_API_URL}/api/v2/employee/by-hash/{hash_md5}?includeDismissed=true&recordsNumber=1&includePhoto={str(include_photo).lower()}"
+        url = (
+            f"{settings.HR_API_URL}/api/v2/employee/by-hash/{hsnils}"
+            f"?includeDismissed=true&recordsNumber=1&includePhoto={str(include_photo).lower()}"
+        )
         headers = {"Content-Type": "application/json"}
 
         client = await get_hr_client()
         response = await client.get(url, headers=headers)
 
         if response.status_code == 404:
-            logger.debug(f"Сотрудник с hash_md5={hash_md5} не найден в HR API (404)")
+            logger.debug(f"Сотрудник с hsnils={hsnils} не найден в HR API (404)")
             return None
 
         response.raise_for_status()
         employee_data = response.json()
 
+        if isinstance(employee_data, dict):
+            return map_hr_employee_to_app(employee_data)
         return employee_data
 
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 404:
-            logger.debug(f"Сотрудник с hash_md5={hash_md5} не найден в HR API (404)")
+            logger.debug(f"Сотрудник с hsnils={hsnils} не найден в HR API (404)")
             return None
         logger.error(f"Ошибка HTTP при обращении к HR API: {str(e)}")
         raise
@@ -157,13 +155,11 @@ async def get_employee_by_hash(
         raise
 
 
-async def get_employees_by_hashes(
-    hashes_md5: list[str], include_photo: bool = False
+async def get_employees_by_hsnils(
+    hsnils_list: list[str], include_photo: bool = False
 ) -> dict[str, dict[str, Any]]:
-    """
-    Получение информации о сотрудниках по массиву hashMd5 через HR API (батч-запрос).
-    """
-    if not hashes_md5 or len(hashes_md5) == 0:
+    """Получение информации о сотрудниках по списку hsnils через HR API (батч-запрос)."""
+    if not hsnils_list:
         return {}
 
     if not settings.HR_API_URL:
@@ -174,7 +170,7 @@ async def get_employees_by_hashes(
         url = f"{settings.HR_API_URL}/api/v2/employee/by-hashes/"
         headers = {"Content-Type": "application/json"}
         payload = {
-            "hashesMd5": hashes_md5,
+            "hashesMd5": hsnils_list,
             "includeExtended": False,
             "includePhoto": include_photo,
             "includeExp": False,
@@ -186,37 +182,35 @@ async def get_employees_by_hashes(
         response = await client.post(url, headers=headers, json=payload)
 
         if response.status_code == 404:
-            logger.debug(f"Сотрудники с указанными hash_md5 не найдены в HR API (404)")
+            logger.debug("Сотрудники с указанными hsnils не найдены в HR API (404)")
             return {}
 
         response.raise_for_status()
         employees_data = response.json()
 
-        result = {}
+        result: dict[str, dict[str, Any]] = {}
         if isinstance(employees_data, list):
             for employee in employees_data:
-                if isinstance(employee, dict) and "hashMd5" in employee:
-                    hash_md5 = employee.get("hashMd5")
-                    if hash_md5:
-                        # Если для этого hash уже есть запись, выбираем ту, где workingNowStatus == "Работает"
-                        if hash_md5 in result:
-                            current_status = result[hash_md5].get("workingNowStatus")
+                if isinstance(employee, dict) and HR_HASH_MD5_FIELD in employee:
+                    hr_hash = employee.get(HR_HASH_MD5_FIELD)
+                    if hr_hash:
+                        if hr_hash in result:
+                            current_status = result[hr_hash].get("workingNowStatus")
                             new_status = employee.get("workingNowStatus")
 
-                            # Заменяем только если новая запись имеет статус "Работает", а текущая - нет
                             if (
                                 new_status == "Работает"
                                 and current_status != "Работает"
                             ):
-                                result[hash_md5] = employee
+                                result[hr_hash] = employee
                         else:
-                            result[hash_md5] = employee
+                            result[hr_hash] = employee
 
-        return result
+        return map_hr_employees_by_key(result)
 
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 404:
-            logger.debug(f"Сотрудники с указанными hash_md5 не найдены в HR API (404)")
+            logger.debug("Сотрудники с указанными hsnils не найдены в HR API (404)")
             return {}
         logger.error(f"Ошибка HTTP при обращении к HR API: {str(e)}")
         raise
@@ -228,15 +222,9 @@ async def get_employees_by_hashes(
         raise
 
 
-async def get_employee_position_and_name(hash_md5: str, target_date) -> Tuple[str, str]:
-    """
-    Возвращает должность и отформатированное имя сотрудника по hashMd5 на указанную дату.
-
-    Получает информацию о сотруднике из HR API и определяет его должность на указанную дату
-    на основе истории назначений. Форматирует имя в формате "И.О. Фамилия".
-    Результаты кэшируются для оптимизации повторных запросов.
-    """
-    if not hash_md5:
+async def get_employee_position_and_name(hsnils: str, target_date) -> Tuple[str, str]:
+    """Возвращает должность и имя сотрудника по hsnils на указанную дату."""
+    if not hsnils:
         return "", ""
 
     target_datetime = ensure_datetime(target_date)
@@ -244,25 +232,27 @@ async def get_employee_position_and_name(hash_md5: str, target_date) -> Tuple[st
         logger.warning(f"Невозможно преобразовать target_date: {target_date}")
         return "", ""
 
-    # Проверяем кэш
-    cache_key = f"position_{hash_md5}_{target_datetime.strftime('%Y-%m-%d')}"
+    cache_key = f"position_{hsnils}_{target_datetime.strftime('%Y-%m-%d')}"
     if cache_key in _position_cache:
         return _position_cache[cache_key]
 
     logger.info(
-        f"Запрашиваем должность сотрудника по hash {hash_md5} на дату {target_datetime}"
+        f"Запрашиваем должность сотрудника по hsnils {hsnils} на дату {target_datetime}"
     )
 
     try:
         client = await get_hr_client()
-        url = f"{settings.HR_API_URL}/api/v2/employee/by-hash/{hash_md5}?includeDismissed=True&includeAppointments=True"
+        url = (
+            f"{settings.HR_API_URL}/api/v2/employee/by-hash/{hsnils}"
+            "?includeDismissed=True&includeAppointments=True"
+        )
 
         response = await client.get(url, timeout=10.0)
         if response.status_code != 200:
             logger.warning(
-                "HR-API вернул статус %s для hash %s: %s",
+                "HR-API вернул статус %s для hsnils %s: %s",
                 response.status_code,
-                hash_md5,
+                hsnils,
                 response.text,
             )
             return "", ""
@@ -272,7 +262,6 @@ async def get_employee_position_and_name(hash_md5: str, target_date) -> Tuple[st
         if not full_name:
             return "", ""
 
-        # Форматируем имя: И.О. Фамилия
         name_parts = full_name.split()
         if len(name_parts) >= 3:
             surname = name_parts[0]
@@ -302,9 +291,9 @@ async def get_employee_position_and_name(hash_md5: str, target_date) -> Tuple[st
                 continue
 
             try:
-                begin_datetime = ensure_datetime(parse_date_string(begin_date_str))
+                begin_datetime = ensure_datetime(parse_datetime_string(begin_date_str))
                 end_datetime = (
-                    ensure_datetime(parse_date_string(end_date_str))
+                    ensure_datetime(parse_datetime_string(end_date_str))
                     if end_date_str
                     else None
                 )
@@ -327,7 +316,7 @@ async def get_employee_position_and_name(hash_md5: str, target_date) -> Tuple[st
                         target_position = position_name
                     else:
                         best_begin_datetime = ensure_datetime(
-                            parse_date_string(best_appointment.get("beginDate", ""))
+                            parse_datetime_string(best_appointment.get("beginDate", ""))
                         )
                         if best_begin_datetime and begin_datetime > best_begin_datetime:
                             best_appointment = appointment
@@ -335,7 +324,7 @@ async def get_employee_position_and_name(hash_md5: str, target_date) -> Tuple[st
 
             except Exception as e:
                 logger.warning(
-                    f"Ошибка парсинга даты для hash={hash_md5}: {e}, дата: {begin_date_str}"
+                    f"Ошибка парсинга даты для hsnils={hsnils}: {e}, дата: {begin_date_str}"
                 )
                 continue
 
@@ -344,7 +333,7 @@ async def get_employee_position_and_name(hash_md5: str, target_date) -> Tuple[st
         return result
 
     except httpx.RequestError as e:
-        logger.error(f"Ошибка запроса HR-API для hash {hash_md5}: {e}")
+        logger.error(f"Ошибка запроса HR-API для hsnils {hsnils}: {e}")
     except Exception as e:
-        logger.exception("Ошибка запроса HR-API для hash %s: %s", hash_md5, e)
+        logger.exception("Ошибка запроса HR-API для hsnils %s: %s", hsnils, e)
     return "", ""

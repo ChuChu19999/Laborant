@@ -116,9 +116,7 @@ def format_protocol_calculation_result(calc) -> str:
 
 
 def copy_cell_style(source_cell, target_cell):
-    """
-    Безопасное копирование стилей из одной ячейки в другую
-    """
+    """Безопасное копирование стилей из одной ячейки в другую."""
     if not source_cell or not source_cell.has_style:
         return
 
@@ -137,9 +135,7 @@ def copy_row_with_styles(
     target_row: int,
     max_col: Optional[int] = None,
 ) -> None:
-    """
-    Копирует строку с сохранением стилей из исходного листа в целевой.
-    """
+    """Копирует строку с сохранением стилей из исходного листа в целевой."""
     try:
         if max_col is None:
             max_col = get_row_copy_max_col(source_sheet, source_row)
@@ -166,9 +162,7 @@ def copy_row_with_styles(
 def copy_row_formatting(
     source_sheet, target_sheet, source_row, target_row, merged_cells_map=None
 ):
-    """
-    Копирует все форматирование строки: стили, размеры и объединенные ячейки
-    """
+    """Копирует все форматирование строки: стили, размеры и объединенные ячейки."""
     if source_row in source_sheet.row_dimensions:
         target_sheet.row_dimensions[target_row] = copy(
             source_sheet.row_dimensions[source_row]
@@ -449,9 +443,7 @@ def copy_column_dimensions_range(
 
 
 def copy_column_dimensions(source_sheet, target_sheet):
-    """
-    Копирует размеры столбцов из исходного листа в целевой.
-    """
+    """Копирует размеры столбцов из исходного листа в целевой."""
     try:
         for key, value in source_sheet.column_dimensions.items():
             target_sheet.column_dimensions[key].width = value.width
@@ -470,9 +462,7 @@ def copy_sheet_page_settings(source_sheet, target_sheet) -> None:
 
 
 def get_cell_width(sheet, row, col):
-    """
-    Получает ширину ячейки в пикселях, учитывая объединенные ячейки.
-    """
+    """Получает ширину ячейки в пикселях, учитывая объединенные ячейки."""
     try:
         # Проверяем, является ли ячейка частью объединенной ячейки
         for merged_range in sheet.merged_cells.ranges:
@@ -511,9 +501,7 @@ def get_cell_width(sheet, row, col):
 
 
 def calculate_text_height(text, cell_width_pixels, font_size_pixels=FONT_SIZE_PIXELS):
-    """
-    Рассчитывает высоту текста в пикселях с учетом переноса строк.
-    """
+    """Рассчитывает высоту текста в пикселях с учетом переноса строк."""
     if not text or not isinstance(text, str):
         return LINE_HEIGHT_PIXELS
 
@@ -601,9 +589,7 @@ def adjust_cell_height_if_needed(sheet, row, col, text, min_height_pixels=35):
 
 
 def adjust_row_height_for_text(sheet, row, text_columns):
-    """
-    Настраивает высоту строки для текста в указанных столбцах.
-    """
+    """Настраивает высоту строки для текста в указанных столбцах."""
     try:
         max_required_height = 35  # Минимальная высота в пикселях
 
@@ -642,9 +628,7 @@ def adjust_row_height_for_text(sheet, row, text_columns):
 
 
 def map_test_object_to_suffix(text: str) -> str:
-    """
-    Возвращает суффикс в зависимости от объекта испытаний.
-    """
+    """Возвращает суффикс в зависимости от объекта испытаний."""
     if not text:
         return ""
     value = text.strip().lower()
@@ -668,9 +652,7 @@ def map_test_object_to_suffix(text: str) -> str:
 
 
 def check_method_name(method_name, test_objects):
-    """
-    Проверяет, соответствует ли метод объекту испытаний
-    """
+    """Проверяет, соответствует ли метод объекту испытаний"""
     method_lower = method_name.lower()
     test_objects_lower = [obj.lower() for obj in test_objects]
 

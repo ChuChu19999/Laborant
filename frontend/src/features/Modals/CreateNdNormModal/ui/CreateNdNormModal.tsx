@@ -123,7 +123,7 @@ const CreateNdNormModal: React.FC<CreateNdNormModalProps> = ({
       department_id: departmentId,
       method_data: methods.map(method => ({
         method_id: method.id,
-        text: (methodTexts[method.id] || '').trim(),
+        value: (methodTexts[method.id] || '').trim(),
       })),
     };
 

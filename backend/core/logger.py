@@ -34,7 +34,6 @@ def setup_logger():
     """Настройка глобального логгера Loguru."""
     logger.remove()
 
-    # Настройка формата логов
     log_format = (
         "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
         "<level>{level: <8}</level> | "
@@ -42,7 +41,6 @@ def setup_logger():
         "<level>{message}</level>"
     )
 
-    # Добавляем обработчик для консоли (docker logs)
     logger.add(
         sys.stderr,
         format=log_format,

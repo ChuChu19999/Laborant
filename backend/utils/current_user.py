@@ -1,7 +1,6 @@
 from contextvars import ContextVar
 from typing import Optional, Tuple
 
-# Context variable для хранения текущего пользователя (full_name и hsnils из токена)
 current_user_context: ContextVar[Optional[Tuple[str, str]]] = ContextVar(
     "current_user", default=None
 )

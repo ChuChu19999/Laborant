@@ -8,10 +8,10 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any, Optional
 import pendulum
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from models.calculation import Calculation
 from models.sample import Sample
+from repositories import sample as sample_repo
 from services.ilninm_reports.constants import (
     GROUP_DENSITY_20,
     GROUP_MASS_FRACTION_OIL,
@@ -47,10 +47,10 @@ from services.ilninm_reports.constants import (
 )
 from services.ilninm_reports.physicochemical import (
     _format_sampling_date,
-    _get_calculations_by_sample,
     _method_name_matches,
     _parse_calculation_result_payload,
     _report_display,
+    get_calculations_by_sample,
 )
 from utils.calculation_result_display import format_calculation_result_for_display
 from utils.filters import add_date_range_filter
@@ -401,19 +401,14 @@ async def _get_samples_for_nks_report(
     sampling_date_from: pendulum.DateTime,
     sampling_date_to: pendulum.DateTime,
 ) -> list[Sample]:
-    conditions = [
-        Sample.laboratory_id == laboratory_id,
-        Sample.deleted_at.is_(None),
-    ]
-    add_date_range_filter(
-        conditions, sampling_date_from, sampling_date_to, Sample.sampling_date
+    samples = await sample_repo.get_samples_by_sampling_date_range(
+        db,
+        laboratory_id,
+        sampling_date_from,
+        sampling_date_to,
+        department_id,
     )
-    if department_id is not None:
-        conditions.append(Sample.department_id == department_id)
-
-    query = select(Sample).where(*conditions)
-    result = await db.execute(query)
-    samples = [s for s in result.scalars().unique().all() if _is_nks_sample(s)]
+    samples = [sample for sample in samples if _is_nks_sample(sample)]
     samples.sort(
         key=lambda s: (
             s.sampling_date is None,
@@ -443,7 +438,9 @@ async def get_nks_report_rows(
     if not samples:
         return []
 
-    calcs_by_sample = await _get_calculations_by_sample(db, [s.id for s in samples])
+    calcs_by_sample = await get_calculations_by_sample(
+        db, [sample.id for sample in samples]
+    )
     rows: list[NksReportRow] = []
     for index, sample in enumerate(samples, start=1):
         calcs = calcs_by_sample.get(sample.id, [])

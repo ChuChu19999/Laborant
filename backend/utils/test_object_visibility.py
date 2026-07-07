@@ -1,7 +1,9 @@
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
-def normalize_visibility_scope(scope: Optional[Dict[str, Any]]) -> Dict[str, List[int]]:
+def normalize_visibility_scope(
+    scope: dict[str, Any] | None,
+) -> dict[str, list[int]]:
     """Привести область видимости к виду со списками id лабораторий и подразделений."""
     if not scope or not isinstance(scope, dict):
         return {"laboratory_ids": [], "department_ids": []}
@@ -20,9 +22,9 @@ def normalize_visibility_scope(scope: Optional[Dict[str, Any]]) -> Dict[str, Lis
 
 
 def is_visible_in_scope(
-    visibility_scope: Optional[Dict[str, Any]],
-    laboratory_id: Optional[int] = None,
-    department_id: Optional[int] = None,
+    visibility_scope: dict[str, Any] | None,
+    laboratory_id: int | None = None,
+    department_id: int | None = None,
 ) -> bool:
     """
     Пустая область видимости означает доступность везде.

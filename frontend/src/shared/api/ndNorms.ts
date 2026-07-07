@@ -3,7 +3,7 @@ import type { PaginatedResponse } from './research';
 
 export interface NdNormMethodDataItem {
   method_id: number;
-  text: string;
+  value: string;
 }
 
 export interface NdNorm {

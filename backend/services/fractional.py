@@ -2,7 +2,7 @@ from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Any, Dict, Union
 import orjson
 from core.logger import logger
-from services.calculation import (
+from utils.calculation_engine import (
     get_temperature_correction,
     parse_decimal_value,
     round_decimal_half_up,
@@ -63,9 +63,7 @@ def round_half_up_to_int(value: Any) -> int:
 
 
 def calculate_fractional_composition(input_data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Специальная функция для расчета фракционного состава конденсата.
-    """
+    """Специальная функция для расчета фракционного состава конденсата."""
     try:
         logger.info("Начало расчета фракционного состава конденсата")
 
@@ -381,9 +379,7 @@ def calculate_fractional_composition(input_data: Dict[str, Any]) -> Dict[str, An
 
 
 def calculate_fractional_composition_oil(input_data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Специальная функция для расчета фракционного состава нефти.
-    """
+    """Специальная функция для расчета фракционного состава нефти."""
     try:
         logger.info("Начало расчета фракционного состава нефти")
 

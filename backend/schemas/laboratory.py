@@ -1,25 +1,26 @@
+from __future__ import annotations
 from datetime import datetime
-from typing import Optional
-from pydantic import BaseModel, Field, field_validator
+from typing import Annotated
+from pydantic import BaseModel, ConfigDict, Field
+from schemas.common import NonEmptyStr, OptionalNonEmptyStr
+
+LaboratoryName = Annotated[NonEmptyStr, Field(max_length=100)]
+LaboratoryFullName = Annotated[NonEmptyStr, Field(max_length=255)]
+DepartmentName = Annotated[NonEmptyStr, Field(max_length=100)]
+DepartmentLocation = Annotated[NonEmptyStr, Field(max_length=255)]
+BranchName = Annotated[NonEmptyStr, Field(max_length=255)]
+SamplingLocationName = Annotated[NonEmptyStr, Field(max_length=255)]
+WellModeName = Annotated[NonEmptyStr, Field(max_length=255)]
 
 
 class LaboratoryBase(BaseModel):
-    name: str = Field(..., max_length=100, description="Аббревиатура")
-    full_name: str = Field(..., max_length=255, description="Полное название")
-    laboratory_location: Optional[str] = Field(
+    name: LaboratoryName = Field(..., description="Аббревиатура")
+    full_name: LaboratoryFullName = Field(..., description="Полное название")
+    laboratory_location: str | None = Field(
         None,
         max_length=255,
         description="Место осуществления лабораторной деятельности",
     )
-
-    @field_validator("name", "full_name")
-    @classmethod
-    def strip_strings(cls, v: str) -> str:
-        if v:
-            v = v.strip()
-            if not v:
-                raise ValueError("Поле не может быть пустым")
-        return v
 
 
 class LaboratoryCreate(LaboratoryBase):
@@ -27,43 +28,16 @@ class LaboratoryCreate(LaboratoryBase):
 
 
 class LaboratoryUpdate(BaseModel):
-    name: Optional[str] = Field(None, max_length=100)
-    full_name: Optional[str] = Field(None, max_length=255)
-    laboratory_location: Optional[str] = Field(None, max_length=255)
-
-    @field_validator("name", "full_name", mode="before")
-    @classmethod
-    def strip_strings(cls, v: Optional[str]) -> Optional[str]:
-        if v:
-            v = v.strip()
-            if not v:
-                raise ValueError("Поле не может быть пустым")
-        return v
+    name: Annotated[OptionalNonEmptyStr, Field(max_length=100)] = None
+    full_name: Annotated[OptionalNonEmptyStr, Field(max_length=255)] = None
+    laboratory_location: str | None = Field(None, max_length=255)
 
 
 class DepartmentBase(BaseModel):
-    name: str = Field(..., max_length=100, description="Название подразделения")
-    laboratory_location: str = Field(
-        ..., max_length=255, description="Место осуществления лабораторной деятельности"
+    name: DepartmentName = Field(..., description="Название подразделения")
+    laboratory_location: DepartmentLocation = Field(
+        ..., description="Место осуществления лабораторной деятельности"
     )
-
-    @field_validator("name")
-    @classmethod
-    def strip_name(cls, v: str) -> str:
-        if v:
-            v = v.strip()
-            if not v:
-                raise ValueError("Название не может быть пустым")
-        return v
-
-    @field_validator("laboratory_location")
-    @classmethod
-    def validate_laboratory_location(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError(
-                "Место осуществления лабораторной деятельности обязательно для подразделения"
-            )
-        return v.strip()
 
 
 class DepartmentCreate(DepartmentBase):
@@ -71,111 +45,59 @@ class DepartmentCreate(DepartmentBase):
 
 
 class DepartmentUpdate(BaseModel):
-    name: Optional[str] = Field(None, max_length=100)
-    laboratory_location: Optional[str] = Field(None, max_length=255)
-
-    @field_validator("name", mode="before")
-    @classmethod
-    def strip_name(cls, v: Optional[str]) -> Optional[str]:
-        if v:
-            v = v.strip()
-            if not v:
-                raise ValueError("Название не может быть пустым")
-        return v
-
-    @field_validator("laboratory_location", mode="before")
-    @classmethod
-    def validate_laboratory_location(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None:
-            if not v.strip():
-                raise ValueError(
-                    "Место осуществления лабораторной деятельности не может быть пустым"
-                )
-            return v.strip()
-        return v
+    name: Annotated[OptionalNonEmptyStr, Field(max_length=100)] = None
+    laboratory_location: Annotated[OptionalNonEmptyStr, Field(max_length=255)] = None
 
 
 class DepartmentResponse(DepartmentBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     laboratory_id: int
-    laboratory_name: Optional[str] = None
+    laboratory_name: str | None = None
     created_at: datetime
     updated_at: datetime
-    deleted_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
+    deleted_at: datetime | None = None
 
 
 class LaboratoryResponse(LaboratoryBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
-    departments_count: Optional[int] = None
+    departments_count: int | None = None
     created_at: datetime
     updated_at: datetime
-    deleted_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
+    deleted_at: datetime | None = None
 
 
 class BranchBase(BaseModel):
-    name: str = Field(..., max_length=255, description="Название филиала")
-    phone: Optional[str] = Field(
-        None, max_length=20, description="Номер телефона филиала"
-    )
-
-    @field_validator("name")
-    @classmethod
-    def strip_name(cls, v: str) -> str:
-        if v:
-            v = v.strip()
-            if not v:
-                raise ValueError("Название филиала не может быть пустым")
-        return v
+    name: BranchName = Field(..., description="Название филиала")
+    phone: str | None = Field(None, max_length=20, description="Номер телефона филиала")
 
 
 class BranchCreate(BranchBase):
     laboratory_id: int = Field(..., description="ID лаборатории")
-    department_id: Optional[int] = Field(None, description="ID подразделения")
+    department_id: int | None = Field(None, description="ID подразделения")
 
 
 class BranchUpdate(BaseModel):
-    name: Optional[str] = Field(None, max_length=255)
-    phone: Optional[str] = Field(None, max_length=20)
-
-    @field_validator("name", mode="before")
-    @classmethod
-    def strip_name(cls, v: Optional[str]) -> Optional[str]:
-        if v:
-            v = v.strip()
-            if not v:
-                raise ValueError("Название филиала не может быть пустым")
-        return v
+    name: Annotated[OptionalNonEmptyStr, Field(max_length=255)] = None
+    phone: str | None = Field(None, max_length=20)
 
 
 class BranchResponse(BranchBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     laboratory_id: int
-    department_id: Optional[int] = None
+    department_id: int | None = None
     created_at: datetime
     updated_at: datetime
-    deleted_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
+    deleted_at: datetime | None = None
 
 
 class SamplingLocationBase(BaseModel):
-    name: str = Field(..., max_length=255, description="Название места отбора пробы")
-
-    @field_validator("name")
-    @classmethod
-    def strip_name(cls, v: str) -> str:
-        if v:
-            v = v.strip()
-            if not v:
-                raise ValueError("Название места отбора пробы не может быть пустым")
-        return v
+    name: SamplingLocationName = Field(..., description="Название места отбора пробы")
 
 
 class SamplingLocationCreate(SamplingLocationBase):
@@ -183,42 +105,23 @@ class SamplingLocationCreate(SamplingLocationBase):
 
 
 class SamplingLocationUpdate(BaseModel):
-    name: Optional[str] = Field(None, max_length=255)
-
-    @field_validator("name", mode="before")
-    @classmethod
-    def strip_name(cls, v: Optional[str]) -> Optional[str]:
-        if v:
-            v = v.strip()
-            if not v:
-                raise ValueError("Название места отбора пробы не может быть пустым")
-        return v
+    name: Annotated[OptionalNonEmptyStr, Field(max_length=255)] = None
 
 
 class SamplingLocationResponse(SamplingLocationBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     branch_id: int
-    branch_name: Optional[str] = None
-    branch_phone: Optional[str] = None
+    branch_name: str | None = None
+    branch_phone: str | None = None
     created_at: datetime
     updated_at: datetime
-    deleted_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
+    deleted_at: datetime | None = None
 
 
 class WellModeBase(BaseModel):
-    name: str = Field(..., max_length=255, description="Название режима скважины")
-
-    @field_validator("name")
-    @classmethod
-    def strip_name(cls, v: str) -> str:
-        if v:
-            v = v.strip()
-            if not v:
-                raise ValueError("Название режима скважины не может быть пустым")
-        return v
+    name: WellModeName = Field(..., description="Название режима скважины")
 
 
 class WellModeCreate(WellModeBase):
@@ -226,25 +129,15 @@ class WellModeCreate(WellModeBase):
 
 
 class WellModeUpdate(BaseModel):
-    name: Optional[str] = Field(None, max_length=255)
-
-    @field_validator("name", mode="before")
-    @classmethod
-    def strip_name(cls, v: Optional[str]) -> Optional[str]:
-        if v:
-            v = v.strip()
-            if not v:
-                raise ValueError("Название режима скважины не может быть пустым")
-        return v
+    name: Annotated[OptionalNonEmptyStr, Field(max_length=255)] = None
 
 
 class WellModeResponse(WellModeBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     branch_id: int
-    branch_name: Optional[str] = None
+    branch_name: str | None = None
     created_at: datetime
     updated_at: datetime
-    deleted_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
+    deleted_at: datetime | None = None

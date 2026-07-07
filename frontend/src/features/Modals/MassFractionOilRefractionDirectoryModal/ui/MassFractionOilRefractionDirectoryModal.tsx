@@ -227,7 +227,7 @@ const MassFractionOilRefractionDirectoryModal: React.FC<
       await refetch();
       onClose();
     } catch (error) {
-      console.error('Ошибка при сохранении справочника:', error);
+      console.error('Ошибка при сохранении градуировочного графика:', error);
     }
   }, [entries, originalEntries, researchMethodId, onClose, bulkUpdateMutation, refetch]);
 

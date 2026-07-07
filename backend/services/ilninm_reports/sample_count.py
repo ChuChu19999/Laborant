@@ -13,21 +13,17 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any, Optional
 import pendulum
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 from core.logger import logger
-from models.laboratory import Laboratory
 from models.sample import Sample
-from utils.filters import add_date_range_filter
+from repositories import sample as sample_repo
+from utils.ilninm_constants import DISPLAY_NAMES_CDGGKN, SAMPLING_LOCATIONS_CDGGKN
 from .constants import (
     BRANCH_GPU_PRAO,
     BRANCH_NGDU,
     BRANCH_UGPU,
-    DISPLAY_NAMES_CDGGKN,
     GKP_SAMPLING_NAME_PREFIX_21,
     GKP_SAMPLING_NAME_PREFIX_22,
-    LABORATORY_NAME_ILNINM,
     ROW_TITLE_DIZTOPIVO,
     ROW_TITLE_EKSPLUATACIONNAYA_NEFT_NGDU,
     ROW_TITLE_GKP_21_GKP_22,
@@ -46,7 +42,6 @@ from .constants import (
     SAMPLE_TYPE_VNEPLANOVYE,
     SAMPLING_LOCATION_PREFIXES_VALANZHIN_UKPG,
     SAMPLING_LOCATION_UKPG_11V,
-    SAMPLING_LOCATIONS_CDGGKN,
     TOVARNAYA_PRODUKCIYA_OIS_SAMPLING_PREFIXES,
 )
 
@@ -87,27 +82,6 @@ def _sample_indicators_count(s: Sample) -> int:
     return s.indicators_count
 
 
-def _normalize_title(raw: Optional[str]) -> str:
-    if raw is None:
-        return ""
-    return (raw or "").strip()
-
-
-def _match_row_title(cell_a: str, title: str) -> bool:
-    """Сопоставление значения ячейки A с ключом строки (без учёта регистра и пробелов)."""
-    return _normalize_title(cell_a).lower() == title.lower()
-
-
-async def _get_ilninm_laboratory_id(db: AsyncSession) -> Optional[int]:
-    r = await db.execute(
-        select(Laboratory.id).where(
-            Laboratory.name == LABORATORY_NAME_ILNINM,
-            Laboratory.deleted_at.is_(None),
-        )
-    )
-    return r.scalar_one_or_none()
-
-
 async def _get_samples_in_range(
     db: AsyncSession,
     laboratory_id: int,
@@ -116,22 +90,13 @@ async def _get_samples_in_range(
     department_id: Optional[int] = None,
 ) -> list[Sample]:
     """Пробы за период по дате получения с загрузкой branch и sampling_location."""
-    conditions = [Sample.laboratory_id == laboratory_id, Sample.deleted_at.is_(None)]
-    add_date_range_filter(
-        conditions, receiving_date_from, receiving_date_to, Sample.receiving_date
+    return await sample_repo.get_samples_by_receiving_date_range(
+        db,
+        laboratory_id,
+        receiving_date_from,
+        receiving_date_to,
+        department_id,
     )
-    if department_id is not None:
-        conditions.append(Sample.department_id == department_id)
-    query = (
-        select(Sample)
-        .where(*conditions)
-        .options(
-            selectinload(Sample.branch),
-            selectinload(Sample.sampling_location),
-        )
-    )
-    result = await db.execute(query)
-    return list(result.scalars().unique().all())
 
 
 def _test_object_ilike(s: Sample, part: str) -> bool:

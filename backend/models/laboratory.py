@@ -1,39 +1,58 @@
-from sqlalchemy import Column, ForeignKey, Index, Integer, String, text
-from sqlalchemy.orm import relationship
+from __future__ import annotations
+from typing import TYPE_CHECKING, Optional
+from sqlalchemy import ForeignKey, Index, Integer, String, text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from core.config import get_database_schema
 from models.base import BaseModel
+
+if TYPE_CHECKING:
+    from models.calculation import Calculation
+    from models.equipment import Equipment
+    from models.nd_norm import NdNorm
+    from models.protocol import Protocol, ProtocolTemplate
+    from models.report import ReportTemplate
+    from models.research import ResearchMethod
+    from models.sample import Sample, SelectionConditions
 
 
 class Laboratory(BaseModel):
     __tablename__ = "laboratories"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
-    name = Column(String(100), nullable=False, index=True, comment="Аббревиатура")
-    full_name = Column(String(255), nullable=False, comment="Полное название")
-    laboratory_location = Column(
+    name: Mapped[str] = mapped_column(
+        String(100), nullable=False, comment="Аббревиатура"
+    )
+    full_name: Mapped[str] = mapped_column(
+        String(255), nullable=False, comment="Полное название"
+    )
+    laboratory_location: Mapped[Optional[str]] = mapped_column(
         String(255),
         nullable=True,
         comment="Место осуществления лабораторной деятельности",
     )
 
-    departments = relationship(
-        "Department", back_populates="laboratory", cascade="all, delete-orphan"
+    departments: Mapped[list["Department"]] = relationship(back_populates="laboratory")
+    branches: Mapped[list["Branch"]] = relationship(back_populates="laboratory")
+    samples: Mapped[list["Sample"]] = relationship(back_populates="laboratory")
+    protocols: Mapped[list["Protocol"]] = relationship(back_populates="laboratory")
+    calculations: Mapped[list["Calculation"]] = relationship(
+        back_populates="laboratory"
     )
-    branches = relationship(
-        "Branch", back_populates="laboratory", cascade="all, delete-orphan"
+    equipment: Mapped[list["Equipment"]] = relationship(back_populates="laboratory")
+    nd_norms: Mapped[list["NdNorm"]] = relationship(back_populates="laboratory")
+    selection_conditions: Mapped[list["SelectionConditions"]] = relationship(
+        back_populates="laboratory"
     )
-    samples = relationship("Sample", back_populates="laboratory")
-    protocols = relationship("Protocol", back_populates="laboratory")
-    calculations = relationship("Calculation", back_populates="laboratory")
-    equipment = relationship("Equipment", back_populates="laboratory")
-    nd_norms = relationship("NdNorm", back_populates="laboratory")
-    selection_conditions = relationship(
-        "SelectionConditions", back_populates="laboratory"
+    protocol_templates: Mapped[list["ProtocolTemplate"]] = relationship(
+        back_populates="laboratory"
     )
-    protocol_templates = relationship("ProtocolTemplate", back_populates="laboratory")
-    report_templates = relationship("ReportTemplate", back_populates="laboratory")
-    research_methods = relationship("ResearchMethod", back_populates="laboratory")
+    report_templates: Mapped[list["ReportTemplate"]] = relationship(
+        back_populates="laboratory"
+    )
+    research_methods: Mapped[list["ResearchMethod"]] = relationship(
+        back_populates="laboratory"
+    )
 
     __table_args__ = (
         Index(
@@ -43,8 +62,6 @@ class Laboratory(BaseModel):
             postgresql_where=text("deleted_at IS NULL"),
         ),
         Index("idx_laboratory_name", "name"),
-        Index("idx_laboratory_created_at", "created_at"),
-        Index("idx_laboratory_updated_at", "updated_at"),
         {"schema": get_database_schema()},
     )
 
@@ -55,36 +72,43 @@ class Laboratory(BaseModel):
 class Department(BaseModel):
     __tablename__ = "departments"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
-    laboratory_id = Column(
+    laboratory_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey(f"{get_database_schema()}.laboratories.id", ondelete="CASCADE"),
         nullable=False,
-        index=True,
     )
-    name = Column(String(100), nullable=False, comment="Название подразделения")
-    laboratory_location = Column(
+    name: Mapped[str] = mapped_column(
+        String(100), nullable=False, comment="Название подразделения"
+    )
+    laboratory_location: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
         comment="Место осуществления лабораторной деятельности",
     )
 
-    laboratory = relationship("Laboratory", back_populates="departments")
-    branches = relationship(
-        "Branch", back_populates="department", cascade="all, delete-orphan"
+    laboratory: Mapped["Laboratory"] = relationship(back_populates="departments")
+    branches: Mapped[list["Branch"]] = relationship(back_populates="department")
+    samples: Mapped[list["Sample"]] = relationship(back_populates="department")
+    protocols: Mapped[list["Protocol"]] = relationship(back_populates="department")
+    calculations: Mapped[list["Calculation"]] = relationship(
+        back_populates="department"
     )
-    samples = relationship("Sample", back_populates="department")
-    protocols = relationship("Protocol", back_populates="department")
-    calculations = relationship("Calculation", back_populates="department")
-    equipment = relationship("Equipment", back_populates="department")
-    nd_norms = relationship("NdNorm", back_populates="department")
-    selection_conditions = relationship(
-        "SelectionConditions", back_populates="department"
+    equipment: Mapped[list["Equipment"]] = relationship(back_populates="department")
+    nd_norms: Mapped[list["NdNorm"]] = relationship(back_populates="department")
+    selection_conditions: Mapped[list["SelectionConditions"]] = relationship(
+        back_populates="department"
     )
-    protocol_templates = relationship("ProtocolTemplate", back_populates="department")
-    report_templates = relationship("ReportTemplate", back_populates="department")
-    research_methods = relationship("ResearchMethod", back_populates="department")
+    protocol_templates: Mapped[list["ProtocolTemplate"]] = relationship(
+        back_populates="department"
+    )
+    report_templates: Mapped[list["ReportTemplate"]] = relationship(
+        back_populates="department"
+    )
+    research_methods: Mapped[list["ResearchMethod"]] = relationship(
+        back_populates="department"
+    )
 
     __table_args__ = (
         Index(
@@ -95,8 +119,6 @@ class Department(BaseModel):
             postgresql_where=text("deleted_at IS NULL"),
         ),
         Index("idx_department_laboratory_name", "laboratory_id", "name"),
-        Index("idx_department_created_at", "created_at"),
-        Index("idx_department_updated_at", "updated_at"),
         {"schema": get_database_schema()},
     )
 
@@ -107,38 +129,39 @@ class Department(BaseModel):
 class Branch(BaseModel):
     __tablename__ = "branches"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
-    name = Column(String(255), nullable=False, index=True, comment="Название филиала")
-    phone = Column(String(20), nullable=True, comment="Номер телефона филиала")
-    laboratory_id = Column(
+    name: Mapped[str] = mapped_column(
+        String(255), nullable=False, comment="Название филиала"
+    )
+    phone: Mapped[Optional[str]] = mapped_column(
+        String(20), nullable=True, comment="Номер телефона филиала"
+    )
+    laboratory_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey(f"{get_database_schema()}.laboratories.id", ondelete="CASCADE"),
         nullable=False,
-        index=True,
     )
-    department_id = Column(
+    department_id: Mapped[Optional[int]] = mapped_column(
         Integer,
         ForeignKey(f"{get_database_schema()}.departments.id", ondelete="CASCADE"),
         nullable=True,
     )
 
-    laboratory = relationship("Laboratory", back_populates="branches")
-    department = relationship("Department", back_populates="branches")
-    sampling_locations = relationship(
-        "SamplingLocation", back_populates="branch", cascade="all, delete-orphan"
+    laboratory: Mapped["Laboratory"] = relationship(back_populates="branches")
+    department: Mapped[Optional["Department"]] = relationship(back_populates="branches")
+    sampling_locations: Mapped[list["SamplingLocation"]] = relationship(
+        "SamplingLocation", back_populates="branch"
     )
-    well_modes = relationship(
-        "WellMode", back_populates="branch", cascade="all, delete-orphan"
+    well_modes: Mapped[list["WellMode"]] = relationship(
+        "WellMode", back_populates="branch"
     )
-    samples = relationship("Sample", back_populates="branch")
+    samples: Mapped[list["Sample"]] = relationship(back_populates="branch")
 
     __table_args__ = (
         Index("idx_branch_name", "name"),
         Index("idx_branch_laboratory", "laboratory_id"),
         Index("idx_branch_department", "department_id"),
-        Index("idx_branch_created_at", "created_at"),
-        Index("idx_branch_updated_at", "updated_at"),
         {"schema": get_database_schema()},
     )
 
@@ -149,20 +172,19 @@ class Branch(BaseModel):
 class SamplingLocation(BaseModel):
     __tablename__ = "sampling_locations"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
-    branch_id = Column(
+    branch_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey(f"{get_database_schema()}.branches.id", ondelete="CASCADE"),
         nullable=False,
-        index=True,
     )
-    name = Column(
-        String(255), nullable=False, index=True, comment="Название места отбора пробы"
+    name: Mapped[str] = mapped_column(
+        String(255), nullable=False, comment="Название места отбора пробы"
     )
 
-    branch = relationship("Branch", back_populates="sampling_locations")
-    samples = relationship("Sample", back_populates="sampling_location")
+    branch: Mapped["Branch"] = relationship(back_populates="sampling_locations")
+    samples: Mapped[list["Sample"]] = relationship(back_populates="sampling_location")
 
     __table_args__ = (
         Index(
@@ -173,8 +195,6 @@ class SamplingLocation(BaseModel):
             postgresql_where=text("deleted_at IS NULL"),
         ),
         Index("idx_sampling_location_branch_name", "branch_id", "name"),
-        Index("idx_sampling_location_created_at", "created_at"),
-        Index("idx_sampling_location_updated_at", "updated_at"),
         {"schema": get_database_schema()},
     )
 
@@ -185,19 +205,18 @@ class SamplingLocation(BaseModel):
 class WellMode(BaseModel):
     __tablename__ = "well_modes"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
-    branch_id = Column(
+    branch_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey(f"{get_database_schema()}.branches.id", ondelete="CASCADE"),
         nullable=False,
-        index=True,
     )
-    name = Column(
-        String(255), nullable=False, index=True, comment="Название режима скважины"
+    name: Mapped[str] = mapped_column(
+        String(255), nullable=False, comment="Название режима скважины"
     )
 
-    branch = relationship("Branch", back_populates="well_modes")
+    branch: Mapped["Branch"] = relationship(back_populates="well_modes")
 
     __table_args__ = (
         Index(
@@ -208,8 +227,6 @@ class WellMode(BaseModel):
             postgresql_where=text("deleted_at IS NULL"),
         ),
         Index("idx_well_mode_branch_name", "branch_id", "name"),
-        Index("idx_well_mode_created_at", "created_at"),
-        Index("idx_well_mode_updated_at", "updated_at"),
         {"schema": get_database_schema()},
     )
 

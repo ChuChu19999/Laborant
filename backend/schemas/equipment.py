@@ -1,16 +1,29 @@
+from __future__ import annotations
 from datetime import date, datetime
-from typing import List, Optional
-from pydantic import BaseModel, Field, field_validator
+from typing import Annotated
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator
 from models.equipment import EquipmentType
+from schemas.common import (
+    MethodDataDefault,
+    NonEmptyStr,
+    OptionalNonEmptyStr,
+    PositiveIntList,
+    make_enum_validator,
+)
+
+_validate_equipment_type = make_enum_validator(EquipmentType, "Тип прибора")
+EquipmentTypeField = Annotated[str, AfterValidator(_validate_equipment_type)]
+EquipmentName = Annotated[NonEmptyStr, Field(max_length=255)]
+EquipmentSerialNumber = Annotated[NonEmptyStr, Field(max_length=100)]
 
 
 class EquipmentBase(BaseModel):
-    type: str = Field(..., description="Тип прибора или оборудования")
-    name: str = Field(
-        ..., max_length=255, description="Наименование прибора или оборудования"
+    type: EquipmentTypeField = Field(..., description="Тип прибора или оборудования")
+    name: EquipmentName = Field(
+        ..., description="Наименование прибора или оборудования"
     )
-    serial_number: str = Field(
-        ..., max_length=100, description="Заводской номер прибора или оборудования"
+    serial_number: EquipmentSerialNumber = Field(
+        ..., description="Заводской номер прибора или оборудования"
     )
     verification_info: str = Field(
         ..., max_length=255, description="Сведения о результатах поверки"
@@ -21,31 +34,14 @@ class EquipmentBase(BaseModel):
     )
     version: str = Field(..., max_length=8, description="Версия прибора (например, v1)")
 
-    @field_validator("type")
-    @classmethod
-    def validate_type(cls, v: str) -> str:
-        valid_types = [e.value for e in EquipmentType]
-        if v not in valid_types:
-            raise ValueError(
-                f"Тип прибора должен быть одним из: {', '.join(valid_types)}"
-            )
-        return v
-
-    @field_validator("name", "serial_number")
-    @classmethod
-    def strip_strings(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError("Поле не может быть пустым")
-        return v.strip()
-
 
 class EquipmentCreate(BaseModel):
-    type: str = Field(..., description="Тип прибора или оборудования")
-    name: str = Field(
-        ..., max_length=255, description="Наименование прибора или оборудования"
+    type: EquipmentTypeField = Field(..., description="Тип прибора или оборудования")
+    name: EquipmentName = Field(
+        ..., description="Наименование прибора или оборудования"
     )
-    serial_number: str = Field(
-        ..., max_length=100, description="Заводской номер прибора или оборудования"
+    serial_number: EquipmentSerialNumber = Field(
+        ..., description="Заводской номер прибора или оборудования"
     )
     verification_info: str = Field(
         ..., max_length=255, description="Сведения о результатах поверки"
@@ -55,100 +51,47 @@ class EquipmentCreate(BaseModel):
         ..., description="Дата окончания срока действия поверки"
     )
     laboratory_id: int = Field(..., description="ID лаборатории")
-    department_id: Optional[int] = Field(None, description="ID подразделения")
-    method_data_default: Optional[List[int]] = Field(
-        None, description="Методы по умолчанию"
+    department_id: int | None = Field(None, description="ID подразделения")
+    method_data_default: MethodDataDefault = Field(
+        default_factory=list,
+        description="Методы по умолчанию",
     )
-
-    @field_validator("type")
-    @classmethod
-    def validate_type(cls, v: str) -> str:
-        valid_types = [e.value for e in EquipmentType]
-        if v not in valid_types:
-            raise ValueError(
-                f"Тип прибора должен быть одним из: {', '.join(valid_types)}"
-            )
-        return v
-
-    @field_validator("name", "serial_number")
-    @classmethod
-    def strip_strings(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError("Поле не может быть пустым")
-        return v.strip()
-
-    @field_validator("method_data_default")
-    @classmethod
-    def validate_method_data_default(
-        cls, v: Optional[List[int]]
-    ) -> Optional[List[int]]:
-        if v is None:
-            return []
-        for item in v:
-            if not isinstance(item, int) or item <= 0:
-                raise ValueError(
-                    "Каждый ID метода должен быть положительным целым числом"
-                )
-        return v
 
 
 class EquipmentUpdate(BaseModel):
-    type: Optional[str] = None
-    name: Optional[str] = Field(None, max_length=255)
-    serial_number: Optional[str] = Field(None, max_length=100)
-    verification_info: Optional[str] = Field(None, max_length=255)
-    verification_date: Optional[date] = None
-    verification_end_date: Optional[date] = None
-    version: Optional[str] = Field(None, max_length=8)
-    laboratory_id: Optional[int] = None
-    department_id: Optional[int] = None
-    method_data_default: Optional[List[int]] = None
-
-    @field_validator("name", "serial_number", mode="before")
-    @classmethod
-    def strip_strings(cls, v: Optional[str]) -> Optional[str]:
-        if v:
-            if not v.strip():
-                raise ValueError("Поле не может быть пустым")
-            return v.strip()
-        return v
-
-    @field_validator("type", mode="before")
-    @classmethod
-    def validate_type(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None:
-            valid_types = [e.value for e in EquipmentType]
-            if v not in valid_types:
-                raise ValueError(
-                    f"Тип прибора должен быть одним из: {', '.join(valid_types)}"
-                )
-        return v
+    type: EquipmentTypeField | None = None
+    name: Annotated[OptionalNonEmptyStr, Field(max_length=255)] = None
+    serial_number: Annotated[OptionalNonEmptyStr, Field(max_length=100)] = None
+    verification_info: str | None = Field(None, max_length=255)
+    verification_date: date | None = None
+    verification_end_date: date | None = None
+    version: str | None = Field(None, max_length=8)
+    laboratory_id: int | None = None
+    department_id: int | None = None
+    method_data_default: PositiveIntList | None = None
 
     @field_validator("method_data_default", mode="before")
     @classmethod
-    def validate_method_data_default(
-        cls, v: Optional[List[int]]
-    ) -> Optional[List[int]]:
-        if v is None:
+    def validate_method_data_default(cls, value: list[int] | None) -> list[int] | None:
+        if value is None:
             return None
-        for item in v:
-            if not isinstance(item, int) or item <= 0:
+        for item in value:
+            if item <= 0:
                 raise ValueError(
                     "Каждый ID метода должен быть положительным целым числом"
                 )
-        return v
+        return value
 
 
 class EquipmentResponse(EquipmentBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     laboratory_id: int
-    department_id: Optional[int] = None
-    method_data_default: Optional[List[int]] = None
-    laboratory_name: Optional[str] = None
-    department_name: Optional[str] = None
+    department_id: int | None = None
+    method_data_default: list[int] | None = None
+    laboratory_name: str | None = None
+    department_name: str | None = None
     created_at: datetime
     updated_at: datetime
-    deleted_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
+    deleted_at: datetime | None = None

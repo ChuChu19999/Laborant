@@ -1,6 +1,14 @@
+from __future__ import annotations
 from datetime import date, datetime
-from typing import Any, Dict, List, Literal, Optional
-from pydantic import BaseModel, Field, field_validator
+from typing import Annotated, Any, Literal
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from schemas.common import (
+    NonEmptyStr,
+    OilMassFractionCValue,
+    OptionalNonEmptyStr,
+    OptionalOilMassFractionCValue,
+    validate_oil_mass_fraction_c_value,
+)
 
 SAMPLE_TYPE_CHOICES = Literal[
     "Исследования - ОИС",
@@ -11,106 +19,81 @@ SAMPLE_TYPE_CHOICES = Literal[
 
 
 class SampleBase(BaseModel):
-    registration_number: str = Field(
-        ..., max_length=50, description="Регистрационный номер пробы"
+    registration_number: Annotated[NonEmptyStr, Field(max_length=50)] = Field(
+        ..., description="Регистрационный номер пробы"
     )
     sample_type: SAMPLE_TYPE_CHOICES = Field(..., description="Тип пробы")
     test_object: str = Field(..., max_length=255, description="Объект испытаний")
-    sampling_date: Optional[date] = Field(None, description="Дата отбора пробы")
-    receiving_date: Optional[date] = Field(
+    sampling_date: date | None = Field(None, description="Дата отбора пробы")
+    receiving_date: date | None = Field(
         None, description="Дата получения пробы в лабораторию"
     )
-    branch_id: Optional[int] = Field(None, description="ID филиала")
-    sampling_location_id: Optional[int] = Field(
-        None, description="ID места отбора пробы"
-    )
-    well: Optional[str] = Field(None, max_length=255, description="Название скважины")
-    mode: Optional[str] = Field(
-        None, max_length=255, description="Режим работы скважины"
-    )
+    branch_id: int | None = Field(None, description="ID филиала")
+    sampling_location_id: int | None = Field(None, description="ID места отбора пробы")
+    well: str | None = Field(None, max_length=255, description="Название скважины")
+    mode: str | None = Field(None, max_length=255, description="Режим работы скважины")
     indicators_count: int = Field(..., ge=0, description="Количество показателей")
-    phone: Optional[str] = Field(
-        None, max_length=50, description="Номер телефона филиала"
-    )
-    selection_conditions: Optional[Dict[str, Any]] = Field(
+    phone: str | None = Field(None, max_length=50, description="Номер телефона филиала")
+    selection_conditions: dict[str, Any] | None = Field(
         None, description="JSON с условиями отбора и их значениями"
     )
-    added_by: Optional[str] = Field(
+    added_by: str | None = Field(
         None, max_length=150, description="hsnils лица, добавившего пробу"
     )
-
-    @field_validator("registration_number")
-    @classmethod
-    def strip_registration_number(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError("Регистрационный номер не может быть пустым")
-        return v.strip()
 
 
 class SampleCreate(SampleBase):
     laboratory_id: int = Field(..., description="ID лаборатории")
-    department_id: Optional[int] = Field(None, description="ID подразделения")
+    department_id: int | None = Field(None, description="ID подразделения")
 
 
 class SampleUpdate(BaseModel):
-    registration_number: Optional[str] = Field(None, max_length=50)
-    sample_type: Optional[SAMPLE_TYPE_CHOICES] = None
-    test_object: Optional[str] = Field(None, max_length=255)
-    sampling_date: Optional[date] = None
-    receiving_date: Optional[date] = None
-    branch_id: Optional[int] = None
-    sampling_location_id: Optional[int] = None
-    well: Optional[str] = Field(None, max_length=255)
-    mode: Optional[str] = Field(None, max_length=255)
-    indicators_count: int = Field(..., ge=0, description="Количество показателей")
-    phone: Optional[str] = Field(None, max_length=50)
-    selection_conditions: Optional[Dict[str, Any]] = None
-    added_by: Optional[str] = Field(None, max_length=150)
-    laboratory_id: Optional[int] = None
-    department_id: Optional[int] = None
-
-    @field_validator("registration_number", mode="before")
-    @classmethod
-    def strip_registration_number(cls, v: Optional[str]) -> Optional[str]:
-        if v:
-            if not v.strip():
-                raise ValueError("Регистрационный номер не может быть пустым")
-            return v.strip()
-        return v
+    registration_number: Annotated[OptionalNonEmptyStr, Field(max_length=50)] = None
+    sample_type: SAMPLE_TYPE_CHOICES | None = None
+    test_object: str | None = Field(None, max_length=255)
+    sampling_date: date | None = None
+    receiving_date: date | None = None
+    branch_id: int | None = None
+    sampling_location_id: int | None = None
+    well: str | None = Field(None, max_length=255)
+    mode: str | None = Field(None, max_length=255)
+    indicators_count: int | None = Field(
+        None, ge=0, description="Количество показателей"
+    )
+    phone: str | None = Field(None, max_length=50)
+    selection_conditions: dict[str, Any] | None = None
+    added_by: str | None = Field(None, max_length=150)
+    laboratory_id: int | None = None
+    department_id: int | None = None
 
 
 class SampleResponse(SampleBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     laboratory_id: int
-    department_id: Optional[int] = None
-    laboratory_name: Optional[str] = None
-    department_name: Optional[str] = None
-    branch_name: Optional[str] = None
-    sampling_location_name: Optional[str] = None
-    protocols: Optional[List[Dict[str, Any]]] = Field(
+    department_id: int | None = None
+    laboratory_name: str | None = None
+    department_name: str | None = None
+    branch_name: str | None = None
+    sampling_location_name: str | None = None
+    protocols: list[dict[str, Any]] | None = Field(
         None, description="Список протоколов, к которым привязана проба"
     )
     created_at: datetime
     updated_at: datetime
-    deleted_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
+    deleted_at: datetime | None = None
 
 
 class SelectionConditionsBase(BaseModel):
-    conditions: List[Dict[str, str]] = Field(
+    conditions: list[dict[str, str]] = Field(
         ..., description="JSON с условиями отбора и их единицами измерения"
     )
 
     @field_validator("conditions")
     @classmethod
-    def validate_conditions(cls, v: List[Dict[str, str]]) -> List[Dict[str, str]]:
-        if not isinstance(v, list):
-            raise ValueError("Условия должны быть списком")
-        for condition in v:
-            if not isinstance(condition, dict):
-                raise ValueError("Каждое условие должно быть объектом")
+    def validate_conditions(cls, value: list[dict[str, str]]) -> list[dict[str, str]]:
+        for condition in value:
             if not all(key in condition for key in ["variable", "unit"]):
                 raise ValueError(
                     "Каждое условие должно содержать поля 'variable' и 'unit'"
@@ -119,50 +102,38 @@ class SelectionConditionsBase(BaseModel):
                 raise ValueError(
                     "Каждое условие должно содержать только поля 'variable' и 'unit'"
                 )
-        return v
+        return value
 
 
 class SelectionConditionsCreate(SelectionConditionsBase):
-    laboratory_id: Optional[int] = Field(None, description="ID лаборатории")
-    department_id: Optional[int] = Field(None, description="ID подразделения")
+    laboratory_id: int | None = Field(None, description="ID лаборатории")
+    department_id: int | None = Field(None, description="ID подразделения")
 
 
 class SelectionConditionsUpdate(BaseModel):
-    conditions: Optional[List[Dict[str, str]]] = None
-    laboratory_id: Optional[int] = None
-    department_id: Optional[int] = None
+    conditions: list[dict[str, str]] | None = None
+    laboratory_id: int | None = None
+    department_id: int | None = None
 
 
 class SelectionConditionsResponse(SelectionConditionsBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
-    laboratory_id: Optional[int] = None
-    department_id: Optional[int] = None
-    laboratory_name: Optional[str] = None
-    department_name: Optional[str] = None
+    laboratory_id: int | None = None
+    department_id: int | None = None
+    laboratory_name: str | None = None
+    department_name: str | None = None
     created_at: datetime
     updated_at: datetime
-    deleted_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
+    deleted_at: datetime | None = None
 
 
 class MassFractionOilRefractionTableBase(BaseModel):
-    c_value: str = Field(..., description="Массовая доля нефти (C) в процентах")
+    c_value: OilMassFractionCValue = Field(
+        ..., description="Массовая доля нефти (C) в процентах"
+    )
     n_value: str = Field(..., description="Показатель преломления (n)")
-
-    @field_validator("c_value")
-    @classmethod
-    def validate_c_value(cls, v: str) -> str:
-        try:
-            c_float = float(v)
-            if c_float < 0 or c_float > 100:
-                raise ValueError(
-                    "Массовая доля нефти должна быть в диапазоне от 0 до 100"
-                )
-        except ValueError:
-            raise ValueError("Массовая доля нефти должна быть числом")
-        return v
 
 
 class MassFractionOilRefractionTableCreate(MassFractionOilRefractionTableBase):
@@ -170,57 +141,33 @@ class MassFractionOilRefractionTableCreate(MassFractionOilRefractionTableBase):
 
 
 class MassFractionOilRefractionTableUpdate(BaseModel):
-    c_value: Optional[str] = None
-    n_value: Optional[str] = None
-
-    @field_validator("c_value", mode="before")
-    @classmethod
-    def validate_c_value(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None:
-            try:
-                c_float = float(v)
-                if c_float < 0 or c_float > 100:
-                    raise ValueError(
-                        "Массовая доля нефти должна быть в диапазоне от 0 до 100"
-                    )
-            except ValueError:
-                raise ValueError("Массовая доля нефти должна быть числом")
-        return v
+    c_value: OptionalOilMassFractionCValue = None
+    n_value: str | None = None
 
 
 class MassFractionOilRefractionTableResponse(MassFractionOilRefractionTableBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     research_method_id: int
-    research_method_name: Optional[str] = None
+    research_method_name: str | None = None
     created_at: datetime
     updated_at: datetime
-    deleted_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
+    deleted_at: datetime | None = None
 
 
 class MassFractionOilRefractionTableBulkUpdate(BaseModel):
     research_method_id: int = Field(..., description="ID метода исследования")
-    entries: List[Dict[str, Any]] = Field(
+    entries: list[dict[str, Any]] = Field(
         ...,
-        description="Список записей справочника с полями c_value и n_value",
+        description="Список точек градуировочного графика с полями c_value и n_value",
     )
 
     @field_validator("entries")
     @classmethod
-    def validate_entries(cls, v: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        if not isinstance(v, list):
-            raise ValueError("entries должен быть списком")
-        for entry in v:
+    def validate_entries(cls, value: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        for entry in value:
             if "c_value" not in entry or "n_value" not in entry:
                 raise ValueError("Каждая запись должна содержать c_value и n_value")
-            try:
-                c_float = float(str(entry["c_value"]))
-                if c_float < 0 or c_float > 100:
-                    raise ValueError(
-                        "Массовая доля нефти должна быть в диапазоне от 0 до 100"
-                    )
-            except (ValueError, TypeError):
-                raise ValueError("c_value должен быть числом")
-        return v
+            validate_oil_mass_fraction_c_value(str(entry["c_value"]))
+        return value
