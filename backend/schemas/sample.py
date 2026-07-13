@@ -22,7 +22,7 @@ class SampleBase(BaseModel):
     registration_number: Annotated[NonEmptyStr, Field(max_length=50)] = Field(
         ..., description="Регистрационный номер пробы"
     )
-    sample_type: SAMPLE_TYPE_CHOICES = Field(..., description="Тип пробы")
+    sample_type: SAMPLE_TYPE_CHOICES | None = Field(None, description="Тип пробы")
     test_object: str = Field(..., max_length=255, description="Объект испытаний")
     sampling_date: date | None = Field(None, description="Дата отбора пробы")
     receiving_date: date | None = Field(

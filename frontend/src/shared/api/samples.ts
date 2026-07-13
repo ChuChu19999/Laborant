@@ -13,7 +13,7 @@ export interface SampleProtocol {
 export interface Sample {
   id: number;
   registration_number: string;
-  sample_type: string;
+  sample_type?: string | null;
   test_object: string;
   sampling_date?: string;
   receiving_date?: string;
@@ -39,7 +39,7 @@ export interface Sample {
 
 export interface SampleCreate {
   registration_number: string;
-  sample_type: string;
+  sample_type?: string | null;
   test_object: string;
   sampling_date?: string;
   receiving_date?: string;
@@ -57,7 +57,7 @@ export interface SampleCreate {
 
 export interface SampleUpdate {
   registration_number?: string;
-  sample_type?: string;
+  sample_type?: string | null;
   test_object?: string;
   sampling_date?: string;
   receiving_date?: string;
@@ -74,7 +74,7 @@ export interface SampleUpdate {
 
 export interface SampleFilters {
   registration_number?: string;
-  sample_type?: string;
+  sample_type?: string | null;
   sample_types?: string[];
   test_object?: string;
   test_objects?: string[];

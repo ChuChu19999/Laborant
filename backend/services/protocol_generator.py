@@ -2106,6 +2106,20 @@ def _format_measurement_error(error_value: Optional[str]) -> str:
     return "-"
 
 
+def _build_horizontal_method_name(
+    calc: Calculation,
+    sample_calc: Optional[Calculation] = None,
+) -> str:
+    """Наименование метода для горизонтальной таблицы 1: имя и единица измерения."""
+    method_name = build_research_method_display_name(
+        calc.research_method,
+        horizontal_table=True,
+    )
+    unit_source = sample_calc or calc
+    unit = (unit_source.unit or "").strip() or "-"
+    return f"{method_name}, {unit}"
+
+
 def _resolve_horizontal_cell_value_sync(
     protocol: Protocol,
     sample: Optional[Sample],
@@ -2134,10 +2148,7 @@ def _resolve_horizontal_cell_value_sync(
             norm_text = norm_values_by_method.get(method_id, "")
         return value.replace("{norma_value}", norm_text)
     if "{name_method}" in value and calc and calc.research_method:
-        method_name = build_research_method_display_name(
-            calc.research_method,
-            horizontal_table=True,
-        )
+        method_name = _build_horizontal_method_name(calc, method_calc)
         value = value.replace("{name_method}", method_name)
     if "{nd_code}" in value and calc and calc.research_method:
         value = value.replace("{nd_code}", calc.research_method.nd_code or "")

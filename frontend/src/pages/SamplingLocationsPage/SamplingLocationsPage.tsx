@@ -532,13 +532,15 @@ const SamplingLocationsPage: React.FC = () => {
             {!selectedBranch ? (
               <div className="sampling-locations-placeholder">
                 <h3>Выберите филиал</h3>
-                <p>Выберите филиал слева, чтобы просмотреть режимы скважин.</p>
+                <p>Выберите филиал слева, чтобы просмотреть режимы скважины (точки отбора).</p>
               </div>
             ) : (
               <div className="sampling-locations-list-wrapper">
                 <div className="sampling-locations-list-header">
                   <div>
-                    <h3 className="sampling-locations-list-title">Режимы скважин</h3>
+                    <h3 className="sampling-locations-list-title">
+                      Режимы скважины (точки отбора)
+                    </h3>
                   </div>
                   <div className="sampling-locations-add-button-container">
                     <Button
@@ -547,7 +549,7 @@ const SamplingLocationsPage: React.FC = () => {
                       size="small"
                       onClick={() => setIsCreateWellModeModalOpen(true)}
                     >
-                      Добавить режим
+                      Добавить режим скважины (точку отбора)
                     </Button>
                   </div>
                 </div>
@@ -558,8 +560,11 @@ const SamplingLocationsPage: React.FC = () => {
                   </div>
                 ) : wellModes.length === 0 ? (
                   <div className="sampling-locations-empty">
-                    <h4>Нет режимов скважин</h4>
-                    <p>Добавьте первый режим скважины, нажав на кнопку «Добавить режим».</p>
+                    <h4>Нет режимов скважины (точек отбора)</h4>
+                    <p>
+                      Добавьте первый режим скважины (точку отбора), нажав на кнопку «Добавить режим
+                      скважины (точку отбора)».
+                    </p>
                   </div>
                 ) : (
                   <div className="sampling-locations-list">

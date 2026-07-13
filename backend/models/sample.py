@@ -20,8 +20,8 @@ class Sample(BaseModel):
     registration_number: Mapped[str] = mapped_column(
         String(50), nullable=False, comment="Регистрационный номер пробы"
     )
-    sample_type: Mapped[str] = mapped_column(
-        String(50), nullable=False, comment="Тип пробы"
+    sample_type: Mapped[Optional[str]] = mapped_column(
+        String(50), nullable=True, comment="Тип пробы"
     )
     test_object: Mapped[str] = mapped_column(
         String(255), nullable=False, comment="Объект испытаний"

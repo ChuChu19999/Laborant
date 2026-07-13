@@ -15,6 +15,7 @@ import { useUpdateSample } from '../../../../shared/model/hooks';
 import { useAutoRefetchQuery } from '../../../../shared/model/lib/useQuery';
 import { Input, Select, DatePicker } from '../../../../shared/ui/FormItems';
 import { Modal } from '../../../../shared/ui/Modal';
+import { formatBranchDisplay } from '../../../../shared/utils/branchFormatting';
 import type {
   Sample,
   SampleUpdate,
@@ -255,12 +256,7 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({
   );
 
   const validateForm = useCallback((): boolean => {
-    const requiredFields = [
-      'registration_number',
-      'sample_type',
-      'test_object',
-      'indicators_count',
-    ];
+    const requiredFields = ['registration_number', 'test_object', 'indicators_count'];
     const newErrors: Record<string, boolean> = {};
 
     requiredFields.forEach(field => {
@@ -295,7 +291,7 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({
 
     const sampleData: SampleUpdate = {
       registration_number: formData.registration_number,
-      sample_type: formData.sample_type,
+      sample_type: formData.sample_type ?? null,
       test_object: formData.test_object,
       sampling_date: formData.sampling_date
         ? dayjs(formData.sampling_date).format('YYYY-MM-DD')
@@ -374,9 +370,7 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({
         </div>
 
         <div className="form-group">
-          <label>
-            Тип пробы <span className="required">*</span>
-          </label>
+          <label>Тип пробы</label>
           <Select
             value={formData.sample_type}
             onChange={handleSelectChange('sample_type')}
@@ -440,7 +434,7 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({
           >
             {branches.map(branch => (
               <Option key={branch.id} value={branch.id}>
-                {branch.name}
+                {formatBranchDisplay(branch)}
               </Option>
             ))}
           </Select>
@@ -475,11 +469,11 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({
         </div>
 
         <div className="form-group">
-          <label>Режим</label>
+          <label>Режим скважины (точка отбора)</label>
           <Select
             value={formData.mode}
             onChange={handleSelectChange('mode')}
-            placeholder="Выберите режим"
+            placeholder="Выберите режим скважины (точку отбора)"
             loading={wellModesLoading}
             disabled={!formData.branch_id}
             listHeight={100}

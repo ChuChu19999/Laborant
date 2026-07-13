@@ -11,6 +11,7 @@ import { useCreateSample } from '../../../../shared/model/hooks';
 import { useAutoRefetchQuery } from '../../../../shared/model/lib/useQuery';
 import { Input, Select, DatePicker } from '../../../../shared/ui/FormItems';
 import { Modal } from '../../../../shared/ui/Modal';
+import { formatBranchDisplay } from '../../../../shared/utils/branchFormatting';
 import type { SampleCreate, SelectionConditionsField } from '../../../../shared/api/samples';
 import type { Branch, SamplingLocation } from '../../../../shared/api/samplingLocations';
 import './CreateSampleModal.css';
@@ -191,13 +192,7 @@ const CreateSampleModal: React.FC<CreateSampleModalProps> = ({
   );
 
   const validateForm = useCallback((): boolean => {
-    const requiredFields = [
-      'registration_number',
-      'sample_type',
-      'test_object',
-      'added_by',
-      'indicators_count',
-    ];
+    const requiredFields = ['registration_number', 'test_object', 'added_by', 'indicators_count'];
     const newErrors: Record<string, boolean> = {};
 
     requiredFields.forEach(field => {
@@ -233,7 +228,7 @@ const CreateSampleModal: React.FC<CreateSampleModalProps> = ({
 
     const sampleData: SampleCreate = {
       registration_number: formData.registration_number,
-      sample_type: formData.sample_type!,
+      sample_type: formData.sample_type || undefined,
       test_object: formData.test_object!,
       sampling_date: formData.sampling_date
         ? dayjs(formData.sampling_date).format('YYYY-MM-DD')
@@ -332,9 +327,7 @@ const CreateSampleModal: React.FC<CreateSampleModalProps> = ({
         </div>
 
         <div className="form-group">
-          <label>
-            Тип пробы <span className="required">*</span>
-          </label>
+          <label>Тип пробы</label>
           <Select
             value={formData.sample_type}
             onChange={handleSelectChange('sample_type')}
@@ -398,7 +391,7 @@ const CreateSampleModal: React.FC<CreateSampleModalProps> = ({
           >
             {branches.map(branch => (
               <Option key={branch.id} value={branch.id}>
-                {branch.name}
+                {formatBranchDisplay(branch)}
               </Option>
             ))}
           </Select>
@@ -433,11 +426,11 @@ const CreateSampleModal: React.FC<CreateSampleModalProps> = ({
         </div>
 
         <div className="form-group">
-          <label>Режим</label>
+          <label>Режим скважины (точка отбора)</label>
           <Select
             value={formData.mode}
             onChange={handleSelectChange('mode')}
-            placeholder="Выберите режим"
+            placeholder="Выберите режим скважины (точку отбора)"
             loading={wellModesLoading}
             disabled={!formData.branch_id}
             listHeight={100}
