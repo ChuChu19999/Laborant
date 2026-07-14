@@ -21,7 +21,6 @@ from utils.test_object_visibility import (
 
 
 def _serialize_test_object(item: TestObject) -> TestObject:
-    item.visibility_scope = normalize_visibility_scope(item.visibility_scope)
     return item
 
 
@@ -94,7 +93,7 @@ async def get_test_objects_list(
             item
             for item in items
             if is_visible_in_scope(
-                item.visibility_scope,
+                normalize_visibility_scope(item.visibility_scope),
                 laboratory_id=laboratory_id,
                 department_id=department_id,
             )
@@ -143,12 +142,19 @@ async def build_test_object_response(
     db: AsyncSession, item: TestObject
 ) -> TestObjectResponse:
     """Собрать ответ API по объекту испытаний."""
-    scope = item.visibility_scope
+    scope = normalize_visibility_scope(item.visibility_scope)
+    item_id = item.id
+    name = item.name
+    tag = item.tag
+    created_at = item.created_at
+    updated_at = item.updated_at
+    deleted_at = item.deleted_at
+
     labels = await enrich_visibility_scope_labels(db, scope)
     return TestObjectResponse(
-        id=item.id,
-        name=item.name,
-        tag=item.tag,
+        id=item_id,
+        name=name,
+        tag=tag,
         visibility_scope=VisibilityScope(
             laboratory_ids=scope.get("laboratory_ids", []),
             department_ids=scope.get("department_ids", []),
@@ -161,9 +167,9 @@ async def build_test_object_response(
                 for entry in labels.get("departments", [])
             ],
         ),
-        created_at=item.created_at,
-        updated_at=item.updated_at,
-        deleted_at=item.deleted_at,
+        created_at=created_at,
+        updated_at=updated_at,
+        deleted_at=deleted_at,
     )
 
 
@@ -216,7 +222,7 @@ async def create_test_object(
         visibility_scope=visibility_scope_to_dict(data.visibility_scope),
     )
     item = await test_object_repo.add_test_object(db, item)
-    return await build_test_object_response(db, _serialize_test_object(item))
+    return await build_test_object_response(db, item)
 
 
 async def update_test_object(
@@ -247,7 +253,7 @@ async def update_test_object(
 
     await flush_entity(db)
     await refresh_entity(db, item)
-    return await build_test_object_response(db, _serialize_test_object(item))
+    return await build_test_object_response(db, item)
 
 
 async def delete_test_object(db: AsyncSession, test_object_id: int) -> None:

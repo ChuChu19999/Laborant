@@ -12,18 +12,24 @@ from utils.test_object_visibility import normalize_visibility_scope
 
 
 def _serialize_role(item: Role) -> Role:
-    item.visibility_scope = normalize_visibility_scope(item.visibility_scope)
     return item
 
 
 async def build_role_response(db: AsyncSession, item: Role) -> RoleResponse:
     """Собрать ответ API по роли с подписями области видимости."""
-    scope = item.visibility_scope
+    scope = normalize_visibility_scope(item.visibility_scope)
+    item_id = item.id
+    name = item.name
+    role_type = item.role_type
+    created_at = item.created_at
+    updated_at = item.updated_at
+    deleted_at = item.deleted_at
+
     labels = await enrich_visibility_scope_labels(db, scope)
     return RoleResponse(
-        id=item.id,
-        name=item.name,
-        role_type=item.role_type,
+        id=item_id,
+        name=name,
+        role_type=role_type,
         visibility_scope=VisibilityScope(
             laboratory_ids=scope.get("laboratory_ids", []),
             department_ids=scope.get("department_ids", []),
@@ -36,9 +42,9 @@ async def build_role_response(db: AsyncSession, item: Role) -> RoleResponse:
                 for entry in labels.get("departments", [])
             ],
         ),
-        created_at=item.created_at,
-        updated_at=item.updated_at,
-        deleted_at=item.deleted_at,
+        created_at=created_at,
+        updated_at=updated_at,
+        deleted_at=deleted_at,
     )
 
 
