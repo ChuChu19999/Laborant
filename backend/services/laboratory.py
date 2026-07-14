@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.exceptions import ConflictError, NotFoundError, ValidationError
 from models.laboratory import Branch, Department, Laboratory, SamplingLocation, WellMode
 from repositories import laboratory as laboratory_repo
-from repositories.base import flush_entity
+from repositories.base import flush_entity, refresh_entity
 from schemas.laboratory import (
     BranchCreate,
     BranchUpdate,
@@ -94,6 +94,7 @@ async def update_laboratory(
         laboratory.laboratory_location = laboratory_data.laboratory_location.strip()
 
     await flush_entity(db)
+    await refresh_entity(db, laboratory)
     return laboratory
 
 
@@ -200,6 +201,7 @@ async def update_department(
         department.laboratory_location = department_data.laboratory_location.strip()
 
     await flush_entity(db)
+    await refresh_entity(db, department)
     return department
 
 
@@ -272,6 +274,7 @@ async def update_branch(
         branch.phone = branch_data.phone.strip() if branch_data.phone else None
 
     await flush_entity(db)
+    await refresh_entity(db, branch)
     return branch
 
 
