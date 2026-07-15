@@ -72,7 +72,7 @@ def _set_fixed_row_height(
 
 
 def _apply_report_font(cell: Cell) -> None:
-    """Times New Roman 12; начертание и цвет из шаблона сохраняются."""
+    """Times New Roman 12, черный цвет; начертание из шаблона сохраняется."""
     old = cell.font
     if old:
         cell.font = Font(
@@ -82,10 +82,10 @@ def _apply_report_font(cell: Cell) -> None:
             italic=old.italic,
             underline=old.underline,
             strike=old.strike,
-            color=copy(old.color) if old.color else None,
+            color="FF000000",
         )
         return
-    cell.font = Font(name=REPORT_FONT_NAME, size=REPORT_FONT_SIZE)
+    cell.font = Font(name=REPORT_FONT_NAME, size=REPORT_FONT_SIZE, color="FF000000")
 
 
 def _cell_border_without_horizontal_edges(

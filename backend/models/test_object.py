@@ -20,6 +20,11 @@ class TestObject(BaseModel):
         nullable=False,
         comment="Тег для связи с методами исследования",
     )
+    protocol_abbreviation: Mapped[str | None] = mapped_column(
+        String(8),
+        nullable=True,
+        comment="Аббревиатура для номера протокола",
+    )
     visibility_scope: Mapped[dict[str, Any]] = mapped_column(
         JSON,
         nullable=False,

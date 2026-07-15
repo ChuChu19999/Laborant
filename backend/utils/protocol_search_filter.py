@@ -1,7 +1,7 @@
 from sqlalchemy import and_, case, exists, func, literal, not_, or_, select, text
 from models.protocol import Protocol
 from models.sample import Sample
-from utils.protocol_suffix_rules import build_protocol_object_suffix_sql_case
+from models.test_object import TestObject
 
 
 def _escape_ilike_pattern(fragment: str) -> str:
@@ -10,9 +10,24 @@ def _escape_ilike_pattern(fragment: str) -> str:
 
 
 def _suffix_from_test_object_sql():
-    """Суффикс объекта — правила из utils.protocol_suffix_rules."""
-    obj = func.lower(func.coalesce(Sample.test_object, literal("")))
-    return build_protocol_object_suffix_sql_case(obj)
+    """Аббревиатура из справочника объектов испытаний по наименованию пробы."""
+    return func.coalesce(
+        (
+            select(TestObject.protocol_abbreviation)
+            .where(
+                TestObject.deleted_at.is_(None),
+                Sample.test_object.is_not(None),
+                func.lower(TestObject.name)
+                == func.lower(func.trim(Sample.test_object)),
+                TestObject.protocol_abbreviation.is_not(None),
+                func.trim(TestObject.protocol_abbreviation) != literal(""),
+            )
+            .limit(1)
+            .correlate(Sample)
+            .scalar_subquery()
+        ),
+        literal(""),
+    )
 
 
 def _protocol_display_sql():

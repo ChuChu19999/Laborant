@@ -86,6 +86,31 @@ async def resolve_tag_by_name(
     return result.scalar_one_or_none()
 
 
+async def get_protocol_abbreviations_by_names(
+    db: AsyncSession,
+    names: list[str],
+) -> dict[str, str]:
+    """Аббревиатуры протокола по наименованиям."""
+    normalized = sorted(
+        {name.strip().lower() for name in names if name and str(name).strip()}
+    )
+    if not normalized:
+        return {}
+
+    query = select(TestObject.name, TestObject.protocol_abbreviation).where(
+        TestObject.deleted_at.is_(None),
+        func.lower(TestObject.name).in_(normalized),
+        TestObject.protocol_abbreviation.is_not(None),
+    )
+    result = await db.execute(query)
+    abbreviations: dict[str, str] = {}
+    for name, abbreviation in result.all():
+        if not abbreviation:
+            continue
+        abbreviations[name.strip().lower()] = abbreviation.strip()
+    return abbreviations
+
+
 async def exists_test_object_by_name(
     db: AsyncSession,
     name: str,

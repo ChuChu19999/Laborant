@@ -1,5 +1,6 @@
 import base64
 import re
+from contextvars import ContextVar
 from copy import copy
 from io import BytesIO
 from typing import Any, Dict, List, Optional
@@ -27,6 +28,10 @@ from services.employees import (
     get_employees_by_hsnils,
 )
 from services.research import build_research_method_display_name
+from services.test_object import (
+    get_protocol_abbreviations_by_names,
+    pick_first_protocol_abbreviation,
+)
 from utils.protocol_generator_utils import (
     adjust_cell_height_if_needed,
     apply_sheet_print_area,
@@ -43,8 +48,12 @@ from utils.protocol_generator_utils import (
     get_row_last_used_col,
     get_template_content_bounds,
     join_unique_values,
-    map_test_object_to_suffix,
     template_contains_marker,
+)
+
+# Аббревиатура для текущего формирования Excel (без протягивания по всем функциям).
+_protocol_abbreviation_ctx: ContextVar[str] = ContextVar(
+    "protocol_abbreviation", default=""
 )
 
 MASS_FRACTION_OIL_GROUP_DISPLAY_NAME = "Массовая доля нефти"
@@ -155,11 +164,7 @@ async def get_marker_value_title(
             base_number = protocol.test_protocol_number
 
             if protocol.is_accredited:
-                suffix = ""
-                for sample in samples:
-                    suffix = map_test_object_to_suffix(sample.test_object)
-                    if suffix:
-                        break
+                suffix = _protocol_abbreviation_ctx.get()
 
                 base_number = (
                     f"{protocol.test_protocol_number}/07/{suffix}"
@@ -354,11 +359,7 @@ def get_marker_value_sync(
 
             base_number = protocol.test_protocol_number
             if protocol.is_accredited:
-                suffix = ""
-                for sample in samples:
-                    suffix = map_test_object_to_suffix(sample.test_object)
-                    if suffix:
-                        break
+                suffix = _protocol_abbreviation_ctx.get()
                 base_number = (
                     f"{protocol.test_protocol_number}/07/{suffix}"
                     if suffix
@@ -3459,6 +3460,16 @@ async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> Respons
             equipment_query = select(Equipment).where(Equipment.id.in_(equipment_ids))
             equipment_result = await db.execute(equipment_query)
             equipment_list = list(equipment_result.scalars().all())
+
+        abbreviations_by_name = await get_protocol_abbreviations_by_names(
+            db,
+            [sample.test_object for sample in samples if sample.test_object],
+        )
+        protocol_abbreviation = pick_first_protocol_abbreviation(
+            abbreviations_by_name,
+            [sample.test_object for sample in samples],
+        )
+        _protocol_abbreviation_ctx.set(protocol_abbreviation)
 
         file_data = protocol.protocol_template.file
         try:

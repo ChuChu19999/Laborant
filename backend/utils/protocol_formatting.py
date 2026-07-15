@@ -1,14 +1,13 @@
 from __future__ import annotations
 from datetime import date
 import pendulum
-from utils.protocol_suffix_rules import get_protocol_object_suffix
 
 
 def format_protocol_number(
     number: str | None,
     protocol_date: date | pendulum.Date | None,
     is_accredited: bool,
-    test_object: str | None = None,
+    protocol_abbreviation: str | None = None,
 ) -> str:
     """
     Форматирует номер протокола для отображения.
@@ -17,11 +16,11 @@ def format_protocol_number(
     - Если нет номера и даты - возвращает '-'
     - Если не аккредитован - возвращает номер или '-'
     - Если аккредитован:
-      - Определяет суффикс на основе test_object
+      - Берет аббревиатуру из справочника объектов испытаний
       - Форматирует дату в DD.MM.YYYY
       - Если нет номера - возвращает "от {дата}"
       - Если нет даты - возвращает номер
-      - Иначе: "{номер}/07/{суффикс} от {дата}" или "{номер}/07 от {дата}"
+      - Иначе: "{номер}/07/{аббревиатура} от {дата}" или "{номер}/07 от {дата}"
     """
     if not number and not protocol_date:
         return "-"
@@ -29,7 +28,7 @@ def format_protocol_number(
     if not is_accredited:
         return number or "-"
 
-    suffix = get_protocol_object_suffix(test_object)
+    suffix = (protocol_abbreviation or "").strip()
 
     if protocol_date:
         if isinstance(protocol_date, pendulum.Date):

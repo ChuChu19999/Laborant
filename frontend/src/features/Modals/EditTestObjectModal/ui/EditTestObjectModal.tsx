@@ -24,6 +24,7 @@ const EditTestObjectModal: React.FC<EditTestObjectModalProps> = ({
   const [formData, setFormData] = useState({
     name: '',
     tag: '',
+    protocol_abbreviation: '',
   });
   const [visibilityScope, setVisibilityScope] = useState<VisibilityScope>({
     laboratory_ids: [],
@@ -39,6 +40,7 @@ const EditTestObjectModal: React.FC<EditTestObjectModalProps> = ({
     setFormData({
       name: testObject.name,
       tag: testObject.tag,
+      protocol_abbreviation: testObject.protocol_abbreviation || '',
     });
     setVisibilityScope({
       laboratory_ids: testObject.visibility_scope.laboratory_ids || [],
@@ -48,15 +50,16 @@ const EditTestObjectModal: React.FC<EditTestObjectModalProps> = ({
   }, [open, testObject]);
 
   const handleInputChange = useCallback(
-    (field: 'name' | 'tag') => (event: React.ChangeEvent<HTMLInputElement>) => {
-      setFormData(prev => ({
-        ...prev,
-        [field]: event.target.value,
-      }));
-      if (errors[field]) {
-        setErrors(prev => ({ ...prev, [field]: false }));
-      }
-    },
+    (field: 'name' | 'tag' | 'protocol_abbreviation') =>
+      (event: React.ChangeEvent<HTMLInputElement>) => {
+        setFormData(prev => ({
+          ...prev,
+          [field]: event.target.value,
+        }));
+        if (errors[field]) {
+          setErrors(prev => ({ ...prev, [field]: false }));
+        }
+      },
     [errors]
   );
 
@@ -89,6 +92,7 @@ const EditTestObjectModal: React.FC<EditTestObjectModalProps> = ({
       data: {
         name: formData.name.trim(),
         tag: formData.tag.trim(),
+        protocol_abbreviation: formData.protocol_abbreviation.trim() || null,
         visibility_scope: {
           laboratory_ids: visibilityScope.laboratory_ids,
           department_ids: visibilityScope.department_ids,
@@ -103,6 +107,7 @@ const EditTestObjectModal: React.FC<EditTestObjectModalProps> = ({
       setFormData({
         name: testObject.name,
         tag: testObject.tag,
+        protocol_abbreviation: testObject.protocol_abbreviation || '',
       });
       setVisibilityScope({
         laboratory_ids: testObject.visibility_scope.laboratory_ids || [],
@@ -150,6 +155,16 @@ const EditTestObjectModal: React.FC<EditTestObjectModalProps> = ({
             onChange={handleInputChange('tag')}
             placeholder="Например: oil, condensate, oil_calibration"
             status={errors.tag ? 'error' : ''}
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Аббревиатура для протокола</label>
+          <Input
+            value={formData.protocol_abbreviation}
+            onChange={handleInputChange('protocol_abbreviation')}
+            placeholder="Например: н, дк, нкс"
+            maxLength={8}
           />
         </div>
 

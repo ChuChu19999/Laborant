@@ -155,6 +155,14 @@ const TestObjectsTable: React.FC<TestObjectsTableProps> = ({
         size: 220,
       },
       {
+        accessorKey: 'protocol_abbreviation',
+        header: 'Аббревиатура',
+        cell: ({ row }) => row.original.protocol_abbreviation || '-',
+        enableSorting: false,
+        enableColumnFilter: false,
+        size: 140,
+      },
+      {
         id: 'visibility_scope',
         header: 'Область видимости',
         cell: ({ row }) => formatVisibilityScope(row.original),

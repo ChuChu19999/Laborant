@@ -1,6 +1,7 @@
 from copy import copy
 from typing import Optional
 import openpyxl
+from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 from core.logger import logger
 from utils.calculation_result_display import get_chloride_salts_result_display
@@ -120,7 +121,17 @@ def copy_cell_style(source_cell, target_cell):
     if not source_cell or not source_cell.has_style:
         return
 
-    target_cell.font = copy(source_cell.font)
+    f = source_cell.font
+    target_cell.font = Font(
+        name=f.name,
+        size=f.size,
+        bold=f.bold,
+        italic=f.italic,
+        underline=f.underline,
+        strike=f.strike,
+        vertAlign=f.vertAlign,
+        color="FF000000",
+    )
     target_cell.fill = copy(source_cell.fill)
     target_cell.border = copy(source_cell.border)
     target_cell.alignment = copy(source_cell.alignment)
@@ -625,30 +636,6 @@ def adjust_row_height_for_text(sheet, row, text_columns):
     except Exception as e:
         logger.error(f"Ошибка при настройке высоты строки {row}: {str(e)}")
         return False
-
-
-def map_test_object_to_suffix(text: str) -> str:
-    """Возвращает суффикс в зависимости от объекта испытаний."""
-    if not text:
-        return ""
-    value = text.strip().lower()
-    if "дегазированный конденсат" in value:
-        return "дк"
-    if "нефть" in value or "нефть калибровочная" in value:
-        return "н"
-    if "нефтеконденсатная смесь" in value:
-        return "нкс"
-    if "дизельное топливо" in value:
-        return "дт"
-    if "отработанные нефтепродукты" in value:
-        return "он"
-    if "масло" in value:
-        return "м"
-    if "смесь жидких углеводородов" in value:
-        return "с"
-    if "ингибитор коррозии" in value:
-        return "ик"
-    return ""
 
 
 def check_method_name(method_name, test_objects):

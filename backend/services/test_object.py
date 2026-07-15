@@ -138,6 +138,36 @@ async def resolve_tag_by_name(
     return await test_object_repo.resolve_tag_by_name(db, test_object_name)
 
 
+async def get_protocol_abbreviations_by_names(
+    db: AsyncSession,
+    names: list[str],
+) -> dict[str, str]:
+    """Аббревиатуры протокола по наименованиям объектов испытаний."""
+    return await test_object_repo.get_protocol_abbreviations_by_names(db, names)
+
+
+def pick_protocol_abbreviation(
+    abbreviations_by_name: dict[str, str],
+    test_object_name: Optional[str],
+) -> str:
+    """Взять аббревиатуру из заранее загруженного словаря по имени объекта."""
+    if not test_object_name or not test_object_name.strip():
+        return ""
+    return abbreviations_by_name.get(test_object_name.strip().lower(), "")
+
+
+def pick_first_protocol_abbreviation(
+    abbreviations_by_name: dict[str, str],
+    test_object_names: list[Optional[str]],
+) -> str:
+    """Первая непустая аббревиатура по списку наименований."""
+    for name in test_object_names:
+        abbreviation = pick_protocol_abbreviation(abbreviations_by_name, name)
+        if abbreviation:
+            return abbreviation
+    return ""
+
+
 async def build_test_object_response(
     db: AsyncSession, item: TestObject
 ) -> TestObjectResponse:
@@ -146,6 +176,7 @@ async def build_test_object_response(
     item_id = item.id
     name = item.name
     tag = item.tag
+    protocol_abbreviation = item.protocol_abbreviation
     created_at = item.created_at
     updated_at = item.updated_at
     deleted_at = item.deleted_at
@@ -155,6 +186,7 @@ async def build_test_object_response(
         id=item_id,
         name=name,
         tag=tag,
+        protocol_abbreviation=protocol_abbreviation,
         visibility_scope=VisibilityScope(
             laboratory_ids=scope.get("laboratory_ids", []),
             department_ids=scope.get("department_ids", []),
@@ -219,6 +251,7 @@ async def create_test_object(
     item = TestObject(
         name=data.name,
         tag=data.tag,
+        protocol_abbreviation=data.protocol_abbreviation,
         visibility_scope=visibility_scope_to_dict(data.visibility_scope),
     )
     item = await test_object_repo.add_test_object(db, item)
@@ -247,6 +280,10 @@ async def update_test_object(
 
     if data.tag is not None:
         item.tag = data.tag
+
+    update_data = data.model_dump(exclude_unset=True)
+    if "protocol_abbreviation" in update_data:
+        item.protocol_abbreviation = update_data["protocol_abbreviation"]
 
     if data.visibility_scope is not None:
         item.visibility_scope = visibility_scope_to_dict(data.visibility_scope)

@@ -30,7 +30,7 @@ EXPORT_HEADERS = [
 
 COLUMN_WIDTHS = [14, 24, 28, 20, 32, 14, 14, 28, 14, 24, 24, 48, 12]
 
-EXPORT_FONT = Font(name="Times New Roman", size=12)
+EXPORT_FONT = Font(name="Times New Roman", size=12, color="FF000000")
 THIN_SIDE = Side(style="thin", color="000000")
 EXPORT_BORDER = Border(left=THIN_SIDE, right=THIN_SIDE, top=THIN_SIDE, bottom=THIN_SIDE)
 EXPORT_ALIGNMENT = Alignment(vertical="top", wrap_text=True)

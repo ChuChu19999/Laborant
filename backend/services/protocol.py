@@ -17,6 +17,11 @@ from schemas.protocol import (
 )
 from services.calculation import get_calculations_by_sample
 from services.sample import build_sample_response
+from services.test_object import (
+    get_protocol_abbreviations_by_names,
+    pick_first_protocol_abbreviation,
+    pick_protocol_abbreviation,
+)
 from services.visibility import validate_lab_and_department
 from utils.pagination import calculate_total_pages
 from utils.protocol_formatting import format_protocol_number
@@ -324,21 +329,24 @@ async def get_protocol_response_data(
     if protocol.department:
         protocol_dict["department_name"] = protocol.department.name
 
-    test_object = None
+    protocol_abbreviation = ""
     if protocol.samples:
         samples_list = await protocol_repo.get_samples_by_ids(db, protocol.samples)
-        for sample in samples_list:
-            if sample.test_object:
-                test_object = sample.test_object
-                break
-
-    if test_object:
-        protocol_dict["formatted_protocol_number"] = format_protocol_number(
-            protocol.test_protocol_number,
-            protocol.test_protocol_date,
-            protocol.is_accredited,
-            test_object,
+        abbreviations = await get_protocol_abbreviations_by_names(
+            db,
+            [sample.test_object for sample in samples_list if sample.test_object],
         )
+        protocol_abbreviation = pick_first_protocol_abbreviation(
+            abbreviations,
+            [sample.test_object for sample in samples_list],
+        )
+
+    protocol_dict["formatted_protocol_number"] = format_protocol_number(
+        protocol.test_protocol_number,
+        protocol.test_protocol_date,
+        protocol.is_accredited,
+        protocol_abbreviation,
+    )
 
     return ProtocolResponse(**protocol_dict)
 
@@ -375,6 +383,7 @@ def _enrich_protocol_dict(
     protocol_dict: dict,
     samples_by_id: dict[int, Any],
     sample_ids_with_calculations: set[int],
+    abbreviations_by_name: dict[str, str],
 ) -> dict:
     """Дополнить словарь протокола пробами и признаками расчётов."""
     if protocol.laboratory:
@@ -382,15 +391,17 @@ def _enrich_protocol_dict(
     if protocol.department:
         protocol_dict["department_name"] = protocol.department.name
 
-    test_object = None
+    protocol_abbreviation = ""
     if protocol.samples:
         samples_data = []
         for sample_id in protocol.samples:
             sample = samples_by_id.get(sample_id)
             if sample:
                 samples_data.append(build_sample_response(sample).model_dump())
-                if not test_object and sample.test_object:
-                    test_object = sample.test_object
+                if not protocol_abbreviation and sample.test_object:
+                    protocol_abbreviation = pick_protocol_abbreviation(
+                        abbreviations_by_name, sample.test_object
+                    )
         protocol_dict["samples_data"] = samples_data
         protocol_dict["has_undeleted_calculations"] = any(
             sample_id in sample_ids_with_calculations for sample_id in protocol.samples
@@ -402,7 +413,7 @@ def _enrich_protocol_dict(
         protocol.test_protocol_number,
         protocol.test_protocol_date,
         protocol.is_accredited,
-        test_object,
+        protocol_abbreviation,
     )
     return protocol_dict
 
@@ -421,6 +432,11 @@ async def build_protocols_list_response(
         samples_list = await get_samples_by_ids(db, list(all_sample_ids))
         samples_by_id = {sample.id: sample for sample in samples_list}
 
+    abbreviations_by_name = await get_protocol_abbreviations_by_names(
+        db,
+        [sample.test_object for sample in samples_by_id.values() if sample.test_object],
+    )
+
     sample_ids_with_calculations: set[int] = set()
     if all_sample_ids:
         calculations = await get_calculations_by_sample(
@@ -438,6 +454,7 @@ async def build_protocols_list_response(
             protocol_dict,
             samples_by_id,
             sample_ids_with_calculations,
+            abbreviations_by_name,
         )
         items.append(ProtocolResponse(**protocol_dict))
 
@@ -464,11 +481,17 @@ async def get_protocol_detail_response(
             calculation.sample_id for calculation in calculations
         }
 
+    abbreviations_by_name = await get_protocol_abbreviations_by_names(
+        db,
+        [sample.test_object for sample in samples_by_id.values() if sample.test_object],
+    )
+
     protocol_dict = ProtocolResponse.model_validate(protocol).model_dump()
     protocol_dict = _enrich_protocol_dict(
         protocol,
         protocol_dict,
         samples_by_id,
         sample_ids_with_calculations,
+        abbreviations_by_name,
     )
     return ProtocolResponse(**protocol_dict)

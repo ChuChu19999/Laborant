@@ -39,10 +39,10 @@ def _apply_report_font(cell: Cell) -> None:
             italic=old.italic,
             underline=old.underline,
             strike=old.strike,
-            color=old.color,
+            color="FF000000",
         )
         return
-    cell.font = Font(name=REPORT_FONT_NAME, size=REPORT_FONT_SIZE)
+    cell.font = Font(name=REPORT_FONT_NAME, size=REPORT_FONT_SIZE, color="FF000000")
 
 
 def _merged_cell_anchor(

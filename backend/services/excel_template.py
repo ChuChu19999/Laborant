@@ -275,6 +275,7 @@ async def save_excel_section(
                     bold=style.get("fontWeight") == "bold",
                     italic=style.get("fontStyle") == "italic",
                     size=font_size,
+                    color="FF000000",
                 )
                 cell.font = font
 

@@ -17,6 +17,7 @@ export interface TestObjectCatalogItem {
   id: number;
   name: string;
   tag: string;
+  protocol_abbreviation?: string | null;
   visibility_scope: VisibilityScope;
   created_at: string;
   updated_at: string;
@@ -31,12 +32,14 @@ export interface TestObjectSelectItem {
 export interface TestObjectCreate {
   name: string;
   tag: string;
+  protocol_abbreviation?: string | null;
   visibility_scope: VisibilityScope;
 }
 
 export interface TestObjectUpdate {
   name?: string;
   tag?: string;
+  protocol_abbreviation?: string | null;
   visibility_scope?: VisibilityScope;
 }
 
