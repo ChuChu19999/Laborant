@@ -88,11 +88,22 @@
             {
                 "name": "K₁",
                 "unit": "у.е.",
-                "formula": "1-0.000025*(tср₁-20)",
+                "formula": "0",
                 "description": "K₁",
                 "multiple_value": "",
                 "show_calculation": true,
-                "range_calculation": null,
+                "range_calculation": {
+                    "ranges": [
+                        {
+                            "condition": "(tср₁>=17) and (tср₁<=23)",
+                            "formula": "1"
+                        },
+                        {
+                            "condition": "(tср₁<17)",
+                            "formula": "1-0.000025*(tср₁-20)"
+                        }
+                    ]
+                },
                 "use_multiple_rounding": false,
                 "use_result_rounding": false,
                 "rounding_type": "decimal",
@@ -193,11 +204,22 @@
             {
                 "name": "K₂",
                 "unit": "у.е.",
-                "formula": "1-0.000025*(tср₂-20)",
+                "formula": "0",
                 "description": "K₂",
                 "multiple_value": "",
                 "show_calculation": true,
-                "range_calculation": null,
+                "range_calculation": {
+                    "ranges": [
+                        {
+                            "condition": "(tср₂>=17) and (tср₂<=23)",
+                            "formula": "1"
+                        },
+                        {
+                            "condition": "(tср₂<17)",
+                            "formula": "1-0.000025*(tср₂-20)"
+                        }
+                    ]
+                },
                 "use_multiple_rounding": false,
                 "use_result_rounding": false,
                 "rounding_type": "decimal",

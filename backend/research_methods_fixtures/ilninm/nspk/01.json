@@ -83,7 +83,7 @@
             },
             {
                 "formula": "Xср<=0.03",
-                "custom_value": "0,03 ± 0,14 %",
+                "custom_value": "0,03 ± 0,14",
                 "convergence_value": "custom"
             }
         ]

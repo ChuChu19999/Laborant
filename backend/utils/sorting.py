@@ -1,5 +1,10 @@
+from __future__ import annotations
+import re
 from collections.abc import Callable
+from typing import TypeVar
 from sqlalchemy import Column
+
+T = TypeVar("T")
 
 
 def build_order_by(
@@ -22,3 +27,31 @@ def build_order_by(
         return default_sort.desc() if default_order == "desc" else default_sort.asc()
 
     return sort_order_func(column)
+
+
+def natural_sort_key(value: str | None) -> list:
+    """Ключ натуральной сортировки: буквы и числа учитываются по отдельности."""
+    text = (value or "").casefold()
+    parts: list = []
+    for chunk in re.split(r"(\d+)", text):
+        if not chunk:
+            continue
+        if chunk.isdigit():
+            parts.append((0, int(chunk)))
+        else:
+            parts.append((1, chunk))
+    return parts
+
+
+def sort_by_natural_name(
+    items: list[T],
+    *,
+    name_getter: Callable[[T], str | None],
+    reverse: bool = False,
+) -> list[T]:
+    """Отсортировать список по имени с учётом чисел (ГПА-1, ГПА-2, ГПА-10)."""
+    return sorted(
+        items,
+        key=lambda item: natural_sort_key(name_getter(item)),
+        reverse=reverse,
+    )

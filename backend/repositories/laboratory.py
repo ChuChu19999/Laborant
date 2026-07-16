@@ -12,7 +12,20 @@ from repositories.base import (
 )
 from utils.filters import add_text_search_filter
 from utils.pagination import apply_pagination, get_total_count
-from utils.sorting import build_order_by
+from utils.sorting import build_order_by, sort_by_natural_name
+
+
+def _natural_name_reverse(
+    sort_by: Optional[str],
+    sort_order: Optional[str],
+    *,
+    default_order: str,
+) -> bool | None:
+    """None — не натуральная сортировка; иначе reverse для sort_by_natural_name."""
+    if sort_by is not None and sort_by != "name":
+        return None
+    order = sort_order if sort_order is not None else default_order
+    return order == "desc"
 
 
 async def get_laboratory_by_id(
@@ -260,7 +273,15 @@ async def get_branches(
     order_by = build_order_by(sort_by, sort_order, sort_mapping, Branch.created_at)
     query = query.order_by(order_by)
 
-    return await execute_scalars_all(db, query)
+    branches = await execute_scalars_all(db, query)
+    natural_reverse = _natural_name_reverse(sort_by, sort_order, default_order="desc")
+    if natural_reverse is not None:
+        branches = sort_by_natural_name(
+            branches,
+            name_getter=lambda item: item.name,
+            reverse=natural_reverse,
+        )
+    return branches
 
 
 async def add_branch(db: AsyncSession, branch: Branch) -> Branch:
@@ -328,7 +349,15 @@ async def get_sampling_locations(
     )
     query = query.order_by(order_by)
 
-    return await execute_scalars_all(db, query)
+    locations = await execute_scalars_all(db, query)
+    natural_reverse = _natural_name_reverse(sort_by, sort_order, default_order="desc")
+    if natural_reverse is not None:
+        locations = sort_by_natural_name(
+            locations,
+            name_getter=lambda item: item.name,
+            reverse=natural_reverse,
+        )
+    return locations
 
 
 async def exists_sampling_location_by_name_and_branch(
@@ -403,7 +432,15 @@ async def get_well_modes(
     order_by = build_order_by(sort_by, sort_order, sort_mapping, WellMode.created_at)
     query = query.order_by(order_by)
 
-    return await execute_scalars_all(db, query)
+    well_modes = await execute_scalars_all(db, query)
+    natural_reverse = _natural_name_reverse(sort_by, sort_order, default_order="desc")
+    if natural_reverse is not None:
+        well_modes = sort_by_natural_name(
+            well_modes,
+            name_getter=lambda item: item.name,
+            reverse=natural_reverse,
+        )
+    return well_modes
 
 
 async def get_laboratory_id_by_name(db: AsyncSession, name: str) -> int | None:

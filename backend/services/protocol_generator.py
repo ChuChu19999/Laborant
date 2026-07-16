@@ -45,7 +45,6 @@ from utils.protocol_generator_utils import (
     copy_sheet_page_settings,
     find_protocol_end_row,
     format_protocol_calculation_result,
-    get_row_last_used_col,
     get_template_content_bounds,
     join_unique_values,
     template_contains_marker,
@@ -2107,6 +2106,18 @@ def _format_measurement_error(error_value: Optional[str]) -> str:
     return "-"
 
 
+def _format_result_with_error(method_calc: Calculation) -> str:
+    """Результат с погрешностью; без погрешности, если она пустая."""
+    result_text = format_protocol_calculation_result(method_calc)
+    error_raw = (method_calc.measurement_error or "").strip()
+    if not error_raw or error_raw == "-":
+        return result_text
+    error_text = _format_measurement_error(error_raw)
+    if not error_text or error_text == "-":
+        return result_text
+    return f"{result_text}{error_text}"
+
+
 def _build_horizontal_method_name(
     calc: Calculation,
     sample_calc: Optional[Calculation] = None,
@@ -2117,7 +2128,9 @@ def _build_horizontal_method_name(
         horizontal_table=True,
     )
     unit_source = sample_calc or calc
-    unit = (unit_source.unit or "").strip() or "-"
+    unit = (unit_source.unit or "").strip()
+    if not unit:
+        return method_name
     return f"{method_name}, {unit}"
 
 
@@ -2146,38 +2159,47 @@ def _resolve_horizontal_cell_value_sync(
     if "{norma_value}" in value:
         norm_text = ""
         if norm_values_by_method and method_id is not None:
-            norm_text = norm_values_by_method.get(method_id, "")
+            norm_text = (norm_values_by_method.get(method_id) or "").strip()
+        if not norm_text:
+            norm_text = "-"
         return value.replace("{norma_value}", norm_text)
     if "{name_method}" in value and calc and calc.research_method:
         method_name = _build_horizontal_method_name(calc, method_calc)
         value = value.replace("{name_method}", method_name)
     if "{nd_code}" in value and calc and calc.research_method:
-        value = value.replace("{nd_code}", calc.research_method.nd_code or "")
+        # В горизонтальной таблице 1 в шапке методов — метод измерения, не шифр НД.
+        value = value.replace(
+            "{nd_code}",
+            calc.research_method.measurement_method or "",
+        )
     if ("{nd_name}" in value or "{name_nd}" in value) and calc and calc.research_method:
         nd_name = calc.research_method.nd_name or ""
         value = value.replace("{nd_name}", nd_name).replace("{name_nd}", nd_name)
     if "{unit}" in value:
         if method_calc:
-            value = value.replace("{unit}", method_calc.unit or "-")
+            unit = (method_calc.unit or "").strip()
+            value = value.replace("{unit}", unit if unit else "")
         elif sample:
-            value = value.replace("{unit}", "-")
+            value = value.replace("{unit}", "")
     if "{measurement_method}" in value and calc and calc.research_method:
         measurement_method = calc.research_method.measurement_method or "-"
         value = value.replace("{measurement_method}", measurement_method)
     if "{result}" in value:
         if method_calc:
-            result_text = format_protocol_calculation_result(method_calc)
+            result_text = _format_result_with_error(method_calc)
         elif sample:
             result_text = "-"
         else:
             result_text = ""
         value = value.replace("{result}", result_text)
     if "{measurement_error}" in value:
-        error_text = (
-            _format_measurement_error(method_calc.measurement_error)
-            if method_calc
-            else "-"
-        )
+        error_raw = (method_calc.measurement_error or "").strip() if method_calc else ""
+        if not error_raw or error_raw == "-":
+            error_text = ""
+        else:
+            error_text = _format_measurement_error(error_raw)
+            if error_text == "-":
+                error_text = ""
         value = value.replace("{measurement_error}", error_text)
 
     if "{" in value:
@@ -2272,16 +2294,16 @@ def _write_horizontal_table_row(
     sampling_location_name_only: bool = False,
     selection_conditions_templates: Optional[List[Dict[str, Any]]] = None,
 ) -> None:
-    """Записывает строку горизонтальной таблицы с размножением столбцов методов."""
+    """Записывает строку горизонтальной таблицы: ровно methods_count блоков методов."""
     h_block_start = bounds["h_block_start"]
     h_block_end = bounds["h_block_end"]
     block_width = h_block_end - h_block_start + 1
     methods_count = len(methods)
-    trailing_shift = (methods_count - 1) * block_width if methods_count else 0
-    template_row_last_col = get_row_last_used_col(template_sheet, template_row)
-    output_last_col = max(
-        template_row_last_col + trailing_shift,
-        h_block_end + trailing_shift,
+    # Правая граница = ровно N блоков методов, без хвоста шаблона справа.
+    last_method_col = (
+        h_block_start + methods_count * block_width - 1
+        if methods_count > 0
+        else h_block_end
     )
 
     if template_row in template_sheet.row_dimensions:
@@ -2295,6 +2317,10 @@ def _write_horizontal_table_row(
 
     for merged_range in template_sheet.merged_cells.ranges:
         if merged_range.min_row != template_row:
+            continue
+        # Объединения правее блока методов в шаблоне не переносим —
+        # иначе рамки уезжают за последнюю колонку метода.
+        if merged_range.min_col > h_block_end:
             continue
 
         is_method_block_merge = (
@@ -2317,22 +2343,19 @@ def _write_horizontal_table_row(
                 new_range = openpyxl.worksheet.cell_range.CellRange(
                     min_col=h_block_start,
                     min_row=target_row,
-                    max_col=h_block_end + trailing_shift,
+                    max_col=last_method_col,
                     max_row=target_row + (merged_range.max_row - merged_range.min_row),
                 )
                 merged_cells_map.add(new_range)
             continue
 
-        col_shift = 0
-        if merged_range.min_col > h_block_end:
-            col_shift = trailing_shift
         new_range = openpyxl.worksheet.cell_range.CellRange(
-            min_col=merged_range.min_col + col_shift,
+            min_col=merged_range.min_col,
             min_row=target_row,
-            max_col=min(merged_range.max_col + col_shift, output_last_col),
+            max_col=min(merged_range.max_col, last_method_col),
             max_row=target_row + (merged_range.max_row - merged_range.min_row),
         )
-        if new_range.min_col > output_last_col:
+        if new_range.min_col > last_method_col:
             continue
         merged_cells_map.add(new_range)
 
@@ -2393,7 +2416,10 @@ def _write_horizontal_table_row(
                     sampling_location_name_only=sampling_location_name_only,
                     selection_conditions_templates=selection_conditions_templates,
                 )
-                if template_value and "{measurement_method}" in str(template_value):
+                if template_value and (
+                    "{measurement_method}" in str(template_value)
+                    or "{nd_code}" in str(template_value)
+                ):
                     adjust_cell_height_if_needed(
                         current_sheet,
                         target_row,
@@ -2425,35 +2451,13 @@ def _write_horizontal_table_row(
                 sampling_location_name_only=sampling_location_name_only,
                 selection_conditions_templates=selection_conditions_templates,
             )
-        for col in range(h_block_start + 1, h_block_end + trailing_shift + 1):
+        # Стили шапки/общих строк — только в пределах N блоков методов.
+        for col in range(h_block_start + 1, last_method_col + 1):
             template_col = h_block_start + (col - h_block_start) % block_width
             src_cell = template_sheet.cell(row=template_row, column=template_col)
             tgt_cell = current_sheet.cell(row=target_row, column=col)
             tgt_cell.value = None
             copy_cell_style(src_cell, tgt_cell)
-
-    trailing_start = h_block_end + 1
-    if trailing_start <= template_row_last_col:
-        for col in range(trailing_start, template_row_last_col + 1):
-            src_col = col
-            tgt_col = col + trailing_shift
-            src_cell = template_sheet.cell(row=template_row, column=src_col)
-            tgt_cell = current_sheet.cell(row=target_row, column=tgt_col)
-            tgt_cell.value = src_cell.value
-            copy_cell_style(src_cell, tgt_cell)
-            if tgt_cell.value and isinstance(tgt_cell.value, str):
-                tgt_cell.value = _resolve_horizontal_cell_value_sync(
-                    protocol,
-                    sample,
-                    None,
-                    None,
-                    norm_name,
-                    norm_values_by_method,
-                    None,
-                    str(tgt_cell.value),
-                    sampling_location_name_only=sampling_location_name_only,
-                    selection_conditions_templates=selection_conditions_templates,
-                )
 
 
 async def _load_applicable_nd_norms(
