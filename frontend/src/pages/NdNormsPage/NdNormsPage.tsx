@@ -72,6 +72,14 @@ const NdNormsPage: React.FC = () => {
     }
   );
 
+  const { data: laboratory } = useAutoRefetchQuery<Laboratory>(
+    ['laboratory', effectiveLabId],
+    () => laboratoriesApi.getLaboratory(effectiveLabId!),
+    {
+      enabled: !!effectiveLabId,
+    }
+  );
+
   const { data: departments } = useAutoRefetchQuery<Department[]>(
     ['departments', 'by-laboratory', effectiveLabId],
     () => laboratoriesApi.getDepartmentsByLaboratory(effectiveLabId!),
@@ -259,16 +267,13 @@ const NdNormsPage: React.FC = () => {
       { label: 'Нормы НД', onClick: () => navigate('/nd-norms') },
     ];
 
-    if (effectiveLabId && laboratories?.items) {
-      const laboratory = laboratories.items.find(l => l.id === effectiveLabId);
-      if (laboratory) {
-        breadcrumbs.push({
-          label: laboratory.name,
-          onClick: effectiveDeptId
-            ? () => navigate(`/nd-norms/laboratory/${effectiveLabId}`)
-            : undefined,
-        });
-      }
+    if (laboratory) {
+      breadcrumbs.push({
+        label: laboratory.name,
+        onClick: effectiveDeptId
+          ? () => navigate(`/nd-norms/laboratory/${effectiveLabId}`)
+          : undefined,
+      });
     }
 
     if (effectiveDeptId && departments) {
@@ -306,8 +311,7 @@ const NdNormsPage: React.FC = () => {
   }
 
   if (effectiveLabId && !effectiveDeptId && departments && departments.length > 0) {
-    const laboratoryName =
-      laboratories?.items.find(l => l.id === effectiveLabId)?.name || 'Нормы НД';
+    const laboratoryName = laboratory?.name || 'Нормы НД';
     return (
       <Layout title={laboratoryName}>
         <NavigationBar breadcrumbs={getBreadcrumbs()} onBack={handleBack} showBack={true} />
@@ -331,7 +335,7 @@ const NdNormsPage: React.FC = () => {
   const pageTitle =
     effectiveDeptId && departments
       ? departments.find(d => d.id === effectiveDeptId)?.name || 'Нормы НД'
-      : 'Нормы НД';
+      : laboratory?.name || 'Нормы НД';
 
   return (
     <Layout title={pageTitle}>

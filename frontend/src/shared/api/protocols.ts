@@ -73,7 +73,6 @@ export interface ProtocolTemplate {
   name: string;
   file_name: string;
   version: string;
-  accreditation_header_row?: number;
   laboratory_id: number;
   department_id?: number;
   laboratory_name?: string;

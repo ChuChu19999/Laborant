@@ -9,7 +9,7 @@ import {
   type CalculationResult,
   type MethodologyChoice,
 } from '../../shared/api/calculation';
-import { laboratoriesApi } from '../../shared/api/laboratories';
+import { laboratoriesApi, type Laboratory } from '../../shared/api/laboratories';
 import { researchApi } from '../../shared/api/research';
 import { samplesApi, type Sample } from '../../shared/api/samples';
 import { extractErrorMessage } from '../../shared/lib/errors/extractErrorMessage';
@@ -120,11 +120,13 @@ const CalculationsPage: React.FC = () => {
     }
   );
 
-  const { data: laboratories } = useAutoRefetchQuery<
-    Awaited<ReturnType<typeof laboratoriesApi.getLaboratories>>
-  >(['laboratories'], () => laboratoriesApi.getLaboratories(), {
-    enabled: !!labId,
-  });
+  const { data: laboratory } = useAutoRefetchQuery<Laboratory>(
+    ['laboratory', labId],
+    () => laboratoriesApi.getLaboratory(labId!),
+    {
+      enabled: !!labId,
+    }
+  );
 
   const { data: departments } = useAutoRefetchQuery<
     Awaited<ReturnType<typeof laboratoriesApi.getDepartmentsByLaboratory>>
@@ -450,17 +452,14 @@ const CalculationsPage: React.FC = () => {
   const breadcrumbs = useMemo((): Array<{ label: string; onClick?: () => void }> => {
     const items: Array<{ label: string; onClick?: () => void }> = [
       { label: 'Главная', onClick: () => navigate('/') },
-      { label: 'Пробы', onClick: () => navigate('/samples') },
+      { label: 'Поступления проб', onClick: () => navigate('/samples') },
     ];
 
-    if (labId && laboratories?.items) {
-      const laboratory = laboratories.items.find(l => l.id === labId);
-      if (laboratory) {
-        items.push({
-          label: laboratory.name,
-          onClick: deptId ? () => navigate(`/samples/laboratory/${labId}`) : undefined,
-        });
-      }
+    if (laboratory) {
+      items.push({
+        label: laboratory.name,
+        onClick: deptId ? () => navigate(`/samples/laboratory/${labId}`) : undefined,
+      });
     }
 
     if (deptId && departments) {
@@ -480,7 +479,7 @@ const CalculationsPage: React.FC = () => {
     }
 
     return items;
-  }, [labId, deptId, laboratories, departments, navigate, sample]);
+  }, [labId, deptId, laboratory, departments, navigate, sample]);
 
   const methods = useMemo(() => {
     const result: ResearchMethod[] = [];

@@ -79,12 +79,16 @@ const SamplesPage: React.FC = () => {
   const { data: laboratories } = useAutoRefetchQuery<{ items: Laboratory[] }>(
     ['laboratories'],
     () => laboratoriesApi.getLaboratories(),
-    { enabled: true }
+    { enabled: !effectiveLabId }
   );
 
-  const isIlninmLaboratory =
-    effectiveLabId != null &&
-    laboratories?.items?.find(l => l.id === effectiveLabId)?.name === 'ИЛНиНМ';
+  const { data: laboratory } = useAutoRefetchQuery<Laboratory>(
+    ['laboratory', effectiveLabId],
+    () => laboratoriesApi.getLaboratory(effectiveLabId!),
+    { enabled: !!effectiveLabId }
+  );
+
+  const isIlninmLaboratory = laboratory?.name === 'ИЛНиНМ';
 
   const { data: departments } = useAutoRefetchQuery<Department[]>(
     ['departments', 'by-laboratory', effectiveLabId],
@@ -313,10 +317,8 @@ const SamplesPage: React.FC = () => {
       );
 
       const deptName = departments?.find(department => department.id === effectiveDeptId)?.name;
-      const labName = laboratories?.items.find(
-        laboratory => laboratory.id === effectiveLabId
-      )?.name;
-      const titlePart = (deptName || labName || 'Пробы').replace(/\s+/g, '_');
+      const labName = laboratory?.name;
+      const titlePart = (deptName || labName || 'Поступления_проб').replace(/\s+/g, '_');
       const dateStamp = dayjs().format('DD.MM.YYYY_HH-mm');
       const filename = `Поступления_проб_${titlePart}_${dateStamp}.xlsx`;
 
@@ -343,7 +345,7 @@ const SamplesPage: React.FC = () => {
     departments,
     effectiveDeptId,
     effectiveLabId,
-    laboratories?.items,
+    laboratory?.name,
     samples.filters,
     samples.sorting,
   ]);
@@ -373,19 +375,16 @@ const SamplesPage: React.FC = () => {
   const getBreadcrumbs = (): Array<{ label: string; onClick?: () => void }> => {
     const breadcrumbs: Array<{ label: string; onClick?: () => void }> = [
       { label: 'Главная', onClick: () => navigate('/') },
-      { label: 'Пробы', onClick: () => navigate('/samples') },
+      { label: 'Поступления проб', onClick: () => navigate('/samples') },
     ];
 
-    if (effectiveLabId && laboratories?.items) {
-      const laboratory = laboratories.items.find(l => l.id === effectiveLabId);
-      if (laboratory) {
-        breadcrumbs.push({
-          label: laboratory.name,
-          onClick: effectiveDeptId
-            ? () => navigate(`/samples/laboratory/${effectiveLabId}`)
-            : undefined,
-        });
-      }
+    if (laboratory) {
+      breadcrumbs.push({
+        label: laboratory.name,
+        onClick: effectiveDeptId
+          ? () => navigate(`/samples/laboratory/${effectiveLabId}`)
+          : undefined,
+      });
     }
 
     if (effectiveDeptId && departments) {
@@ -400,7 +399,7 @@ const SamplesPage: React.FC = () => {
 
   if (!effectiveLabId && laboratories?.items) {
     return (
-      <Layout title="Пробы">
+      <Layout title="Поступления проб">
         <NavigationBar
           breadcrumbs={getBreadcrumbs()}
           onBack={() => navigate('/')}
@@ -408,10 +407,10 @@ const SamplesPage: React.FC = () => {
         />
         <div className="samples-page-laboratories">
           <div className="samples-page-laboratories-grid">
-            {laboratories.items.map(laboratory => (
+            {laboratories.items.map(laboratoryItem => (
               <LaboratoryCard
-                key={laboratory.id}
-                laboratory={laboratory}
+                key={laboratoryItem.id}
+                laboratory={laboratoryItem}
                 onClick={handleLaboratoryClick}
                 showActions={false}
               />
@@ -423,7 +422,7 @@ const SamplesPage: React.FC = () => {
   }
 
   if (effectiveLabId && !effectiveDeptId && departments && departments.length > 0) {
-    const laboratoryName = laboratories?.items.find(l => l.id === effectiveLabId)?.name || 'Пробы';
+    const laboratoryName = laboratory?.name || 'Поступления проб';
     return (
       <Layout title={laboratoryName}>
         <NavigationBar breadcrumbs={getBreadcrumbs()} onBack={handleBack} showBack={true} />
@@ -446,8 +445,8 @@ const SamplesPage: React.FC = () => {
 
   const pageTitle =
     effectiveDeptId && departments
-      ? departments.find(d => d.id === effectiveDeptId)?.name || 'Пробы'
-      : 'Пробы';
+      ? departments.find(d => d.id === effectiveDeptId)?.name || 'Поступления проб'
+      : laboratory?.name || 'Поступления проб';
   return (
     <Layout title={pageTitle}>
       <NavigationBar breadcrumbs={getBreadcrumbs()} onBack={handleBack} showBack={true} />

@@ -75,6 +75,14 @@ const EquipmentPage: React.FC = () => {
     }
   );
 
+  const { data: laboratory } = useAutoRefetchQuery<Laboratory>(
+    ['laboratory', effectiveLabId],
+    () => laboratoriesApi.getLaboratory(effectiveLabId!),
+    {
+      enabled: !!effectiveLabId,
+    }
+  );
+
   const { data: departments } = useAutoRefetchQuery<Department[]>(
     ['departments', 'by-laboratory', effectiveLabId],
     () => laboratoriesApi.getDepartmentsByLaboratory(effectiveLabId!),
@@ -285,16 +293,13 @@ const EquipmentPage: React.FC = () => {
       { label: 'Приборы', onClick: () => navigate('/equipment') },
     ];
 
-    if (effectiveLabId && laboratories?.items) {
-      const laboratory = laboratories.items.find(l => l.id === effectiveLabId);
-      if (laboratory) {
-        breadcrumbs.push({
-          label: laboratory.name,
-          onClick: effectiveDeptId
-            ? () => navigate(`/equipment/laboratory/${effectiveLabId}`)
-            : undefined,
-        });
-      }
+    if (laboratory) {
+      breadcrumbs.push({
+        label: laboratory.name,
+        onClick: effectiveDeptId
+          ? () => navigate(`/equipment/laboratory/${effectiveLabId}`)
+          : undefined,
+      });
     }
 
     if (effectiveDeptId && departments) {
@@ -332,8 +337,7 @@ const EquipmentPage: React.FC = () => {
   }
 
   if (effectiveLabId && !effectiveDeptId && departments && departments.length > 0) {
-    const laboratoryName =
-      laboratories?.items.find(l => l.id === effectiveLabId)?.name || 'Приборы';
+    const laboratoryName = laboratory?.name || 'Приборы';
     return (
       <Layout title={laboratoryName}>
         <NavigationBar breadcrumbs={getBreadcrumbs()} onBack={handleBack} showBack={true} />
@@ -357,7 +361,7 @@ const EquipmentPage: React.FC = () => {
   const pageTitle =
     effectiveDeptId && departments
       ? departments.find(d => d.id === effectiveDeptId)?.name || 'Приборы'
-      : 'Приборы';
+      : laboratory?.name || 'Приборы';
   return (
     <Layout title={pageTitle}>
       <NavigationBar breadcrumbs={getBreadcrumbs()} onBack={handleBack} showBack={true} />

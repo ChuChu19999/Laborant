@@ -293,7 +293,6 @@ async def create_protocol_template(
         version=next_version,
         file=template_data.file,
         file_name=template_data.file_name,
-        accreditation_header_row=template_data.accreditation_header_row,
         laboratory_id=template_data.laboratory_id,
         department_id=template_data.department_id,
     )

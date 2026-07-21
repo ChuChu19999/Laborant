@@ -97,9 +97,6 @@ class ProtocolTemplate(BaseModel):
     file_name: Mapped[str] = mapped_column(
         String(100), nullable=False, comment="Имя файла"
     )
-    accreditation_header_row: Mapped[Optional[int]] = mapped_column(
-        Integer, nullable=True, comment="Строка шапки аккредитации"
-    )
     laboratory_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey(f"{get_database_schema()}.laboratories.id", ondelete="CASCADE"),

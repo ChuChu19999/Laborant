@@ -89,7 +89,7 @@
                     "ranges": [
                         {
                             "formula": "Xср*(8.17/Xср+3.08)*0.01",
-                            "condition": "(Xср>=0.1) and (Xср<=5)"
+                            "condition": "(Xср>=0.5) and (Xср<=10)"
                         }
                     ]
                 },
@@ -105,7 +105,7 @@
                     "ranges": [
                         {
                             "formula": "2.77*(2.07+2.36/Xср)*Xср*0.01",
-                            "condition": "(Xср>=0.1) and (Xср<=5)"
+                            "condition": "(Xср>=0.5) and (Xср<=10)"
                         }
                     ]
                 },

@@ -76,9 +76,6 @@ class ProtocolResponse(ProtocolBase):
 class ProtocolTemplateBase(BaseModel):
     name: str = Field(..., max_length=100, description="Название шаблона")
     file_name: str = Field(..., max_length=100, description="Оригинальное имя файла")
-    accreditation_header_row: int | None = Field(
-        None, description="Строка шапки аккредитации"
-    )
 
 
 class ProtocolTemplateCreate(ProtocolTemplateBase):
@@ -91,7 +88,6 @@ class ProtocolTemplateUpdate(BaseModel):
     name: str | None = Field(None, max_length=100)
     file: str | None = None
     file_name: str | None = Field(None, max_length=100)
-    accreditation_header_row: int | None = None
 
 
 class ProtocolTemplateResponse(ProtocolTemplateBase):

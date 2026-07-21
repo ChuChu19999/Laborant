@@ -318,7 +318,6 @@ async def save_excel_section(
         file_name=current_template.file_name,
         laboratory_id=current_template.laboratory_id,
         department_id=current_template.department_id,
-        accreditation_header_row=current_template.accreditation_header_row,
     )
     new_template = await protocol_repo.add_protocol_template(db, new_template)
     await flush_entity(db)

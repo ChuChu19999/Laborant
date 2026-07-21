@@ -4,9 +4,7 @@ import {
   DeleteOutlined,
   FileExcelOutlined,
   FileTextOutlined,
-  InfoCircleOutlined,
   InboxOutlined,
-  NumberOutlined,
   PlusOutlined,
 } from '@ant-design/icons';
 import { message, Spin, Upload } from 'antd';
@@ -32,12 +30,6 @@ const SECTIONS = [
     description: 'Редактирование шапки протокола',
     icon: <FileTextOutlined />,
   },
-  {
-    id: 'accreditation',
-    name: 'Аккредитация',
-    description: 'Настройка строки шапки аккредитации',
-    icon: <NumberOutlined />,
-  },
 ];
 
 interface EditProtocolTemplateModalProps {
@@ -60,7 +52,6 @@ const EditProtocolTemplateModal: React.FC<EditProtocolTemplateModalProps> = ({
   const [isCreatingNew, setIsCreatingNew] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [accreditationHeaderRow, setAccreditationHeaderRow] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [excelData, setExcelData] = useState<Array<Array<string | null>> | null>(null);
   const [cellStyles, setCellStyles] = useState<Record<string, CellStyle>>({});
@@ -92,9 +83,6 @@ const EditProtocolTemplateModal: React.FC<EditProtocolTemplateModalProps> = ({
   useEffect(() => {
     if (templateData) {
       setActiveTemplate(templateData);
-      if (templateData.accreditation_header_row) {
-        setAccreditationHeaderRow(templateData.accreditation_header_row.toString());
-      }
     }
   }, [templateData]);
 
@@ -107,7 +95,6 @@ const EditProtocolTemplateModal: React.FC<EditProtocolTemplateModalProps> = ({
       setIsCreatingNew(false);
       setNewTemplateName('');
       setSelectedFile(null);
-      setAccreditationHeaderRow('');
       setErrors({});
       setExcelData(null);
       setCellStyles({});
@@ -185,15 +172,9 @@ const EditProtocolTemplateModal: React.FC<EditProtocolTemplateModalProps> = ({
     }
   }, [newTemplateName, selectedFile, laboratoryId, departmentId, refetchTemplates]);
 
-  const handleSectionSelect = useCallback(
-    (section: (typeof SECTIONS)[0]) => {
-      setSelectedSection(section);
-      if (section.id === 'accreditation' && activeTemplate) {
-        setAccreditationHeaderRow(activeTemplate.accreditation_header_row?.toString() || '');
-      }
-    },
-    [activeTemplate]
-  );
+  const handleSectionSelect = useCallback((section: (typeof SECTIONS)[0]) => {
+    setSelectedSection(section);
+  }, []);
 
   const handleDataChange = useCallback(
     (
@@ -265,29 +246,6 @@ const EditProtocolTemplateModal: React.FC<EditProtocolTemplateModalProps> = ({
         refetchTemplates();
         return;
       }
-
-      // Обработка секции аккредитации
-      if (selectedSection.id === 'accreditation') {
-        const headerRow = parseInt(accreditationHeaderRow);
-        if (isNaN(headerRow) || headerRow < 1) {
-          message.error('Введите корректный номер строки (положительное целое число)');
-          setLoading(false);
-          return;
-        }
-
-        await protocolsApi.updateProtocolTemplate(activeTemplate.id, {
-          accreditation_header_row: headerRow,
-        });
-
-        message.success('Номер строки шапки аккредитации успешно сохранен');
-        setSelectedSection(null);
-        refetchTemplates();
-        if (selectedTemplateId) {
-          // Обновляем данные шаблона
-          const updated = await protocolsApi.getProtocolTemplate(selectedTemplateId);
-          setActiveTemplate(updated);
-        }
-      }
     } catch (error) {
       console.error('Ошибка при сохранении:', error);
       message.error('Ошибка при сохранении изменений');
@@ -298,11 +256,9 @@ const EditProtocolTemplateModal: React.FC<EditProtocolTemplateModalProps> = ({
     isCreatingNew,
     activeTemplate,
     selectedSection,
-    accreditationHeaderRow,
     excelData,
     cellStyles,
     handleCreateNewTemplate,
-    selectedTemplateId,
     refetchTemplates,
   ]);
 
@@ -313,7 +269,6 @@ const EditProtocolTemplateModal: React.FC<EditProtocolTemplateModalProps> = ({
     setIsCreatingNew(false);
     setNewTemplateName('');
     setSelectedFile(null);
-    setAccreditationHeaderRow('');
     setErrors({});
     setExcelData(null);
     setCellStyles({});
@@ -478,52 +433,6 @@ const EditProtocolTemplateModal: React.FC<EditProtocolTemplateModalProps> = ({
                   section={selectedSection.id}
                   onDataChange={handleDataChange}
                 />
-              )}
-            </div>
-          </div>
-        ) : selectedSection?.id === 'accreditation' ? (
-          <div className="editor-container">
-            <div className="editor-header">
-              <Button
-                title="Назад к разделам"
-                onClick={handleBackToSections}
-                type="default"
-                icon={<ArrowLeftOutlined />}
-                disabled={loading}
-              >
-                Назад к разделам
-              </Button>
-            </div>
-            <div className="editor-content">
-              {loading ? (
-                <div className="loading-state">
-                  <Spin size="large" />
-                </div>
-              ) : (
-                <div className="accreditation-section">
-                  <div className="accreditation-card">
-                    <div className="card-header">
-                      <NumberOutlined className="card-icon" />
-                      <span>Расположение в документе</span>
-                    </div>
-                    <div className="form-group">
-                      <label>Номер строки</label>
-                      <Input
-                        type="number"
-                        min="1"
-                        value={accreditationHeaderRow}
-                        onChange={e => setAccreditationHeaderRow(e.target.value)}
-                        placeholder="Введите номер строки"
-                        style={{ width: '200px' }}
-                      />
-                      <div className="hint-text">
-                        <InfoCircleOutlined style={{ marginRight: '8px' }} />
-                        Укажите номер строки, в которой находится информация об аккредитации
-                        (учитывайте наличие меток разметки шаблона)
-                      </div>
-                    </div>
-                  </div>
-                </div>
               )}
             </div>
           </div>

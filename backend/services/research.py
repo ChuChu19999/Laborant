@@ -62,8 +62,6 @@ async def get_research_method_by_id(
 
 def build_research_method_display_name(
     method: ResearchMethod,
-    *,
-    horizontal_table: bool = False,
 ) -> str:
     """Собрать отображаемое имя методики с учётом активной группы."""
     base_name = method.name or ""
@@ -79,8 +77,6 @@ def build_research_method_display_name(
 
     group_name = active_group.name
     if group_name == "Вязкость кинематическая":
-        if horizontal_table:
-            return f"{group_name} {base_name.lower()}"
         return f"{group_name} ({base_name.lower()})"
     return group_name
 

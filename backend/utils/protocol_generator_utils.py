@@ -1,3 +1,4 @@
+import re
 from copy import copy
 from typing import Optional
 import openpyxl
@@ -13,6 +14,61 @@ FONT_SIZE_PIXELS = 11  # Размер шрифта в пикселях (Times Ne
 CHAR_WIDTH_PIXELS = 7.4  # Примерная ширина символа в пикселях
 LINE_HEIGHT_PIXELS = 21  # Высота строки в пикселях
 PIXELS_TO_POINTS = 0.75  # Коэффициент перевода пикселей в точки Excel
+
+IF_LINE_PATTERN = re.compile(
+    r"\{if\s+line\s+\{([^{}]*)\}\}",
+    re.IGNORECASE,
+)
+IF_LINE_CONDITION_PATTERN = re.compile(
+    r"(name_method|group_name)\s*=\s*[\"“«]([^\"”»]+)[\"”»]",
+    re.IGNORECASE,
+)
+
+
+def parse_if_line_condition(cell_text: str) -> dict[str, str] | None:
+    """
+    Разбирает условие {if line {...}} из текста ячейки.
+
+    Возвращает словарь с ключами name_method и/или group_name либо None.
+    """
+    if not cell_text or not isinstance(cell_text, str):
+        return None
+    match = IF_LINE_PATTERN.search(cell_text)
+    if not match:
+        return None
+    conditions: dict[str, str] = {}
+    for key, value in IF_LINE_CONDITION_PATTERN.findall(match.group(1)):
+        conditions[key.lower()] = value.strip()
+    return conditions or None
+
+
+def strip_if_line_marker(cell_text: str) -> str:
+    """Убирает маркер {if line {...}} из текста ячейки."""
+    if not cell_text or not isinstance(cell_text, str):
+        return cell_text
+    return IF_LINE_PATTERN.sub("", cell_text).strip()
+
+
+def group_name_matches(required: str, actual: str) -> bool:
+    """Сравнивает имена групп с допуском опечаток-продолжений в шаблоне."""
+    required_norm = (required or "").strip()
+    actual_norm = (actual or "").strip()
+    if not required_norm or not actual_norm:
+        return False
+    if required_norm == actual_norm:
+        return True
+    return required_norm.startswith(actual_norm) or actual_norm.startswith(
+        required_norm
+    )
+
+
+def format_measurement_error_value(error_value: str | None) -> str:
+    """Форматирует погрешность для ячейки протокола."""
+    if error_value and error_value.startswith("-"):
+        return error_value
+    if error_value and error_value != "-":
+        return f"±{error_value}"
+    return "-"
 
 
 def join_unique_values(values: list[str], separator: str = ", ") -> str:
@@ -351,108 +407,6 @@ def template_contains_marker(sheet, marker: str) -> bool:
     return False
 
 
-def find_marker_cells(
-    sheet,
-    markers: set[str],
-    min_row: int = 1,
-    max_row: Optional[int] = None,
-) -> list[tuple[int, int]]:
-    """Возвращает список координат ячеек с точным совпадением метки."""
-    if max_row is None:
-        max_row = sheet.max_row
-    found: list[tuple[int, int]] = []
-    for row_num in range(min_row, max_row + 1):
-        for col_num in range(1, sheet.max_column + 1):
-            cell_value = sheet.cell(row=row_num, column=col_num).value
-            if cell_value and str(cell_value).strip() in markers:
-                found.append((row_num, col_num))
-    return found
-
-
-def copy_cell_block(
-    source_sheet,
-    target_sheet,
-    source_col_start: int,
-    source_col_end: int,
-    source_row_start: int,
-    source_row_end: int,
-    target_col_start: int,
-    target_row_start: int,
-    merged_cells_map=None,
-) -> None:
-    """Копирует прямоугольный блок ячеек с сохранением стилей и объединений."""
-    block_width = source_col_end - source_col_start + 1
-    block_height = source_row_end - source_row_start + 1
-    col_shift = target_col_start - source_col_start
-    row_shift = target_row_start - source_row_start
-
-    for row_offset in range(block_height):
-        src_row = source_row_start + row_offset
-        tgt_row = target_row_start + row_offset
-        if src_row in source_sheet.row_dimensions:
-            target_sheet.row_dimensions[tgt_row] = copy(
-                source_sheet.row_dimensions[src_row]
-            )
-        for col_offset in range(block_width):
-            src_col = source_col_start + col_offset
-            tgt_col = target_col_start + col_offset
-            src_cell = source_sheet.cell(row=src_row, column=src_col)
-            tgt_cell = target_sheet.cell(row=tgt_row, column=tgt_col)
-            tgt_cell.value = src_cell.value
-            copy_cell_style(src_cell, tgt_cell)
-
-    if merged_cells_map is None:
-        return
-
-    for merged_range in source_sheet.merged_cells.ranges:
-        if (
-            merged_range.min_col >= source_col_start
-            and merged_range.max_col <= source_col_end
-            and merged_range.min_row >= source_row_start
-            and merged_range.max_row <= source_row_end
-        ):
-            new_range = openpyxl.worksheet.cell_range.CellRange(
-                min_col=merged_range.min_col + col_shift,
-                min_row=merged_range.min_row + row_shift,
-                max_col=merged_range.max_col + col_shift,
-                max_row=merged_range.max_row + row_shift,
-            )
-            merged_cells_map.add(new_range)
-
-
-def copy_column_dimensions_range(
-    source_sheet,
-    target_sheet,
-    source_col_start: int,
-    source_col_end: int,
-    target_col_start: int,
-) -> None:
-    """Копирует ширину столбцов из диапазона в смещённый диапазон."""
-    block_width = source_col_end - source_col_start + 1
-    block_default_letter = get_column_letter(source_col_start)
-    block_default_width = None
-    if block_default_letter in source_sheet.column_dimensions:
-        block_default_width = source_sheet.column_dimensions[block_default_letter].width
-
-    for offset in range(block_width):
-        src_col = source_col_start + offset
-        tgt_col = target_col_start + offset
-        src_letter = get_column_letter(src_col)
-        tgt_letter = get_column_letter(tgt_col)
-        width = block_default_width
-        if src_letter in source_sheet.column_dimensions:
-            src_dim = source_sheet.column_dimensions[src_letter]
-            if src_dim.width is not None:
-                width = src_dim.width
-        if width is None:
-            continue
-        target_sheet.column_dimensions[tgt_letter].width = width
-        if src_letter in source_sheet.column_dimensions:
-            target_sheet.column_dimensions[tgt_letter].hidden = (
-                source_sheet.column_dimensions[src_letter].hidden
-            )
-
-
 def copy_column_dimensions(source_sheet, target_sheet):
     """Копирует размеры столбцов из исходного листа в целевой."""
     try:
@@ -599,45 +553,6 @@ def adjust_cell_height_if_needed(sheet, row, col, text, min_height_pixels=35):
         return False
 
 
-def adjust_row_height_for_text(sheet, row, text_columns):
-    """Настраивает высоту строки для текста в указанных столбцах."""
-    try:
-        max_required_height = 35  # Минимальная высота в пикселях
-
-        for col, text in text_columns:
-            if text and isinstance(text, str):
-                cell_width_pixels = get_cell_width(sheet, row, col)
-                required_height = calculate_text_height(text, cell_width_pixels)
-                max_required_height = max(max_required_height, required_height)
-
-        # Получаем текущую высоту строки
-        current_height = DEFAULT_ROW_HEIGHT
-        if row in sheet.row_dimensions:
-            current_height = sheet.row_dimensions[row].height or DEFAULT_ROW_HEIGHT
-
-        # Переводим высоту из точек в пиксели
-        current_height_pixels = current_height / PIXELS_TO_POINTS
-
-        # Если требуется увеличить высоту
-        if max_required_height > current_height_pixels:
-            # Устанавливаем фиксированную высоту 35 пикселей
-            new_height_points = 35 * PIXELS_TO_POINTS
-
-            # Устанавливаем высоту строки
-            if row not in sheet.row_dimensions:
-                sheet.row_dimensions[row] = openpyxl.worksheet.dimensions.RowDimension(
-                    sheet, row
-                )
-            sheet.row_dimensions[row].height = new_height_points
-            return True
-
-        return False
-
-    except Exception as e:
-        logger.error(f"Ошибка при настройке высоты строки {row}: {str(e)}")
-        return False
-
-
 def check_method_name(method_name, test_objects):
     """Проверяет, соответствует ли метод объекту испытаний"""
     method_lower = method_name.lower()
@@ -657,26 +572,3 @@ def check_method_name(method_name, test_objects):
         else:
             return False
     return True
-
-
-def find_text_in_workbook(workbook, search_text):
-    """
-    Ищет указанный текст во всех листах книги Excel.
-    Возвращает список всех найденных вхождений в формате [(лист, строка, столбец), ...].
-    """
-    try:
-        results = []
-        for sheet_name in workbook.sheetnames:
-            sheet = workbook[sheet_name]
-            for row_idx, row in enumerate(sheet.iter_rows(values_only=True), 1):
-                for col_idx, cell_value in enumerate(row, 1):
-                    if (
-                        cell_value
-                        and isinstance(cell_value, str)
-                        and search_text.lower() in cell_value.lower()
-                    ):
-                        results.append((sheet_name, row_idx, col_idx))
-        return results
-    except Exception as e:
-        logger.error(f"Ошибка при поиске текста '{search_text}': {str(e)}")
-        return []
