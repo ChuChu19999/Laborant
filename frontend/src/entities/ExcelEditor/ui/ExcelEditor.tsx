@@ -86,26 +86,27 @@ const ExcelEditor: React.FC<ExcelEditorProps> = ({ templateId, section, onDataCh
         throw new Error('Не удалось найти лист в файле Excel');
       }
 
-      // Преобразуем Excel в JSON с сохранением пустых ячеек
-      const excelData = utils.sheet_to_json(firstSheet, {
-        header: 1,
-        raw: false,
-        defval: '',
-        blankrows: true,
-      }) as Array<Array<string | null>>;
+      // Только колонка A: полный sheet_to_json по used range (у НСПК ~1000×140)
+      // подвешивает вкладку. Шапка редактируется только в A.
+      const sheetRef = firstSheet['!ref'];
+      if (!sheetRef) {
+        throw new Error('В файле не найден диапазон ячеек');
+      }
+      const range = utils.decode_range(sheetRef);
 
-      // Ищем метки в данных
       let startHeaderIndex = -1;
       let endHeaderIndex = -1;
-
-      excelData.forEach((row, index) => {
-        if (row[0] === '{{start_header}}') {
-          startHeaderIndex = index;
+      for (let row = range.s.r; row <= range.e.r; row += 1) {
+        const cell = firstSheet[utils.encode_cell({ r: row, c: 0 })];
+        const value = cell != null && cell.v != null ? String(cell.v).trim() : '';
+        if (value === '{{start_header}}') {
+          startHeaderIndex = row;
         }
-        if (row[0] === '{{end_header}}') {
-          endHeaderIndex = index;
+        if (value === '{{end_header}}') {
+          endHeaderIndex = row;
+          break;
         }
-      });
+      }
 
       if (startHeaderIndex === -1 || endHeaderIndex === -1 || startHeaderIndex >= endHeaderIndex) {
         throw new Error(
@@ -113,8 +114,12 @@ const ExcelEditor: React.FC<ExcelEditorProps> = ({ templateId, section, onDataCh
         );
       }
 
-      // Извлекаем только строки шапки (без самих меток)
-      const headerData = excelData.slice(startHeaderIndex + 1, endHeaderIndex);
+      const headerData: Array<Array<string | null>> = [];
+      for (let row = startHeaderIndex + 1; row < endHeaderIndex; row += 1) {
+        const cell = firstSheet[utils.encode_cell({ r: row, c: 0 })];
+        const value = cell != null && cell.v != null && String(cell.v) !== '' ? String(cell.v) : '';
+        headerData.push([value]);
+      }
 
       setData(headerData);
 

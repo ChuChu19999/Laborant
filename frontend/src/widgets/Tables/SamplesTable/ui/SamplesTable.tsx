@@ -27,6 +27,7 @@ import { useAutoRefetchQuery } from '../../../../shared/model/lib';
 import Button from '../../../../shared/ui/Button/Button';
 import { Input, Select, RangePicker } from '../../../../shared/ui/FormItems';
 import { formatDate } from '../../../../shared/utils/dateFormatting';
+import { formatWellDisplay } from '../../../../shared/utils/sampleFormatting';
 import './SamplesTable.css';
 
 dayjs.extend(customParseFormat);
@@ -299,8 +300,9 @@ const SamplesTable: React.FC<SamplesTableProps> = ({
           if (row.sampling_location_name) {
             parts.push(row.sampling_location_name);
           }
-          if (row.well) {
-            parts.push(`скв. ${row.well}`);
+          const wellDisplay = formatWellDisplay(row.well);
+          if (wellDisplay) {
+            parts.push(wellDisplay);
           }
           if (row.mode) {
             parts.push(row.mode);
@@ -312,8 +314,9 @@ const SamplesTable: React.FC<SamplesTableProps> = ({
           if (row.original.sampling_location_name) {
             parts.push(row.original.sampling_location_name);
           }
-          if (row.original.well) {
-            parts.push(`скв. ${row.original.well}`);
+          const wellDisplay = formatWellDisplay(row.original.well);
+          if (wellDisplay) {
+            parts.push(wellDisplay);
           }
           if (row.original.mode) {
             parts.push(row.original.mode);

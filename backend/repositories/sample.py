@@ -15,6 +15,7 @@ from repositories.base import (
 from utils.filters import add_date_range_filter
 from utils.pagination import apply_pagination, get_total_count
 from utils.protocol_search_filter import sample_has_protocol_display_ilike
+from utils.sample_formatting import WELL_DISPLAY_PREFIX
 from utils.sample_sort import (
     protocols_sort_scalar_subquery,
     registration_number_sort_columns,
@@ -111,7 +112,8 @@ async def get_samples(
     if search_sampling_location:
         sampling_location_search = search_sampling_location.lower()
         well_part = case(
-            (Sample.well.isnot(None), func.concat("скв. ", Sample.well)), else_=""
+            (Sample.well.isnot(None), func.concat(WELL_DISPLAY_PREFIX, Sample.well)),
+            else_="",
         )
         sampling_location_text = func.concat(
             func.coalesce(SamplingLocation.name, ""),
@@ -145,7 +147,8 @@ async def get_samples(
 
     if sort_by == "sampling_location":
         well_part = case(
-            (Sample.well.isnot(None), func.concat("скв. ", Sample.well)), else_=""
+            (Sample.well.isnot(None), func.concat(WELL_DISPLAY_PREFIX, Sample.well)),
+            else_="",
         )
         sampling_location_sort = func.concat(
             func.coalesce(SamplingLocation.name, ""),
@@ -265,7 +268,8 @@ def _build_sample_count_conditions(
     if search_sampling_location:
         sampling_location_search = search_sampling_location.lower()
         well_part = case(
-            (Sample.well.isnot(None), func.concat("скв. ", Sample.well)), else_=""
+            (Sample.well.isnot(None), func.concat(WELL_DISPLAY_PREFIX, Sample.well)),
+            else_="",
         )
         sampling_location_text = func.concat(
             func.coalesce(SamplingLocation.name, ""),

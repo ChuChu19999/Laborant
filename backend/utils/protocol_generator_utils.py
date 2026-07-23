@@ -1,9 +1,11 @@
+import base64
 import re
 from copy import copy
+from io import BytesIO
 from typing import Optional
 import openpyxl
 from openpyxl.styles import Font
-from openpyxl.utils import get_column_letter
+from openpyxl.utils import column_index_from_string, get_column_letter
 from core.logger import logger
 from utils.calculation_result_display import get_chloride_salts_result_display
 
@@ -19,10 +21,32 @@ IF_LINE_PATTERN = re.compile(
     r"\{if\s+line\s+\{([^{}]*)\}\}",
     re.IGNORECASE,
 )
+IF_COL_PATTERN = re.compile(
+    r"\{if\s+col\s+\{([^{}]*)\}\}",
+    re.IGNORECASE,
+)
 IF_LINE_CONDITION_PATTERN = re.compile(
     r"(name_method|group_name)\s*=\s*[\"“«]([^\"”»]+)[\"”»]",
     re.IGNORECASE,
 )
+IF_MULTIPLE_SAMPLES_MARKER = "{if multiple samples line}"
+START_WIDTH_MARKER = "{{start_width}}"
+END_WIDTH_MARKER = "{{end_width}}"
+TABLE1_STRUCTURAL_MARKERS = (
+    "{start_table1}",
+    "{end_table1}",
+    START_WIDTH_MARKER,
+    END_WIDTH_MARKER,
+    IF_MULTIPLE_SAMPLES_MARKER,
+)
+
+
+def _parse_method_group_conditions(condition_body: str) -> dict[str, str] | None:
+    """Разбирает name_method/group_name из тела условия if line / if col."""
+    conditions: dict[str, str] = {}
+    for key, value in IF_LINE_CONDITION_PATTERN.findall(condition_body or ""):
+        conditions[key.lower()] = value.strip()
+    return conditions or None
 
 
 def parse_if_line_condition(cell_text: str) -> dict[str, str] | None:
@@ -36,10 +60,21 @@ def parse_if_line_condition(cell_text: str) -> dict[str, str] | None:
     match = IF_LINE_PATTERN.search(cell_text)
     if not match:
         return None
-    conditions: dict[str, str] = {}
-    for key, value in IF_LINE_CONDITION_PATTERN.findall(match.group(1)):
-        conditions[key.lower()] = value.strip()
-    return conditions or None
+    return _parse_method_group_conditions(match.group(1))
+
+
+def parse_if_col_condition(cell_text: str) -> dict[str, str] | None:
+    """
+    Разбирает условие {if col {...}} из текста ячейки.
+
+    Возвращает словарь с ключами name_method и/или group_name либо None.
+    """
+    if not cell_text or not isinstance(cell_text, str):
+        return None
+    match = IF_COL_PATTERN.search(cell_text)
+    if not match:
+        return None
+    return _parse_method_group_conditions(match.group(1))
 
 
 def strip_if_line_marker(cell_text: str) -> str:
@@ -47,6 +82,49 @@ def strip_if_line_marker(cell_text: str) -> str:
     if not cell_text or not isinstance(cell_text, str):
         return cell_text
     return IF_LINE_PATTERN.sub("", cell_text).strip()
+
+
+def strip_if_col_marker(cell_text: str) -> str:
+    """Убирает маркер {if col {...}} из текста ячейки."""
+    if not cell_text or not isinstance(cell_text, str):
+        return cell_text
+    return IF_COL_PATTERN.sub("", cell_text).strip()
+
+
+def has_if_multiple_samples_marker(cell_text: str) -> bool:
+    """Проверяет точный маркер {if multiple samples line}."""
+    if not cell_text or not isinstance(cell_text, str):
+        return False
+    return IF_MULTIPLE_SAMPLES_MARKER in cell_text
+
+
+def strip_if_multiple_samples_marker(cell_text: str) -> str:
+    """Убирает маркер {if multiple samples line} из текста ячейки."""
+    if not cell_text or not isinstance(cell_text, str):
+        return cell_text
+    return cell_text.replace(IF_MULTIPLE_SAMPLES_MARKER, "").strip()
+
+
+def strip_width_markers(cell_text: str) -> str:
+    """Убирает {{start_width}} / {{end_width}} из текста ячейки."""
+    if not cell_text or not isinstance(cell_text, str):
+        return cell_text
+    return (
+        cell_text.replace(START_WIDTH_MARKER, "").replace(END_WIDTH_MARKER, "").strip()
+    )
+
+
+def strip_table1_structural_markers(cell_text: str) -> str:
+    """Убирает служебные метки таблицы 1 из текста ячейки."""
+    if not cell_text or not isinstance(cell_text, str):
+        return cell_text
+    value = strip_if_line_marker(cell_text)
+    value = strip_if_col_marker(value)
+    value = strip_if_multiple_samples_marker(value)
+    value = strip_width_markers(value)
+    for marker in TABLE1_STRUCTURAL_MARKERS:
+        value = value.replace(marker, "")
+    return value.strip()
 
 
 def group_name_matches(required: str, actual: str) -> bool:
@@ -226,14 +304,90 @@ def copy_row_with_styles(
         raise
 
 
+def copy_row_dimension(
+    source_sheet,
+    target_sheet,
+    source_row: int,
+    target_row: int,
+) -> None:
+    """
+    Копирует высоту и hidden строки.
+
+    Индекс стиля строки (xf) из шаблона не переносится: он валиден только
+    в styles.xml шаблона и ломает книгу при открытии в Excel.
+    """
+    if source_row not in source_sheet.row_dimensions:
+        return
+    src_dim = source_sheet.row_dimensions[source_row]
+    tgt_dim = target_sheet.row_dimensions[target_row]
+    if src_dim.height is not None:
+        tgt_dim.height = src_dim.height
+    tgt_dim.hidden = bool(src_dim.hidden)
+
+
+def purge_sheet_cells_beyond(
+    sheet,
+    max_row: int,
+    max_col: int,
+) -> None:
+    """Удаляет ячейки правее/ниже границы, чтобы не раздувать used range."""
+    for row_idx, col_idx in list(sheet._cells):
+        if row_idx > max_row or col_idx > max_col:
+            del sheet._cells[(row_idx, col_idx)]
+
+
+def sanitize_protocol_template_sheet(sheet, col_limit: int = 60) -> tuple[int, int]:
+    """
+    Обрезает «хвост» пустых стилизованных ячеек Excel.
+
+    Иначе max_row/max_column раздуваются, и редактор
+    шапки / генератор зависают на полном обходе листа.
+    """
+    last_row, last_col = get_template_content_bounds(sheet, col_limit)
+    purge_sheet_cells_beyond(sheet, last_row, last_col)
+    prune_column_dimensions_beyond(sheet, last_col)
+    for merged_range in list(sheet.merged_cells.ranges):
+        if merged_range.min_row > last_row or merged_range.min_col > last_col:
+            sheet.unmerge_cells(str(merged_range))
+    for row_idx in list(sheet.row_dimensions.keys()):
+        if row_idx > last_row:
+            del sheet.row_dimensions[row_idx]
+    return last_row, last_col
+
+
+def workbook_to_xlsx_bytes(workbook) -> bytes:
+    """Сохраняет workbook openpyxl в bytes xlsx."""
+    output = BytesIO()
+    workbook.save(output)
+    return output.getvalue()
+
+
+def load_sanitized_template_workbook(file_bytes: bytes):
+    """Загружает xlsx шаблона и обрезает раздутый used range."""
+    workbook = openpyxl.load_workbook(BytesIO(file_bytes))
+    sanitize_protocol_template_sheet(workbook.active)
+    return workbook
+
+
+def decode_protocol_template_file(file_data: str | bytes) -> bytes:
+    """Достаёт сырые bytes xlsx из base64 / пути / сырых байт шаблона."""
+    try:
+        return base64.b64decode(file_data)
+    except Exception:
+        try:
+            with open(file_data, "rb") as f:
+                return f.read()
+        except Exception:
+            if isinstance(file_data, bytes):
+                return file_data
+            return file_data.encode()
+
+
 def copy_row_formatting(
     source_sheet, target_sheet, source_row, target_row, merged_cells_map=None
 ):
     """Копирует все форматирование строки: стили, размеры и объединенные ячейки."""
-    if source_row in source_sheet.row_dimensions:
-        target_sheet.row_dimensions[target_row] = copy(
-            source_sheet.row_dimensions[source_row]
-        )
+    copy_row_dimension(source_sheet, target_sheet, source_row, target_row)
 
     copy_row_with_styles(source_sheet, target_sheet, source_row, target_row)
 
@@ -268,10 +422,12 @@ def get_template_content_bounds(
         if merged_range.max_col <= max_col:
             last_col = max(last_col, merged_range.max_col)
 
-    for row in range(sheet.max_row, 0, -1):
-        for col in range(1, max_col + 1):
-            if sheet.cell(row=row, column=col).value is not None:
-                return max(last_row, row), max(last_col, col)
+    # Только существующие ячейки — sheet.cell() создаёт пустые и раздувает лист.
+    for (row_num, col_num), cell in sheet._cells.items():
+        if col_num > max_col or cell.value is None:
+            continue
+        last_row = max(last_row, row_num)
+        last_col = max(last_col, col_num)
 
     return last_row, last_col
 
@@ -284,10 +440,12 @@ def get_row_last_used_col(
 ) -> int:
     """Возвращает последний столбец с значением в строке шаблона."""
     max_col = col_limit or min(sheet.max_column, 60)
-    for col in range(max_col, min_col - 1, -1):
-        if sheet.cell(row=row_num, column=col).value is not None:
-            return col
-    return min_col
+    last = min_col
+    for col in range(min_col, max_col + 1):
+        cell = sheet._cells.get((row_num, col))
+        if cell is not None and cell.value is not None:
+            last = col
+    return last
 
 
 def get_row_copy_max_col(
@@ -369,6 +527,17 @@ def _delete_rows_below(sheet, end_row: int) -> None:
             del sheet.row_dimensions[row_idx]
 
 
+def prune_column_dimensions_beyond(sheet, max_col: int) -> None:
+    """Удаляет ширины столбцов правее границы содержимого."""
+    for key in list(sheet.column_dimensions.keys()):
+        try:
+            col_idx = column_index_from_string(str(key))
+        except ValueError:
+            continue
+        if col_idx > max_col:
+            del sheet.column_dimensions[key]
+
+
 def finalize_protocol_sheet(
     sheet,
     col_limit: int = 80,
@@ -384,6 +553,8 @@ def finalize_protocol_sheet(
 
     if last_row < 1 or last_col < 1:
         return
+    purge_sheet_cells_beyond(sheet, last_row, last_col)
+    prune_column_dimensions_beyond(sheet, last_col)
     sheet.print_area = f"A1:{get_column_letter(last_col)}{last_row}"
 
 
@@ -407,10 +578,115 @@ def template_contains_marker(sheet, marker: str) -> bool:
     return False
 
 
-def copy_column_dimensions(source_sheet, target_sheet):
-    """Копирует размеры столбцов из исходного листа в целевой."""
+def copy_cell_block(
+    source_sheet,
+    target_sheet,
+    source_col_start: int,
+    source_col_end: int,
+    source_row_start: int,
+    source_row_end: int,
+    target_col_start: int,
+    target_row_start: int,
+    merged_cells_map=None,
+) -> None:
+    """Копирует прямоугольный блок ячеек с сохранением стилей и объединений."""
+    block_width = source_col_end - source_col_start + 1
+    block_height = source_row_end - source_row_start + 1
+    col_shift = target_col_start - source_col_start
+    row_shift = target_row_start - source_row_start
+
+    for row_offset in range(block_height):
+        src_row = source_row_start + row_offset
+        tgt_row = target_row_start + row_offset
+        # Копируем только height/hidden, не весь RowDimension (ломает файл Excel).
+        if src_row in source_sheet.row_dimensions:
+            src_dim = source_sheet.row_dimensions[src_row]
+            tgt_dim = target_sheet.row_dimensions[tgt_row]
+            if src_dim.height is not None:
+                tgt_dim.height = src_dim.height
+            tgt_dim.hidden = bool(src_dim.hidden)
+        for col_offset in range(block_width):
+            src_col = source_col_start + col_offset
+            tgt_col = target_col_start + col_offset
+            src_cell = source_sheet.cell(row=src_row, column=src_col)
+            tgt_cell = target_sheet.cell(row=tgt_row, column=tgt_col)
+            tgt_cell.value = src_cell.value
+            copy_cell_style(src_cell, tgt_cell)
+
+    if merged_cells_map is None:
+        return
+
+    for merged_range in source_sheet.merged_cells.ranges:
+        if (
+            merged_range.min_col >= source_col_start
+            and merged_range.max_col <= source_col_end
+            and merged_range.min_row >= source_row_start
+            and merged_range.max_row <= source_row_end
+        ):
+            new_range = openpyxl.worksheet.cell_range.CellRange(
+                min_col=merged_range.min_col + col_shift,
+                min_row=merged_range.min_row + row_shift,
+                max_col=merged_range.max_col + col_shift,
+                max_row=merged_range.max_row + row_shift,
+            )
+            merged_cells_map.add(new_range)
+
+
+def copy_column_dimensions_range(
+    source_sheet,
+    target_sheet,
+    source_col_start: int,
+    source_col_end: int,
+    target_col_start: int,
+) -> None:
+    """Копирует ширину столбцов из диапазона в смещённый диапазон."""
+    block_width = source_col_end - source_col_start + 1
+    block_default_letter = get_column_letter(source_col_start)
+    block_default_width = None
+    if block_default_letter in source_sheet.column_dimensions:
+        block_default_width = source_sheet.column_dimensions[block_default_letter].width
+
+    for offset in range(block_width):
+        src_col = source_col_start + offset
+        tgt_col = target_col_start + offset
+        src_letter = get_column_letter(src_col)
+        tgt_letter = get_column_letter(tgt_col)
+        width = block_default_width
+        if src_letter in source_sheet.column_dimensions:
+            src_dim = source_sheet.column_dimensions[src_letter]
+            if src_dim.width is not None:
+                width = src_dim.width
+        if width is None:
+            continue
+        target_sheet.column_dimensions[tgt_letter].width = width
+        if src_letter in source_sheet.column_dimensions:
+            target_sheet.column_dimensions[tgt_letter].hidden = (
+                source_sheet.column_dimensions[src_letter].hidden
+            )
+
+
+def copy_column_dimensions(
+    source_sheet,
+    target_sheet,
+    max_col: int | None = None,
+):
+    """
+    Копирует размеры столбцов из исходного листа в целевой.
+
+    Столбцы правее реального содержимого шаблона (случайные EN и т.п.)
+    не копируются — иначе лист становится шире шаблона.
+    """
     try:
+        if max_col is None:
+            _, content_col = get_template_content_bounds(source_sheet)
+            max_col = max(content_col + 5, 40)
         for key, value in source_sheet.column_dimensions.items():
+            try:
+                col_idx = column_index_from_string(str(key))
+            except ValueError:
+                continue
+            if col_idx > max_col:
+                continue
             target_sheet.column_dimensions[key].width = value.width
             target_sheet.column_dimensions[key].hidden = value.hidden
     except Exception as e:
@@ -419,11 +695,59 @@ def copy_column_dimensions(source_sheet, target_sheet):
 
 def copy_sheet_page_settings(source_sheet, target_sheet) -> None:
     """Копирует ориентацию, поля и прочие параметры печати из шаблона."""
-    target_sheet.page_setup = copy(source_sheet.page_setup)
+    src_ps = source_sheet.page_setup
+    tgt_ps = target_sheet.page_setup
+    # Поля пишем в существующий page_setup листа, не подменяем объект целиком:
+    # иначе openpyxl может потерять связь и ориентацию при сохранении.
+    if src_ps.orientation:
+        tgt_ps.orientation = src_ps.orientation
+    if src_ps.paperSize is not None:
+        tgt_ps.paperSize = src_ps.paperSize
+    if src_ps.scale is not None:
+        tgt_ps.scale = src_ps.scale
+    if src_ps.fitToWidth is not None:
+        tgt_ps.fitToWidth = src_ps.fitToWidth
+    if src_ps.fitToHeight is not None:
+        tgt_ps.fitToHeight = src_ps.fitToHeight
+    if src_ps.pageOrder is not None:
+        tgt_ps.pageOrder = src_ps.pageOrder
+    if src_ps.firstPageNumber is not None:
+        tgt_ps.firstPageNumber = src_ps.firstPageNumber
+    if src_ps.useFirstPageNumber is not None:
+        tgt_ps.useFirstPageNumber = src_ps.useFirstPageNumber
+    if src_ps.horizontalDpi is not None:
+        tgt_ps.horizontalDpi = src_ps.horizontalDpi
+    if src_ps.verticalDpi is not None:
+        tgt_ps.verticalDpi = src_ps.verticalDpi
+    if src_ps.copies is not None:
+        tgt_ps.copies = src_ps.copies
+    if src_ps.blackAndWhite is not None:
+        tgt_ps.blackAndWhite = src_ps.blackAndWhite
+    if src_ps.draft is not None:
+        tgt_ps.draft = src_ps.draft
+    if src_ps.cellComments is not None:
+        tgt_ps.cellComments = src_ps.cellComments
+
     target_sheet.page_margins = copy(source_sheet.page_margins)
     target_sheet.print_options = copy(source_sheet.print_options)
-    target_sheet.sheet_format = copy(source_sheet.sheet_format)
-    target_sheet.sheet_properties = copy(source_sheet.sheet_properties)
+
+    src_fmt = source_sheet.sheet_format
+    tgt_fmt = target_sheet.sheet_format
+    if src_fmt.defaultColWidth is not None:
+        tgt_fmt.defaultColWidth = src_fmt.defaultColWidth
+    if src_fmt.defaultRowHeight is not None:
+        tgt_fmt.defaultRowHeight = src_fmt.defaultRowHeight
+    if src_fmt.customHeight is not None:
+        tgt_fmt.customHeight = src_fmt.customHeight
+    if src_fmt.zeroHeight is not None:
+        tgt_fmt.zeroHeight = src_fmt.zeroHeight
+
+    src_props = source_sheet.sheet_properties
+    tgt_props = target_sheet.sheet_properties
+    if src_props.filterMode is not None:
+        tgt_props.filterMode = src_props.filterMode
+    if src_props.pageSetUpPr is not None:
+        tgt_props.pageSetUpPr = copy(src_props.pageSetUpPr)
 
 
 def get_cell_width(sheet, row, col):

@@ -373,6 +373,7 @@ async def get_latest_protocol_template(
             ProtocolTemplate.deleted_at.is_(None),
         )
         .order_by(ProtocolTemplate.version.desc())
+        .limit(1)
     )
     return await execute_scalar_one_or_none(db, query)
 

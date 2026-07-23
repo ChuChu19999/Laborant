@@ -1,8 +1,6 @@
 import base64
 from copy import copy
-from io import BytesIO
 from typing import Any, Dict
-import openpyxl
 from openpyxl.cell.cell import MergedCell
 from openpyxl.styles import Alignment, Font
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,65 +10,58 @@ from models.protocol import ProtocolTemplate
 from repositories import protocol as protocol_repo
 from repositories.base import flush_entity
 from services.protocol import get_protocol_template_by_id
+from utils.protocol_generator_utils import (
+    decode_protocol_template_file,
+    get_template_content_bounds,
+    load_sanitized_template_workbook,
+    workbook_to_xlsx_bytes,
+)
 from utils.versioning import next_version_string
 
 
 async def get_template_file(
     template: ProtocolTemplate, section: str | None = None
 ) -> bytes:
-    """Получить файл шаблона в виде байтов."""
-    file_data = template.file
-    try:
-        template_bytes = BytesIO(base64.b64decode(file_data))
-    except Exception:
-        try:
-            with open(file_data, "rb") as f:
-                template_bytes = BytesIO(f.read())
-        except Exception:
-            template_bytes = BytesIO(
-                file_data.encode() if isinstance(file_data, str) else file_data
-            )
+    """Получить файл шаблона в виде байтов (с обрезкой раздутого used range)."""
+    del section  # секция пока не режет файл — отдаём весь лист после sanitize
+    raw = decode_protocol_template_file(template.file)
+    workbook = load_sanitized_template_workbook(raw)
+    return workbook_to_xlsx_bytes(workbook)
 
-    return template_bytes.getvalue()
+
+def _find_header_marker_rows(worksheet) -> tuple[int | None, int | None]:
+    """Ищет {{start_header}} / {{end_header}} только в колонке A по существующим ячейкам."""
+    start_header_row = None
+    end_header_row = None
+    last_row, _ = get_template_content_bounds(worksheet)
+    for row_idx in range(1, last_row + 1):
+        cell = worksheet._cells.get((row_idx, 1))
+        if cell is None or cell.value is None:
+            continue
+        if cell.value == "{{start_header}}":
+            start_header_row = row_idx
+        elif cell.value == "{{end_header}}":
+            end_header_row = row_idx
+            break
+    return start_header_row, end_header_row
 
 
 async def get_excel_styles(
     db: AsyncSession, template_id: int, section: str
 ) -> Dict[str, Any]:
     """Получить стили для ячеек в файле."""
+    del section
     template = await get_protocol_template_by_id(db, template_id)
     if not template:
         raise NotFoundError("Шаблон протокола не найден")
 
-    file_data = template.file
-    try:
-        template_bytes = BytesIO(base64.b64decode(file_data))
-    except Exception:
-        try:
-            with open(file_data, "rb") as f:
-                template_bytes = BytesIO(f.read())
-        except Exception:
-            template_bytes = BytesIO(
-                file_data.encode() if isinstance(file_data, str) else file_data
-            )
-
-    workbook = openpyxl.load_workbook(template_bytes)
+    raw = decode_protocol_template_file(template.file)
+    workbook = load_sanitized_template_workbook(raw)
     worksheet = workbook.active
 
     styles: Dict[str, Any] = {}
+    start_header_row, end_header_row = _find_header_marker_rows(worksheet)
 
-    # Ищем метки в файле
-    start_header_row = None
-    end_header_row = None
-    for row_idx in range(1, worksheet.max_row + 1):
-        cell_value = worksheet.cell(row=row_idx, column=1).value
-        if cell_value == "{{start_header}}":
-            start_header_row = row_idx
-        elif cell_value == "{{end_header}}":
-            end_header_row = row_idx
-            break
-
-    # Проверяем наличие меток
     if start_header_row is None or end_header_row is None:
         error_message = (
             "В файле не найдены метки {{start_header}} и {{end_header}}. "
@@ -79,7 +70,6 @@ async def get_excel_styles(
         logger.error(error_message)
         return {"error": error_message}
 
-    # Получаем стили для ячеек между метками
     for row_idx in range(start_header_row + 1, end_header_row):
         cell = worksheet.cell(row=row_idx, column=1)
         cell_key = f"{row_idx - start_header_row - 1}-0"
@@ -139,34 +129,15 @@ async def save_excel_section(
     current_template.soft_delete()
     await flush_entity(db)
 
-    file_data = current_template.file
-    try:
-        template_bytes = BytesIO(base64.b64decode(file_data))
-    except Exception:
-        try:
-            with open(file_data, "rb") as f:
-                template_bytes = BytesIO(f.read())
-        except Exception:
-            template_bytes = BytesIO(
-                file_data.encode() if isinstance(file_data, str) else file_data
-            )
-
-    workbook = openpyxl.load_workbook(template_bytes)
+    raw = decode_protocol_template_file(current_template.file)
+    workbook = load_sanitized_template_workbook(raw)
     worksheet = workbook.active
+    _, template_last_col = get_template_content_bounds(worksheet)
 
     # В зависимости от типа секции применяем логику
     if section == "header":
-        # Находим существующие метки в файле
-        start_header_row = None
-        end_header_row = None
-        for row_idx in range(1, worksheet.max_row + 1):
-            cell_value = worksheet.cell(row=row_idx, column=1).value
-            if cell_value == "{{start_header}}":
-                start_header_row = row_idx
-            elif cell_value == "{{end_header}}":
-                end_header_row = row_idx
+        start_header_row, end_header_row = _find_header_marker_rows(worksheet)
 
-        # Проверяем наличие меток
         if start_header_row is None or end_header_row is None:
             error_message = (
                 "В файле не найдены метки {{start_header}} и {{end_header}}. "
@@ -180,7 +151,7 @@ async def save_excel_section(
             # Сдвигаем данные после end_header вниз
             shift = len(data) - (end_header_row - start_header_row - 1)
             for row_idx in range(worksheet.max_row, end_header_row - 1, -1):
-                for col_idx in range(1, worksheet.max_column + 1):
+                for col_idx in range(1, template_last_col + 1):
                     source_cell = worksheet.cell(row=row_idx, column=col_idx)
                     target_cell = worksheet.cell(row=row_idx + shift, column=col_idx)
 
@@ -305,9 +276,7 @@ async def save_excel_section(
         logger.error(f"Неизвестная секция для редактирования: {section}")
         raise ValidationError(f"Неизвестная секция: {section}")
 
-    output = BytesIO()
-    workbook.save(output)
-    file_content = output.getvalue()
+    file_content = workbook_to_xlsx_bytes(workbook)
     file_base64 = base64.b64encode(file_content).decode("utf-8")
 
     # Создаем новый шаблон с измененным содержимым

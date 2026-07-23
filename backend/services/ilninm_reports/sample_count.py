@@ -18,6 +18,7 @@ from core.logger import logger
 from models.sample import Sample
 from repositories import sample as sample_repo
 from utils.ilninm_constants import DISPLAY_NAMES_CDGGKN, SAMPLING_LOCATIONS_CDGGKN
+from utils.sample_formatting import format_well_display
 from .constants import (
     BRANCH_GPU_PRAO,
     BRANCH_NGDU,
@@ -336,7 +337,7 @@ def _build_ekspluatacionnaya_neft_ngdu(
             date_part = (
                 _fmt_date(report_date) if report_date else "(дата отбора не указана)"
             )
-            lines.append(f"{display_name} скв. {s.well} от {date_part}")
+            lines.append(f"{display_name} {format_well_display(s.well)} от {date_part}")
         lines.append("")
     if lines and lines[-1] == "":
         lines.pop()
@@ -399,8 +400,9 @@ def _build_vneplanovye(
         pok = sum(_sample_indicators_count(s) for s in group)
         date_part = _fmt_date(dt_key) if dt_key else "(дата отбора не указана)"
         text = place
-        if well_key:
-            text += f" скв. {well_key}"
+        well_display = format_well_display(well_key)
+        if well_display:
+            text += f" {well_display}"
         if mode_key:
             text += f" {mode_key}"
         lines.append(f"{text} от {date_part} по {pok} пок")
@@ -585,7 +587,9 @@ def _build_ois(
             date_part = (
                 _fmt_date(report_date) if report_date else "(дата отбора не указана)"
             )
-            lines.append(f"{display_name} скв. {well_key} от {date_part}")
+            lines.append(
+                f"{display_name} {format_well_display(well_key)} от {date_part}"
+            )
         lines.append("")
     if lines and lines[-1] == "":
         lines.pop()
@@ -693,8 +697,9 @@ def _build_prochie(
         date_part = _fmt_date(dt_key) if dt_key else "(дата отбора не указана)"
 
         text = place_key
-        if well_key:
-            text += f" скв. {well_key}"
+        well_display = format_well_display(well_key)
+        if well_display:
+            text += f" {well_display}"
         if mode_key:
             text += f" {mode_key}"
         lines.append(f"{text} от {date_part} по {pok} пок")

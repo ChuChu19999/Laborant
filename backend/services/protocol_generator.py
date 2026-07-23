@@ -2,6 +2,7 @@ import base64
 import re
 from contextvars import ContextVar
 from copy import copy
+from dataclasses import dataclass
 from io import BytesIO
 from typing import Any, Dict, List, Optional
 from urllib.parse import quote
@@ -11,6 +12,7 @@ import pendulum
 from fastapi import HTTPException, status
 from fastapi.responses import Response
 from openpyxl.styles import Border
+from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.header_footer import _HeaderFooterPart
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,6 +21,7 @@ from core.exceptions import NotFoundError, ValidationError
 from core.logger import logger
 from models.calculation import Calculation
 from models.equipment import Equipment
+from models.nd_norm import NdNorm
 from models.protocol import Protocol
 from models.research import ResearchMethod
 from models.sample import Sample, SelectionConditions
@@ -30,24 +33,34 @@ from services.test_object import (
     pick_first_protocol_abbreviation,
 )
 from utils.protocol_generator_utils import (
+    END_WIDTH_MARKER,
+    START_WIDTH_MARKER,
     adjust_cell_height_if_needed,
     apply_sheet_print_area,
     check_method_name,
+    copy_cell_block,
     copy_cell_style,
     copy_column_dimensions,
+    copy_row_dimension,
     copy_row_formatting,
     copy_row_with_styles,
     copy_sheet_page_settings,
     find_protocol_end_row,
     format_measurement_error_value,
     format_protocol_calculation_result,
+    get_row_copy_max_col,
     get_template_content_bounds,
     group_name_matches,
+    has_if_multiple_samples_marker,
     join_unique_values,
+    parse_if_col_condition,
     parse_if_line_condition,
+    purge_sheet_cells_beyond,
     strip_if_line_marker,
+    strip_table1_structural_markers,
     template_contains_marker,
 )
+from utils.sample_formatting import format_well_display
 
 # Аббревиатура для текущего формирования Excel (без протягивания по всем функциям).
 _protocol_abbreviation_ctx: ContextVar[str] = ContextVar(
@@ -67,6 +80,16 @@ TABLE_END_MARKERS = {
     "{end_table2}",
     "{end_table3}",
 }
+
+
+def _existing_cols_in_row(sheet, row_num: int) -> list[int]:
+    """Столбцы, уже созданные в строке (без раздувания max_column)."""
+    return sorted(col for (row, col) in sheet._cells if row == row_num)
+
+
+def _scan_row_max_col(sheet, row_num: int, col_limit: int = 60) -> int:
+    """Верхняя граница обхода строки шаблона или листа."""
+    return get_row_copy_max_col(sheet, row_num, col_limit=col_limit)
 
 
 async def process_cell_markers(
@@ -182,11 +205,9 @@ async def get_marker_value_title(
                     location_parts.append(sample.sampling_location.name.strip())
 
                 if not sampling_location_name_only:
-                    if sample.well and sample.well.strip():
-                        well_value = sample.well.strip()
-                        if re.match(r"^\d", well_value):
-                            well_value = f"скв. {well_value}"
-                        location_parts.append(well_value)
+                    well_display = format_well_display(sample.well)
+                    if well_display:
+                        location_parts.append(well_display)
 
                     if sample.mode and sample.mode.strip():
                         location_parts.append(sample.mode.strip())
@@ -496,10 +517,7 @@ async def process_header(
         if any(cell and str(cell).strip() == "{{end_header}}" for cell in row):
             return current_row + 1
 
-        if current_row in template_sheet.row_dimensions:
-            new_sheet.row_dimensions[current_row_new] = copy(
-                template_sheet.row_dimensions[current_row]
-            )
+        copy_row_dimension(template_sheet, new_sheet, current_row, current_row_new)
 
         for merged_range in template_sheet.merged_cells.ranges:
             if merged_range.min_row == current_row:
@@ -515,7 +533,8 @@ async def process_header(
         copy_row_with_styles(template_sheet, new_sheet, current_row, current_row_new)
 
         skip_row = False
-        for col in range(1, template_sheet.max_column + 1):
+        row_max_col = get_row_copy_max_col(template_sheet, current_row)
+        for col in range(1, row_max_col + 1):
             cell = new_sheet.cell(row=current_row_new, column=col)
             if cell.value:
                 processed_value = await process_cell_markers(
@@ -588,10 +607,7 @@ async def process_header_and_conditions(
         if skip_row:
             continue
 
-        if current_row in template_sheet.row_dimensions:
-            new_sheet.row_dimensions[current_row_new] = copy(
-                template_sheet.row_dimensions[current_row]
-            )
+        copy_row_dimension(template_sheet, new_sheet, current_row, current_row_new)
 
         for merged_range in template_sheet.merged_cells.ranges:
             if merged_range.min_row == current_row:
@@ -677,10 +693,7 @@ async def process_footer(
         if any(cell and str(cell).strip() in TABLE_END_MARKERS for cell in row):
             continue
 
-        if row_num in template_sheet.row_dimensions:
-            current_sheet.row_dimensions[current_row] = copy(
-                template_sheet.row_dimensions[row_num]
-            )
+        copy_row_dimension(template_sheet, current_sheet, row_num, current_row)
 
         for merged_range in template_sheet.merged_cells.ranges:
             if merged_range.min_row == row_num:
@@ -811,7 +824,8 @@ async def process_between_tables(
         )
 
         if row_num == row_with_executor and executors and executor_column:
-            for col in range(1, template_sheet.max_column + 1):
+            row_max_col = _scan_row_max_col(template_sheet, row_num)
+            for col in range(1, row_max_col + 1):
                 cell = current_sheet.cell(row=current_row, column=col)
                 if cell.value:
                     if col == executor_column and "{executor}" in str(cell.value):
@@ -838,7 +852,7 @@ async def process_between_tables(
                     merged_cells_map,
                 )
 
-                for col in range(1, template_sheet.max_column + 1):
+                for col in range(1, row_max_col + 1):
                     cell = current_sheet.cell(row=current_row, column=col)
                     if cell.value:
                         if col == executor_column and "{executor}" in str(cell.value):
@@ -848,7 +862,8 @@ async def process_between_tables(
 
                 current_row += 1
         else:
-            for col in range(1, template_sheet.max_column + 1):
+            row_max_col = _scan_row_max_col(template_sheet, row_num)
+            for col in range(1, row_max_col + 1):
                 cell = current_sheet.cell(row=current_row, column=col)
                 if cell.value:
                     processed_value = await process_cell_markers(
@@ -912,7 +927,7 @@ def _find_calculation_for_if_line(
 
 def _row_has_fractional_markers(template_sheet, row_num: int) -> bool:
     """Проверяет, есть ли в строке шаблона fractional-метки."""
-    for col in range(1, template_sheet.max_column + 1):
+    for col in range(1, _scan_row_max_col(template_sheet, row_num) + 1):
         value = template_sheet.cell(row=row_num, column=col).value
         if value and isinstance(value, str) and "{fractional_" in value:
             return True
@@ -928,7 +943,7 @@ def _fill_method_row_placeholders(
     clear_all: bool = False,
 ) -> None:
     """Подставляет метки таблицы 1."""
-    for col in range(1, current_sheet.max_column + 1):
+    for col in _existing_cols_in_row(current_sheet, row_num):
         cell = current_sheet.cell(row=row_num, column=col)
         if not cell.value or not isinstance(cell.value, str):
             continue
@@ -1033,7 +1048,7 @@ def _fill_fractional_placeholders(
     measurement_method: str,
 ) -> None:
     """Подставляет fractional-метки и {name_method}/{group_name} как есть."""
-    for col in range(1, current_sheet.max_column + 1):
+    for col in _existing_cols_in_row(current_sheet, row_num):
         cell = current_sheet.cell(row=row_num, column=col)
         if not cell.value or not isinstance(cell.value, str):
             continue
@@ -1263,7 +1278,7 @@ def _clear_row_horizontal_borders(
     clear_bottom: bool = False,
 ) -> None:
     """Убирает верхнюю и/или нижнюю границу у ячеек строки."""
-    for col in range(1, sheet.max_column + 1):
+    for col in _existing_cols_in_row(sheet, row_num):
         cell = sheet.cell(row=row_num, column=col)
         if not cell.border:
             continue
@@ -1298,7 +1313,7 @@ def _template_row_has_edge_border(
     edge: str,
 ) -> bool:
     """Есть ли у строки шаблона горизонтальная граница (top/bottom) хоть у одной ячейки."""
-    for col in range(1, template_sheet.max_column + 1):
+    for col in range(1, _scan_row_max_col(template_sheet, row_num) + 1):
         border = template_sheet.cell(row=row_num, column=col).border
         if not border:
             continue
@@ -1317,7 +1332,7 @@ def _apply_row_bottom_from_template_edge(
     source_edge: str,
 ) -> None:
     """Копирует top/bottom границы строки шаблона как нижнюю границу целевой строки."""
-    for col in range(1, template_sheet.max_column + 1):
+    for col in range(1, _scan_row_max_col(template_sheet, template_row) + 1):
         source = template_sheet.cell(row=template_row, column=col)
         target = current_sheet.cell(row=target_row, column=col)
         src_border = source.border
@@ -1505,24 +1520,205 @@ def _condensate_kk_measurement_error(field_value) -> str:
     return "±7"
 
 
-async def process_methods_table(
-    samples: List[Sample],
-    template_sheet,
-    new_sheet,
-    table_start,
-    merged_cells_map,
-    current_row,
-    selection_conditions_templates: Optional[List[Dict[str, Any]]] = None,
-):
-    """
-    Обрабатывает таблицу 1: строки с {if line} либо заполняются
-    и остаются видимыми, либо копируются скрытыми.
-    """
-    del selection_conditions_templates  # метки таблицы 1 не используют условия отбора
-    current_sheet = new_sheet
-    valid_calculations = _collect_valid_calculations(samples)
-    template_last_row, _ = get_template_content_bounds(template_sheet)
+# План колонок таблицы 1 (сохраняется до финального copy_column_dimensions).
+_table1_column_plan_ctx: ContextVar[Optional["Table1ColumnPlan"]] = ContextVar(
+    "table1_column_plan", default=None
+)
 
+
+@dataclass
+class IfColBlock:
+    """Блок столбцов шаблона с условием {if col}."""
+
+    min_col: int
+    max_col: int
+    conditions: dict[str, str]
+    calc: Calculation | None = None
+
+
+@dataclass
+class LaidOutBlock:
+    """Блок метода после упаковки в итоговый лист."""
+
+    source_min: int
+    source_max: int
+    target_min: int
+    target_max: int
+    calc: Calculation
+    in_width_zone: bool
+
+
+@dataclass
+class Table1ColumnPlan:
+    """План столбцов таблицы 1 с {if col}."""
+
+    left_end: int
+    blocks: list[LaidOutBlock]
+    start_width_col: int | None
+    end_width_col: int | None
+    last_target_col: int
+    last_zone_target_col: int
+
+
+def get_marker_value_sync(
+    protocol: Protocol,
+    samples: List[Sample],
+    marker: str,
+    *,
+    sampling_location_name_only: bool = False,
+) -> str:
+    """Синхронная подстановка меток без обращений к HR API."""
+    try:
+        if marker == "test_protocol_number":
+            return str(protocol.test_protocol_number or "").strip()
+
+        if marker == "date_protocol":
+            if not protocol.test_protocol_date:
+                return ""
+            return pendulum.instance(protocol.test_protocol_date).format("DD.MM.YYYY")
+
+        if marker == "abbreviation":
+            return _protocol_abbreviation_ctx.get() or ""
+
+        if marker == "accreditation":
+            return ""
+
+        if marker == "subd":
+            branches = [
+                sample.branch.name
+                for sample in samples
+                if sample.branch and sample.branch.name
+            ]
+            return join_unique_values(branches)
+
+        if marker == "tel":
+            phones = [sample.phone for sample in samples if sample.phone]
+            return join_unique_values(phones)
+
+        if marker == "res_object":
+            objects = [sample.test_object for sample in samples if sample.test_object]
+            return join_unique_values(objects)
+
+        if marker == "sampling_location":
+            locations = []
+            for sample in samples:
+                location_parts = []
+                if sample.sampling_location and sample.sampling_location.name:
+                    location_parts.append(sample.sampling_location.name.strip())
+
+                if not sampling_location_name_only:
+                    well_display = format_well_display(sample.well)
+                    if well_display:
+                        location_parts.append(well_display)
+
+                    if sample.mode and sample.mode.strip():
+                        location_parts.append(sample.mode.strip())
+
+                if location_parts:
+                    locations.append(" ".join(location_parts))
+            return join_unique_values(locations)
+
+        if marker == "mode":
+            modes = [
+                sample.mode.strip()
+                for sample in samples
+                if sample.mode and sample.mode.strip()
+            ]
+            return join_unique_values(modes)
+
+        if marker == "sampling_date":
+            dates = sorted(
+                set(
+                    pendulum.instance(sample.sampling_date).format("DD.MM.YYYY")
+                    for sample in samples
+                    if sample.sampling_date
+                )
+            )
+            return ", ".join(dates) if dates else ""
+
+        if marker == "receiving_date":
+            dates = sorted(
+                set(
+                    pendulum.instance(sample.receiving_date).format("DD.MM.YYYY")
+                    for sample in samples
+                    if sample.receiving_date
+                )
+            )
+            return ", ".join(dates) if dates else ""
+
+        if marker == "laboratory_activity_dates":
+            dates = []
+            for sample in samples:
+                for calc in sample.calculations:
+                    if calc.deleted_at is None and calc.laboratory_activity_date:
+                        dates.append(calc.laboratory_activity_date)
+            if dates:
+                min_date = pendulum.instance(min(dates)).format("DD.MM.YYYY")
+                max_date = pendulum.instance(max(dates)).format("DD.MM.YYYY")
+                return f"{min_date}-{max_date}" if min_date != max_date else min_date
+            return ""
+
+        if marker == "lab_location":
+            if (
+                protocol.department
+                and hasattr(protocol.department, "laboratory_location")
+                and protocol.department.laboratory_location
+            ):
+                return protocol.department.laboratory_location
+            if (
+                protocol.laboratory
+                and hasattr(protocol.laboratory, "laboratory_location")
+                and protocol.laboratory.laboratory_location
+            ):
+                return protocol.laboratory.laboratory_location
+            return ""
+
+        if marker == "sampling_act_number":
+            return protocol.sampling_act_number or ""
+
+        if marker == "registration_number":
+            numbers = [
+                sample.registration_number
+                for sample in samples
+                if sample.registration_number
+            ]
+            return join_unique_values(numbers)
+
+        # Без async HR: только сохранённые должности, имена пустые.
+        if marker == "workplace_issued":
+            return protocol.issued_position or ""
+
+        if marker == "issued":
+            return ""
+
+        if marker == "workplace_approved":
+            return protocol.approved_position or ""
+
+        if marker == "approved":
+            return ""
+
+        return ""
+    except Exception as e:
+        logger.error(f"Ошибка при синхронной подстановке метки {marker}: {str(e)}")
+        return ""
+
+
+def _get_merged_col_bounds(sheet, row: int, col: int) -> tuple[int, int]:
+    """Горизонтальные границы объединения, содержащего ячейку."""
+    for merged_range in sheet.merged_cells.ranges:
+        if (
+            merged_range.min_row <= row <= merged_range.max_row
+            and merged_range.min_col <= col <= merged_range.max_col
+        ):
+            return merged_range.min_col, merged_range.max_col
+    return col, col
+
+
+def _find_table1_bounds(
+    template_sheet, table_start: int
+) -> tuple[int | None, int | None]:
+    """Возвращает строки {start_table1} и {end_table1}."""
+    template_last_row, _ = get_template_content_bounds(template_sheet)
     table_data_start = None
     table_data_end = None
     for row_num in range(table_start, template_last_row + 1):
@@ -1540,11 +1736,1000 @@ async def process_methods_table(
         ):
             table_data_end = row_num
             break
-
-    if table_data_start is None:
-        return current_sheet
-    if table_data_end is None:
+    if table_data_start is not None and table_data_end is None:
         table_data_end = template_last_row + 1
+    return table_data_start, table_data_end
+
+
+def _table1_uses_column_mode(template_sheet, table_start: int, table_end: int) -> bool:
+    """Колоночный режим: внутри table1 есть {if col} или {{start_width}}."""
+    _, last_col = get_template_content_bounds(template_sheet)
+    for row_num in range(table_start, table_end + 1):
+        for col_num in range(1, last_col + 1):
+            value = template_sheet.cell(row=row_num, column=col_num).value
+            if not value or not isinstance(value, str):
+                continue
+            if parse_if_col_condition(value) is not None:
+                return True
+            if START_WIDTH_MARKER in value:
+                return True
+            # На случай частично повреждённого маркера в шаблоне.
+            if "{if col" in value:
+                return True
+    return False
+
+
+def _find_width_marker_cols(sheet) -> tuple[int | None, int | None]:
+    """Ищет столбцы {{start_width}} / {{end_width}} на листе."""
+    last_row, last_col = get_template_content_bounds(sheet)
+    start_col = None
+    end_col = None
+    for row_num in range(1, last_row + 1):
+        for col_num in range(1, last_col + 1):
+            value = sheet.cell(row=row_num, column=col_num).value
+            if not value or not isinstance(value, str):
+                continue
+            if START_WIDTH_MARKER in value and start_col is None:
+                start_col = col_num
+            if END_WIDTH_MARKER in value and end_col is None:
+                end_col = col_num
+    return start_col, end_col
+
+
+def _detect_if_col_blocks(
+    template_sheet,
+    table_start: int,
+    table_end: int,
+) -> list[IfColBlock]:
+    """Собирает уникальные блоки {if col} слева направо."""
+    _, last_col = get_template_content_bounds(template_sheet)
+    blocks_by_start: dict[int, IfColBlock] = {}
+
+    for row_num in range(table_start, table_end):
+        for col_num in range(1, last_col + 1):
+            value = template_sheet.cell(row=row_num, column=col_num).value
+            if not value or not isinstance(value, str):
+                continue
+            conditions = parse_if_col_condition(value)
+            if not conditions:
+                continue
+            min_col, max_col = _get_merged_col_bounds(template_sheet, row_num, col_num)
+            existing = blocks_by_start.get(min_col)
+            if existing is None or max_col > existing.max_col:
+                blocks_by_start[min_col] = IfColBlock(
+                    min_col=min_col,
+                    max_col=max_col,
+                    conditions=conditions,
+                )
+
+    return [blocks_by_start[key] for key in sorted(blocks_by_start)]
+
+
+def _match_if_col_blocks(
+    blocks: list[IfColBlock],
+    calculations: list[Calculation],
+) -> list[IfColBlock]:
+    """Оставляет блоки с подходящим расчётом; каждый расчёт только один раз."""
+    remaining = list(calculations)
+    matched: list[IfColBlock] = []
+    for block in blocks:
+        calc = _find_calculation_for_if_line(block.conditions, remaining)
+        if calc is None:
+            continue
+        remaining = [item for item in remaining if item is not calc]
+        matched.append(
+            IfColBlock(
+                min_col=block.min_col,
+                max_col=block.max_col,
+                conditions=block.conditions,
+                calc=calc,
+            )
+        )
+    return matched
+
+
+def _row_is_wide_method_banner(
+    template_sheet,
+    row_num: int,
+    plan: Table1ColumnPlan,
+) -> bool:
+    """
+    Строка-шапка на всю зону методов (например D23:AC23 «Метод испытания»).
+
+    Не путать со строкой названий методов: там у каждого блока свой текст.
+    """
+    if not plan.blocks:
+        return False
+    pack_start = (
+        plan.start_width_col
+        if plan.start_width_col is not None
+        else plan.blocks[0].target_min
+    )
+    first_span = plan.blocks[0].source_max - plan.blocks[0].source_min + 1
+    for merged_range in template_sheet.merged_cells.ranges:
+        if merged_range.min_row != row_num:
+            continue
+        if merged_range.min_col > pack_start:
+            continue
+        if merged_range.max_col < pack_start:
+            continue
+        # Merge шире двух типичных блоков метода — это общая шапка зоны.
+        if merged_range.max_col - merged_range.min_col + 1 > first_span * 2:
+            return True
+    return False
+
+
+def _excel_col_width(sheet, col: int) -> float:
+    """Ширина столбца Excel или стандартное значение."""
+    letter = get_column_letter(col)
+    dim = sheet.column_dimensions.get(letter)
+    if dim and dim.width is not None:
+        return float(dim.width)
+    return 8.43
+
+
+def _partition_columns_by_equal_width(
+    template_sheet,
+    start_col: int,
+    end_col: int,
+    n_groups: int,
+) -> list[tuple[int, int]]:
+    """
+    Делит столбцы [start_col, end_col) на n_groups групп с близкой суммой ширин.
+
+    Ширины листа не меняет — равная ширина методов получается merge в строках table1.
+    """
+    if n_groups <= 0 or end_col <= start_col:
+        return []
+
+    cols = list(range(start_col, end_col))
+    widths = [_excel_col_width(template_sheet, col) for col in cols]
+    if n_groups == 1:
+        return [(cols[0], cols[-1])]
+
+    if n_groups >= len(cols):
+        return [(col, col) for col in cols]
+
+    cumulative: list[float] = []
+    running = 0.0
+    for width in widths:
+        running += width
+        cumulative.append(running)
+    total = cumulative[-1] or float(len(cols))
+
+    groups: list[tuple[int, int]] = []
+    prev_idx = 0
+    for group_idx in range(n_groups):
+        if group_idx == n_groups - 1:
+            groups.append((cols[prev_idx], cols[-1]))
+            break
+
+        target_cum = total * (group_idx + 1) / n_groups
+        # Минимум 1 столбец на группу; оставляем по столбцу на оставшиеся группы.
+        max_idx = len(cols) - (n_groups - group_idx - 1) - 1
+        min_idx = prev_idx
+        best_idx = min_idx
+        best_diff = abs(cumulative[min_idx] - target_cum)
+        for idx in range(min_idx, max_idx + 1):
+            diff = abs(cumulative[idx] - target_cum)
+            if diff < best_diff:
+                best_diff = diff
+                best_idx = idx
+        groups.append((cols[prev_idx], cols[best_idx]))
+        prev_idx = best_idx + 1
+    return groups
+
+
+def _build_table1_column_plan(
+    template_sheet,
+    matched_blocks: list[IfColBlock],
+) -> Table1ColumnPlan | None:
+    """
+    Раскладывает все совпавшие методы в зоне start_width..end_width.
+
+    Столбцы зоны делятся на равные по сумме ширин группы (merge в table1).
+    column_dimensions листа не меняются — вне таблицы вид как в шаблоне.
+    """
+    if not matched_blocks:
+        return None
+
+    start_width_col, end_width_col = _find_width_marker_cols(template_sheet)
+    first_block_start = min(block.min_col for block in matched_blocks)
+    pack_start = start_width_col if start_width_col is not None else first_block_start
+    left_end = pack_start - 1
+
+    laid_out: list[LaidOutBlock] = []
+
+    if (
+        start_width_col is not None
+        and end_width_col is not None
+        and end_width_col > start_width_col
+    ):
+        groups = _partition_columns_by_equal_width(
+            template_sheet,
+            start_width_col,
+            end_width_col,
+            len(matched_blocks),
+        )
+        for block, (tgt_min, tgt_max) in zip(matched_blocks, groups):
+            assert block.calc is not None
+            laid_out.append(
+                LaidOutBlock(
+                    source_min=block.min_col,
+                    source_max=block.max_col,
+                    target_min=tgt_min,
+                    target_max=tgt_max,
+                    calc=block.calc,
+                    in_width_zone=True,
+                )
+            )
+        # Методов больше, чем столбцов зоны — остаток сразу после end_width.
+        cursor = end_width_col
+        for block in matched_blocks[len(groups) :]:
+            assert block.calc is not None
+            span = block.max_col - block.min_col + 1
+            laid_out.append(
+                LaidOutBlock(
+                    source_min=block.min_col,
+                    source_max=block.max_col,
+                    target_min=cursor,
+                    target_max=cursor + span - 1,
+                    calc=block.calc,
+                    in_width_zone=False,
+                )
+            )
+            cursor += span
+        last_zone_target = groups[-1][1] if groups else pack_start - 1
+    else:
+        cursor = pack_start
+        for block in matched_blocks:
+            assert block.calc is not None
+            span = block.max_col - block.min_col + 1
+            laid_out.append(
+                LaidOutBlock(
+                    source_min=block.min_col,
+                    source_max=block.max_col,
+                    target_min=cursor,
+                    target_max=cursor + span - 1,
+                    calc=block.calc,
+                    in_width_zone=True,
+                )
+            )
+            cursor += span
+        last_zone_target = cursor - 1
+
+    last_target = max((block.target_max for block in laid_out), default=left_end)
+    return Table1ColumnPlan(
+        left_end=left_end,
+        blocks=laid_out,
+        start_width_col=start_width_col,
+        end_width_col=end_width_col,
+        last_target_col=last_target,
+        last_zone_target_col=last_zone_target,
+    )
+
+
+def apply_table1_column_widths(
+    template_sheet,
+    target_sheet,
+    plan: Table1ColumnPlan,
+) -> None:
+    """
+    Ширины листа не меняет: вне table1 ячейки должны совпадать с шаблоном.
+
+    Равная ширина методов достигается раскладкой merge по столбцам зоны,
+    а не изменением column_dimensions.
+    """
+    del template_sheet, target_sheet, plan
+
+
+async def _load_applicable_nd_norms(
+    db: AsyncSession,
+    protocol: Protocol,
+    samples: List[Sample],
+    method_ids: set[int],
+) -> list[tuple[NdNorm, dict[int, str]]]:
+    """Загружает нормы НД, применимые к методам протокола."""
+    if not method_ids:
+        return []
+
+    test_objects = {
+        sample.test_object.strip().lower()
+        for sample in samples
+        if sample.test_object and sample.test_object.strip()
+    }
+    if not test_objects:
+        return []
+
+    conditions = [
+        NdNorm.deleted_at.is_(None),
+        NdNorm.laboratory_id == protocol.laboratory_id,
+    ]
+    if protocol.department_id:
+        conditions.append(
+            (NdNorm.department_id == protocol.department_id)
+            | (NdNorm.department_id.is_(None))
+        )
+
+    result = await db.execute(select(NdNorm).where(*conditions).order_by(NdNorm.name))
+    applicable: list[tuple[NdNorm, dict[int, str]]] = []
+    for norm in result.scalars().all():
+        if (norm.test_object or "").strip().lower() not in test_objects:
+            continue
+        values_by_method: dict[int, str] = {}
+        for item in norm.method_data or []:
+            method_id = item.get("method_id")
+            if method_id in method_ids:
+                values_by_method[int(method_id)] = str(item.get("value") or "").strip()
+        if values_by_method:
+            applicable.append((norm, values_by_method))
+    return applicable
+
+
+def _build_sample_calcs_by_method(sample: Sample) -> dict[int, Calculation]:
+    """Индекс расчётов пробы по ID метода."""
+    return {
+        calc.research_method.id: calc
+        for calc in sample.calculations
+        if calc.deleted_at is None and calc.research_method
+    }
+
+
+def _row_has_if_multiple_samples(template_sheet, row_num: int) -> bool:
+    """Строка помечена {if multiple samples line}."""
+    _, last_col = get_template_content_bounds(template_sheet)
+    for col in range(1, last_col + 1):
+        value = template_sheet.cell(row=row_num, column=col).value
+        if value and isinstance(value, str) and has_if_multiple_samples_marker(value):
+            return True
+    return False
+
+
+def _row_has_norma_markers(template_sheet, row_num: int) -> bool:
+    """Строка содержит {norma} или {norma_value}."""
+    _, last_col = get_template_content_bounds(template_sheet)
+    for col in range(1, last_col + 1):
+        value = template_sheet.cell(row=row_num, column=col).value
+        if not value or not isinstance(value, str):
+            continue
+        if "{norma}" in value or "{norma_value}" in value:
+            return True
+    return False
+
+
+def _template_row_is_blank(template_sheet, row_num: int) -> bool:
+    """В строке шаблона нет значений."""
+    _, last_col = get_template_content_bounds(template_sheet)
+    for col in range(1, last_col + 1):
+        value = template_sheet.cell(row=row_num, column=col).value
+        if value is not None and str(value).strip():
+            return False
+    return True
+
+
+def _row_is_norma_merge_continuation(template_sheet, row_num: int) -> bool:
+    """Строка продолжает merge блока нормы (A27:C29), без собственной метки."""
+    for merged_range in template_sheet.merged_cells.ranges:
+        if not (merged_range.min_row < row_num <= merged_range.max_row):
+            continue
+        anchor = template_sheet.cell(
+            row=merged_range.min_row, column=merged_range.min_col
+        ).value
+        if not anchor or not isinstance(anchor, str):
+            continue
+        if "{norma}" in anchor or "{norma_value}" in anchor:
+            return True
+    return False
+
+
+def _left_merge_anchor(
+    template_sheet, row_num: int, col_num: int
+) -> tuple[int, int, int, int] | None:
+    """
+    Если ячейка в merge слева — (min_row, min_col, max_row, max_col).
+    Иначе None.
+    """
+    for merged_range in template_sheet.merged_cells.ranges:
+        if not (
+            merged_range.min_row <= row_num <= merged_range.max_row
+            and merged_range.min_col <= col_num <= merged_range.max_col
+        ):
+            continue
+        return (
+            merged_range.min_row,
+            merged_range.min_col,
+            merged_range.max_row,
+            merged_range.max_col,
+        )
+    return None
+
+
+def _resolve_column_cell_value_sync(
+    protocol: Protocol,
+    samples_for_markers: list[Sample],
+    cell_value: str,
+    *,
+    calc: Calculation | None = None,
+    sample_calc: Calculation | None = None,
+    norm_name: str | None = None,
+    norm_values_by_method: dict[int, str] | None = None,
+    sampling_location_name_only: bool = False,
+    selection_conditions_templates: list[dict[str, Any]] | None = None,
+) -> str:
+    """Подставляет метки ячейки колоночной таблицы 1."""
+    value = strip_table1_structural_markers(cell_value)
+    if not value:
+        return ""
+
+    method_calc = sample_calc if sample_calc is not None else calc
+    method_id = (
+        method_calc.research_method.id
+        if method_calc and method_calc.research_method
+        else None
+    )
+
+    if "{norma}" in value:
+        value = value.replace("{norma}", norm_name or "")
+    if "{norma_value}" in value:
+        norm_text = ""
+        if norm_values_by_method and method_id is not None:
+            norm_text = (norm_values_by_method.get(method_id) or "").strip()
+        if not norm_text:
+            norm_text = "-"
+        value = value.replace("{norma_value}", norm_text)
+
+    if "{nd_code}" in value and calc and calc.research_method:
+        value = value.replace("{nd_code}", calc.research_method.nd_code or "")
+    if ("{nd_name}" in value or "{name_nd}" in value) and calc and calc.research_method:
+        nd_name = calc.research_method.nd_name or ""
+        value = value.replace("{nd_name}", nd_name).replace("{name_nd}", nd_name)
+
+    if "{name_method}" in value and calc and calc.research_method:
+        value = value.replace("{name_method}", calc.research_method.name or "")
+    if "{group_name}" in value and calc and calc.research_method:
+        value = value.replace("{group_name}", _primary_group_name(calc.research_method))
+
+    if "{unit}" in value:
+        if method_calc:
+            value = value.replace("{unit}", (method_calc.unit or "").strip() or "-")
+        else:
+            value = value.replace("{unit}", "")
+
+    if "{measurement_method}" in value and calc and calc.research_method:
+        value = value.replace(
+            "{measurement_method}",
+            calc.research_method.measurement_method or "-",
+        )
+
+    if "{result}" in value:
+        if method_calc:
+            result_text = format_protocol_calculation_result(method_calc)
+        elif samples_for_markers:
+            result_text = "-"
+        else:
+            result_text = ""
+        value = value.replace("{result}", result_text)
+
+    if "{measurement_error}" in value:
+        if method_calc:
+            error_text = format_measurement_error_value(method_calc.measurement_error)
+            if error_text == "-":
+                error_text = ""
+        else:
+            error_text = ""
+        value = value.replace("{measurement_error}", error_text)
+
+    if "{" in value:
+        start = 0
+        while True:
+            start = value.find("{", start)
+            if start == -1:
+                break
+            end = value.find("}", start)
+            if end == -1:
+                break
+            marker = value[start + 1 : end]
+            if marker.startswith("sel_cond_") or marker == "bu":
+                start = end + 1
+                continue
+            if marker.startswith("if ") or marker in {
+                "start_width",
+                "end_width",
+                "start_table1",
+                "end_table1",
+            }:
+                start = end + 1
+                continue
+            marker_value = get_marker_value_sync(
+                protocol,
+                samples_for_markers,
+                marker,
+                sampling_location_name_only=sampling_location_name_only,
+            )
+            value = value.replace(f"{{{marker}}}", marker_value)
+            start = end + 1
+
+    if samples_for_markers:
+        processed = process_selection_conditions_row(
+            samples_for_markers, value, selection_conditions_templates
+        )
+        if processed is None:
+            return ""
+        return processed
+
+    return value
+
+
+def _copy_row_height_only(
+    template_sheet, current_sheet, template_row: int, target_row: int
+) -> None:
+    """Копирует только высоту/hidden строки без подмены RowDimension."""
+    copy_row_dimension(template_sheet, current_sheet, template_row, target_row)
+
+
+def _write_column_table_row(
+    protocol: Protocol,
+    template_sheet,
+    current_sheet,
+    template_row: int,
+    target_row: int,
+    plan: Table1ColumnPlan,
+    merged_cells_map,
+    *,
+    sample: Sample | None = None,
+    samples_for_markers: list[Sample] | None = None,
+    sample_calcs_by_method: dict[int, Calculation] | None = None,
+    norm_name: str | None = None,
+    norm_values_by_method: dict[int, str] | None = None,
+    sampling_location_name_only: bool = False,
+    selection_conditions_templates: list[dict[str, Any]] | None = None,
+) -> None:
+    """Пишет строку колоночной таблицы 1 с упакованными блоками методов."""
+    markers_samples = samples_for_markers or ([sample] if sample else [])
+    sample_calcs = sample_calcs_by_method or {}
+
+    _copy_row_height_only(template_sheet, current_sheet, template_row, target_row)
+
+    pack_start = (
+        plan.start_width_col
+        if plan.start_width_col is not None
+        else (plan.blocks[0].target_min if plan.blocks else plan.left_end + 1)
+    )
+    # Шапка и зона методов заканчиваются у end_width (last_zone_target_col).
+    last_method_col = (
+        plan.last_zone_target_col
+        if plan.last_zone_target_col >= pack_start
+        else plan.last_target_col
+    )
+
+    for merged_range in template_sheet.merged_cells.ranges:
+        if merged_range.min_row != template_row:
+            continue
+
+        # Левые столбцы: горизонтальные и вертикальные merge (A23:A25 и т.п.).
+        if merged_range.max_col <= plan.left_end:
+            # Пропускаем только настоящие 1x1.
+            if (
+                merged_range.min_row == merged_range.max_row
+                and merged_range.min_col == merged_range.max_col
+            ):
+                continue
+            row_span = merged_range.max_row - merged_range.min_row + 1
+            new_range = openpyxl.worksheet.cell_range.CellRange(
+                min_col=merged_range.min_col,
+                min_row=target_row,
+                max_col=merged_range.max_col,
+                max_row=target_row + row_span - 1,
+            )
+            merged_cells_map.add(new_range)
+            continue
+
+        # Широкая шапка методов (например D23:AC23) — накрывает упакованные блоки.
+        if (
+            plan.blocks
+            and merged_range.min_col > plan.left_end
+            and merged_range.min_col <= pack_start
+            and merged_range.max_col - merged_range.min_col + 1
+            > (plan.blocks[0].source_max - plan.blocks[0].source_min + 1)
+        ):
+            new_range = openpyxl.worksheet.cell_range.CellRange(
+                min_col=pack_start,
+                min_row=target_row,
+                max_col=last_method_col,
+                max_row=target_row,
+            )
+            merged_cells_map.add(new_range)
+            continue
+
+    for col in range(1, plan.left_end + 1):
+        merge_box = _left_merge_anchor(template_sheet, template_row, col)
+        # Ячейка-«раб» вертикального/горизонтального merge — не затираем якорь.
+        if merge_box is not None:
+            min_r, min_c, _max_r, _max_c = merge_box
+            if template_row != min_r or col != min_c:
+                continue
+
+        src_cell = template_sheet.cell(row=template_row, column=col)
+        tgt_cell = current_sheet.cell(row=target_row, column=col)
+        tgt_cell.value = src_cell.value
+        copy_cell_style(src_cell, tgt_cell)
+        if tgt_cell.value and isinstance(tgt_cell.value, str):
+            tgt_cell.value = (
+                _resolve_column_cell_value_sync(
+                    protocol,
+                    markers_samples,
+                    str(tgt_cell.value),
+                    norm_name=norm_name,
+                    norm_values_by_method=norm_values_by_method,
+                    sampling_location_name_only=sampling_location_name_only,
+                    selection_conditions_templates=selection_conditions_templates,
+                )
+                or None
+            )
+
+    # Статическая шапка зоны методов (D23:AC23) — одна ячейка на все блоки.
+    if plan.blocks and _row_is_wide_method_banner(template_sheet, template_row, plan):
+        banner_value = None
+        banner_style_col = pack_start
+        scan_end = plan.end_width_col or (plan.blocks[-1].source_max + 1)
+        for col in range(pack_start, scan_end):
+            raw = template_sheet.cell(row=template_row, column=col).value
+            if raw is None:
+                continue
+            banner_value = raw
+            banner_style_col = col
+            break
+        src_style = template_sheet.cell(row=template_row, column=banner_style_col)
+        for col in range(pack_start, last_method_col + 1):
+            tgt = current_sheet.cell(row=target_row, column=col)
+            tgt.value = None
+            copy_cell_style(src_style, tgt)
+        anchor = current_sheet.cell(row=target_row, column=pack_start)
+        if banner_value and isinstance(banner_value, str):
+            anchor.value = (
+                _resolve_column_cell_value_sync(
+                    protocol,
+                    markers_samples,
+                    banner_value,
+                    norm_name=norm_name,
+                    norm_values_by_method=norm_values_by_method,
+                    sampling_location_name_only=sampling_location_name_only,
+                    selection_conditions_templates=selection_conditions_templates,
+                )
+                or None
+            )
+        else:
+            anchor.value = banner_value
+        if last_method_col > pack_start:
+            merged_cells_map.add(
+                openpyxl.worksheet.cell_range.CellRange(
+                    min_col=pack_start,
+                    min_row=target_row,
+                    max_col=last_method_col,
+                    max_row=target_row,
+                )
+            )
+        return
+
+    for block in plan.blocks:
+        sample_method_calc = (
+            sample_calcs.get(block.calc.research_method.id) if sample else None
+        )
+        source_span = block.source_max - block.source_min + 1
+        target_span = block.target_max - block.target_min + 1
+
+        # Ширина блока в столбцах совпала — копируем блок (в т.ч. со сдвигом).
+        if source_span == target_span:
+            copy_cell_block(
+                template_sheet,
+                current_sheet,
+                block.source_min,
+                block.source_max,
+                template_row,
+                template_row,
+                block.target_min,
+                target_row,
+                merged_cells_map,
+            )
+            for offset in range(source_span):
+                col = block.target_min + offset
+                cell = current_sheet.cell(row=target_row, column=col)
+                template_value = template_sheet.cell(
+                    row=template_row, column=block.source_min + offset
+                ).value
+                if not cell.value or not isinstance(cell.value, str):
+                    if (
+                        offset == 0
+                        and template_value
+                        and isinstance(template_value, str)
+                        and parse_if_col_condition(template_value)
+                        and not strip_table1_structural_markers(template_value)
+                    ):
+                        cell.value = block.calc.research_method.name or ""
+                    continue
+                resolved = _resolve_column_cell_value_sync(
+                    protocol,
+                    markers_samples,
+                    str(cell.value),
+                    calc=block.calc,
+                    sample_calc=sample_method_calc,
+                    norm_name=norm_name,
+                    norm_values_by_method=norm_values_by_method,
+                    sampling_location_name_only=sampling_location_name_only,
+                    selection_conditions_templates=selection_conditions_templates,
+                )
+                if (
+                    not resolved
+                    and template_value
+                    and isinstance(template_value, str)
+                    and parse_if_col_condition(template_value)
+                ):
+                    resolved = block.calc.research_method.name or ""
+                cell.value = resolved or None
+                if template_value and (
+                    "{measurement_method}" in str(template_value)
+                    or "{nd_code}" in str(template_value)
+                ):
+                    height_text = (
+                        (block.calc.research_method.nd_code or "")
+                        if "{nd_code}" in str(template_value)
+                        else (block.calc.research_method.measurement_method or "-")
+                    )
+                    adjust_cell_height_if_needed(
+                        current_sheet,
+                        target_row,
+                        col,
+                        height_text,
+                    )
+            continue
+
+        # Зона ширины: целевой диапазон может отличаться от шаблона.
+        # Стили берём из исходного блока, значение — в первую ячейку, merge на всю группу.
+        src_style_cell = template_sheet.cell(row=template_row, column=block.source_min)
+        main_template_value = None
+        for src_col in range(block.source_min, block.source_max + 1):
+            raw = template_sheet.cell(row=template_row, column=src_col).value
+            if raw and isinstance(raw, str) and raw.strip():
+                main_template_value = raw
+                break
+        if main_template_value is None:
+            main_template_value = src_style_cell.value
+
+        for tgt_col in range(block.target_min, block.target_max + 1):
+            tgt_cell = current_sheet.cell(row=target_row, column=tgt_col)
+            tgt_cell.value = None
+            copy_cell_style(src_style_cell, tgt_cell)
+
+        resolved = ""
+        if main_template_value and isinstance(main_template_value, str):
+            resolved = _resolve_column_cell_value_sync(
+                protocol,
+                markers_samples,
+                str(main_template_value),
+                calc=block.calc,
+                sample_calc=sample_method_calc,
+                norm_name=norm_name,
+                norm_values_by_method=norm_values_by_method,
+                sampling_location_name_only=sampling_location_name_only,
+                selection_conditions_templates=selection_conditions_templates,
+            )
+            if not resolved and parse_if_col_condition(main_template_value):
+                resolved = block.calc.research_method.name or ""
+        elif main_template_value is not None:
+            resolved = str(main_template_value)
+
+        anchor = current_sheet.cell(row=target_row, column=block.target_min)
+        anchor.value = resolved or None
+
+        if block.target_max > block.target_min:
+            merged_cells_map.add(
+                openpyxl.worksheet.cell_range.CellRange(
+                    min_col=block.target_min,
+                    min_row=target_row,
+                    max_col=block.target_max,
+                    max_row=target_row,
+                )
+            )
+
+        if (
+            main_template_value
+            and isinstance(main_template_value, str)
+            and (
+                "{measurement_method}" in main_template_value
+                or "{nd_code}" in main_template_value
+            )
+        ):
+            height_text = (
+                (block.calc.research_method.nd_code or "")
+                if "{nd_code}" in main_template_value
+                else (block.calc.research_method.measurement_method or "-")
+            )
+            adjust_cell_height_if_needed(
+                current_sheet,
+                target_row,
+                block.target_min,
+                height_text,
+            )
+
+
+async def process_methods_table_columns(
+    protocol: Protocol,
+    samples: List[Sample],
+    template_sheet,
+    new_sheet,
+    table_start: int,
+    merged_cells_map,
+    current_row: int,
+    db: AsyncSession,
+    selection_conditions_templates: Optional[List[Dict[str, Any]]] = None,
+    sampling_location_name_only: bool = False,
+):
+    """
+    Колоночная таблица 1: блоки {if col} упаковываются слева направо,
+    строки проб/норм размножаются, ширины делятся по бюджету start/end_width.
+    """
+    current_sheet = new_sheet
+    table_data_start, table_data_end = _find_table1_bounds(template_sheet, table_start)
+    if table_data_start is None or table_data_end is None:
+        return current_sheet
+
+    valid_calculations = _collect_valid_calculations(samples)
+    matched_blocks = _match_if_col_blocks(
+        _detect_if_col_blocks(template_sheet, table_data_start, table_data_end),
+        valid_calculations,
+    )
+    # Нет подходящих методов — таблицу 1 полностью пропускаем.
+    if not matched_blocks:
+        _table1_column_plan_ctx.set(None)
+        return current_sheet
+
+    plan = _build_table1_column_plan(template_sheet, matched_blocks)
+    if plan is None:
+        _table1_column_plan_ctx.set(None)
+        return current_sheet
+
+    _table1_column_plan_ctx.set(plan)
+    apply_table1_column_widths(template_sheet, current_sheet, plan)
+
+    method_ids = {
+        block.calc.research_method.id
+        for block in plan.blocks
+        if block.calc.research_method
+    }
+    nd_norms = await _load_applicable_nd_norms(db, protocol, samples, method_ids)
+
+    for template_row in range(table_data_start + 1, table_data_end):
+        write_kwargs = {
+            "sampling_location_name_only": sampling_location_name_only,
+            "selection_conditions_templates": selection_conditions_templates,
+        }
+
+        # Норма не заполнилась — строки нормы и хвост merge не пишем.
+        if _row_has_norma_markers(template_sheet, template_row):
+            if not nd_norms:
+                continue
+            for norm, values_by_method in nd_norms:
+                _write_column_table_row(
+                    protocol,
+                    template_sheet,
+                    current_sheet,
+                    template_row,
+                    current_row,
+                    plan,
+                    merged_cells_map,
+                    samples_for_markers=samples,
+                    norm_name=norm.name if norm else "",
+                    norm_values_by_method=values_by_method,
+                    **write_kwargs,
+                )
+                current_row += 1
+            continue
+
+        # Хвост merge нормы (пустая строка A27:C29): только если норма заполнена.
+        if _row_is_norma_merge_continuation(template_sheet, template_row):
+            if not nd_norms:
+                continue
+            for norm, values_by_method in nd_norms:
+                _write_column_table_row(
+                    protocol,
+                    template_sheet,
+                    current_sheet,
+                    template_row,
+                    current_row,
+                    plan,
+                    merged_cells_map,
+                    samples_for_markers=samples,
+                    norm_name=norm.name if norm else "",
+                    norm_values_by_method=values_by_method,
+                    **write_kwargs,
+                )
+                current_row += 1
+            continue
+
+        # Прочие пустые строки шаблона не переносим.
+        if _template_row_is_blank(template_sheet, template_row):
+            continue
+
+        if _row_has_if_multiple_samples(template_sheet, template_row):
+            for sample in samples:
+                _write_column_table_row(
+                    protocol,
+                    template_sheet,
+                    current_sheet,
+                    template_row,
+                    current_row,
+                    plan,
+                    merged_cells_map,
+                    sample=sample,
+                    samples_for_markers=[sample],
+                    sample_calcs_by_method=_build_sample_calcs_by_method(sample),
+                    **write_kwargs,
+                )
+                current_row += 1
+            continue
+
+        _write_column_table_row(
+            protocol,
+            template_sheet,
+            current_sheet,
+            template_row,
+            current_row,
+            plan,
+            merged_cells_map,
+            samples_for_markers=samples,
+            **write_kwargs,
+        )
+        current_row += 1
+
+    return current_sheet
+
+
+async def process_methods_table(
+    samples: List[Sample],
+    template_sheet,
+    new_sheet,
+    table_start,
+    merged_cells_map,
+    current_row,
+    selection_conditions_templates: Optional[List[Dict[str, Any]]] = None,
+    *,
+    protocol: Protocol | None = None,
+    db: AsyncSession | None = None,
+    sampling_location_name_only: bool = False,
+):
+    """
+    Обрабатывает таблицу 1.
+
+    При наличии {if col} или {{start_width}} внутри table1 — колоночный режим,
+    иначе прежняя логика строк с {if line}.
+    """
+    table_data_start, table_data_end = _find_table1_bounds(template_sheet, table_start)
+    if table_data_start is None:
+        return new_sheet
+    if table_data_end is None:
+        template_last_row, _ = get_template_content_bounds(template_sheet)
+        table_data_end = template_last_row + 1
+
+    if _table1_uses_column_mode(template_sheet, table_data_start, table_data_end):
+        if protocol is None or db is None:
+            return new_sheet
+        return await process_methods_table_columns(
+            protocol,
+            samples,
+            template_sheet,
+            new_sheet,
+            table_start,
+            merged_cells_map,
+            current_row,
+            db,
+            selection_conditions_templates,
+            sampling_location_name_only,
+        )
+
+    _table1_column_plan_ctx.set(None)
+    del selection_conditions_templates  # метки таблицы 1 не используют условия отбора
+    current_sheet = new_sheet
+    valid_calculations = _collect_valid_calculations(samples)
 
     next_id = 1
     last_visible_output_row: int | None = None
@@ -1553,7 +2738,7 @@ async def process_methods_table(
     for template_row in range(table_data_start + 1, table_data_end):
         row_values = [
             template_sheet.cell(row=template_row, column=col).value
-            for col in range(1, template_sheet.max_column + 1)
+            for col in range(1, _scan_row_max_col(template_sheet, template_row) + 1)
         ]
         row_text = " ".join(str(v) for v in row_values if v)
 
@@ -1755,7 +2940,7 @@ def process_equipment_table(
             merged_cells_map,
         )
 
-        for col in range(1, template_sheet.max_column + 1):
+        for col in range(1, _scan_row_max_col(template_sheet, template_row_num) + 1):
             cell = current_sheet.cell(row=current_row, column=col)
             if not cell.value:
                 continue
@@ -1887,7 +3072,7 @@ def process_nd_table(
             merged_cells_map,
         )
 
-        for col in range(1, template_sheet.max_column + 1):
+        for col in range(1, _scan_row_max_col(template_sheet, template_row_num) + 1):
             cell = current_sheet.cell(row=current_row, column=col)
             if not cell.value:
                 continue
@@ -1910,6 +3095,7 @@ def process_nd_table(
 async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> Response:
     """Генерирует Excel файл протокола."""
     try:
+        _table1_column_plan_ctx.set(None)
         query = (
             select(Protocol)
             .where(Protocol.id == protocol_id)
@@ -2009,6 +3195,9 @@ async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> Respons
         template_last_row, template_last_col = get_template_content_bounds(
             template_sheet
         )
+        # Убираем «хвост» пустых стилизованных ячеек шаблона (до EM) —
+        # иначе max_column раздувает весь протокол.
+        purge_sheet_cells_beyond(template_sheet, template_last_row, template_last_col)
 
         new_workbook = openpyxl.Workbook()
         new_sheet = new_workbook.active
@@ -2079,6 +3268,9 @@ async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> Respons
             merged_cells_map,
             new_sheet.max_row + 1,
             selection_conditions_templates,
+            protocol=protocol,
+            db=db,
+            sampling_location_name_only=sampling_location_name_only,
         )
         if not current_sheet:
             raise ValidationError("Ошибка при обработке таблицы методов")
@@ -2181,6 +3373,10 @@ async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> Respons
 
         copy_sheet_page_settings(template_sheet, new_sheet)
         copy_column_dimensions(template_sheet, new_sheet)
+        # Ширины колоночного режима применяем после общего копирования из шаблона.
+        column_plan = _table1_column_plan_ctx.get()
+        if column_plan is not None:
+            apply_table1_column_widths(template_sheet, new_sheet, column_plan)
 
         apply_sheet_print_area(new_sheet)
 

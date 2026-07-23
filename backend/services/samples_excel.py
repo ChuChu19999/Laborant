@@ -11,6 +11,7 @@ from schemas.sample_export import SampleExportItem
 from services.calculation_export_format import format_sample_calculations_column
 from services.employees import get_employees_by_hsnils
 from services.sample_export import get_samples_export_data
+from utils.sample_formatting import format_well_display
 
 EXPORT_HEADERS = [
     "№ пробы",
@@ -53,8 +54,9 @@ def _format_sampling_location(sample: SampleExportItem) -> str:
     parts: List[str] = []
     if sample.sampling_location_name:
         parts.append(sample.sampling_location_name)
-    if sample.well:
-        parts.append(f"скв. {sample.well}")
+    well_display = format_well_display(sample.well)
+    if well_display:
+        parts.append(well_display)
     if sample.mode:
         parts.append(sample.mode)
     return " ".join(parts) if parts else "-"

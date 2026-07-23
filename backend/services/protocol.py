@@ -1,4 +1,5 @@
 from __future__ import annotations
+import base64
 from typing import Any, List, Optional
 import pendulum
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,6 +26,11 @@ from services.test_object import (
 from services.visibility import validate_lab_and_department
 from utils.pagination import calculate_total_pages
 from utils.protocol_formatting import format_protocol_number
+from utils.protocol_generator_utils import (
+    decode_protocol_template_file,
+    load_sanitized_template_workbook,
+    workbook_to_xlsx_bytes,
+)
 
 
 async def get_protocol_by_id(
@@ -288,10 +294,14 @@ async def create_protocol_template(
     else:
         next_version = "v1"
 
+    raw = decode_protocol_template_file(template_data.file)
+    sanitized_bytes = workbook_to_xlsx_bytes(load_sanitized_template_workbook(raw))
+    sanitized_file = base64.b64encode(sanitized_bytes).decode("utf-8")
+
     template = ProtocolTemplate(
         name=template_data.name,
         version=next_version,
-        file=template_data.file,
+        file=sanitized_file,
         file_name=template_data.file_name,
         laboratory_id=template_data.laboratory_id,
         department_id=template_data.department_id,
