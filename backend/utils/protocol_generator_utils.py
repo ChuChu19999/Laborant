@@ -331,9 +331,32 @@ def purge_sheet_cells_beyond(
     max_col: int,
 ) -> None:
     """Удаляет ячейки правее/ниже границы, чтобы не раздувать used range."""
+    # Сначала снимаем merge, задевающие обрезаемую зону — иначе позже
+    # unmerge/сохранение могут упасть с KeyError по уже удалённым ячейкам.
+    for merged_range in list(sheet.merged_cells.ranges):
+        if (
+            merged_range.min_row > max_row
+            or merged_range.min_col > max_col
+            or merged_range.max_row > max_row
+            or merged_range.max_col > max_col
+        ):
+            _safe_remove_merged_range(sheet, merged_range)
     for row_idx, col_idx in list(sheet._cells):
         if row_idx > max_row or col_idx > max_col:
             del sheet._cells[(row_idx, col_idx)]
+
+
+def _safe_remove_merged_range(sheet, merged_range) -> None:
+    """
+    Убирает merge без падения, если ячейки-«рабы» уже удалены.
+
+    sheet.unmerge_cells удаляет ключи из _cells и даёт KeyError,
+    если часть диапазона уже вычищена.
+    """
+    try:
+        sheet.merged_cells.remove(str(merged_range))
+    except (KeyError, ValueError):
+        pass
 
 
 def sanitize_protocol_template_sheet(sheet, col_limit: int = 60) -> tuple[int, int]:
@@ -346,9 +369,6 @@ def sanitize_protocol_template_sheet(sheet, col_limit: int = 60) -> tuple[int, i
     last_row, last_col = get_template_content_bounds(sheet, col_limit)
     purge_sheet_cells_beyond(sheet, last_row, last_col)
     prune_column_dimensions_beyond(sheet, last_col)
-    for merged_range in list(sheet.merged_cells.ranges):
-        if merged_range.min_row > last_row or merged_range.min_col > last_col:
-            sheet.unmerge_cells(str(merged_range))
     for row_idx in list(sheet.row_dimensions.keys()):
         if row_idx > last_row:
             del sheet.row_dimensions[row_idx]

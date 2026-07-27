@@ -2107,26 +2107,273 @@ def _template_row_is_blank(template_sheet, row_num: int) -> bool:
     return True
 
 
-def _row_is_norma_merge_continuation(template_sheet, row_num: int) -> bool:
-    """Строка продолжает merge блока нормы (A27:C29), без собственной метки."""
+def _merge_row_span(merged_range) -> int:
+    """Число строк в merge."""
+    return merged_range.max_row - merged_range.min_row + 1
+
+
+def _plan_active_source_cols(plan: Table1ColumnPlan) -> tuple[int, int] | None:
+    """Диапазон исходных столбцов совпавших блоков методов в шаблоне."""
+    if not plan.blocks:
+        return None
+    return (
+        min(block.source_min for block in plan.blocks),
+        max(block.source_max for block in plan.blocks),
+    )
+
+
+def _merge_overlaps_cols(merged_range, col_min: int, col_max: int) -> bool:
+    """Merge пересекается с диапазоном столбцов."""
+    return not (merged_range.max_col < col_min or merged_range.min_col > col_max)
+
+
+def _method_zone_vertical_span(
+    template_sheet, template_row: int, plan: Table1ColumnPlan
+) -> int:
+    """
+    Максимальный vertical span merge, начинающихся на строке в столбцах
+    активных блоков методов.
+
+    Левые merge шапки (несколько строк при построчном контенте методов) сюда
+    не входят — для них выходные строки по-прежнему идут 1:1 с шаблоном.
+    """
+    cols = _plan_active_source_cols(plan)
+    if cols is None:
+        return 1
+    col_min, col_max = cols
+    span = 1
     for merged_range in template_sheet.merged_cells.ranges:
-        if not (merged_range.min_row < row_num <= merged_range.max_row):
+        if merged_range.min_row != template_row:
             continue
-        anchor = template_sheet.cell(
-            row=merged_range.min_row, column=merged_range.min_col
-        ).value
-        if not anchor or not isinstance(anchor, str):
+        if not _merge_overlaps_cols(merged_range, col_min, col_max):
             continue
-        if "{norma}" in anchor or "{norma_value}" in anchor:
-            return True
-    return False
+        span = max(span, _merge_row_span(merged_range))
+    return span
+
+
+def _row_is_method_zone_vertical_merge_continuation(
+    template_sheet,
+    row_num: int,
+    plan: Table1ColumnPlan,
+    *,
+    table_start: int,
+    table_end: int,
+) -> bool:
+    """
+    Строка — хвост vertical merge в столбцах активных блоков методов.
+
+    Такие строки не пишем отдельно: их занимает span при записи якоря.
+    Учитываем только merge с якорем внутри table1 — сквозные служебные
+    диапазоны шаблона (например на весь лист) игнорируем.
+    """
+    cols = _plan_active_source_cols(plan)
+    if cols is None:
+        return False
+    col_min, col_max = cols
+    found_slave = False
+    for merged_range in template_sheet.merged_cells.ranges:
+        if not _merge_overlaps_cols(merged_range, col_min, col_max):
+            continue
+        if _merge_row_span(merged_range) <= 1:
+            continue
+        if not (table_start <= merged_range.min_row < table_end):
+            continue
+        if merged_range.min_row == row_num:
+            return False
+        if merged_range.min_row < row_num <= merged_range.max_row:
+            found_slave = True
+    return found_slave
+
+
+def _source_block_vertical_span(
+    template_sheet, template_row: int, source_min: int, source_max: int
+) -> int:
+    """Vertical span merge шаблона, пересекающего исходные столбцы блока."""
+    span = 1
+    for merged_range in template_sheet.merged_cells.ranges:
+        if merged_range.min_row != template_row:
+            continue
+        if merged_range.max_col < source_min or merged_range.min_col > source_max:
+            continue
+        span = max(span, _merge_row_span(merged_range))
+    return span
+
+
+def _copy_vertical_span_row_heights(
+    template_sheet,
+    current_sheet,
+    template_row: int,
+    target_row: int,
+    row_span: int,
+) -> None:
+    """Копирует высоты строк хвоста vertical merge."""
+    for offset in range(1, max(1, row_span)):
+        _copy_row_height_only(
+            template_sheet,
+            current_sheet,
+            template_row + offset,
+            target_row + offset,
+        )
+
+
+def _border_side_or_none(border, edge: str):
+    """Копия Side границы или None, если линии нет."""
+    if not border:
+        return None
+    side = getattr(border, edge, None)
+    if side and side.style:
+        return copy(side)
+    return None
+
+
+def _sample_template_merge_edge_sides(
+    template_sheet,
+    *,
+    min_row: int,
+    min_col: int,
+    max_row: int,
+    max_col: int,
+) -> dict[str, Any]:
+    """
+    Собирает стили внешних сторон merge из шаблона.
+
+    Берём первую найденную линию на каждом ребре (как в Excel у объединённых ячеек).
+    """
+    edges: dict[str, Any] = {
+        "left": None,
+        "right": None,
+        "top": None,
+        "bottom": None,
+    }
+    for row in range(min_row, max_row + 1):
+        left = _border_side_or_none(
+            template_sheet.cell(row=row, column=min_col).border, "left"
+        )
+        right = _border_side_or_none(
+            template_sheet.cell(row=row, column=max_col).border, "right"
+        )
+        if edges["left"] is None and left is not None:
+            edges["left"] = left
+        if edges["right"] is None and right is not None:
+            edges["right"] = right
+    for col in range(min_col, max_col + 1):
+        top = _border_side_or_none(
+            template_sheet.cell(row=min_row, column=col).border, "top"
+        )
+        bottom = _border_side_or_none(
+            template_sheet.cell(row=max_row, column=col).border, "bottom"
+        )
+        if edges["top"] is None and top is not None:
+            edges["top"] = top
+        if edges["bottom"] is None and bottom is not None:
+            edges["bottom"] = bottom
+    return edges
+
+
+def _paint_range_perimeter_borders(
+    current_sheet,
+    *,
+    min_row: int,
+    min_col: int,
+    max_row: int,
+    max_col: int,
+    edges: dict[str, Any],
+) -> None:
+    """Рисует периметр диапазона заданными Side (до merge)."""
+    for row in range(min_row, max_row + 1):
+        for col in range(min_col, max_col + 1):
+            is_left = col == min_col
+            is_right = col == max_col
+            is_top = row == min_row
+            is_bottom = row == max_row
+            if not (is_left or is_right or is_top or is_bottom):
+                continue
+            cell = current_sheet.cell(row=row, column=col)
+            new_border = copy(cell.border) if cell.border else Border()
+            if is_left and edges.get("left") is not None:
+                new_border.left = copy(edges["left"])
+            if is_right and edges.get("right") is not None:
+                new_border.right = copy(edges["right"])
+            if is_top and edges.get("top") is not None:
+                new_border.top = copy(edges["top"])
+            if is_bottom and edges.get("bottom") is not None:
+                new_border.bottom = copy(edges["bottom"])
+            cell.border = new_border
+
+
+def _apply_merged_range_perimeter_borders(
+    template_sheet,
+    current_sheet,
+    *,
+    template_min_row: int,
+    template_min_col: int,
+    template_max_row: int,
+    template_max_col: int,
+    target_min_row: int,
+    target_min_col: int,
+    target_max_row: int,
+    target_max_col: int,
+) -> None:
+    """
+    Копирует внешние границы merge из шаблона на крайние ячейки результата.
+
+    При совпадении размера — ячейка в ячейку; при другой ширине блока
+    (упаковка start_width/end_width) — только периметр целевого диапазона
+    по стилям рёбер шаблона. Вызывать до merged_cells.add.
+    """
+    template_rows = template_max_row - template_min_row
+    template_cols = template_max_col - template_min_col
+    target_rows = target_max_row - target_min_row
+    target_cols = target_max_col - target_min_col
+
+    if template_rows == target_rows and template_cols == target_cols:
+        for row_offset in range(template_rows + 1):
+            for col_offset in range(template_cols + 1):
+                src = template_sheet.cell(
+                    row=template_min_row + row_offset,
+                    column=template_min_col + col_offset,
+                )
+                if not src.border:
+                    continue
+                tgt = current_sheet.cell(
+                    row=target_min_row + row_offset,
+                    column=target_min_col + col_offset,
+                )
+                new_border = copy(tgt.border) if tgt.border else Border()
+                src_border = src.border
+                if src_border.left and src_border.left.style:
+                    new_border.left = copy(src_border.left)
+                if src_border.right and src_border.right.style:
+                    new_border.right = copy(src_border.right)
+                if src_border.top and src_border.top.style:
+                    new_border.top = copy(src_border.top)
+                if src_border.bottom and src_border.bottom.style:
+                    new_border.bottom = copy(src_border.bottom)
+                tgt.border = new_border
+        return
+
+    edges = _sample_template_merge_edge_sides(
+        template_sheet,
+        min_row=template_min_row,
+        min_col=template_min_col,
+        max_row=template_max_row,
+        max_col=template_max_col,
+    )
+    _paint_range_perimeter_borders(
+        current_sheet,
+        min_row=target_min_row,
+        min_col=target_min_col,
+        max_row=target_max_row,
+        max_col=target_max_col,
+        edges=edges,
+    )
 
 
 def _left_merge_anchor(
     template_sheet, row_num: int, col_num: int
 ) -> tuple[int, int, int, int] | None:
     """
-    Если ячейка в merge слева — (min_row, min_col, max_row, max_col).
+    Если ячейка в merge — (min_row, min_col, max_row, max_col).
     Иначе None.
     """
     for merged_range in template_sheet.merged_cells.ranges:
@@ -2306,7 +2553,7 @@ def _write_column_table_row(
         if merged_range.min_row != template_row:
             continue
 
-        # Левые столбцы: горизонтальные и вертикальные merge (A23:A25 и т.п.).
+        # Левые столбцы: горизонтальные и вертикальные merge.
         if merged_range.max_col <= plan.left_end:
             # Пропускаем только настоящие 1x1.
             if (
@@ -2314,17 +2561,29 @@ def _write_column_table_row(
                 and merged_range.min_col == merged_range.max_col
             ):
                 continue
-            row_span = merged_range.max_row - merged_range.min_row + 1
+            merge_row_span = _merge_row_span(merged_range)
+            _apply_merged_range_perimeter_borders(
+                template_sheet,
+                current_sheet,
+                template_min_row=merged_range.min_row,
+                template_min_col=merged_range.min_col,
+                template_max_row=merged_range.max_row,
+                template_max_col=merged_range.max_col,
+                target_min_row=target_row,
+                target_min_col=merged_range.min_col,
+                target_max_row=target_row + merge_row_span - 1,
+                target_max_col=merged_range.max_col,
+            )
             new_range = openpyxl.worksheet.cell_range.CellRange(
                 min_col=merged_range.min_col,
                 min_row=target_row,
                 max_col=merged_range.max_col,
-                max_row=target_row + row_span - 1,
+                max_row=target_row + merge_row_span - 1,
             )
             merged_cells_map.add(new_range)
             continue
 
-        # Широкая шапка методов (например D23:AC23) — накрывает упакованные блоки.
+        # Широкая шапка методов — накрывает упакованные блоки.
         if (
             plan.blocks
             and merged_range.min_col > plan.left_end
@@ -2366,7 +2625,6 @@ def _write_column_table_row(
                 )
                 or None
             )
-
     # Статическая шапка зоны методов (D23:AC23) — одна ячейка на все блоки.
     if plan.blocks and _row_is_wide_method_banner(template_sheet, template_row, plan):
         banner_value = None
@@ -2417,6 +2675,9 @@ def _write_column_table_row(
         )
         source_span = block.source_max - block.source_min + 1
         target_span = block.target_max - block.target_min + 1
+        block_row_span = _source_block_vertical_span(
+            template_sheet, template_row, block.source_min, block.source_max
+        )
 
         # Ширина блока в столбцах совпала — копируем блок (в т.ч. со сдвигом).
         if source_span == target_span:
@@ -2481,6 +2742,27 @@ def _write_column_table_row(
                         col,
                         height_text,
                     )
+            if block_row_span > 1:
+                _apply_merged_range_perimeter_borders(
+                    template_sheet,
+                    current_sheet,
+                    template_min_row=template_row,
+                    template_min_col=block.source_min,
+                    template_max_row=template_row + block_row_span - 1,
+                    template_max_col=block.source_max,
+                    target_min_row=target_row,
+                    target_min_col=block.target_min,
+                    target_max_row=target_row + block_row_span - 1,
+                    target_max_col=block.target_max,
+                )
+                merged_cells_map.add(
+                    openpyxl.worksheet.cell_range.CellRange(
+                        min_col=block.target_min,
+                        min_row=target_row,
+                        max_col=block.target_max,
+                        max_row=target_row + block_row_span - 1,
+                    )
+                )
             continue
 
         # Зона ширины: целевой диапазон может отличаться от шаблона.
@@ -2521,13 +2803,26 @@ def _write_column_table_row(
         anchor = current_sheet.cell(row=target_row, column=block.target_min)
         anchor.value = resolved or None
 
-        if block.target_max > block.target_min:
+        if block.target_max > block.target_min or block_row_span > 1:
+            if block_row_span > 1:
+                _apply_merged_range_perimeter_borders(
+                    template_sheet,
+                    current_sheet,
+                    template_min_row=template_row,
+                    template_min_col=block.source_min,
+                    template_max_row=template_row + block_row_span - 1,
+                    template_max_col=block.source_max,
+                    target_min_row=target_row,
+                    target_min_col=block.target_min,
+                    target_max_row=target_row + block_row_span - 1,
+                    target_max_col=block.target_max,
+                )
             merged_cells_map.add(
                 openpyxl.worksheet.cell_range.CellRange(
                     min_col=block.target_min,
                     min_row=target_row,
                     max_col=block.target_max,
-                    max_row=target_row,
+                    max_row=target_row + block_row_span - 1,
                 )
             )
 
@@ -2604,7 +2899,19 @@ async def process_methods_table_columns(
             "selection_conditions_templates": selection_conditions_templates,
         }
 
-        # Норма не заполнилась — строки нормы и хвост merge не пишем.
+        # Хвост vertical merge в зоне методов уже занят при записи якоря.
+        if _row_is_method_zone_vertical_merge_continuation(
+            template_sheet,
+            template_row,
+            plan,
+            table_start=table_data_start,
+            table_end=table_data_end,
+        ):
+            continue
+
+        output_span = _method_zone_vertical_span(template_sheet, template_row, plan)
+
+        # Норма не заполнилась — блок нормы не пишем.
         if _row_has_norma_markers(template_sheet, template_row):
             if not nd_norms:
                 continue
@@ -2622,28 +2929,14 @@ async def process_methods_table_columns(
                     norm_values_by_method=values_by_method,
                     **write_kwargs,
                 )
-                current_row += 1
-            continue
-
-        # Хвост merge нормы (пустая строка A27:C29): только если норма заполнена.
-        if _row_is_norma_merge_continuation(template_sheet, template_row):
-            if not nd_norms:
-                continue
-            for norm, values_by_method in nd_norms:
-                _write_column_table_row(
-                    protocol,
+                _copy_vertical_span_row_heights(
                     template_sheet,
                     current_sheet,
                     template_row,
                     current_row,
-                    plan,
-                    merged_cells_map,
-                    samples_for_markers=samples,
-                    norm_name=norm.name if norm else "",
-                    norm_values_by_method=values_by_method,
-                    **write_kwargs,
+                    output_span,
                 )
-                current_row += 1
+                current_row += output_span
             continue
 
         # Прочие пустые строки шаблона не переносим.
@@ -2665,7 +2958,14 @@ async def process_methods_table_columns(
                     sample_calcs_by_method=_build_sample_calcs_by_method(sample),
                     **write_kwargs,
                 )
-                current_row += 1
+                _copy_vertical_span_row_heights(
+                    template_sheet,
+                    current_sheet,
+                    template_row,
+                    current_row,
+                    output_span,
+                )
+                current_row += output_span
             continue
 
         _write_column_table_row(
@@ -2679,7 +2979,14 @@ async def process_methods_table_columns(
             samples_for_markers=samples,
             **write_kwargs,
         )
-        current_row += 1
+        _copy_vertical_span_row_heights(
+            template_sheet,
+            current_sheet,
+            template_row,
+            current_row,
+            output_span,
+        )
+        current_row += output_span
 
     return current_sheet
 
