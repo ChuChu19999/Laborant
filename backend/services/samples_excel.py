@@ -1,7 +1,7 @@
 import re
 from datetime import date, datetime
 from io import BytesIO
-from typing import Any, Dict, List, Optional
+from typing import Any
 import pendulum
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, Side
@@ -51,7 +51,7 @@ def _format_date(value: Any) -> str:
 
 
 def _format_sampling_location(sample: SampleExportItem) -> str:
-    parts: List[str] = []
+    parts: list[str] = []
     if sample.sampling_location_name:
         parts.append(sample.sampling_location_name)
     well_display = format_well_display(sample.well)
@@ -62,7 +62,7 @@ def _format_sampling_location(sample: SampleExportItem) -> str:
     return " ".join(parts) if parts else "-"
 
 
-def _format_protocols(protocols: Optional[List[Dict[str, Any]]]) -> str:
+def _format_protocols(protocols: list[dict[str, Any]] | None) -> str:
     if not protocols:
         return "-"
 
@@ -75,12 +75,12 @@ def _format_protocols(protocols: Optional[List[Dict[str, Any]]]) -> str:
 
 
 def _format_selection_conditions(
-    conditions: Optional[Dict[str, Any]],
+    conditions: dict[str, Any] | None,
 ) -> str:
     if not conditions:
         return "-"
 
-    lines: List[str] = []
+    lines: list[str] = []
     for variable, value in conditions.items():
         if value is None or str(value).strip() == "":
             continue
@@ -98,8 +98,8 @@ def _apply_cell_style(cell) -> None:
 
 def _build_sample_row(
     sample: SampleExportItem,
-    employees_map: Dict[str, Dict[str, Any]],
-) -> List[Any]:
+    employees_map: dict[str, dict[str, Any]],
+) -> list[Any]:
     added_by_name = "-"
     if sample.added_by:
         employee = employees_map.get(sample.added_by, {})
@@ -125,8 +125,8 @@ def _build_sample_row(
 
 
 def build_samples_export_workbook(
-    items: List[SampleExportItem],
-    employees_map: Dict[str, Dict[str, Any]],
+    items: list[SampleExportItem],
+    employees_map: dict[str, dict[str, Any]],
 ) -> bytes:
     """Собирает xlsx-файл таблицы поступления проб."""
     workbook = Workbook()
@@ -152,24 +152,24 @@ def build_samples_export_workbook(
 
 async def build_samples_export_excel(
     db: AsyncSession,
-    laboratory_id: Optional[int] = None,
-    department_id: Optional[int] = None,
-    search: Optional[str] = None,
-    search_sampling_location: Optional[str] = None,
-    search_protocols: Optional[str] = None,
-    search_added_by: Optional[str] = None,
-    sample_type: Optional[str] = None,
-    sample_types: Optional[List[str]] = None,
-    test_object: Optional[str] = None,
-    test_objects: Optional[List[str]] = None,
-    sort_by: Optional[str] = None,
-    sort_order: Optional[str] = None,
-    sampling_date_from: Optional[pendulum.DateTime] = None,
-    sampling_date_to: Optional[pendulum.DateTime] = None,
-    receiving_date_from: Optional[pendulum.DateTime] = None,
-    receiving_date_to: Optional[pendulum.DateTime] = None,
-    created_at_from: Optional[pendulum.DateTime] = None,
-    created_at_to: Optional[pendulum.DateTime] = None,
+    laboratory_id: int | None = None,
+    department_id: int | None = None,
+    search: str | None = None,
+    search_sampling_location: str | None = None,
+    search_protocols: str | None = None,
+    search_added_by: str | None = None,
+    sample_type: str | None = None,
+    sample_types: list[str] | None = None,
+    test_object: str | None = None,
+    test_objects: list[str] | None = None,
+    sort_by: str | None = None,
+    sort_order: str | None = None,
+    sampling_date_from: pendulum.DateTime | None = None,
+    sampling_date_to: pendulum.DateTime | None = None,
+    receiving_date_from: pendulum.DateTime | None = None,
+    receiving_date_to: pendulum.DateTime | None = None,
+    created_at_from: pendulum.DateTime | None = None,
+    created_at_to: pendulum.DateTime | None = None,
 ) -> tuple[bytes, int]:
     """Возвращает байты xlsx и количество строк данных."""
     items, total = await get_samples_export_data(
@@ -198,7 +198,7 @@ async def build_samples_export_excel(
         return b"", 0
 
     hsnils_list = list({sample.added_by for sample in items if sample.added_by})
-    employees_map: Dict[str, Dict[str, Any]] = {}
+    employees_map: dict[str, dict[str, Any]] = {}
     if hsnils_list:
         try:
             employees_map = await get_employees_by_hsnils(

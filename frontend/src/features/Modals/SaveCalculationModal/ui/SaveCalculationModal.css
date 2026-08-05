@@ -29,3 +29,43 @@
   font-family: 'HeliosCondC';
   margin-top: 4px;
 }
+
+.save-calculation-modal-equipment-loading {
+  text-align: center;
+  padding: 20px;
+}
+
+.save-calculation-equipment-tag {
+  display: inline-block;
+  position: relative;
+  margin-right: 4px;
+  padding: 2px 20px 2px 8px;
+  background: #e6f7ff;
+  border: 1px solid #91d5ff;
+  border-radius: 4px;
+}
+
+.save-calculation-equipment-tag--required {
+  background: #f0f0f0;
+  border-color: #d9d9d9;
+  opacity: 0.6;
+  padding-right: 8px;
+}
+
+.save-calculation-equipment-tag-remove {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.save-calculation-equipment-serial {
+  font-size: 12px;
+}
+
+.save-calculation-equipment-hint {
+  font-size: 12px;
+  display: block;
+  margin-top: 4px;
+}

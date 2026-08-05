@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any, Optional, TypeVar
+from typing import Any, TypeVar
 from sqlalchemy import Select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
@@ -39,7 +39,7 @@ async def refresh_entity(db: AsyncSession, entity: BaseModel) -> None:
 async def execute_scalar_one_or_none(
     db: AsyncSession,
     query: Select[tuple[T]],
-) -> Optional[T]:
+) -> T | None:
     """Выполнить запрос и вернуть одну сущность или None."""
     result = await db.execute(query)
     return result.scalar_one_or_none()

@@ -2,7 +2,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Annotated, Any
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
-from schemas.common import NonEmptyStr, OptionalNonEmptyStr, PositiveIntList
+from schemas.common import NonEmptyStr, OptionalNonEmptyStr
+from schemas.visibility import VisibilityScope
 
 
 def _optional_protocol_abbreviation(value: Any) -> str | None:
@@ -19,30 +20,6 @@ def _optional_protocol_abbreviation(value: Any) -> str | None:
 OptionalProtocolAbbreviation = Annotated[
     str | None, BeforeValidator(_optional_protocol_abbreviation)
 ]
-
-
-class VisibilityScopeEntity(BaseModel):
-    id: int
-    name: str
-
-
-class VisibilityScope(BaseModel):
-    laboratory_ids: PositiveIntList = Field(
-        default_factory=list,
-        description="ID лабораторий, для которых доступен объект",
-    )
-    department_ids: PositiveIntList = Field(
-        default_factory=list,
-        description="ID подразделений, для которых доступен объект",
-    )
-    laboratories: list[VisibilityScopeEntity] = Field(
-        default_factory=list,
-        description="Названия лабораторий для отображения",
-    )
-    departments: list[VisibilityScopeEntity] = Field(
-        default_factory=list,
-        description="Названия подразделений для отображения",
-    )
 
 
 class TestObjectBase(BaseModel):
@@ -85,11 +62,3 @@ class TestObjectResponse(TestObjectBase):
 class TestObjectSelectItem(BaseModel):
     name: str
     tag: str
-
-
-def visibility_scope_to_dict(scope: VisibilityScope) -> dict[str, Any]:
-    """Сериализовать область видимости для сохранения в JSON."""
-    return {
-        "laboratory_ids": scope.laboratory_ids,
-        "department_ids": scope.department_ids,
-    }

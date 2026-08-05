@@ -1,4 +1,3 @@
-from typing import List, Optional, Set, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.exceptions import ConflictError, NotFoundError, ValidationError
 from models.test_object import TestObject
@@ -8,13 +7,15 @@ from schemas.test_object import (
     TestObjectCreate,
     TestObjectResponse,
     TestObjectUpdate,
+)
+from schemas.visibility import (
     VisibilityScope,
     VisibilityScopeEntity,
     visibility_scope_to_dict,
 )
 from services.visibility import enrich_visibility_scope_labels
 from utils.pagination import calculate_total_pages
-from utils.test_object_visibility import (
+from utils.visibility_scope import (
     is_visible_in_scope,
     normalize_visibility_scope,
 )
@@ -24,14 +25,14 @@ def _serialize_test_object(item: TestObject) -> TestObject:
     return item
 
 
-async def get_test_object_tags(db: AsyncSession) -> Set[str]:
+async def get_test_object_tags(db: AsyncSession) -> set[str]:
     """Получить теги из справочника объектов испытаний."""
     return await test_object_repo.get_test_object_tags(db)
 
 
 async def validate_research_method_sample_types(
     db: AsyncSession,
-    sample_types: List[str],
+    sample_types: list[str],
 ) -> None:
     """Проверить, что типы проб совпадают с тегами справочника объектов испытаний."""
     if not sample_types:
@@ -59,7 +60,7 @@ async def get_test_object_by_id(
     db: AsyncSession,
     test_object_id: int,
     include_deleted: bool = False,
-) -> Optional[TestObject]:
+) -> TestObject | None:
     """Получить объект испытаний по ID."""
     item = await test_object_repo.get_test_object_by_id(
         db, test_object_id, include_deleted
@@ -69,17 +70,29 @@ async def get_test_object_by_id(
     return None
 
 
+async def require_test_object_by_id(
+    db: AsyncSession,
+    test_object_id: int,
+    include_deleted: bool = False,
+) -> TestObject:
+    """Получить объект испытаний по ID или вернуть 404."""
+    item = await get_test_object_by_id(db, test_object_id, include_deleted)
+    if not item:
+        raise NotFoundError("Объект испытаний не найден")
+    return item
+
+
 async def get_test_objects_list(
     db: AsyncSession,
-    page: Optional[int] = None,
-    page_size: Optional[int] = None,
-    search: Optional[str] = None,
-    sort_by: Optional[str] = None,
-    sort_order: Optional[str] = None,
-    laboratory_id: Optional[int] = None,
-    department_id: Optional[int] = None,
+    page: int | None = None,
+    page_size: int | None = None,
+    search: str | None = None,
+    sort_by: str | None = None,
+    sort_order: str | None = None,
+    laboratory_id: int | None = None,
+    department_id: int | None = None,
     for_select: bool = False,
-) -> Tuple[List[TestObject], int, int]:
+) -> tuple[list[TestObject], int, int]:
     """Получить список объектов испытаний из справочника."""
     items = [
         _serialize_test_object(item)
@@ -114,9 +127,9 @@ async def get_test_objects_list(
 
 async def get_test_object_names(
     db: AsyncSession,
-    laboratory_id: Optional[int] = None,
-    department_id: Optional[int] = None,
-) -> List[str]:
+    laboratory_id: int | None = None,
+    department_id: int | None = None,
+) -> list[str]:
     """Получить наименования объектов испытаний для селектов."""
     items, _, _ = await get_test_objects_list(
         db,
@@ -129,8 +142,8 @@ async def get_test_object_names(
 
 async def resolve_tag_by_name(
     db: AsyncSession,
-    test_object_name: Optional[str],
-) -> Optional[str]:
+    test_object_name: str | None,
+) -> str | None:
     """Найти тег справочника по наименованию объекта испытаний."""
     if not test_object_name or not test_object_name.strip():
         return None
@@ -148,7 +161,7 @@ async def get_protocol_abbreviations_by_names(
 
 def pick_protocol_abbreviation(
     abbreviations_by_name: dict[str, str],
-    test_object_name: Optional[str],
+    test_object_name: str | None,
 ) -> str:
     """Взять аббревиатуру из заранее загруженного словаря по имени объекта."""
     if not test_object_name or not test_object_name.strip():
@@ -158,7 +171,7 @@ def pick_protocol_abbreviation(
 
 def pick_first_protocol_abbreviation(
     abbreviations_by_name: dict[str, str],
-    test_object_names: list[Optional[str]],
+    test_object_names: list[str | None],
 ) -> str:
     """Первая непустая аббревиатура по списку наименований."""
     for name in test_object_names:
@@ -209,23 +222,21 @@ async def get_test_object_response(
     db: AsyncSession,
     test_object_id: int,
     include_deleted: bool = False,
-) -> TestObjectResponse | None:
-    item = await get_test_object_by_id(db, test_object_id, include_deleted)
-    if not item:
-        return None
+) -> TestObjectResponse:
+    item = await require_test_object_by_id(db, test_object_id, include_deleted)
     return await build_test_object_response(db, item)
 
 
 async def get_test_objects_response_list(
     db: AsyncSession,
-    page: Optional[int] = None,
-    page_size: Optional[int] = None,
-    search: Optional[str] = None,
-    sort_by: Optional[str] = None,
-    sort_order: Optional[str] = None,
-    laboratory_id: Optional[int] = None,
-    department_id: Optional[int] = None,
-) -> Tuple[List[TestObjectResponse], int, int]:
+    page: int | None = None,
+    page_size: int | None = None,
+    search: str | None = None,
+    sort_by: str | None = None,
+    sort_order: str | None = None,
+    laboratory_id: int | None = None,
+    department_id: int | None = None,
+) -> tuple[list[TestObjectResponse], int, int]:
     items, total, total_pages = await get_test_objects_list(
         db,
         page=page,
@@ -264,9 +275,7 @@ async def update_test_object(
     data: TestObjectUpdate,
 ) -> TestObjectResponse:
     """Обновить объект испытаний в справочнике."""
-    item = await get_test_object_by_id(db, test_object_id)
-    if not item:
-        raise NotFoundError("Объект испытаний не найден")
+    item = await require_test_object_by_id(db, test_object_id)
 
     if data.name is not None and data.name != item.name:
         if data.name.lower() != item.name.lower():
@@ -295,8 +304,6 @@ async def update_test_object(
 
 async def delete_test_object(db: AsyncSession, test_object_id: int) -> None:
     """Мягко удалить объект испытаний из справочника."""
-    item = await get_test_object_by_id(db, test_object_id)
-    if not item:
-        raise NotFoundError("Объект испытаний не найден")
+    item = await require_test_object_by_id(db, test_object_id)
     item.soft_delete()
     await flush_entity(db)

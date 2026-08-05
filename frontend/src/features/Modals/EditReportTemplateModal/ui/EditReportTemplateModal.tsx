@@ -9,7 +9,7 @@ import {
 import { message, Spin, Upload } from 'antd';
 import { reportsApi, type ReportTemplate, REPORT_TYPES } from '../../../../shared/api/reports';
 import { useAutoRefetchQuery } from '../../../../shared/model/lib/useQuery';
-import Button from '../../../../shared/ui/Button/Button';
+import Button from '../../../../shared/ui/Button';
 import { Select } from '../../../../shared/ui/FormItems';
 import { Modal } from '../../../../shared/ui/Modal';
 import './EditReportTemplateModal.css';

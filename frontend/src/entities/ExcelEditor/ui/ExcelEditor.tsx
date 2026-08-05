@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { BoldOutlined, DownloadOutlined, ItalicOutlined } from '@ant-design/icons';
-import { Button, Spin, message } from 'antd';
+import { Spin, message } from 'antd';
 import { read, utils } from 'xlsx';
 import { protocolsApi, type CellStyle } from '../../../shared/api/protocols';
+import Button from '../../../shared/ui/Button';
 import { Select } from '../../../shared/ui/FormItems';
-import Tooltip from '../../../shared/ui/Tooltip/Tooltip';
+import Tooltip from '../../../shared/ui/Tooltip';
 import './ExcelEditor.css';
 
 const { Option } = Select;

@@ -1,10 +1,9 @@
 from __future__ import annotations
 import base64
-from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from core.auth_decorators import IsAuthenticated
-from core.deps import DbSession, ScopeSortPaginationParams
-from core.exceptions import NotFoundError
+from core.deps import DbSession, ScopeSortPaginationParams, UserPermissions
+from core.responses import build_attachment_response
 from schemas.pagination import PaginatedResponse
 from schemas.report import (
     GenerateKgsReportRequest,
@@ -15,6 +14,7 @@ from schemas.report import (
     ReportTemplateResponse,
     ReportTemplateUpdate,
 )
+from services.access_control import enforce_lab_management_access, enforce_nav_access
 from services.report import (
     build_report_template_response,
     create_report_template,
@@ -22,12 +22,11 @@ from services.report import (
     generate_nks_report_file,
     generate_physicochemical_report_file,
     generate_sample_count_report_file,
-    get_report_template_by_id,
     get_report_template_response_data,
     get_report_templates,
+    require_report_template_by_id,
     update_report_template,
 )
-from utils.http_attachment import build_attachment_response
 
 router = APIRouter()
 
@@ -46,10 +45,12 @@ router = APIRouter()
 # @IsAuthenticated
 async def list_report_templates(
     db: DbSession,
+    effective: UserPermissions,
     params: ScopeSortPaginationParams = Depends(),
     include_deleted: bool = Query(False),
 ):
     """Возвращает список шаблонов отчётов с пагинацией или без."""
+    enforce_lab_management_access(effective, params.laboratory_id, params.department_id)
     templates, total, total_pages = await get_report_templates(
         db,
         laboratory_id=params.laboratory_id,
@@ -84,10 +85,12 @@ async def list_report_templates(
 # @IsAuthenticated
 async def get_available_report_templates(
     db: DbSession,
+    effective: UserPermissions,
     laboratory_id: int = Query(..., description="ID лаборатории"),
-    department_id: Optional[int] = Query(None, description="ID подразделения"),
+    department_id: int | None = Query(None, description="ID подразделения"),
 ):
     """Возвращает список доступных шаблонов отчётов для указанной лаборатории и подразделения."""
+    enforce_lab_management_access(effective, laboratory_id, department_id)
     templates, _, _ = await get_report_templates(
         db,
         laboratory_id=laboratory_id,
@@ -115,8 +118,12 @@ async def get_available_report_templates(
 async def create_report_template_endpoint(
     template_data: ReportTemplateCreate,
     db: DbSession,
+    effective: UserPermissions,
 ):
     """Добавляет новый шаблон отчёта на основе переданных данных."""
+    enforce_lab_management_access(
+        effective, template_data.laboratory_id, template_data.department_id
+    )
     template = await create_report_template(db, template_data)
     return await get_report_template_response_data(db, template.id)
 
@@ -134,13 +141,14 @@ async def create_report_template_endpoint(
 async def get_report_template(
     template_id: int,
     db: DbSession,
+    effective: UserPermissions,
     download: bool = Query(False, description="Скачать файл шаблона"),
 ):
     """Возвращает информацию о шаблоне отчёта по его идентификатору или файл при download=true."""
-    template = await get_report_template_by_id(db, template_id)
-    if not template:
-        raise NotFoundError("Шаблон отчёта не найден")
-
+    template = await require_report_template_by_id(db, template_id)
+    enforce_lab_management_access(
+        effective, template.laboratory_id, template.department_id
+    )
     if download:
         file_data = base64.b64decode(template.file)
         return build_attachment_response(
@@ -165,8 +173,13 @@ async def update_report_template_endpoint(
     template_id: int,
     template_data: ReportTemplateUpdate,
     db: DbSession,
+    effective: UserPermissions,
 ):
     """Обновляет существующий шаблон отчёта."""
+    template = await require_report_template_by_id(db, template_id)
+    enforce_lab_management_access(
+        effective, template.laboratory_id, template.department_id
+    )
     template = await update_report_template(db, template_id, template_data)
     return await get_report_template_response_data(db, template.id)
 
@@ -188,8 +201,10 @@ async def update_report_template_endpoint(
 async def generate_sample_count_report(
     body: GenerateSampleCountReportRequest,
     db: DbSession,
+    effective: UserPermissions,
 ):
     """Формирует отчёт «Количество проб» и возвращает Excel-файл."""
+    enforce_nav_access(effective, "samples", body.laboratory_id, body.department_id)
     content, filename = await generate_sample_count_report_file(db, body)
     return build_attachment_response(content, filename, "application/zip")
 
@@ -211,8 +226,10 @@ async def generate_sample_count_report(
 async def generate_physicochemical_report(
     body: GeneratePhysicochemicalReportRequest,
     db: DbSession,
+    effective: UserPermissions,
 ):
     """Формирует отчёт «Физико-химическая характеристика» и возвращает Excel-файл."""
+    enforce_nav_access(effective, "samples", body.laboratory_id, body.department_id)
     content, filename, media_type = await generate_physicochemical_report_file(db, body)
     return build_attachment_response(content, filename, media_type)
 
@@ -234,8 +251,10 @@ async def generate_physicochemical_report(
 async def generate_kgs_report(
     body: GenerateKgsReportRequest,
     db: DbSession,
+    effective: UserPermissions,
 ):
     """Формирует отчёт «Результаты КГС» и возвращает Excel-файл."""
+    enforce_nav_access(effective, "samples", body.laboratory_id, body.department_id)
     content, filename, media_type = await generate_kgs_report_file(db, body)
     return build_attachment_response(content, filename, media_type)
 
@@ -257,7 +276,9 @@ async def generate_kgs_report(
 async def generate_nks_report(
     body: GenerateNksReportRequest,
     db: DbSession,
+    effective: UserPermissions,
 ):
     """Формирует отчёт «Результаты НКС» и возвращает Excel-файл."""
+    enforce_nav_access(effective, "samples", body.laboratory_id, body.department_id)
     content, filename, media_type = await generate_nks_report_file(db, body)
     return build_attachment_response(content, filename, media_type)

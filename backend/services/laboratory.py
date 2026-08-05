@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.exceptions import ConflictError, NotFoundError, ValidationError
 from models.laboratory import Branch, Department, Laboratory, SamplingLocation, WellMode
@@ -12,6 +11,7 @@ from schemas.laboratory import (
     DepartmentResponse,
     DepartmentUpdate,
     LaboratoryCreate,
+    LaboratoryResponse,
     LaboratoryUpdate,
     SamplingLocationCreate,
     SamplingLocationResponse,
@@ -25,20 +25,30 @@ from utils.pagination import calculate_total_pages
 
 async def get_laboratory_by_id(
     db: AsyncSession, laboratory_id: int, include_deleted: bool = False
-) -> Optional[Laboratory]:
+) -> Laboratory | None:
     """Получить лабораторию по ID."""
     return await laboratory_repo.get_laboratory_by_id(
         db, laboratory_id, include_deleted
     )
 
 
+async def require_laboratory_by_id(
+    db: AsyncSession, laboratory_id: int, include_deleted: bool = False
+) -> Laboratory:
+    """Получить лабораторию по ID или вернуть 404."""
+    laboratory = await get_laboratory_by_id(db, laboratory_id, include_deleted)
+    if not laboratory:
+        raise NotFoundError("Лаборатория не найдена")
+    return laboratory
+
+
 async def get_laboratories(
     db: AsyncSession,
-    page: Optional[int] = None,
-    page_size: Optional[int] = None,
-    search: Optional[str] = None,
-    sort_by: Optional[str] = None,
-    sort_order: Optional[str] = None,
+    page: int | None = None,
+    page_size: int | None = None,
+    search: str | None = None,
+    sort_by: str | None = None,
+    sort_order: str | None = None,
 ) -> tuple[list[Laboratory], int, int]:
     """Получить список лабораторий."""
     laboratories, total = await laboratory_repo.get_laboratories(
@@ -51,6 +61,36 @@ async def get_laboratories(
         total_pages = 1 if total > 0 else 0
 
     return laboratories, total, total_pages
+
+
+def build_laboratory_response(lab: Laboratory) -> LaboratoryResponse:
+    """Собрать ответ лаборатории с числом активных подразделений."""
+    lab_dict = LaboratoryResponse.model_validate(lab).model_dump()
+    lab_dict["departments_count"] = len(
+        [d for d in lab.departments if d.deleted_at is None]
+    )
+    return LaboratoryResponse(**lab_dict)
+
+
+async def get_laboratories_response_data(
+    db: AsyncSession,
+    page: int | None = None,
+    page_size: int | None = None,
+    search: str | None = None,
+    sort_by: str | None = None,
+    sort_order: str | None = None,
+) -> tuple[list[LaboratoryResponse], int, int]:
+    """Список лабораторий с enrichment для API."""
+    laboratories, total, total_pages = await get_laboratories(
+        db,
+        page=page,
+        page_size=page_size,
+        search=search,
+        sort_by=sort_by,
+        sort_order=sort_order,
+    )
+    items = [build_laboratory_response(lab) for lab in laboratories]
+    return items, total, total_pages
 
 
 async def create_laboratory(
@@ -117,11 +157,21 @@ async def delete_laboratory(db: AsyncSession, laboratory_id: int) -> None:
 
 async def get_department_by_id(
     db: AsyncSession, department_id: int, include_deleted: bool = False
-) -> Optional[Department]:
+) -> Department | None:
     """Получить подразделение по ID."""
     return await laboratory_repo.get_department_by_id(
         db, department_id, include_deleted
     )
+
+
+async def require_department_by_id(
+    db: AsyncSession, department_id: int, include_deleted: bool = False
+) -> Department:
+    """Получить подразделение по ID или вернуть 404."""
+    department = await get_department_by_id(db, department_id, include_deleted)
+    if not department:
+        raise NotFoundError("Подразделение не найдено")
+    return department
 
 
 def build_department_response(dept: Department) -> DepartmentResponse:
@@ -134,12 +184,12 @@ def build_department_response(dept: Department) -> DepartmentResponse:
 
 async def get_departments(
     db: AsyncSession,
-    laboratory_id: Optional[int] = None,
-    page: Optional[int] = None,
-    page_size: Optional[int] = None,
-    search: Optional[str] = None,
-    sort_by: Optional[str] = None,
-    sort_order: Optional[str] = None,
+    laboratory_id: int | None = None,
+    page: int | None = None,
+    page_size: int | None = None,
+    search: str | None = None,
+    sort_by: str | None = None,
+    sort_order: str | None = None,
 ) -> tuple[list[Department], int, int]:
     """Получить список подразделений."""
     departments, total = await laboratory_repo.get_departments(
@@ -217,18 +267,28 @@ async def delete_department(db: AsyncSession, department_id: int) -> None:
 
 async def get_branch_by_id(
     db: AsyncSession, branch_id: int, include_deleted: bool = False
-) -> Optional[Branch]:
+) -> Branch | None:
     """Получить филиал по ID."""
     return await laboratory_repo.get_branch_by_id(db, branch_id, include_deleted)
 
 
+async def require_branch_by_id(
+    db: AsyncSession, branch_id: int, include_deleted: bool = False
+) -> Branch:
+    """Получить филиал по ID или вернуть 404."""
+    branch = await get_branch_by_id(db, branch_id, include_deleted)
+    if not branch:
+        raise NotFoundError("Филиал не найден")
+    return branch
+
+
 async def get_branches(
     db: AsyncSession,
-    laboratory_id: Optional[int] = None,
-    department_id: Optional[int] = None,
-    search: Optional[str] = None,
-    sort_by: Optional[str] = None,
-    sort_order: Optional[str] = None,
+    laboratory_id: int | None = None,
+    department_id: int | None = None,
+    search: str | None = None,
+    sort_by: str | None = None,
+    sort_order: str | None = None,
 ) -> list[Branch]:
     """Получить список филиалов."""
     return await laboratory_repo.get_branches(
@@ -297,19 +357,31 @@ async def delete_branch(db: AsyncSession, branch_id: int) -> None:
 
 async def get_sampling_location_by_id(
     db: AsyncSession, sampling_location_id: int, include_deleted: bool = False
-) -> Optional[SamplingLocation]:
+) -> SamplingLocation | None:
     """Получить место отбора пробы по ID."""
     return await laboratory_repo.get_sampling_location_by_id(
         db, sampling_location_id, include_deleted
     )
 
 
+async def require_sampling_location_by_id(
+    db: AsyncSession, sampling_location_id: int, include_deleted: bool = False
+) -> SamplingLocation:
+    """Получить место отбора пробы по ID или вернуть 404."""
+    sampling_location = await get_sampling_location_by_id(
+        db, sampling_location_id, include_deleted
+    )
+    if not sampling_location:
+        raise NotFoundError("Место отбора проб не найдено")
+    return sampling_location
+
+
 async def get_sampling_locations(
     db: AsyncSession,
-    branch_id: Optional[int] = None,
-    search: Optional[str] = None,
-    sort_by: Optional[str] = None,
-    sort_order: Optional[str] = None,
+    branch_id: int | None = None,
+    search: str | None = None,
+    sort_by: str | None = None,
+    sort_order: str | None = None,
 ) -> list[SamplingLocation]:
     """Получить список мест отбора проб."""
     return await laboratory_repo.get_sampling_locations(
@@ -377,17 +449,27 @@ async def delete_sampling_location(db: AsyncSession, sampling_location_id: int) 
 
 async def get_well_mode_by_id(
     db: AsyncSession, well_mode_id: int, include_deleted: bool = False
-) -> Optional[WellMode]:
+) -> WellMode | None:
     """Получить режим скважины по ID."""
     return await laboratory_repo.get_well_mode_by_id(db, well_mode_id, include_deleted)
 
 
+async def require_well_mode_by_id(
+    db: AsyncSession, well_mode_id: int, include_deleted: bool = False
+) -> WellMode:
+    """Получить режим скважины по ID или вернуть 404."""
+    well_mode = await get_well_mode_by_id(db, well_mode_id, include_deleted)
+    if not well_mode:
+        raise NotFoundError("Режим скважины не найден")
+    return well_mode
+
+
 async def get_well_modes(
     db: AsyncSession,
-    branch_id: Optional[int] = None,
-    search: Optional[str] = None,
-    sort_by: Optional[str] = None,
-    sort_order: Optional[str] = None,
+    branch_id: int | None = None,
+    search: str | None = None,
+    sort_by: str | None = None,
+    sort_order: str | None = None,
 ) -> list[WellMode]:
     """Получить список режимов скважин."""
     return await laboratory_repo.get_well_modes(

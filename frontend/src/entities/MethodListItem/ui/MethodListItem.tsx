@@ -1,7 +1,7 @@
 import React from 'react';
 import { EditOutlined } from '@ant-design/icons';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
-import Tooltip from '../../../shared/ui/Tooltip/Tooltip';
+import Tooltip from '../../../shared/ui/Tooltip';
 import './MethodListItem.css';
 
 interface MethodListItemProps {

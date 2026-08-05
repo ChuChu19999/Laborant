@@ -9,8 +9,8 @@ import {
   EditTestObjectModal,
 } from '../../features/Modals';
 import { useTestObjects } from '../../shared/model/hooks';
-import Button from '../../shared/ui/Button/Button';
-import Layout from '../../shared/ui/Layout/Layout';
+import Button from '../../shared/ui/Button';
+import Layout from '../../shared/ui/Layout';
 import { NavigationBar } from '../../widgets/NavigationBar';
 import { TestObjectsTable } from '../../widgets/Tables/TestObjectsTable';
 import type { TestObjectCatalogItem } from '../../shared/api/testObjects';

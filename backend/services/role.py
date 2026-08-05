@@ -4,11 +4,25 @@ from core.exceptions import ConflictError, NotFoundError
 from models.role import Role
 from repositories import role as role_repo
 from repositories.base import flush_entity, refresh_entity
-from schemas.role import RoleCreate, RoleResponse, RoleUpdate, visibility_scope_to_dict
-from schemas.test_object import VisibilityScope, VisibilityScopeEntity
-from services.visibility import enrich_visibility_scope_labels
+from schemas.role import (
+    RoleCreate,
+    RolePermissions,
+    RoleResponse,
+    RoleUpdate,
+    permissions_to_dict,
+)
+from schemas.visibility import (
+    VisibilityScope,
+    VisibilityScopeEntity,
+    visibility_scope_to_dict,
+)
+from services.visibility import (
+    enrich_visibility_scope_labels,
+    validate_visibility_scope_ids,
+)
 from utils.pagination import calculate_total_pages
-from utils.test_object_visibility import normalize_visibility_scope
+from utils.permissions_constants import normalize_permissions
+from utils.visibility_scope import normalize_visibility_scope
 
 
 def _serialize_role(item: Role) -> Role:
@@ -24,6 +38,9 @@ async def build_role_response(db: AsyncSession, item: Role) -> RoleResponse:
     created_at = item.created_at
     updated_at = item.updated_at
     deleted_at = item.deleted_at
+    permissions = RolePermissions.model_validate(
+        normalize_permissions(item.permissions)
+    )
 
     labels = await enrich_visibility_scope_labels(db, scope)
     return RoleResponse(
@@ -42,6 +59,7 @@ async def build_role_response(db: AsyncSession, item: Role) -> RoleResponse:
                 for entry in labels.get("departments", [])
             ],
         ),
+        permissions=permissions,
         created_at=created_at,
         updated_at=updated_at,
         deleted_at=deleted_at,
@@ -60,15 +78,25 @@ async def get_role_by_id(
     return None
 
 
+async def require_role_by_id(
+    db: AsyncSession,
+    role_id: int,
+    include_deleted: bool = False,
+) -> Role:
+    """Получить роль по ID или вернуть 404."""
+    item = await get_role_by_id(db, role_id, include_deleted)
+    if not item:
+        raise NotFoundError("Роль не найдена")
+    return item
+
+
 async def get_role_response(
     db: AsyncSession,
     role_id: int,
     include_deleted: bool = False,
-) -> RoleResponse | None:
+) -> RoleResponse:
     """Получить ответ API по роли."""
-    item = await get_role_by_id(db, role_id, include_deleted)
-    if not item:
-        return None
+    item = await require_role_by_id(db, role_id, include_deleted)
     return await build_role_response(db, item)
 
 
@@ -108,10 +136,14 @@ async def create_role(db: AsyncSession, data: RoleCreate) -> RoleResponse:
             "Область видимости роли с таким наименованием и типом уже существует"
         )
 
+    scope_dict = visibility_scope_to_dict(data.visibility_scope)
+    await validate_visibility_scope_ids(db, scope_dict)
+
     item = Role(
         name=data.name,
         role_type=data.role_type,
-        visibility_scope=visibility_scope_to_dict(data.visibility_scope),
+        visibility_scope=scope_dict,
+        permissions=permissions_to_dict(data.permissions),
     )
     item = await role_repo.add_role(db, item)
     return await build_role_response(db, _serialize_role(item))
@@ -123,9 +155,7 @@ async def update_role(
     data: RoleUpdate,
 ) -> RoleResponse:
     """Обновить роль в справочнике."""
-    item = await get_role_by_id(db, role_id)
-    if not item:
-        raise NotFoundError("Роль не найдена")
+    item = await require_role_by_id(db, role_id)
 
     if data.name is not None and data.name != item.name:
         if data.name.lower() != item.name.lower():
@@ -154,7 +184,12 @@ async def update_role(
         item.role_type = data.role_type
 
     if data.visibility_scope is not None:
-        item.visibility_scope = visibility_scope_to_dict(data.visibility_scope)
+        scope_dict = visibility_scope_to_dict(data.visibility_scope)
+        await validate_visibility_scope_ids(db, scope_dict)
+        item.visibility_scope = scope_dict
+
+    if data.permissions is not None:
+        item.permissions = permissions_to_dict(data.permissions)
 
     await flush_entity(db)
     await refresh_entity(db, item)
@@ -163,9 +198,7 @@ async def update_role(
 
 async def delete_role(db: AsyncSession, role_id: int) -> None:
     """Мягко удалить роль из справочника."""
-    item = await get_role_by_id(db, role_id)
-    if not item:
-        raise NotFoundError("Роль не найдена")
+    item = await require_role_by_id(db, role_id)
     item.soft_delete()
     await flush_entity(db)
 
@@ -173,6 +206,7 @@ async def delete_role(db: AsyncSession, role_id: int) -> None:
 __all__ = [
     "build_role_response",
     "get_role_by_id",
+    "require_role_by_id",
     "get_role_response",
     "get_roles_list",
     "create_role",

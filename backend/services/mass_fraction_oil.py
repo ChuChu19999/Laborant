@@ -1,6 +1,6 @@
 from __future__ import annotations
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Any, Dict, List, NamedTuple, Optional
+from typing import Any, NamedTuple
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.logger import logger
 from repositories import mass_fraction as mass_fraction_repo
@@ -24,7 +24,7 @@ def is_mass_fraction_oil_input_key(key: Any) -> bool:
     return isinstance(key, str) and key.startswith("_mf_oil")
 
 
-def _has_mass_fraction_oil_group(research_method: Dict[str, Any]) -> bool:
+def _has_mass_fraction_oil_group(research_method: dict[str, Any]) -> bool:
     group_name = str(research_method.get("group_name") or "").strip()
     if group_name == MASS_FRACTION_OIL_GROUP_NAME:
         return True
@@ -35,7 +35,7 @@ def _has_mass_fraction_oil_group(research_method: Dict[str, Any]) -> bool:
     return False
 
 
-def is_mass_fraction_oil_method(research_method: Dict[str, Any]) -> bool:
+def is_mass_fraction_oil_method(research_method: dict[str, Any]) -> bool:
     """
     Логика массовой доли нефти: по группе «Массовая доля нефти» или по имени метода.
     Если группа другая — учитывается только имя метода.
@@ -72,7 +72,7 @@ async def calculate_mass_fraction_from_refraction(
             )
             return MassFractionFromRefractionOutcome(Decimal("0"), "0", False)
 
-        n_at_c_zero: List[Decimal] = []
+        n_at_c_zero: list[Decimal] = []
         for entry in table_entries:
             try:
                 c_raw = parse_decimal_value(entry.c_value)
@@ -142,8 +142,8 @@ async def calculate_mass_fraction_from_refraction(
 
 async def prepare_mass_fraction_oil_input(
     db: AsyncSession,
-    input_data: Dict[str, Any],
-    research_method: Dict[str, Any],
+    input_data: dict[str, Any],
+    research_method: dict[str, Any],
 ) -> None:
     """Пересчитывает C₁/C₂ по n₁/n₂ перед основными формулами методики."""
     if not is_mass_fraction_oil_method(research_method):
@@ -151,7 +151,7 @@ async def prepare_mass_fraction_oil_input(
 
     logger.info("Обработка метода массовой доли нефти")
     input_data.pop(MF_OIL_DISPLAY_LABELS_KEY, None)
-    mf_oil_display_labels: Dict[str, str] = {}
+    mf_oil_display_labels: dict[str, str] = {}
 
     try:
         method_id = research_method.get("id")
@@ -194,7 +194,7 @@ async def prepare_mass_fraction_oil_input(
         raise ValueError(f"Ошибка при расчете массовой доли нефти: {str(e)}") from e
 
 
-def _c1_c2_both_zero(variables: Dict[str, Any]) -> bool:
+def _c1_c2_both_zero(variables: dict[str, Any]) -> bool:
     """Оба значения C₁ и C₂ считаются нулевыми (после округления в variables)."""
 
     def _to_float(x: Any) -> float:
@@ -222,7 +222,7 @@ def _c1_c2_both_zero(variables: Dict[str, Any]) -> bool:
     return abs(c1) < 1e-12 and abs(c2) < 1e-12
 
 
-def _custom_is_menee_01(custom_value: Optional[str]) -> bool:
+def _custom_is_menee_01(custom_value: str | None) -> bool:
     """Подпись условия сходимости «менее 0,1» (без учёта регистра и пробелов по краям)."""
     if not custom_value:
         return False
@@ -230,9 +230,9 @@ def _custom_is_menee_01(custom_value: Optional[str]) -> bool:
 
 
 def should_skip_repeatability_div_by_sum(
-    research_method: Dict[str, Any],
-    variables: Dict[str, Any],
-    condition: Dict[str, Any],
+    research_method: dict[str, Any],
+    variables: dict[str, Any],
+    condition: dict[str, Any],
 ) -> bool:
     """
     Условия с (C₁+C₂) в знаменателе при C₁=C₂=0 не вычисляем — деление на ноль.
@@ -257,10 +257,10 @@ def log_skip_repeatability_div_by_sum() -> None:
 
 
 def resolve_custom_early_result_text(
-    research_method: Dict[str, Any],
-    custom_value: Optional[str],
-    intermediate_results_rounded: Dict[str, Any],
-) -> Optional[str]:
+    research_method: dict[str, Any],
+    custom_value: str | None,
+    intermediate_results_rounded: dict[str, Any],
+) -> str | None:
     """Итог при custom «менее 0,1» — Cср или ноль с нужным округлением."""
     if not is_mass_fraction_oil_method(research_method):
         return None

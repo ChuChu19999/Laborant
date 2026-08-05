@@ -22,8 +22,6 @@ def add_date_range_filter(
 def add_text_search_filter(
     conditions: list, search_text: str | None, column: Column
 ) -> None:
-    """
-    Добавление фильтра по текстовому поиску (ILIKE с %).
-    """
+    """Добавление фильтра по текстовому поиску (ILIKE с %)."""
     if search_text:
         conditions.append(column.ilike(f"%{search_text}%"))

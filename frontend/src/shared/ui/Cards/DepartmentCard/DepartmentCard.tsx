@@ -1,6 +1,6 @@
 import React from 'react';
 import { DeploymentUnitOutlined, ClusterOutlined, BranchesOutlined } from '@ant-design/icons';
-import Button from '../../Button/Button';
+import Button from '../../Button';
 import type { Department as DepartmentType } from '../../../api/laboratories';
 import './DepartmentCard.css';
 
@@ -15,6 +15,7 @@ interface DepartmentCardProps {
   onEdit?: (department: Department, e: React.MouseEvent) => void;
   onDelete?: (department: Department, e: React.MouseEvent) => void;
   iconIndex?: number;
+  disabled?: boolean;
 }
 
 const DepartmentCard = ({
@@ -24,21 +25,36 @@ const DepartmentCard = ({
   onEdit,
   onDelete,
   iconIndex = 0,
+  disabled = false,
 }: DepartmentCardProps) => {
   const DeptIcon = deptIcons[iconIndex % deptIcons.length];
 
   const handleEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (disabled) {
+      return;
+    }
     onEdit?.(department, e);
   };
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (disabled) {
+      return;
+    }
     onDelete?.(department, e);
   };
 
   return (
-    <div className="department-card" onClick={() => onClick?.(department)}>
+    <div
+      className={`department-card${disabled ? ' department-card--disabled' : ''}`}
+      onClick={() => {
+        if (!disabled) {
+          onClick?.(department);
+        }
+      }}
+      aria-disabled={disabled}
+    >
       <div className="department-card-content">
         <div className="department-card-header">
           <DeptIcon className="department-icon" />
@@ -50,7 +66,7 @@ const DepartmentCard = ({
           </div>
         )}
       </div>
-      {showActions && (
+      {showActions && !disabled && (
         <div className="department-card-actions" onClick={e => e.stopPropagation()}>
           <div className="button-wrapper">
             <Button

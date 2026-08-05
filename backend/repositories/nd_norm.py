@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import List, Optional
 import pendulum
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,7 +20,7 @@ async def get_nd_norm_by_id(
     db: AsyncSession,
     nd_norm_id: int,
     include_deleted: bool = False,
-) -> Optional[NdNorm]:
+) -> NdNorm | None:
     """Получить норму НД по ID."""
     query = (
         select(NdNorm)
@@ -35,18 +34,18 @@ async def get_nd_norm_by_id(
 
 async def get_nd_norms(
     db: AsyncSession,
-    laboratory_id: Optional[int] = None,
-    department_id: Optional[int] = None,
-    page: Optional[int] = None,
-    page_size: Optional[int] = None,
-    search: Optional[str] = None,
-    test_object: Optional[str] = None,
-    test_objects: Optional[List[str]] = None,
-    sort_by: Optional[str] = None,
-    sort_order: Optional[str] = None,
-    created_at_from: Optional[pendulum.DateTime] = None,
-    created_at_to: Optional[pendulum.DateTime] = None,
-) -> tuple[List[NdNorm], int]:
+    laboratory_id: int | None = None,
+    department_id: int | None = None,
+    page: int | None = None,
+    page_size: int | None = None,
+    search: str | None = None,
+    test_object: str | None = None,
+    test_objects: list[str] | None = None,
+    sort_by: str | None = None,
+    sort_order: str | None = None,
+    created_at_from: pendulum.DateTime | None = None,
+    created_at_to: pendulum.DateTime | None = None,
+) -> tuple[list[NdNorm], int]:
     """Получить список норм НД."""
     query = filter_not_deleted(select(NdNorm), NdNorm.deleted_at).options(
         selectinload(NdNorm.laboratory), selectinload(NdNorm.department)
@@ -76,8 +75,9 @@ async def get_nd_norms(
     order_by = build_order_by(sort_by, sort_order, sort_mapping, NdNorm.name)
     query = query.order_by(order_by)
 
-    count_query = (
-        select(func.count()).select_from(NdNorm).where(NdNorm.deleted_at.is_(None))
+    count_query = filter_not_deleted(
+        select(func.count()).select_from(NdNorm),
+        NdNorm.deleted_at,
     )
     count_conditions = []
     if laboratory_id:
@@ -109,13 +109,15 @@ async def get_valid_method_ids(
     db: AsyncSession,
     method_ids: set[int],
     laboratory_id: int,
-    department_id: Optional[int],
+    department_id: int | None,
 ) -> set[int]:
     """Получить ID методов исследования, существующих в лаборатории."""
-    query = select(ResearchMethod.id).where(
-        ResearchMethod.id.in_(method_ids),
-        ResearchMethod.deleted_at.is_(None),
-        ResearchMethod.laboratory_id == laboratory_id,
+    query = filter_not_deleted(
+        select(ResearchMethod.id).where(
+            ResearchMethod.id.in_(method_ids),
+            ResearchMethod.laboratory_id == laboratory_id,
+        ),
+        ResearchMethod.deleted_at,
     )
     if department_id:
         query = query.where(ResearchMethod.department_id == department_id)

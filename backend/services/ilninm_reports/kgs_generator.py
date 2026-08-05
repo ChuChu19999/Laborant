@@ -1,6 +1,6 @@
 import base64
 from io import BytesIO
-from typing import Any, Optional
+from typing import Any
 import openpyxl
 from openpyxl.cell.cell import Cell
 from openpyxl.styles import Font
@@ -94,7 +94,7 @@ def _write_data_row(
     template_row: int,
     output_row: int,
     max_col: int,
-    row_index: Optional[int],
+    row_index: int | None,
     location_display: str,
     sampling_date: str,
     values_by_column: dict[int, str],
@@ -152,7 +152,7 @@ async def build_kgs_excel(
     laboratory_id: int,
     sampling_date_from: Any,
     sampling_date_to: Any,
-    department_id: Optional[int] = None,
+    department_id: int | None = None,
 ) -> bytes:
     """Строит Excel по шаблону: шапка с периодом, строки данных с 18-й строки."""
     template_bytes = base64.b64decode(template_file_base64)

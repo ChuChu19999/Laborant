@@ -6,7 +6,7 @@
 
 from dataclasses import dataclass
 from datetime import date
-from typing import Any, Optional
+from typing import Any
 import pendulum
 from sqlalchemy.ext.asyncio import AsyncSession
 from models.calculation import Calculation
@@ -53,7 +53,6 @@ from services.ilninm_reports.physicochemical import (
     get_calculations_by_sample,
 )
 from utils.calculation_result_display import format_calculation_result_for_display
-from utils.filters import add_date_range_filter
 
 _NKS_TEMPERATURE_CAP = 360
 _Q_ZERO_EPSILON = 1e-9
@@ -95,7 +94,7 @@ def _is_nks_sample(sample: Sample) -> bool:
     return TEST_OBJECT_NKS_MIXTURE in (sample.test_object or "").lower()
 
 
-def _selection_condition_raw(sample: Sample, variable_name: str) -> Optional[str]:
+def _selection_condition_raw(sample: Sample, variable_name: str) -> str | None:
     raw = sample.selection_conditions
     if not raw:
         return None
@@ -125,7 +124,7 @@ def _selection_condition_raw(sample: Sample, variable_name: str) -> Optional[str
     return None
 
 
-def _format_selection_condition(value: Optional[str]) -> str:
+def _format_selection_condition(value: str | None) -> str:
     if value is None or not str(value).strip():
         return REPORT_EMPTY_CELL_VALUE
     return str(value).strip().replace(".", ",")
@@ -178,7 +177,7 @@ def _calc_in_group(calc: Calculation, group_name: str) -> bool:
 
 def _find_first_mass_fraction_oil_calc(
     calculations: list[Calculation],
-) -> Optional[Calculation]:
+) -> Calculation | None:
     for calc in calculations:
         method = calc.research_method
         if method is None:
@@ -192,7 +191,7 @@ def _find_first_mass_fraction_oil_calc(
 
 def _find_first_density_20_calc(
     calculations: list[Calculation],
-) -> Optional[Calculation]:
+) -> Calculation | None:
     for calc in calculations:
         if _calc_in_group(calc, GROUP_DENSITY_20):
             return calc
@@ -201,7 +200,7 @@ def _find_first_density_20_calc(
 
 def _find_first_fractional_condensate_calc(
     calculations: list[Calculation],
-) -> Optional[Calculation]:
+) -> Calculation | None:
     for calc in calculations:
         method_name = (calc.research_method.name or "") if calc.research_method else ""
         if _method_name_matches(method_name, METHOD_FRACTIONAL_CONDENSATE):
@@ -241,7 +240,7 @@ def _fractional_payload(calc: Calculation) -> dict[str, Any]:
     return normalized
 
 
-def _fractional_field_raw(calc: Calculation, field_name: str) -> Optional[str]:
+def _fractional_field_raw(calc: Calculation, field_name: str) -> str | None:
     data = _fractional_payload(calc)
     if not data:
         data = _parse_calculation_result_payload(calc)
@@ -254,7 +253,7 @@ def _fractional_field_raw(calc: Calculation, field_name: str) -> Optional[str]:
     return None
 
 
-def _try_parse_number(text: str) -> Optional[float]:
+def _try_parse_number(text: str) -> float | None:
     cleaned = (text or "").strip()
     if not cleaned or cleaned == REPORT_EMPTY_CELL_VALUE:
         return None
@@ -328,7 +327,7 @@ def _density_result(calc: Calculation) -> str:
 
 
 def _build_mass_fraction_columns(
-    calc: Optional[Calculation],
+    calc: Calculation | None,
 ) -> tuple[str, str, str]:
     """Q, R, S — массовая доля нефти, знак ±, погрешность."""
     if calc is None:
@@ -397,7 +396,7 @@ def _build_row_values(calculations: list[Calculation]) -> dict[int, str]:
 async def _get_samples_for_nks_report(
     db: AsyncSession,
     laboratory_id: int,
-    department_id: Optional[int],
+    department_id: int | None,
     sampling_date_from: pendulum.DateTime,
     sampling_date_to: pendulum.DateTime,
 ) -> list[Sample]:
@@ -423,7 +422,7 @@ async def _get_samples_for_nks_report(
 async def get_nks_report_rows(
     db: AsyncSession,
     laboratory_id: int,
-    department_id: Optional[int],
+    department_id: int | None,
     sampling_date_from: pendulum.DateTime,
     sampling_date_to: pendulum.DateTime,
 ) -> list[NksReportRow]:

@@ -6,7 +6,6 @@ from utils.pagination import (
     calculate_total_pages,
     get_total_count,
 )
-from utils.query_params import parse_date_range_params
 from utils.sorting import build_order_by
 
 __all__ = [
@@ -18,6 +17,5 @@ __all__ = [
     "calculate_pagination",
     "calculate_total_pages",
     "get_total_count",
-    "parse_date_range_params",
     "build_order_by",
 ]

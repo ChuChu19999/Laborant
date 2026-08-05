@@ -43,6 +43,17 @@
   margin-bottom: 0;
 }
 
+.parallel-card-form-row {
+  display: grid;
+  grid-template-columns: minmax(auto, max-content) 1fr;
+  gap: 12px;
+  align-items: center;
+}
+
+.parallel-card-form-item {
+  margin: 0;
+}
+
 .parallel-card-title-wrapper {
   display: flex;
   align-items: center;
@@ -55,6 +66,10 @@
 .parallel-card-title-icon {
   margin-left: 4px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
+  flex-shrink: 0;
 }
 
 .parallel-card-input-wrapper {

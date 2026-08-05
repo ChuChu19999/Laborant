@@ -21,6 +21,18 @@
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.15);
 }
 
+.department-card--disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: grayscale(0.35);
+  box-shadow: none;
+}
+
+.department-card--disabled:hover {
+  transform: none;
+  box-shadow: none;
+}
+
 .department-card-content {
   flex: 1;
   display: flex;

@@ -1,7 +1,5 @@
 from __future__ import annotations
-
-# Префикс номера скважины в месте отбора.
-WELL_DISPLAY_PREFIX = "скв. №"
+from utils.sample_display_rules import WELL_DISPLAY_PREFIX
 
 
 def format_well_display(well: str | None) -> str | None:

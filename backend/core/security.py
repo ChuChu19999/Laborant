@@ -1,5 +1,4 @@
 import time
-from typing import Optional
 import jwt
 import requests
 from fastapi import HTTPException, Security, status
@@ -11,8 +10,8 @@ from utils.current_user import set_current_user
 
 security_optional = HTTPBearer(auto_error=False)
 _PUBLIC_KEY_CACHE_TTL = 3600
-_public_key_cache: Optional[str] = None
-_public_key_cache_expires_at: Optional[float] = None
+_public_key_cache: str | None = None
+_public_key_cache_expires_at: float | None = None
 
 
 async def get_public_key() -> str:
@@ -69,12 +68,13 @@ async def get_public_key() -> str:
 
 
 async def verify_token(
-    credentials: Optional[HTTPAuthorizationCredentials] = Security(security_optional),
+    credentials: HTTPAuthorizationCredentials | None = Security(security_optional),
 ) -> dict:
     """Проверка и расшифровка JWT токена из заголовка Authorization."""
     mock_token = {
         "hashSnils": "e1cee128188b77f382eec32ca80494e6",
         "fullName": "Тестовый Пользователь",
+        "access_groups": [{"appRoleName": "admin"}],
     }
 
     if not credentials or not credentials.credentials:
@@ -111,6 +111,31 @@ async def verify_token(
     except Exception as e:
         logger.warning(f"Error decoding token: {e}, using mock data")
         return mock_token
+
+
+def get_user_roles(decoded_token: dict) -> list[str]:
+    """Извлечение ролей пользователя из токена (access_groups.appRoleName)."""
+    access_groups = decoded_token.get("access_groups", [])
+    if not isinstance(access_groups, list):
+        return []
+
+    roles: list[str] = []
+    for group in access_groups:
+        if isinstance(group, dict):
+            app_role_name = group.get("appRoleName")
+            if isinstance(app_role_name, str) and app_role_name.strip():
+                roles.append(app_role_name.strip())
+    return roles
+
+
+def is_admin_role(role_name: str) -> bool:
+    """Проверка, что имя роли содержит подстроку admin."""
+    return "admin" in role_name.lower()
+
+
+def is_admin_user(decoded_token: dict) -> bool:
+    """Проверка, есть ли у пользователя admin-роль в токене."""
+    return any(is_admin_role(role) for role in get_user_roles(decoded_token))
 
 
 async def get_current_user(decoded_token: dict = Security(verify_token)) -> dict:

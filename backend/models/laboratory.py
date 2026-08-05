@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 from sqlalchemy import ForeignKey, Index, Integer, String, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from core.config import get_database_schema
@@ -26,7 +26,7 @@ class Laboratory(BaseModel):
     full_name: Mapped[str] = mapped_column(
         String(255), nullable=False, comment="Полное название"
     )
-    laboratory_location: Mapped[Optional[str]] = mapped_column(
+    laboratory_location: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
         comment="Место осуществления лабораторной деятельности",
@@ -61,7 +61,6 @@ class Laboratory(BaseModel):
             unique=True,
             postgresql_where=text("deleted_at IS NULL"),
         ),
-        Index("idx_laboratory_name", "name"),
         {"schema": get_database_schema()},
     )
 
@@ -118,7 +117,6 @@ class Department(BaseModel):
             unique=True,
             postgresql_where=text("deleted_at IS NULL"),
         ),
-        Index("idx_department_laboratory_name", "laboratory_id", "name"),
         {"schema": get_database_schema()},
     )
 
@@ -134,7 +132,7 @@ class Branch(BaseModel):
     name: Mapped[str] = mapped_column(
         String(255), nullable=False, comment="Название филиала"
     )
-    phone: Mapped[Optional[str]] = mapped_column(
+    phone: Mapped[str | None] = mapped_column(
         String(20), nullable=True, comment="Номер телефона филиала"
     )
     laboratory_id: Mapped[int] = mapped_column(
@@ -142,14 +140,14 @@ class Branch(BaseModel):
         ForeignKey(f"{get_database_schema()}.laboratories.id", ondelete="CASCADE"),
         nullable=False,
     )
-    department_id: Mapped[Optional[int]] = mapped_column(
+    department_id: Mapped[int | None] = mapped_column(
         Integer,
         ForeignKey(f"{get_database_schema()}.departments.id", ondelete="CASCADE"),
         nullable=True,
     )
 
     laboratory: Mapped["Laboratory"] = relationship(back_populates="branches")
-    department: Mapped[Optional["Department"]] = relationship(back_populates="branches")
+    department: Mapped["Department | None"] = relationship(back_populates="branches")
     sampling_locations: Mapped[list["SamplingLocation"]] = relationship(
         "SamplingLocation", back_populates="branch"
     )
@@ -194,7 +192,6 @@ class SamplingLocation(BaseModel):
             unique=True,
             postgresql_where=text("deleted_at IS NULL"),
         ),
-        Index("idx_sampling_location_branch_name", "branch_id", "name"),
         {"schema": get_database_schema()},
     )
 
@@ -226,7 +223,6 @@ class WellMode(BaseModel):
             unique=True,
             postgresql_where=text("deleted_at IS NULL"),
         ),
-        Index("idx_well_mode_branch_name", "branch_id", "name"),
         {"schema": get_database_schema()},
     )
 

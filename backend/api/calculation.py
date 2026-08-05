@@ -1,9 +1,8 @@
 from __future__ import annotations
-from typing import List, Optional
 from fastapi import APIRouter, Depends, Query
 from core.auth_decorators import IsAuthenticated
-from core.deps import DbSession, ScopeSortPaginationParams
-from core.exceptions import ValidationError
+from core.deps import DbSession, ScopeSortPaginationParams, UserPermissions
+from core.exceptions import ForbiddenError, ValidationError
 from schemas.calculation import (
     CalculateRequest,
     CalculationCreate,
@@ -12,6 +11,7 @@ from schemas.calculation import (
     MethodologyChoiceResponse,
 )
 from schemas.pagination import PaginatedResponse
+from services.access_control import enforce_crud_access, enforce_nav_access
 from services.calculation import (
     create_calculation,
     delete_calculation,
@@ -22,8 +22,11 @@ from services.calculation import (
     get_calculations_by_sample,
     get_calculations_response_data,
     replace_calculation,
+    require_calculation_by_id,
     update_calculation,
 )
+from services.research import require_research_method_by_id
+from services.sample import require_sample_by_id
 
 router = APIRouter()
 
@@ -45,13 +48,21 @@ router = APIRouter()
 # @IsAuthenticated
 async def list_calculations(
     db: DbSession,
+    effective: UserPermissions,
     params: ScopeSortPaginationParams = Depends(),
-    sample_id: Optional[int] = Query(None),
-    sample_ids: Optional[str] = Query(None, description="Список ID проб через запятую"),
-    research_method_id: Optional[int] = Query(None),
+    sample_id: int | None = Query(None),
+    sample_ids: str | None = Query(None, description="Список ID проб через запятую"),
+    research_method_id: int | None = Query(None),
     include_deleted: bool = Query(False),
 ):
     """Возвращает список расчетов с пагинацией или без."""
+    enforce_crud_access(
+        effective,
+        "calculations",
+        "execute",
+        params.laboratory_id,
+        params.department_id,
+    )
     sample_ids_list = None
     if sample_ids:
         try:
@@ -90,7 +101,7 @@ async def list_calculations(
 
 @router.get(
     "/calculations/by-sample/{sample_id}/",
-    response_model=List[CalculationResponse],
+    response_model=list[CalculationResponse],
     summary="Получение расчетов по пробе",
     description="Возвращает все расчеты для указанной пробы без пагинации.",
     responses={
@@ -101,11 +112,25 @@ async def list_calculations(
 async def get_calculations_by_sample_endpoint(
     sample_id: int,
     db: DbSession,
+    effective: UserPermissions,
     include_deleted: bool = Query(False),
-    sort_by: Optional[str] = Query(None),
-    sort_order: Optional[str] = Query("desc"),
+    sort_by: str | None = Query(None),
+    sort_order: str | None = Query("desc"),
 ):
     """Возвращает все расчеты для указанной пробы без пагинации."""
+    sample = await require_sample_by_id(db, sample_id)
+    try:
+        enforce_nav_access(
+            effective, "samples", sample.laboratory_id, sample.department_id
+        )
+    except ForbiddenError:
+        enforce_crud_access(
+            effective,
+            "calculations",
+            "execute",
+            sample.laboratory_id,
+            sample.department_id,
+        )
     calculations = await get_calculations_by_sample(
         db,
         sample_id=sample_id,
@@ -134,8 +159,16 @@ async def get_calculations_by_sample_endpoint(
 async def create_calculation_endpoint(
     calculation_data: CalculationCreate,
     db: DbSession,
+    effective: UserPermissions,
 ):
     """Добавляет новый расчет на основе переданных данных."""
+    enforce_crud_access(
+        effective,
+        "calculations",
+        "create",
+        calculation_data.laboratory_id,
+        calculation_data.department_id,
+    )
     calculation = await create_calculation(db, calculation_data)
     return await get_calculation_response_data(db, calculation.id)
 
@@ -157,8 +190,17 @@ async def create_calculation_endpoint(
 async def get_calculation_methodology_choice_endpoint(
     calculation_id: int,
     db: DbSession,
+    effective: UserPermissions,
 ):
     """Возвращает статус изменения методики при редактировании расчета."""
+    calculation = await require_calculation_by_id(db, calculation_id)
+    enforce_crud_access(
+        effective,
+        "calculations",
+        "execute",
+        calculation.laboratory_id,
+        calculation.department_id,
+    )
     return await get_calculation_methodology_choice(db, calculation_id)
 
 
@@ -176,8 +218,17 @@ async def get_calculation_methodology_choice_endpoint(
 async def get_calculation(
     calculation_id: int,
     db: DbSession,
+    effective: UserPermissions,
 ):
     """Возвращает информацию о расчете по его идентификатору."""
+    calculation = await require_calculation_by_id(db, calculation_id)
+    enforce_crud_access(
+        effective,
+        "calculations",
+        "execute",
+        calculation.laboratory_id,
+        calculation.department_id,
+    )
     return await get_calculation_response_data(db, calculation_id)
 
 
@@ -196,8 +247,13 @@ async def update_calculation_endpoint(
     calculation_id: int,
     calculation_data: CalculationUpdate,
     db: DbSession,
+    effective: UserPermissions,
 ):
     """Обновляет существующий расчет."""
+    existing = await require_calculation_by_id(db, calculation_id)
+    lab_id = calculation_data.laboratory_id or existing.laboratory_id
+    dept_id = calculation_data.department_id or existing.department_id
+    enforce_crud_access(effective, "calculations", "update", lab_id, dept_id)
     calculation = await update_calculation(db, calculation_id, calculation_data)
     return await get_calculation_response_data(db, calculation.id)
 
@@ -216,8 +272,17 @@ async def update_calculation_endpoint(
 async def delete_calculation_endpoint(
     calculation_id: int,
     db: DbSession,
+    effective: UserPermissions,
 ):
     """Выполняет мягкое удаление расчета."""
+    calculation = await require_calculation_by_id(db, calculation_id)
+    enforce_crud_access(
+        effective,
+        "calculations",
+        "delete",
+        calculation.laboratory_id,
+        calculation.department_id,
+    )
     await delete_calculation(db, calculation_id)
 
 
@@ -240,8 +305,13 @@ async def replace_calculation_endpoint(
     calculation_id: int,
     calculation_data: CalculationCreate,
     db: DbSession,
+    effective: UserPermissions,
 ):
     """Выполняет замену расчета: помечает текущую запись как удаленную и создает новую."""
+    existing = await require_calculation_by_id(db, calculation_id)
+    lab_id = calculation_data.laboratory_id or existing.laboratory_id
+    dept_id = calculation_data.department_id or existing.department_id
+    enforce_crud_access(effective, "calculations", "create", lab_id, dept_id)
     calculation = await replace_calculation(db, calculation_id, calculation_data)
     return await get_calculation_response_data(db, calculation.id)
 
@@ -263,6 +333,15 @@ async def replace_calculation_endpoint(
 async def calculate_endpoint(
     request: CalculateRequest,
     db: DbSession,
+    effective: UserPermissions,
 ):
     """Выполняет расчет результата на основе входных данных и метода исследования."""
+    method = await require_research_method_by_id(db, request.research_method_id)
+    enforce_crud_access(
+        effective,
+        "calculations",
+        "execute",
+        method.laboratory_id,
+        method.department_id,
+    )
     return await execute_calculation(db, request)

@@ -15,7 +15,7 @@ import {
   type ProtocolTemplate,
 } from '../../../../shared/api/protocols';
 import { useAutoRefetchQuery } from '../../../../shared/model/lib/useQuery';
-import Button from '../../../../shared/ui/Button/Button';
+import Button from '../../../../shared/ui/Button';
 import { Input, Select } from '../../../../shared/ui/FormItems';
 import { Modal } from '../../../../shared/ui/Modal';
 import './EditProtocolTemplateModal.css';

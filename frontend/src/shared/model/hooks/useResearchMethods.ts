@@ -24,7 +24,8 @@ export const useResearchMethods = (laboratoryId?: number, departmentId?: number)
   } = useQueryStore();
 
   const effectiveLaboratoryId = laboratoryId ?? researchMethodsQuery.laboratoryId;
-  const effectiveDepartmentId = departmentId ?? researchMethodsQuery.departmentId;
+  const effectiveDepartmentId =
+    laboratoryId !== undefined ? departmentId : (departmentId ?? researchMethodsQuery.departmentId);
 
   const queryKey = useMemo(
     () => [

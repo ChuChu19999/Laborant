@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { DownloadOutlined, FileTextOutlined, PlusOutlined } from '@ant-design/icons';
 import { message } from 'antd';
 import dayjs from 'dayjs';
@@ -14,12 +14,13 @@ import {
 } from '../../features/Modals';
 import { laboratoriesApi } from '../../shared/api/laboratories';
 import { samplesApi } from '../../shared/api/samples';
+import { useCan, useScopeAccess } from '../../shared/lib/permissions';
 import { useSamples } from '../../shared/model/hooks';
 import { useAutoRefetchQuery } from '../../shared/model/lib/useQuery';
 import { useQueryStore } from '../../shared/model/stores';
-import Button from '../../shared/ui/Button/Button';
+import Button from '../../shared/ui/Button';
 import { LaboratoryCard, DepartmentCard } from '../../shared/ui/Cards';
-import Layout from '../../shared/ui/Layout/Layout';
+import Layout from '../../shared/ui/Layout';
 import { NavigationBar } from '../../widgets/NavigationBar';
 import { SamplesTable } from '../../widgets/Tables/SamplesTable';
 import type { Laboratory, Department } from '../../shared/api/laboratories';
@@ -34,6 +35,10 @@ const SamplesPage: React.FC = () => {
     departmentId?: string;
   }>();
   const navigate = useNavigate();
+  const { canAccessLaboratory, canAccessDepartment, canAccessRouteScope } = useScopeAccess();
+  const canUpdateSample = useCan('samples', 'update');
+  const canDeleteSample = useCan('samples', 'delete');
+  const canExecuteCalculations = useCan('calculations', 'execute');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedSample, setSelectedSample] = useState<Sample | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -397,6 +402,10 @@ const SamplesPage: React.FC = () => {
     return breadcrumbs;
   };
 
+  if (!canAccessRouteScope(effectiveLabId, effectiveDeptId)) {
+    return <Navigate to="/403" replace />;
+  }
+
   if (!effectiveLabId && laboratories?.items) {
     return (
       <Layout title="Поступления проб">
@@ -413,6 +422,7 @@ const SamplesPage: React.FC = () => {
                 laboratory={laboratoryItem}
                 onClick={handleLaboratoryClick}
                 showActions={false}
+                disabled={!canAccessLaboratory(laboratoryItem.id)}
               />
             ))}
           </div>
@@ -435,6 +445,7 @@ const SamplesPage: React.FC = () => {
                 onClick={handleDepartmentClick}
                 showActions={false}
                 iconIndex={index}
+                disabled={!canAccessDepartment(effectiveLabId, department.id)}
               />
             ))}
           </div>
@@ -515,6 +526,16 @@ const SamplesPage: React.FC = () => {
             onEdit={handleEdit}
             onDelete={handleDelete}
             onFillCalculations={handleFillCalculationsFromTable}
+            onCreate={() => setIsCreateModalOpen(true)}
+            onResetFilters={() => {
+              samples.setFilters(undefined);
+              samples.setSorting(undefined);
+              samples.setPage(1);
+            }}
+            canUpdate={canUpdateSample}
+            canDelete={canDeleteSample}
+            canFillCalculations={canExecuteCalculations}
+            canCreate
           />
         </div>
       </div>

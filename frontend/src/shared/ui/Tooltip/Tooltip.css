@@ -2,6 +2,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  line-height: 0;
+  flex-shrink: 0;
   cursor: pointer;
   color: rgba(0, 0, 0, 0.54);
   transition: color 0.2s ease;
@@ -10,4 +12,9 @@
 
 .tooltip-icon-wrapper:hover {
   color: rgba(0, 0, 0, 0.87);
+}
+
+.tooltip-icon-wrapper .animated-icon {
+  display: inline-flex;
+  line-height: 0;
 }

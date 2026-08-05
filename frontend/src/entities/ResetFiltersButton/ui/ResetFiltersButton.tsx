@@ -1,7 +1,8 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { BiRefresh } from 'react-icons/bi';
-import Button from '../../../shared/ui/Button/Button';
+import Button from '../../../shared/ui/Button';
+import { RefreshCWIcon, type RefreshCWIconHandle } from '../../../shared/ui/icons';
+import '../../../shared/ui/icons/icons.css';
 
 interface ResetFiltersButtonProps {
   onReset: () => void;
@@ -11,6 +12,7 @@ interface ResetFiltersButtonProps {
 const ResetFiltersButton: React.FC<ResetFiltersButtonProps> = ({ onReset, className }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const iconRef = useRef<RefreshCWIconHandle>(null);
 
   const handleReset = useCallback(() => {
     onReset();
@@ -21,8 +23,10 @@ const ResetFiltersButton: React.FC<ResetFiltersButtonProps> = ({ onReset, classN
     <Button
       type="default"
       onClick={handleReset}
-      icon={<BiRefresh size={18} />}
+      icon={<RefreshCWIcon ref={iconRef} size={18} className="animated-icon" />}
       className={className}
+      onMouseEnter={() => iconRef.current?.startAnimation()}
+      onMouseLeave={() => iconRef.current?.stopAnimation()}
     >
       Сбросить фильтры
     </Button>

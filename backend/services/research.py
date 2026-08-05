@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.exceptions import ConflictError, NotFoundError, ValidationError
 from core.logger import logger
@@ -55,9 +54,19 @@ def method_belongs_to_active_group(method: ResearchMethod) -> bool:
 
 async def get_research_method_by_id(
     db: AsyncSession, method_id: int, include_deleted: bool = False
-) -> Optional[ResearchMethod]:
+) -> ResearchMethod | None:
     """Получить метод исследования по ID."""
     return await research_repo.get_research_method_by_id(db, method_id, include_deleted)
+
+
+async def require_research_method_by_id(
+    db: AsyncSession, method_id: int, include_deleted: bool = False
+) -> ResearchMethod:
+    """Получить метод исследования по ID или вернуть 404."""
+    method = await get_research_method_by_id(db, method_id, include_deleted)
+    if not method:
+        raise NotFoundError("Метод исследования не найден")
+    return method
 
 
 def build_research_method_display_name(
@@ -85,9 +94,9 @@ async def get_active_research_methods_by_name(
     db: AsyncSession,
     name: str,
     laboratory_id: int,
-    department_id: Optional[int] = None,
-    group_name: Optional[str] = None,
-) -> List[ResearchMethod]:
+    department_id: int | None = None,
+    group_name: str | None = None,
+) -> list[ResearchMethod]:
     """Найти актуальные методики по имени в лаборатории и подразделении."""
     return await research_repo.get_active_research_methods_by_name(
         db, name, laboratory_id, department_id, group_name
@@ -98,9 +107,9 @@ async def get_active_research_method_by_name(
     db: AsyncSession,
     name: str,
     laboratory_id: int,
-    department_id: Optional[int] = None,
-    group_name: Optional[str] = None,
-) -> Optional[ResearchMethod]:
+    department_id: int | None = None,
+    group_name: str | None = None,
+) -> ResearchMethod | None:
     """Найти единственную актуальную методику по имени в лаборатории и подразделении."""
     methods = await get_active_research_methods_by_name(
         db,
@@ -118,15 +127,15 @@ async def get_active_research_method_by_name(
 
 async def get_research_methods(
     db: AsyncSession,
-    laboratory_id: Optional[int] = None,
-    department_id: Optional[int] = None,
-    page: Optional[int] = None,
-    page_size: Optional[int] = None,
-    search: Optional[str] = None,
-    rounding_type: Optional[str] = None,
-    sort_by: Optional[str] = None,
-    sort_order: Optional[str] = None,
-) -> tuple[List[ResearchMethod], int, int]:
+    laboratory_id: int | None = None,
+    department_id: int | None = None,
+    page: int | None = None,
+    page_size: int | None = None,
+    search: str | None = None,
+    rounding_type: str | None = None,
+    sort_by: str | None = None,
+    sort_order: str | None = None,
+) -> tuple[list[ResearchMethod], int, int]:
     """Получить список методов исследования."""
     methods, total = await research_repo.get_research_methods(
         db,
@@ -255,9 +264,9 @@ async def delete_research_method(db: AsyncSession, method_id: int) -> None:
 async def _resolve_sort_order_conflict(
     db: AsyncSession,
     new_sort_order: int,
-    old_sort_order: Optional[int] = None,
-    exclude_method_id: Optional[int] = None,
-    exclude_group_id: Optional[int] = None,
+    old_sort_order: int | None = None,
+    exclude_method_id: int | None = None,
+    exclude_group_id: int | None = None,
 ) -> None:
     """Решение конфликта sort_order между методами и группами."""
     if old_sort_order == new_sort_order:
@@ -347,21 +356,31 @@ async def update_research_method_sort_order(
 
 async def get_research_method_group_by_id(
     db: AsyncSession, group_id: int, include_deleted: bool = False
-) -> Optional[ResearchMethodGroup]:
+) -> ResearchMethodGroup | None:
     """Получить группу методов исследования по ID."""
     return await research_repo.get_research_method_group_by_id(
         db, group_id, include_deleted
     )
 
 
+async def require_research_method_group_by_id(
+    db: AsyncSession, group_id: int, include_deleted: bool = False
+) -> ResearchMethodGroup:
+    """Получить группу методов исследования по ID или вернуть 404."""
+    group = await get_research_method_group_by_id(db, group_id, include_deleted)
+    if not group:
+        raise NotFoundError("Группа методов исследования не найдена")
+    return group
+
+
 async def get_research_method_groups(
     db: AsyncSession,
-    page: Optional[int] = None,
-    page_size: Optional[int] = None,
-    search: Optional[str] = None,
-    sort_by: Optional[str] = None,
-    sort_order: Optional[str] = None,
-) -> tuple[List[ResearchMethodGroup], int, int]:
+    page: int | None = None,
+    page_size: int | None = None,
+    search: str | None = None,
+    sort_by: str | None = None,
+    sort_order: str | None = None,
+) -> tuple[list[ResearchMethodGroup], int, int]:
     """Получить список групп методов исследования."""
     groups, total = await research_repo.get_research_method_groups(
         db, page, page_size, search, sort_by, sort_order
@@ -506,8 +525,8 @@ async def batch_update_sort_order(
     db: AsyncSession, batch_data: SortOrderBatchUpdate
 ) -> None:
     """Массовое обновление sort_order для методов и групп."""
-    methods_to_update: List[tuple[int, int]] = []
-    groups_to_update: List[tuple[int, int]] = []
+    methods_to_update: list[tuple[int, int]] = []
+    groups_to_update: list[tuple[int, int]] = []
 
     for item in batch_data.items:
         if item.type == "method":
@@ -566,8 +585,8 @@ async def get_research_method_response_data(
 
 async def get_research_methods_for_select(
     db: AsyncSession,
-    laboratory_id: Optional[int] = None,
-    department_id: Optional[int] = None,
+    laboratory_id: int | None = None,
+    department_id: int | None = None,
 ) -> list[ResearchMethod]:
     """Получить методы исследования для селекта."""
     return await research_repo.get_research_methods_for_select(
@@ -591,8 +610,8 @@ def _available_method_brief(method: ResearchMethod) -> AvailableResearchMethodBr
 async def get_available_research_methods(
     db: AsyncSession,
     laboratory_id: int,
-    department_id: Optional[int] = None,
-    sample_id: Optional[int] = None,
+    department_id: int | None = None,
+    sample_id: int | None = None,
 ) -> AvailableResearchMethodsResponse:
     """Вернуть доступные методы исследования, сгруппированные для селекта."""
     sample = None

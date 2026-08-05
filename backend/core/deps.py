@@ -4,9 +4,34 @@ import pendulum
 from fastapi import Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.database import get_db
+from core.exceptions import ForbiddenError
+from core.security import get_current_user
+from schemas.role import UserPermissionsResponse
+from services.user_permissions import get_user_permissions_or_raise
 from utils.parsers import parse_query_datetime
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
+CurrentUser = Annotated[dict, Depends(get_current_user)]
+
+
+async def get_user_permissions(
+    db: DbSession,
+    decoded_token: CurrentUser,
+) -> UserPermissionsResponse:
+    """Права текущего пользователя (403 если доступ закрыт)."""
+    return await get_user_permissions_or_raise(db, decoded_token)
+
+
+UserPermissions = Annotated[
+    UserPermissionsResponse,
+    Depends(get_user_permissions),
+]
+
+
+def require_admin(effective: UserPermissionsResponse) -> None:
+    """Доступ только для admin."""
+    if not effective.is_admin:
+        raise ForbiddenError("Отказано в доступе")
 
 
 def parse_date_range(

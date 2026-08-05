@@ -1,9 +1,7 @@
 from __future__ import annotations
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Query
 from core.auth_decorators import IsAuthenticated
-from core.database import get_db
-from core.exceptions import NotFoundError
+from core.deps import DbSession, UserPermissions, require_admin
 from schemas.pagination import PaginatedResponse
 from schemas.role import RoleCreate, RoleResponse, RoleUpdate
 from services.role import (
@@ -30,15 +28,17 @@ router = APIRouter()
 )
 # @IsAuthenticated
 async def list_roles(
+    db: DbSession,
+    effective: UserPermissions,
     page: int | None = Query(None, ge=1),
     page_size: int | None = Query(None, ge=1, le=100),
     search: str | None = Query(None),
     role_type: str | None = Query(None),
     sort_by: str | None = Query(None),
     sort_order: str | None = Query("asc"),
-    db: AsyncSession = Depends(get_db),
 ):
     """Возвращает список ролей с пагинацией или без."""
+    require_admin(effective)
     items, total, total_pages = await get_roles_list(
         db,
         page=page,
@@ -71,13 +71,12 @@ async def list_roles(
 # @IsAuthenticated
 async def get_role_endpoint(
     role_id: int,
-    db: AsyncSession = Depends(get_db),
+    db: DbSession,
+    effective: UserPermissions,
 ):
     """Возвращает информацию о роли по ее идентификатору."""
-    item = await get_role_response(db, role_id)
-    if not item:
-        raise NotFoundError("Роль не найдена")
-    return item
+    require_admin(effective)
+    return await get_role_response(db, role_id)
 
 
 @router.post(
@@ -94,9 +93,11 @@ async def get_role_endpoint(
 # @IsAuthenticated
 async def create_role_endpoint(
     data: RoleCreate,
-    db: AsyncSession = Depends(get_db),
+    db: DbSession,
+    effective: UserPermissions,
 ):
     """Добавляет новую роль на основе переданных данных."""
+    require_admin(effective)
     return await create_role(db, data)
 
 
@@ -114,9 +115,11 @@ async def create_role_endpoint(
 async def update_role_endpoint(
     role_id: int,
     data: RoleUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: DbSession,
+    effective: UserPermissions,
 ):
     """Обновляет существующую роль."""
+    require_admin(effective)
     return await update_role(db, role_id, data)
 
 
@@ -133,7 +136,9 @@ async def update_role_endpoint(
 # @IsAuthenticated
 async def delete_role_endpoint(
     role_id: int,
-    db: AsyncSession = Depends(get_db),
+    db: DbSession,
+    effective: UserPermissions,
 ):
     """Выполняет мягкое удаление роли."""
+    require_admin(effective)
     await delete_role(db, role_id)

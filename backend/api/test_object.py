@@ -1,10 +1,7 @@
 from __future__ import annotations
-from typing import List, Optional
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Query
 from core.auth_decorators import IsAuthenticated
-from core.database import get_db
-from core.exceptions import NotFoundError
+from core.deps import DbSession, UserPermissions, require_admin
 from schemas.pagination import PaginatedResponse
 from schemas.test_object import (
     TestObjectCreate,
@@ -21,6 +18,7 @@ from services.test_object import (
     get_test_objects_response_list,
     update_test_object,
 )
+from services.user_permissions import require_scope_access
 
 router = APIRouter()
 
@@ -38,14 +36,16 @@ router = APIRouter()
 )
 # @IsAuthenticated
 async def list_test_objects(
-    page: Optional[int] = Query(None, ge=1),
-    page_size: Optional[int] = Query(None, ge=1, le=100),
-    search: Optional[str] = Query(None),
-    sort_by: Optional[str] = Query(None),
-    sort_order: Optional[str] = Query("asc"),
-    db: AsyncSession = Depends(get_db),
+    db: DbSession,
+    effective: UserPermissions,
+    page: int | None = Query(None, ge=1),
+    page_size: int | None = Query(None, ge=1, le=100),
+    search: str | None = Query(None),
+    sort_by: str | None = Query(None),
+    sort_order: str | None = Query("asc"),
 ):
     """Возвращает список объектов испытаний с пагинацией или без."""
+    require_admin(effective)
     items, total, total_pages = await get_test_objects_response_list(
         db,
         page=page,
@@ -66,7 +66,7 @@ async def list_test_objects(
 
 @router.get(
     "/test-objects/select/",
-    response_model=List[TestObjectSelectItem],
+    response_model=list[TestObjectSelectItem],
     summary="Получение объектов испытаний для селектов",
     description=(
         "Возвращает объекты испытаний с учетом области видимости. "
@@ -76,11 +76,13 @@ async def list_test_objects(
 )
 # @IsAuthenticated
 async def list_test_objects_for_select(
-    laboratory_id: Optional[int] = Query(None),
-    department_id: Optional[int] = Query(None),
-    db: AsyncSession = Depends(get_db),
+    db: DbSession,
+    effective: UserPermissions,
+    laboratory_id: int | None = Query(None),
+    department_id: int | None = Query(None),
 ):
     """Возвращает объекты испытаний для выбора в формах."""
+    require_scope_access(effective, laboratory_id, department_id)
     items, _, _ = await get_test_objects_list(
         db,
         laboratory_id=laboratory_id,
@@ -92,18 +94,20 @@ async def list_test_objects_for_select(
 
 @router.get(
     "/test-objects/names/",
-    response_model=List[str],
+    response_model=list[str],
     summary="Получение наименований объектов испытаний",
     description="Возвращает наименования объектов испытаний для фильтров и обратной совместимости.",
     responses={200: {"description": "Список наименований успешно получен"}},
 )
 # @IsAuthenticated
 async def list_test_object_names(
-    laboratory_id: Optional[int] = Query(None),
-    department_id: Optional[int] = Query(None),
-    db: AsyncSession = Depends(get_db),
+    db: DbSession,
+    effective: UserPermissions,
+    laboratory_id: int | None = Query(None),
+    department_id: int | None = Query(None),
 ):
     """Возвращает наименования объектов испытаний."""
+    require_scope_access(effective, laboratory_id, department_id)
     return await get_test_object_names(
         db,
         laboratory_id=laboratory_id,
@@ -124,13 +128,12 @@ async def list_test_object_names(
 # @IsAuthenticated
 async def get_test_object_endpoint(
     test_object_id: int,
-    db: AsyncSession = Depends(get_db),
+    db: DbSession,
+    effective: UserPermissions,
 ):
     """Возвращает информацию об объекте испытаний по его идентификатору."""
-    item = await get_test_object_response(db, test_object_id)
-    if not item:
-        raise NotFoundError("Объект испытаний не найден")
-    return item
+    require_admin(effective)
+    return await get_test_object_response(db, test_object_id)
 
 
 @router.post(
@@ -147,9 +150,11 @@ async def get_test_object_endpoint(
 # @IsAuthenticated
 async def create_test_object_endpoint(
     data: TestObjectCreate,
-    db: AsyncSession = Depends(get_db),
+    db: DbSession,
+    effective: UserPermissions,
 ):
     """Добавляет новый объект испытаний на основе переданных данных."""
+    require_admin(effective)
     return await create_test_object(db, data)
 
 
@@ -167,9 +172,11 @@ async def create_test_object_endpoint(
 async def update_test_object_endpoint(
     test_object_id: int,
     data: TestObjectUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: DbSession,
+    effective: UserPermissions,
 ):
     """Обновляет существующий объект испытаний."""
+    require_admin(effective)
     return await update_test_object(db, test_object_id, data)
 
 
@@ -186,7 +193,9 @@ async def update_test_object_endpoint(
 # @IsAuthenticated
 async def delete_test_object_endpoint(
     test_object_id: int,
-    db: AsyncSession = Depends(get_db),
+    db: DbSession,
+    effective: UserPermissions,
 ):
     """Выполняет мягкое удаление объекта испытаний."""
+    require_admin(effective)
     await delete_test_object(db, test_object_id)

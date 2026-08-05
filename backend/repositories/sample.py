@@ -1,6 +1,6 @@
 from __future__ import annotations
 import pendulum
-from sqlalchemy import Float, case, cast, func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from models.calculation import Calculation
@@ -15,7 +15,7 @@ from repositories.base import (
 from utils.filters import add_date_range_filter
 from utils.pagination import apply_pagination, get_total_count
 from utils.protocol_search_filter import sample_has_protocol_display_ilike
-from utils.sample_formatting import WELL_DISPLAY_PREFIX
+from utils.sample_display_rules import WELL_DISPLAY_PREFIX
 from utils.sample_sort import (
     protocols_sort_scalar_subquery,
     registration_number_sort_columns,
@@ -40,6 +40,22 @@ async def get_sample_by_id(
     if not include_deleted:
         query = filter_not_deleted(query, Sample.deleted_at)
     return await execute_scalar_one_or_none(db, query)
+
+
+async def get_samples_by_ids(db: AsyncSession, sample_ids: list[int]) -> list[Sample]:
+    """Получить пробы по списку ID."""
+    query = (
+        select(Sample)
+        .where(Sample.id.in_(sample_ids))
+        .options(
+            selectinload(Sample.laboratory),
+            selectinload(Sample.department),
+            selectinload(Sample.branch),
+            selectinload(Sample.sampling_location),
+        )
+    )
+    query = filter_not_deleted(query, Sample.deleted_at)
+    return await execute_scalars_all(db, query)
 
 
 async def get_samples(
@@ -302,16 +318,17 @@ async def exists_sample_by_registration(
     exclude_id: int | None = None,
 ) -> bool:
     """Проверить существование пробы с таким регистрационным номером."""
-    conditions = [
-        Sample.registration_number == registration_number,
-        Sample.laboratory_id == laboratory_id,
-        Sample.department_id == department_id,
-        Sample.deleted_at.is_(None),
-    ]
+    query = filter_not_deleted(
+        select(Sample).where(
+            Sample.registration_number == registration_number,
+            Sample.laboratory_id == laboratory_id,
+            Sample.department_id == department_id,
+        ),
+        Sample.deleted_at,
+    )
     if exclude_id is not None:
-        conditions.append(Sample.id != exclude_id)
+        query = query.where(Sample.id != exclude_id)
 
-    query = select(Sample).where(*conditions)
     existing = await execute_scalar_one_or_none(db, query)
     return existing is not None
 
@@ -322,16 +339,6 @@ async def add_sample(db: AsyncSession, sample: Sample) -> Sample:
     return sample
 
 
-async def get_calculations_by_sample_id(
-    db: AsyncSession, sample_id: int
-) -> list[Calculation]:
-    """Получить расчёты по ID пробы."""
-    query = select(Calculation).where(
-        Calculation.sample_id == sample_id, Calculation.deleted_at.is_(None)
-    )
-    return await execute_scalars_all(db, query)
-
-
 async def get_samples_with_calculations_by_method(
     db: AsyncSession,
     method_id: int,
@@ -340,16 +347,13 @@ async def get_samples_with_calculations_by_method(
     search: str | None = None,
 ) -> list[Sample]:
     """Получить пробы с расчётами по указанному методу для автодополнения."""
-    subquery = (
+    subquery = filter_not_deleted(
         select(Sample.id)
         .join(Calculation, Sample.id == Calculation.sample_id)
-        .where(
-            Calculation.research_method_id == method_id,
-            Calculation.deleted_at.is_(None),
-            Sample.deleted_at.is_(None),
-        )
-        .distinct()
+        .where(Calculation.research_method_id == method_id),
+        Calculation.deleted_at,
     )
+    subquery = filter_not_deleted(subquery, Sample.deleted_at).distinct()
 
     conditions = []
     if laboratory_id:
@@ -386,20 +390,22 @@ async def get_samples_by_receiving_date_range(
     department_id: int | None = None,
 ) -> list[Sample]:
     """Пробы за период по дате получения с branch и sampling_location."""
-    conditions = [Sample.laboratory_id == laboratory_id, Sample.deleted_at.is_(None)]
+    query = filter_not_deleted(
+        select(Sample).where(Sample.laboratory_id == laboratory_id),
+        Sample.deleted_at,
+    )
+    conditions: list = []
     add_date_range_filter(
         conditions, receiving_date_from, receiving_date_to, Sample.receiving_date
     )
     if department_id is not None:
         conditions.append(Sample.department_id == department_id)
+    if conditions:
+        query = query.where(*conditions)
 
-    query = (
-        select(Sample)
-        .where(*conditions)
-        .options(
-            selectinload(Sample.branch),
-            selectinload(Sample.sampling_location),
-        )
+    query = query.options(
+        selectinload(Sample.branch),
+        selectinload(Sample.sampling_location),
     )
     return await execute_scalars_all(db, query)
 
@@ -412,14 +418,18 @@ async def get_samples_by_sampling_date_range(
     department_id: int | None = None,
 ) -> list[Sample]:
     """Пробы за период по дате отбора."""
-    conditions = [Sample.laboratory_id == laboratory_id, Sample.deleted_at.is_(None)]
+    query = filter_not_deleted(
+        select(Sample).where(Sample.laboratory_id == laboratory_id),
+        Sample.deleted_at,
+    )
+    conditions: list = []
     add_date_range_filter(
         conditions, sampling_date_from, sampling_date_to, Sample.sampling_date
     )
     if department_id is not None:
         conditions.append(Sample.department_id == department_id)
-
-    query = select(Sample).where(*conditions)
+    if conditions:
+        query = query.where(*conditions)
     return await execute_scalars_all(db, query)
 
 
@@ -432,30 +442,30 @@ async def get_oil_samples_by_sampling_location_name(
     department_id: int | None = None,
 ) -> list[Sample]:
     """Пробы с местом отбора по имени (для отчёта физико-химической характеристики)."""
-    conditions = [
-        Sample.laboratory_id == laboratory_id,
-        Sample.deleted_at.is_(None),
-        Sample.sampling_location_id.isnot(None),
-    ]
-    add_date_range_filter(
-        conditions, sampling_date_from, sampling_date_to, Sample.sampling_date
-    )
-    if department_id is not None:
-        conditions.append(Sample.department_id == department_id)
-
-    query = (
+    query = filter_not_deleted(
         select(Sample)
         .join(
             SamplingLocation,
             Sample.sampling_location_id == SamplingLocation.id,
         )
         .where(
-            *conditions,
+            Sample.laboratory_id == laboratory_id,
+            Sample.sampling_location_id.isnot(None),
             SamplingLocation.name == sampling_location_db_name,
-            SamplingLocation.deleted_at.is_(None),
-        )
-        .options(selectinload(Sample.sampling_location))
+        ),
+        Sample.deleted_at,
     )
+    query = filter_not_deleted(query, SamplingLocation.deleted_at)
+    conditions: list = []
+    add_date_range_filter(
+        conditions, sampling_date_from, sampling_date_to, Sample.sampling_date
+    )
+    if department_id is not None:
+        conditions.append(Sample.department_id == department_id)
+    if conditions:
+        query = query.where(*conditions)
+
+    query = query.options(selectinload(Sample.sampling_location))
     return await execute_scalars_all(db, query)
 
 
@@ -467,27 +477,27 @@ async def get_kgs_candidate_samples(
     department_id: int | None = None,
 ) -> list[Sample]:
     """Пробы с местом отбора за период (для отчёта КГС, фильтрация в service)."""
-    conditions = [
-        Sample.laboratory_id == laboratory_id,
-        Sample.deleted_at.is_(None),
-        Sample.sampling_location_id.isnot(None),
-    ]
-    add_date_range_filter(
-        conditions, sampling_date_from, sampling_date_to, Sample.sampling_date
-    )
-    if department_id is not None:
-        conditions.append(Sample.department_id == department_id)
-
-    query = (
+    query = filter_not_deleted(
         select(Sample)
         .join(
             SamplingLocation,
             Sample.sampling_location_id == SamplingLocation.id,
         )
         .where(
-            *conditions,
-            SamplingLocation.deleted_at.is_(None),
-        )
-        .options(selectinload(Sample.sampling_location))
+            Sample.laboratory_id == laboratory_id,
+            Sample.sampling_location_id.isnot(None),
+        ),
+        Sample.deleted_at,
     )
+    query = filter_not_deleted(query, SamplingLocation.deleted_at)
+    conditions: list = []
+    add_date_range_filter(
+        conditions, sampling_date_from, sampling_date_to, Sample.sampling_date
+    )
+    if department_id is not None:
+        conditions.append(Sample.department_id == department_id)
+    if conditions:
+        query = query.where(*conditions)
+
+    query = query.options(selectinload(Sample.sampling_location))
     return await execute_scalars_all(db, query)

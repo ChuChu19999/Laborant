@@ -179,13 +179,15 @@
   margin-left: 6px;
   color: #718096;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: color 0.2s ease;
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
 }
 
 .calculation-intermediate-icon:hover {
   color: #0066cc;
-  transform: scale(1.1);
 }
 
 .calculation-intermediate-value-container {

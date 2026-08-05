@@ -1,6 +1,6 @@
 from __future__ import annotations
 from enum import Enum as PyEnum
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 from sqlalchemy import JSON, Boolean, Column, ForeignKey, Index, Integer, String, Table
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from core.config import get_database_schema
@@ -10,25 +10,12 @@ from models.base import BaseModel
 if TYPE_CHECKING:
     from models.calculation import Calculation
     from models.laboratory import Department, Laboratory
-    from models.sample import MassFractionOilRefractionTable
+    from models.mass_fraction import MassFractionOilRefractionTable
 
 
 class RoundingType(PyEnum):
     DECIMAL = "decimal"
     SIGNIFICANT = "significant"
-
-
-class SampleType(PyEnum):
-    OIL = "oil"
-    OIL_CALIBRATION = "oil_calibration"
-    CONDENSATE = "condensate"
-    OIL_CONDENSATE_MIXTURE = "oil_condensate_mixture"
-    DIESEL_FUEL = "diesel_fuel"
-    SPENT_OIL_PRODUCTS = "spent_oil_products"
-    TURBINE_OIL = "turbine_oil"
-    AVIATION_OIL = "aviation_oil"
-    LIQUID_HYDROCARBONS_MIXTURE = "liquid_hydrocarbons_mixture"
-    CORROSION_INHIBITOR = "corrosion_inhibitor"
 
 
 research_method_groups_association = Table(
@@ -104,27 +91,27 @@ class ResearchMethod(BaseModel):
     is_group_member: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False, comment="Является частью группы"
     )
-    equipment_data_default: Mapped[Optional[list[Any]]] = mapped_column(
+    equipment_data_default: Mapped[list[Any] | None] = mapped_column(
         JSON, nullable=True, default=list, comment="Приборы по умолчанию"
     )
-    sort_order: Mapped[Optional[int]] = mapped_column(
+    sort_order: Mapped[int | None] = mapped_column(
         Integer, nullable=True, comment="Порядок сортировки"
     )
-    laboratory_id: Mapped[Optional[int]] = mapped_column(
+    laboratory_id: Mapped[int | None] = mapped_column(
         Integer,
         ForeignKey(f"{get_database_schema()}.laboratories.id", ondelete="CASCADE"),
         nullable=True,
     )
-    department_id: Mapped[Optional[int]] = mapped_column(
+    department_id: Mapped[int | None] = mapped_column(
         Integer,
         ForeignKey(f"{get_database_schema()}.departments.id", ondelete="CASCADE"),
         nullable=True,
     )
 
-    laboratory: Mapped[Optional["Laboratory"]] = relationship(
+    laboratory: Mapped["Laboratory | None"] = relationship(
         back_populates="research_methods"
     )
-    department: Mapped[Optional["Department"]] = relationship(
+    department: Mapped["Department | None"] = relationship(
         back_populates="research_methods"
     )
     groups: Mapped[list["ResearchMethodGroup"]] = relationship(
@@ -161,7 +148,7 @@ class ResearchMethodGroup(BaseModel):
         nullable=False,
         comment="Наименование группы методов исследования",
     )
-    sort_order: Mapped[Optional[int]] = mapped_column(
+    sort_order: Mapped[int | None] = mapped_column(
         Integer, nullable=True, comment="Порядок сортировки группы"
     )
 

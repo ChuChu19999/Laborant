@@ -1,6 +1,6 @@
 from __future__ import annotations
 from datetime import date
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 from sqlalchemy import JSON, Date, ForeignKey, Index, Integer, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from core.config import get_database_schema
@@ -20,7 +20,7 @@ class Calculation(BaseModel):
     input_data: Mapped[dict[str, Any]] = mapped_column(
         JSON, nullable=False, default=dict, comment="Входные данные для расчета"
     )
-    equipment_data: Mapped[Optional[list[Any]]] = mapped_column(
+    equipment_data: Mapped[list[Any] | None] = mapped_column(
         JSON, nullable=True, default=list, comment="Список ID приборов"
     )
     result: Mapped[str] = mapped_column(
@@ -29,12 +29,12 @@ class Calculation(BaseModel):
     executor: Mapped[str] = mapped_column(
         String(150), nullable=False, comment="hsnils исполнителя, производившего расчет"
     )
-    measurement_error: Mapped[Optional[str]] = mapped_column(
+    measurement_error: Mapped[str | None] = mapped_column(
         String(20),
         nullable=True,
         comment="Погрешность измерения результата в формате ±число",
     )
-    unit: Mapped[Optional[str]] = mapped_column(
+    unit: Mapped[str | None] = mapped_column(
         String(20), nullable=True, comment="Единица измерения результата"
     )
     laboratory_activity_date: Mapped[date] = mapped_column(
@@ -50,7 +50,7 @@ class Calculation(BaseModel):
         ForeignKey(f"{get_database_schema()}.laboratories.id", ondelete="CASCADE"),
         nullable=False,
     )
-    department_id: Mapped[Optional[int]] = mapped_column(
+    department_id: Mapped[int | None] = mapped_column(
         Integer,
         ForeignKey(f"{get_database_schema()}.departments.id", ondelete="CASCADE"),
         nullable=True,
@@ -63,7 +63,7 @@ class Calculation(BaseModel):
 
     sample: Mapped["Sample"] = relationship(back_populates="calculations")
     laboratory: Mapped["Laboratory"] = relationship(back_populates="calculations")
-    department: Mapped[Optional["Department"]] = relationship(
+    department: Mapped["Department | None"] = relationship(
         back_populates="calculations"
     )
     research_method: Mapped["ResearchMethod"] = relationship(

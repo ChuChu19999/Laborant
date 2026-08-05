@@ -32,6 +32,12 @@ class Role(BaseModel):
         default=lambda: {"laboratory_ids": [], "department_ids": []},
         comment="Область видимости: laboratory_ids, department_ids",
     )
+    permissions: Mapped[dict[str, Any]] = mapped_column(
+        JSON,
+        nullable=False,
+        default=dict,
+        comment="Матрица прав доступа роли",
+    )
 
     __table_args__ = (
         Index(

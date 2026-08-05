@@ -27,8 +27,8 @@ const DeleteRoleModal: React.FC<DeleteRoleModalProps> = ({ open, onClose, onSucc
   return (
     <ConfirmationModal
       open={open}
-      title="Удаление области видимости роли"
-      message={`Вы действительно хотите удалить область видимости роли "${role.name}"?`}
+      title="Удаление роли"
+      message={`Вы действительно хотите удалить роль "${role.name}"?`}
       confirmText="Подтвердить"
       cancelText="Отмена"
       onConfirm={handleConfirm}

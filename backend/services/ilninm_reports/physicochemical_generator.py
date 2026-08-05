@@ -1,6 +1,6 @@
 import base64
 from io import BytesIO
-from typing import Any, Optional
+from typing import Any
 import openpyxl
 from openpyxl.cell.cell import Cell
 from openpyxl.styles import Font
@@ -107,7 +107,7 @@ async def build_physicochemical_excel(
     sampling_date_from: Any,
     sampling_date_to: Any,
     sampling_location: str,
-    department_id: Optional[int] = None,
+    department_id: int | None = None,
 ) -> bytes:
     """
     Строит Excel по шаблону: шапка с периодом и местом отбора,

@@ -84,6 +84,32 @@ OptionalOilMassFractionCValue = Annotated[
 ]
 
 
+def validate_oil_mass_fraction_n_value(value: str) -> str:
+    if not value or not str(value).strip():
+        raise ValueError("Показатель преломления не может быть пустым")
+    normalized = str(value).strip().replace(",", ".")
+    try:
+        float(normalized)
+    except (TypeError, ValueError):
+        raise ValueError("Показатель преломления должен быть числом")
+    return normalized
+
+
+def validate_optional_oil_mass_fraction_n_value(value: Any) -> Any:
+    if value is None:
+        return None
+    return validate_oil_mass_fraction_n_value(str(value))
+
+
+OilMassFractionNValue = Annotated[
+    str, AfterValidator(validate_oil_mass_fraction_n_value)
+]
+OptionalOilMassFractionNValue = Annotated[
+    str | None,
+    BeforeValidator(validate_optional_oil_mass_fraction_n_value),
+]
+
+
 def validate_executor_hsnils(value: str) -> str:
     if not value or not value.strip():
         raise ValueError("Необходимо указать hsnils исполнителя")

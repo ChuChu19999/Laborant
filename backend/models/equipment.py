@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import date
 from enum import Enum as PyEnum
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 from sqlalchemy import JSON, Date, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from core.config import get_database_schema
@@ -51,19 +51,17 @@ class Equipment(BaseModel):
         ForeignKey(f"{get_database_schema()}.laboratories.id", ondelete="CASCADE"),
         nullable=False,
     )
-    department_id: Mapped[Optional[int]] = mapped_column(
+    department_id: Mapped[int | None] = mapped_column(
         Integer,
         ForeignKey(f"{get_database_schema()}.departments.id", ondelete="CASCADE"),
         nullable=True,
     )
-    method_data_default: Mapped[Optional[list[Any]]] = mapped_column(
+    method_data_default: Mapped[list[Any] | None] = mapped_column(
         JSON, nullable=True, default=list, comment="Методы, которым доступен прибор"
     )
 
     laboratory: Mapped["Laboratory"] = relationship(back_populates="equipment")
-    department: Mapped[Optional["Department"]] = relationship(
-        back_populates="equipment"
-    )
+    department: Mapped["Department | None"] = relationship(back_populates="equipment")
 
     __table_args__ = (
         Index("idx_equipment_type", "type"),

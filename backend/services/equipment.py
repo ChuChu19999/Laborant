@@ -1,10 +1,10 @@
 from __future__ import annotations
-from typing import List, Optional
 import pendulum
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.exceptions import NotFoundError
 from models.equipment import Equipment
 from repositories import equipment as equipment_repo
+from repositories import research as research_repo
 from repositories.base import flush_entity
 from schemas.equipment import EquipmentCreate, EquipmentResponse, EquipmentUpdate
 from services.visibility import validate_lab_and_department
@@ -14,9 +14,19 @@ from utils.versioning import next_version_string
 
 async def get_equipment_by_id(
     db: AsyncSession, equipment_id: int, include_deleted: bool = False
-) -> Optional[Equipment]:
+) -> Equipment | None:
     """Получить оборудование по ID."""
     return await equipment_repo.get_equipment_by_id(db, equipment_id, include_deleted)
+
+
+async def require_equipment_by_id(
+    db: AsyncSession, equipment_id: int, include_deleted: bool = False
+) -> Equipment:
+    """Получить оборудование по ID или вернуть 404."""
+    equipment = await get_equipment_by_id(db, equipment_id, include_deleted)
+    if not equipment:
+        raise NotFoundError("Оборудование не найдено")
+    return equipment
 
 
 async def get_equipment_by_ids(
@@ -30,21 +40,21 @@ async def get_equipment_by_ids(
 
 async def get_equipment(
     db: AsyncSession,
-    laboratory_id: Optional[int] = None,
-    department_id: Optional[int] = None,
-    equipment_types: Optional[List[str]] = None,
-    page: Optional[int] = None,
-    page_size: Optional[int] = None,
-    search: Optional[str] = None,
-    sort_by: Optional[str] = None,
-    sort_order: Optional[str] = None,
-    verification_date_from: Optional[pendulum.DateTime] = None,
-    verification_date_to: Optional[pendulum.DateTime] = None,
-    verification_end_date_from: Optional[pendulum.DateTime] = None,
-    verification_end_date_to: Optional[pendulum.DateTime] = None,
-    created_at_from: Optional[pendulum.DateTime] = None,
-    created_at_to: Optional[pendulum.DateTime] = None,
-) -> tuple[List[Equipment], int, int]:
+    laboratory_id: int | None = None,
+    department_id: int | None = None,
+    equipment_types: list[str] | None = None,
+    page: int | None = None,
+    page_size: int | None = None,
+    search: str | None = None,
+    sort_by: str | None = None,
+    sort_order: str | None = None,
+    verification_date_from: pendulum.DateTime | None = None,
+    verification_date_to: pendulum.DateTime | None = None,
+    verification_end_date_from: pendulum.DateTime | None = None,
+    verification_end_date_to: pendulum.DateTime | None = None,
+    created_at_from: pendulum.DateTime | None = None,
+    created_at_to: pendulum.DateTime | None = None,
+) -> tuple[list[Equipment], int, int]:
     """Получить список оборудования."""
     equipment_list, total = await equipment_repo.get_equipment(
         db,
@@ -214,10 +224,10 @@ async def _update_research_methods_with_new_equipment_version(
     old_equipment_id: int,
     new_equipment_id: int,
     laboratory_id: int,
-    department_id: Optional[int],
+    department_id: int | None,
 ) -> None:
     """Обновить методы исследования, привязанные к старой версии прибора."""
-    methods = await equipment_repo.get_research_methods_for_equipment_update(
+    methods = await research_repo.get_research_methods_for_equipment_update(
         db, laboratory_id, department_id
     )
 
@@ -246,7 +256,7 @@ async def _remove_equipment_from_research_methods(
     db: AsyncSession, equipment_id: int
 ) -> None:
     """Удалить прибор из equipment_data_default во всех методах исследования."""
-    methods = await equipment_repo.get_all_research_methods_for_equipment_removal(db)
+    methods = await research_repo.get_all_research_methods_for_equipment_removal(db)
 
     has_updates = False
     for method in methods:

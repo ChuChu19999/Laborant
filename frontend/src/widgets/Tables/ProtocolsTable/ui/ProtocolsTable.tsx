@@ -17,16 +17,31 @@ import dayjs, { type Dayjs } from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 import { BiChevronLeft, BiChevronRight, BiChevronsLeft, BiChevronsRight } from 'react-icons/bi';
 import { FaSortUp, FaSortDown, FaSort } from 'react-icons/fa';
+import { ResetFiltersButton } from '../../../../entities/ResetFiltersButton';
 import { LoadingCard } from '../../../../features/Cards';
 import { type Protocol } from '../../../../shared/api/protocols';
 import { getDateRangePresets } from '../../../../shared/lib/datePresets';
 import { urlParamsToFilters } from '../../../../shared/lib/urlParams';
-import Button from '../../../../shared/ui/Button/Button';
+import Button from '../../../../shared/ui/Button';
 import { Input, Select, RangePicker } from '../../../../shared/ui/FormItems';
+import { TableEmptyState } from '../../../../shared/ui/TableEmptyState';
 import { formatDate } from '../../../../shared/utils/dateFormatting';
 import './ProtocolsTable.css';
 
 dayjs.extend(customParseFormat);
+
+function hasActiveColumnFilters(filters: ColumnFiltersState): boolean {
+  return filters.some(filter => {
+    const value = filter.value;
+    if (value == null || value === '') {
+      return false;
+    }
+    if (Array.isArray(value)) {
+      return value.some(item => item != null && item !== '');
+    }
+    return true;
+  });
+}
 
 interface ProtocolsTableProps {
   data: Protocol[];
@@ -41,6 +56,11 @@ interface ProtocolsTableProps {
   onEdit: (protocolId: number) => void;
   onDelete: (protocolId: number) => void;
   onGenerateExcel?: (protocolId: number) => void | Promise<void>;
+  onCreate?: () => void;
+  onResetFilters?: () => void;
+  canUpdate?: boolean;
+  canDelete?: boolean;
+  canCreate?: boolean;
 }
 
 const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
@@ -56,6 +76,11 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
   onEdit,
   onDelete,
   onGenerateExcel,
+  onCreate,
+  onResetFilters,
+  canUpdate = true,
+  canDelete = true,
+  canCreate = false,
 }) => {
   const [internalSorting, setInternalSorting] = React.useState<SortingState>(externalSorting || []);
   const [generatingProtocols, setGeneratingProtocols] = React.useState<Set<number>>(new Set());
@@ -290,25 +315,29 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
                   Сформировать
                 </Button>
               )}
-            <Button
-              type="text"
-              size="small"
-              icon={<EditOutlined />}
-              onClick={() => onEdit(row.original.id)}
-              className="protocols-table-edit-button"
-            >
-              Редактировать
-            </Button>
-            <Button
-              type="text"
-              danger
-              size="small"
-              icon={<DeleteOutlined />}
-              onClick={() => onDelete(row.original.id)}
-              className="protocols-table-delete-button"
-            >
-              Удалить
-            </Button>
+            {canUpdate && (
+              <Button
+                type="text"
+                size="small"
+                icon={<EditOutlined />}
+                onClick={() => onEdit(row.original.id)}
+                className="protocols-table-edit-button"
+              >
+                Редактировать
+              </Button>
+            )}
+            {canDelete && (
+              <Button
+                type="text"
+                danger
+                size="small"
+                icon={<DeleteOutlined />}
+                onClick={() => onDelete(row.original.id)}
+                className="protocols-table-delete-button"
+              >
+                Удалить
+              </Button>
+            )}
           </div>
         ),
         enableSorting: false,
@@ -317,7 +346,15 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
         enableResizing: false,
       },
     ],
-    [onEdit, onDelete, onGenerateExcel, handleGenerateExcelClick, generatingProtocols]
+    [
+      onEdit,
+      onDelete,
+      onGenerateExcel,
+      handleGenerateExcelClick,
+      generatingProtocols,
+      canUpdate,
+      canDelete,
+    ]
   );
 
   const handleColumnFiltersChange = React.useCallback(
@@ -498,7 +535,27 @@ const ProtocolsTable: React.FC<ProtocolsTableProps> = ({
                 {table.getRowModel().rows.length === 0 ? (
                   <tr>
                     <td colSpan={columns.length} className="protocols-table-empty-cell">
-                      Протоколы не найдены
+                      {hasActiveColumnFilters(columnFilters) ? (
+                        <TableEmptyState
+                          title="Ничего не найдено"
+                          description="Попробуйте изменить условия поиска или сбросить фильтры."
+                          action={
+                            onResetFilters ? <ResetFiltersButton onReset={onResetFilters} /> : null
+                          }
+                        />
+                      ) : (
+                        <TableEmptyState
+                          title="Здесь будут протоколы"
+                          description="Протоколы появятся после оформления. Для этого нужны пробы с расчётами."
+                          action={
+                            canCreate && onCreate ? (
+                              <Button type="primary" onClick={onCreate}>
+                                Добавить протокол
+                              </Button>
+                            ) : null
+                          }
+                        />
+                      )}
                     </td>
                   </tr>
                 ) : (

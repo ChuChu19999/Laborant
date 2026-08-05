@@ -8,7 +8,7 @@
 
 from dataclasses import dataclass
 from datetime import date
-from typing import Any, Optional
+from typing import Any
 import orjson
 import pendulum
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -41,13 +41,12 @@ from services.ilninm_reports.constants import (
     REPORT_EMPTY_CELL_VALUE,
 )
 from utils.calculation_result_display import format_calculation_result_for_display
-from utils.filters import add_date_range_filter
 from utils.ilninm_constants import DB_NAME_TO_DISPLAY_CDGGKN
 from utils.ilninm_sampling_location import resolve_sampling_location_db_name
 from utils.protocol_generator_utils import format_decimal_ru
 
 
-def _report_display(value: Optional[str]) -> str:
+def _report_display(value: str | None) -> str:
     """Пустые и прочерки в ячейках отчёта заменяются на «-»."""
     if value is None:
         return REPORT_EMPTY_CELL_VALUE
@@ -63,9 +62,9 @@ class MethodColumnSpec:
 
     column: int
     method_name: str
-    group_name: Optional[str] = None
-    group_prefix: Optional[str] = None
-    fractional_field: Optional[str] = None
+    group_name: str | None = None
+    group_prefix: str | None = None
+    fractional_field: str | None = None
 
 
 METHOD_COLUMNS: tuple[MethodColumnSpec, ...] = (
@@ -138,7 +137,7 @@ def format_report_period(
     return f"{date_from.format('DD.MM.YYYY')} - {date_to.format('DD.MM.YYYY')}"
 
 
-def _normalize_label(value: Optional[str]) -> str:
+def _normalize_label(value: str | None) -> str:
     if not value:
         return ""
     text = value.strip().lower()
@@ -173,7 +172,7 @@ def _has_well(sample: Sample) -> bool:
     return bool((sample.well or "").strip())
 
 
-def _format_sampling_date(value: Optional[date]) -> str:
+def _format_sampling_date(value: date | None) -> str:
     if value is None:
         return REPORT_EMPTY_CELL_VALUE
     return pendulum.instance(value).format("DD.MM.YYYY")
@@ -262,7 +261,7 @@ def _calculation_matches_spec(calc: Calculation, spec: MethodColumnSpec) -> bool
 async def _get_samples_for_report(
     db: AsyncSession,
     laboratory_id: int,
-    department_id: Optional[int],
+    department_id: int | None,
     sampling_date_from: pendulum.DateTime,
     sampling_date_to: pendulum.DateTime,
     sampling_location_db_name: str,
@@ -317,7 +316,7 @@ class PhysicochemicalReportRow:
 async def get_physicochemical_report_rows(
     db: AsyncSession,
     laboratory_id: int,
-    department_id: Optional[int],
+    department_id: int | None,
     sampling_date_from: pendulum.DateTime,
     sampling_date_to: pendulum.DateTime,
     sampling_location: str,

@@ -1,6 +1,6 @@
 .loading-card-wrapper {
   position: fixed;
-  z-index: 999;
+  z-index: 15;
   display: flex;
   justify-content: center;
   align-items: center;

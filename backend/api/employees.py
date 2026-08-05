@@ -1,7 +1,7 @@
 from __future__ import annotations
 from fastapi import APIRouter, Body, Query
 from core.auth_decorators import IsAuthenticated
-from core.exceptions import NotFoundError, ServiceUnavailableError, ValidationError
+from core.exceptions import ValidationError
 from schemas.employees import EmployeesByHsnilsRequest
 from services.employees import (
     get_employee_by_hsnils,
@@ -9,13 +9,6 @@ from services.employees import (
     search_employees_by_fio,
     search_employees_by_fio_and_laboratory,
 )
-
-_HR_API_ERROR_MSG = "Ошибка при обращении к HR API"
-
-
-def _raise_hr_api_unavailable(exc: Exception) -> None:
-    raise ServiceUnavailableError(f"{_HR_API_ERROR_MSG}: {exc}") from exc
-
 
 router = APIRouter()
 
@@ -63,12 +56,7 @@ async def search_employees(
     ),
 ):
     """Возвращает список сотрудников, найденных в HR API по части ФИО."""
-    try:
-        return await search_employees_by_fio(search_fio, include_photo=include_photo)
-    except ValueError as exc:
-        raise ValidationError(str(exc)) from exc
-    except Exception as exc:
-        _raise_hr_api_unavailable(exc)
+    return await search_employees_by_fio(search_fio, include_photo=include_photo)
 
 
 @router.get(
@@ -128,14 +116,9 @@ async def search_employees_by_laboratory(
     if not laboratory_name:
         raise ValidationError("Не указано наименование лаборатории")
 
-    try:
-        return await search_employees_by_fio_and_laboratory(
-            search_fio, laboratory_name, include_photo=include_photo
-        )
-    except ValueError as exc:
-        raise ValidationError(str(exc)) from exc
-    except Exception as exc:
-        _raise_hr_api_unavailable(exc)
+    return await search_employees_by_fio_and_laboratory(
+        search_fio, laboratory_name, include_photo=include_photo
+    )
 
 
 @router.get(
@@ -177,17 +160,7 @@ async def get_employee(
     if not hsnils:
         raise ValidationError("Не указан hsnils")
 
-    try:
-        employee = await get_employee_by_hsnils(hsnils, include_photo=include_photo)
-        if employee is None:
-            raise NotFoundError("Сотрудник не найден")
-        return employee
-    except NotFoundError:
-        raise
-    except ValueError as exc:
-        raise ValidationError(str(exc)) from exc
-    except Exception as exc:
-        _raise_hr_api_unavailable(exc)
+    return await get_employee_by_hsnils(hsnils, include_photo=include_photo)
 
 
 @router.post(
@@ -227,11 +200,6 @@ async def get_employees_by_hsnils_endpoint(
     if not request.hsnils:
         return {}
 
-    try:
-        return await get_employees_by_hsnils(
-            request.hsnils, include_photo=request.includePhoto
-        )
-    except ValueError as exc:
-        raise ValidationError(str(exc)) from exc
-    except Exception as exc:
-        _raise_hr_api_unavailable(exc)
+    return await get_employees_by_hsnils(
+        request.hsnils, include_photo=request.includePhoto
+    )

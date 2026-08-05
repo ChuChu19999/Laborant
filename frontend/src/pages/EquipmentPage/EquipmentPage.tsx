@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { PlusOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { ResetFiltersButton } from '../../entities/ResetFiltersButton';
@@ -10,12 +10,13 @@ import {
   DeleteEquipmentModal,
 } from '../../features/Modals';
 import { laboratoriesApi } from '../../shared/api/laboratories';
+import { useCan, useScopeAccess } from '../../shared/lib/permissions';
 import { useEquipment } from '../../shared/model/hooks';
 import { useAutoRefetchQuery } from '../../shared/model/lib/useQuery';
 import { useQueryStore } from '../../shared/model/stores';
-import Button from '../../shared/ui/Button/Button';
+import Button from '../../shared/ui/Button';
 import { LaboratoryCard, DepartmentCard } from '../../shared/ui/Cards';
-import Layout from '../../shared/ui/Layout/Layout';
+import Layout from '../../shared/ui/Layout';
 import { NavigationBar } from '../../widgets/NavigationBar';
 import { EquipmentTable } from '../../widgets/Tables/EquipmentTable';
 import type { Equipment, EquipmentFilters } from '../../shared/api/equipment';
@@ -30,6 +31,10 @@ const EquipmentPage: React.FC = () => {
     departmentId?: string;
   }>();
   const navigate = useNavigate();
+  const { canAccessLaboratory, canAccessDepartment, canAccessRouteScope } = useScopeAccess();
+  const canCreateEquipment = useCan('equipment', 'create');
+  const canUpdateEquipment = useCan('equipment', 'update');
+  const canDeleteEquipment = useCan('equipment', 'delete');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -312,6 +317,10 @@ const EquipmentPage: React.FC = () => {
     return breadcrumbs;
   };
 
+  if (!canAccessRouteScope(effectiveLabId, effectiveDeptId)) {
+    return <Navigate to="/403" replace />;
+  }
+
   if (!effectiveLabId && laboratories?.items) {
     return (
       <Layout title="Приборы">
@@ -328,6 +337,7 @@ const EquipmentPage: React.FC = () => {
                 laboratory={laboratory}
                 onClick={handleLaboratoryClick}
                 showActions={false}
+                disabled={!canAccessLaboratory(laboratory.id)}
               />
             ))}
           </div>
@@ -350,6 +360,7 @@ const EquipmentPage: React.FC = () => {
                 onClick={handleDepartmentClick}
                 showActions={false}
                 iconIndex={index}
+                disabled={!canAccessDepartment(effectiveLabId, department.id)}
               />
             ))}
           </div>
@@ -369,13 +380,15 @@ const EquipmentPage: React.FC = () => {
       <div className="equipment-page-container">
         <div className="equipment-page-header">
           <div className="equipment-page-header-left">
-            <Button
-              type="primary"
-              onClick={() => setIsCreateModalOpen(true)}
-              icon={<PlusOutlined />}
-            >
-              Добавить прибор
-            </Button>
+            {canCreateEquipment && (
+              <Button
+                type="primary"
+                onClick={() => setIsCreateModalOpen(true)}
+                icon={<PlusOutlined />}
+              >
+                Добавить прибор
+              </Button>
+            )}
           </div>
           <div className="equipment-page-header-right">
             <ResetFiltersButton
@@ -409,6 +422,8 @@ const EquipmentPage: React.FC = () => {
             }
             onEdit={handleEdit}
             onDelete={handleDelete}
+            canUpdate={canUpdateEquipment}
+            canDelete={canDeleteEquipment}
           />
         </div>
       </div>

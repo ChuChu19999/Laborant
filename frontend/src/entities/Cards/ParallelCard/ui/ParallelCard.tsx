@@ -1,9 +1,10 @@
 import React from 'react';
 import type { RefObject } from 'react';
-import { BiHelpCircle } from 'react-icons/bi';
-import { FormItem } from '../../../../features/FormItems';
+import { Form } from 'antd';
 import { Input } from '../../../../shared/ui/FormItems';
-import Tooltip from '../../../../shared/ui/Tooltip/Tooltip';
+import { CircleHelpIcon } from '../../../../shared/ui/icons';
+import '../../../../shared/ui/icons/icons.css';
+import Tooltip from '../../../../shared/ui/Tooltip';
 import { getCardParallelLabel as getCardParallelLabelUtil } from '../../../../shared/utils/calculationUtils';
 import { validateNumericInputWithComma } from '../../../../shared/utils/inputValidation';
 import { isMassFractionOilResearchMethod } from '../../../../shared/utils/massFractionOilMethod';
@@ -182,135 +183,133 @@ const ParallelCard: React.FC<ParallelCardProps> = ({
 
         return (
           <div key={fieldIndex} className="input-field-container">
-            <FormItem
-              title={
-                <div className="parallel-card-title-wrapper">
-                  <span className="parallel-card-title-text">{field.name}</span>
-                  <Tooltip title={field.description || ''} placement="right">
-                    <BiHelpCircle size={16} className="parallel-card-title-icon" />
-                  </Tooltip>
-                </div>
-              }
-              name={formFieldName}
-            >
-              <div className="parallel-card-input-wrapper">
-                <Input
-                  ref={el => {
-                    if (inputRefs.current) {
-                      inputRefs.current[formFieldName] = el;
-                    }
-                  }}
-                  placeholder={`Введите ${field.name}`}
-                  className="hover-input parallel-card-input"
-                  value={fieldValue}
-                  disabled={lockedMethods[methodId] || shouldDisableField}
-                  onChange={e => {
-                    if (shouldDisableField || lockedMethods[methodId]) {
-                      return;
-                    }
-
-                    const inputValue = e.target.value;
-                    const currentFormValue = formValues[formFieldName]?.toString() || '';
-
-                    // Пропускаем обработку, если значение уже нормализовано (избегаем повторных вызовов)
-                    if (inputValue === currentFormValue && !inputValue.includes('.')) {
-                      return;
-                    }
-
-                    const validation = validateNumericInputWithComma(inputValue);
-                    // Проверяем, что исходное значение содержит только допустимые символы (цифры, точка, запятая, минус)
-                    const containsOnlyValidChars = /^[-.,\d]*$/.test(inputValue);
-                    // Проверяем, есть ли в исходном значении точка (которую нужно заменить на запятую)
-                    const hasPoint = inputValue.includes('.');
-                    // Проверяем, отличается ли нормализованное значение от введенного
-                    const valueChanged = validation.normalizedValue !== inputValue;
-
-                    // Проверяем и нормализуем минус: он должен быть только один и только в начале
-                    let finalValue = validation.normalizedValue;
-                    if (finalValue.includes('-')) {
-                      // Если минус не в начале, перемещаем его в начало
-                      if (!finalValue.startsWith('-')) {
-                        finalValue = '-' + finalValue.replace(/-/g, '');
-                      }
-                      // Убеждаемся, что минус только один
-                      const minusCount = (finalValue.match(/-/g) || []).length;
-                      if (minusCount > 1) {
-                        finalValue = '-' + finalValue.replace(/-/g, '');
-                      }
-                    }
-
-                    // Применяем нормализованное значение, если:
-                    // 1. В исходном значении есть точка (нужно заменить на запятую) и значение содержит только допустимые символы
-                    // 2. Или значение валидно
-                    // И только если нормализованное значение отличается от введенного
-                    const needsUpdate = valueChanged || finalValue !== validation.normalizedValue;
-                    if (
-                      needsUpdate &&
-                      ((hasPoint && containsOnlyValidChars) || validation.isValid)
-                    ) {
-                      // Обновляем состояние
-                      form.setFieldValue(formFieldName, finalValue);
-                      setFormValues(prev => ({
-                        ...prev,
-                        [formFieldName]: finalValue,
-                      }));
-
-                      // Принудительно обновляем значение в нативном input через ref
-                      const inputRef = inputRefs.current?.[formFieldName];
-                      if (inputRef && inputRef.input) {
-                        const nativeInput = inputRef.input;
-                        const cursorPosition = nativeInput.selectionStart || 0;
-                        const valueSetter = Object.getOwnPropertyDescriptor(
-                          nativeInput.constructor.prototype,
-                          'value'
-                        )?.set;
-                        if (valueSetter) {
-                          valueSetter.call(nativeInput, finalValue);
-                          const event = new Event('input', { bubbles: true });
-                          nativeInput.dispatchEvent(event);
-                        } else {
-                          nativeInput.value = finalValue;
-                        }
-                        setTimeout(() => {
-                          nativeInput.setSelectionRange(cursorPosition, cursorPosition);
-                        }, 0);
-                      }
-                    }
-                  }}
-                  onKeyDown={e => handleKeyDown(e, fieldIndex, fields)}
-                  onPaste={e => {
-                    if (shouldDisableField || lockedMethods[methodId]) {
-                      e.preventDefault();
-                      return;
-                    }
-                    e.preventDefault();
-                    const pastedText = e.clipboardData.getData('text');
-                    const cleanedValue = pastedText.trim().replace(/\s+/g, '');
-                    const validation = validateNumericInputWithComma(cleanedValue);
-                    if (validation.isValid) {
-                      // Нормализуем минус: он должен быть только в начале
-                      let finalValue = validation.normalizedValue;
-                      if (finalValue.includes('-') && !finalValue.startsWith('-')) {
-                        // Если минус не в начале, перемещаем его в начало
-                        finalValue = '-' + finalValue.replace(/-/g, '');
-                      }
-                      // Убеждаемся, что минус только один
-                      const minusCount = (finalValue.match(/-/g) || []).length;
-                      if (minusCount > 1) {
-                        finalValue = '-' + finalValue.replace(/-/g, '');
-                      }
-
-                      form.setFieldValue(formFieldName, finalValue);
-                      setFormValues(prev => ({
-                        ...prev,
-                        [formFieldName]: finalValue,
-                      }));
-                    }
-                  }}
-                />
-                {field.unit && <span className="parallel-card-unit">{field.unit}</span>}
+            <div className="parallel-card-form-row">
+              <div className="parallel-card-title-wrapper">
+                <span className="parallel-card-title-text">{field.name}</span>
+                <Tooltip title={field.description || ''} placement="right">
+                  <CircleHelpIcon size={16} className="parallel-card-title-icon animated-icon" />
+                </Tooltip>
               </div>
-            </FormItem>
+              <Form.Item name={formFieldName} className="parallel-card-form-item">
+                <div className="parallel-card-input-wrapper">
+                  <Input
+                    ref={el => {
+                      if (inputRefs.current) {
+                        inputRefs.current[formFieldName] = el;
+                      }
+                    }}
+                    placeholder={`Введите ${field.name}`}
+                    className="hover-input parallel-card-input"
+                    value={fieldValue}
+                    disabled={lockedMethods[methodId] || shouldDisableField}
+                    onChange={e => {
+                      if (shouldDisableField || lockedMethods[methodId]) {
+                        return;
+                      }
+
+                      const inputValue = e.target.value;
+                      const currentFormValue = formValues[formFieldName]?.toString() || '';
+
+                      // Пропускаем обработку, если значение уже нормализовано (избегаем повторных вызовов)
+                      if (inputValue === currentFormValue && !inputValue.includes('.')) {
+                        return;
+                      }
+
+                      const validation = validateNumericInputWithComma(inputValue);
+                      // Проверяем, что исходное значение содержит только допустимые символы (цифры, точка, запятая, минус)
+                      const containsOnlyValidChars = /^[-.,\d]*$/.test(inputValue);
+                      // Проверяем, есть ли в исходном значении точка (которую нужно заменить на запятую)
+                      const hasPoint = inputValue.includes('.');
+                      // Проверяем, отличается ли нормализованное значение от введенного
+                      const valueChanged = validation.normalizedValue !== inputValue;
+
+                      // Проверяем и нормализуем минус: он должен быть только один и только в начале
+                      let finalValue = validation.normalizedValue;
+                      if (finalValue.includes('-')) {
+                        // Если минус не в начале, перемещаем его в начало
+                        if (!finalValue.startsWith('-')) {
+                          finalValue = '-' + finalValue.replace(/-/g, '');
+                        }
+                        // Убеждаемся, что минус только один
+                        const minusCount = (finalValue.match(/-/g) || []).length;
+                        if (minusCount > 1) {
+                          finalValue = '-' + finalValue.replace(/-/g, '');
+                        }
+                      }
+
+                      // Применяем нормализованное значение, если:
+                      // 1. В исходном значении есть точка (нужно заменить на запятую) и значение содержит только допустимые символы
+                      // 2. Или значение валидно
+                      // И только если нормализованное значение отличается от введенного
+                      const needsUpdate = valueChanged || finalValue !== validation.normalizedValue;
+                      if (
+                        needsUpdate &&
+                        ((hasPoint && containsOnlyValidChars) || validation.isValid)
+                      ) {
+                        // Обновляем состояние
+                        form.setFieldValue(formFieldName, finalValue);
+                        setFormValues(prev => ({
+                          ...prev,
+                          [formFieldName]: finalValue,
+                        }));
+
+                        // Принудительно обновляем значение в нативном input через ref
+                        const inputRef = inputRefs.current?.[formFieldName];
+                        if (inputRef && inputRef.input) {
+                          const nativeInput = inputRef.input;
+                          const cursorPosition = nativeInput.selectionStart || 0;
+                          const valueSetter = Object.getOwnPropertyDescriptor(
+                            nativeInput.constructor.prototype,
+                            'value'
+                          )?.set;
+                          if (valueSetter) {
+                            valueSetter.call(nativeInput, finalValue);
+                            const event = new Event('input', { bubbles: true });
+                            nativeInput.dispatchEvent(event);
+                          } else {
+                            nativeInput.value = finalValue;
+                          }
+                          setTimeout(() => {
+                            nativeInput.setSelectionRange(cursorPosition, cursorPosition);
+                          }, 0);
+                        }
+                      }
+                    }}
+                    onKeyDown={e => handleKeyDown(e, fieldIndex, fields)}
+                    onPaste={e => {
+                      if (shouldDisableField || lockedMethods[methodId]) {
+                        e.preventDefault();
+                        return;
+                      }
+                      e.preventDefault();
+                      const pastedText = e.clipboardData.getData('text');
+                      const cleanedValue = pastedText.trim().replace(/\s+/g, '');
+                      const validation = validateNumericInputWithComma(cleanedValue);
+                      if (validation.isValid) {
+                        // Нормализуем минус: он должен быть только в начале
+                        let finalValue = validation.normalizedValue;
+                        if (finalValue.includes('-') && !finalValue.startsWith('-')) {
+                          // Если минус не в начале, перемещаем его в начало
+                          finalValue = '-' + finalValue.replace(/-/g, '');
+                        }
+                        // Убеждаемся, что минус только один
+                        const minusCount = (finalValue.match(/-/g) || []).length;
+                        if (minusCount > 1) {
+                          finalValue = '-' + finalValue.replace(/-/g, '');
+                        }
+
+                        form.setFieldValue(formFieldName, finalValue);
+                        setFormValues(prev => ({
+                          ...prev,
+                          [formFieldName]: finalValue,
+                        }));
+                      }
+                    }}
+                  />
+                  {field.unit && <span className="parallel-card-unit">{field.unit}</span>}
+                </div>
+              </Form.Item>
+            </div>
           </div>
         );
       })}

@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { useReactTable, getCoreRowModel, flexRender, type ColumnDef } from '@tanstack/react-table';
-import { LoadingCard } from '../../../../features/Cards';
+import { Spin } from 'antd';
 import { type Calculation } from '../../../../shared/api/calculation';
 import { employeesApi } from '../../../../shared/api/employees';
 import { researchApi, type ResearchMethod } from '../../../../shared/api/research';
-import Button from '../../../../shared/ui/Button/Button';
+import Button from '../../../../shared/ui/Button';
 import {
   roundValueForOilFractional,
   roundValueForCondensateFractional,
@@ -740,7 +740,7 @@ const CalculationsTable: React.FC<CalculationsTableProps> = ({
 
   return (
     <div className="calculations-table-container">
-      <LoadingCard loading={loading} />
+      {loading ? <Spin size="large" /> : null}
       {!loading && (
         <div className="calculations-table-wrapper">
           <table className="calculations-table">

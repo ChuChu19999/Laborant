@@ -71,6 +71,21 @@
   font-size: 14px !important;
 }
 
+/* Крестик удаления тега — всегда справа сверху в прямоугольнике тега */
+.ant-select-multiple .ant-select-selection-item {
+  position: relative !important;
+  align-items: flex-start !important;
+  padding-inline-end: 18px !important;
+}
+
+.ant-select-multiple .ant-select-selection-item-remove {
+  position: absolute !important;
+  top: 2px !important;
+  inset-inline-end: 4px !important;
+  margin-inline-start: 0 !important;
+  transform: none !important;
+}
+
 /* Стили для крестика очистки в селектах - заменяет стрелку */
 .ant-select-clear {
   opacity: 1 !important;

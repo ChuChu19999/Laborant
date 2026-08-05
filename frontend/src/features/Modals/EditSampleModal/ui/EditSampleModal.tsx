@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { message } from 'antd';
 import dayjs from 'dayjs';
 import 'dayjs/locale/ru';
@@ -11,6 +11,8 @@ import {
   type Branch,
   type SamplingLocation,
 } from '../../../../shared/api/samplingLocations';
+import { SAMPLING_TERMINOLOGY_LABELS } from '../../../../shared/config/permissions';
+import { usePermissionsContext } from '../../../../shared/lib/permissions';
 import { useUpdateSample } from '../../../../shared/model/hooks';
 import { useAutoRefetchQuery } from '../../../../shared/model/lib/useQuery';
 import { Input, Select, DatePicker } from '../../../../shared/ui/FormItems';
@@ -57,6 +59,25 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({
   laboratoryId,
   departmentId,
 }) => {
+  const { isAdmin, permissionsData } = usePermissionsContext();
+  const visibleFields = useMemo(() => {
+    if (isAdmin || permissionsData.is_admin) {
+      return new Set([
+        'sample_type',
+        'branch',
+        'sampling_location',
+        'well',
+        'well_mode',
+        'sampling_date',
+        'receipt_date',
+      ]);
+    }
+    return new Set(permissionsData.permissions.samples.visible_fields);
+  }, [isAdmin, permissionsData]);
+  const terminologyLabel =
+    SAMPLING_TERMINOLOGY_LABELS[permissionsData.permissions.sampling_terminology || 'well_mode'];
+  const canShow = (field: string) => visibleFields.has(field);
+
   const updateSampleMutation = useUpdateSample();
   const [formData, setFormData] = useState<EditSampleFormData>({
     registration_number: sample.registration_number,
@@ -369,23 +390,25 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({
           />
         </div>
 
-        <div className="form-group">
-          <label>Тип пробы</label>
-          <Select
-            value={formData.sample_type}
-            onChange={handleSelectChange('sample_type')}
-            placeholder="Выберите тип пробы"
-            status={errors.sample_type ? 'error' : ''}
-            listHeight={100}
-            allowClear
-          >
-            {sampleTypes.map(type => (
-              <Option key={type} value={type}>
-                {type}
-              </Option>
-            ))}
-          </Select>
-        </div>
+        {canShow('sample_type') && (
+          <div className="form-group">
+            <label>Тип пробы</label>
+            <Select
+              value={formData.sample_type}
+              onChange={handleSelectChange('sample_type')}
+              placeholder="Выберите тип пробы"
+              status={errors.sample_type ? 'error' : ''}
+              listHeight={100}
+              allowClear
+            >
+              {sampleTypes.map(type => (
+                <Option key={type} value={type}>
+                  {type}
+                </Option>
+              ))}
+            </Select>
+          </div>
+        )}
 
         <div className="form-group">
           <label>
@@ -422,100 +445,112 @@ const EditSampleModal: React.FC<EditSampleModalProps> = ({
           />
         </div>
 
-        <div className="form-group">
-          <label>Филиал</label>
-          <Select
-            value={formData.branch_id}
-            onChange={handleSelectChange('branch_id')}
-            placeholder="Выберите филиал"
-            loading={branchesLoading}
-            listHeight={100}
-            allowClear
-          >
-            {branches.map(branch => (
-              <Option key={branch.id} value={branch.id}>
-                {formatBranchDisplay(branch)}
-              </Option>
-            ))}
-          </Select>
-        </div>
+        {canShow('branch') && (
+          <div className="form-group">
+            <label>Филиал</label>
+            <Select
+              value={formData.branch_id}
+              onChange={handleSelectChange('branch_id')}
+              placeholder="Выберите филиал"
+              loading={branchesLoading}
+              listHeight={100}
+              allowClear
+            >
+              {branches.map(branch => (
+                <Option key={branch.id} value={branch.id}>
+                  {formatBranchDisplay(branch)}
+                </Option>
+              ))}
+            </Select>
+          </div>
+        )}
 
-        <div className="form-group">
-          <label>Место отбора пробы</label>
-          <Select
-            value={formData.sampling_location_id}
-            onChange={handleSelectChange('sampling_location_id')}
-            placeholder="Выберите место отбора пробы"
-            loading={locationsLoading}
-            disabled={!formData.branch_id}
-            listHeight={100}
-            allowClear
-          >
-            {samplingLocations.map(location => (
-              <Option key={location.id} value={location.id}>
-                {location.name}
-              </Option>
-            ))}
-          </Select>
-        </div>
+        {canShow('sampling_location') && (
+          <div className="form-group">
+            <label>Место отбора пробы</label>
+            <Select
+              value={formData.sampling_location_id}
+              onChange={handleSelectChange('sampling_location_id')}
+              placeholder="Выберите место отбора пробы"
+              loading={locationsLoading}
+              disabled={!formData.branch_id}
+              listHeight={100}
+              allowClear
+            >
+              {samplingLocations.map(location => (
+                <Option key={location.id} value={location.id}>
+                  {location.name}
+                </Option>
+              ))}
+            </Select>
+          </div>
+        )}
 
-        <div className="form-group">
-          <label>Скважина</label>
-          <Input
-            value={formData.well}
-            onChange={handleInputChange('well')}
-            placeholder="Введите скважину"
-          />
-        </div>
+        {canShow('well') && (
+          <div className="form-group">
+            <label>Скважина</label>
+            <Input
+              value={formData.well}
+              onChange={handleInputChange('well')}
+              placeholder="Введите скважину"
+            />
+          </div>
+        )}
 
-        <div className="form-group">
-          <label>Режим скважины (точка отбора)</label>
-          <Select
-            value={formData.mode}
-            onChange={handleSelectChange('mode')}
-            placeholder="Выберите режим скважины (точку отбора)"
-            loading={wellModesLoading}
-            disabled={!formData.branch_id}
-            listHeight={100}
-            allowClear
-          >
-            {wellModes.map(mode => (
-              <Option key={mode.id} value={mode.name}>
-                {mode.name}
-              </Option>
-            ))}
-          </Select>
-        </div>
+        {canShow('well_mode') && (
+          <div className="form-group">
+            <label>{terminologyLabel}</label>
+            <Select
+              value={formData.mode}
+              onChange={handleSelectChange('mode')}
+              placeholder={`Выберите: ${terminologyLabel.toLowerCase()}`}
+              loading={wellModesLoading}
+              disabled={!formData.branch_id}
+              listHeight={100}
+              allowClear
+            >
+              {wellModes.map(mode => (
+                <Option key={mode.id} value={mode.name}>
+                  {mode.name}
+                </Option>
+              ))}
+            </Select>
+          </div>
+        )}
 
-        <div className="form-group">
-          <label>Дата отбора пробы</label>
-          <DatePicker
-            format="DD.MM.YYYY"
-            value={formData.sampling_date}
-            onChange={handleDateChange('sampling_date')}
-            placeholder="ДД.ММ.ГГГГ"
-            className="custom-date-picker"
-            rootClassName="custom-date-picker-root"
-            popupClassName="custom-date-picker-popup"
-            inputReadOnly={false}
-            allowClear={true}
-          />
-        </div>
+        {canShow('sampling_date') && (
+          <div className="form-group">
+            <label>Дата отбора пробы</label>
+            <DatePicker
+              format="DD.MM.YYYY"
+              value={formData.sampling_date}
+              onChange={handleDateChange('sampling_date')}
+              placeholder="ДД.ММ.ГГГГ"
+              className="custom-date-picker"
+              rootClassName="custom-date-picker-root"
+              popupClassName="custom-date-picker-popup"
+              inputReadOnly={false}
+              allowClear={true}
+            />
+          </div>
+        )}
 
-        <div className="form-group">
-          <label>Дата получения пробы</label>
-          <DatePicker
-            format="DD.MM.YYYY"
-            value={formData.receiving_date}
-            onChange={handleDateChange('receiving_date')}
-            placeholder="ДД.ММ.ГГГГ"
-            className="custom-date-picker"
-            rootClassName="custom-date-picker-root"
-            popupClassName="custom-date-picker-popup"
-            inputReadOnly={false}
-            allowClear={true}
-          />
-        </div>
+        {canShow('receipt_date') && (
+          <div className="form-group">
+            <label>Дата получения пробы</label>
+            <DatePicker
+              format="DD.MM.YYYY"
+              value={formData.receiving_date}
+              onChange={handleDateChange('receiving_date')}
+              placeholder="ДД.ММ.ГГГГ"
+              className="custom-date-picker"
+              rootClassName="custom-date-picker-root"
+              popupClassName="custom-date-picker-popup"
+              inputReadOnly={false}
+              allowClear={true}
+            />
+          </div>
+        )}
 
         <div className="form-group">
           <label>

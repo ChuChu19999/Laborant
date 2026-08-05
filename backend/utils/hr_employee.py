@@ -5,11 +5,10 @@ HR_HASH_MD5_FIELD = "hashMd5"
 
 
 def map_hr_employee_to_app(employee: dict[str, Any]) -> dict[str, Any]:
-    """Преобразует ответ HR API: поле hashMd5 становится hsnils."""
-    if HR_HASH_MD5_FIELD not in employee:
-        return employee
+    """Преобразует ответ HR API: hashMd5 → hsnils (в приложении только hsnils)."""
     mapped = dict(employee)
-    mapped["hsnils"] = mapped.pop(HR_HASH_MD5_FIELD)
+    if HR_HASH_MD5_FIELD in mapped:
+        mapped["hsnils"] = mapped.pop(HR_HASH_MD5_FIELD)
     return mapped
 
 

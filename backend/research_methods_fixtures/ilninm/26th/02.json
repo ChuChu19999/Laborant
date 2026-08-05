@@ -99,7 +99,7 @@
                             "formula": "1"
                         },
                         {
-                            "condition": "(tср₁<17)",
+                            "condition": "(tср₁<17) or (tср₁>23)",
                             "formula": "1-0.000025*(tср₁-20)"
                         }
                     ]
@@ -215,7 +215,7 @@
                             "formula": "1"
                         },
                         {
-                            "condition": "(tср₂<17)",
+                            "condition": "(tср₂<17) or (tср₂>23)",
                             "formula": "1-0.000025*(tср₂-20)"
                         }
                     ]

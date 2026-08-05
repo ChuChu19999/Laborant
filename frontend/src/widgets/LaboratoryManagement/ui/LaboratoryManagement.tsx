@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { BarChartOutlined } from '@ant-design/icons';
 import { message } from 'antd';
-import LoadingCard from '../../../features/Cards/ui/LoadingCard/LoadingCard';
+import { LoadingCard } from '../../../features/Cards';
 import {
   CreateLaboratoryModal,
   EditLaboratoryModal,
@@ -12,6 +12,8 @@ import {
   DeleteDepartmentModal,
 } from '../../../features/Modals';
 import { laboratoriesApi } from '../../../shared/api/laboratories';
+import { researchApi } from '../../../shared/api/research';
+import { useScopeAccess } from '../../../shared/lib/permissions';
 import { updateUrlParams } from '../../../shared/lib/urlParams';
 import {
   LaboratoryCard,
@@ -30,6 +32,7 @@ interface LaboratoryManagementProps {
 type ViewMode = 'laboratories' | 'departments';
 
 const LaboratoryManagement: React.FC<LaboratoryManagementProps> = ({ onBack }) => {
+  const { canAccessLaboratory, canAccessDepartment } = useScopeAccess();
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -49,7 +52,7 @@ const LaboratoryManagement: React.FC<LaboratoryManagementProps> = ({ onBack }) =
   const [isDeleteDeptModalOpen, setIsDeleteDeptModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Laboratory | Department | null>(null);
 
-  const fetchLaboratories = async () => {
+  const fetchLaboratories = useCallback(async () => {
     try {
       setIsLoading(true);
       const allLaboratories: Laboratory[] = [];
@@ -74,9 +77,9 @@ const LaboratoryManagement: React.FC<LaboratoryManagementProps> = ({ onBack }) =
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const fetchDepartments = async (laboratoryId: number) => {
+  const fetchDepartments = useCallback(async (laboratoryId: number) => {
     try {
       setIsLoading(true);
       const depts = await laboratoriesApi.getDepartmentsByLaboratory(laboratoryId);
@@ -88,11 +91,42 @@ const LaboratoryManagement: React.FC<LaboratoryManagementProps> = ({ onBack }) =
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  /** Есть ли методы на уровне лаборатории (без подразделений). */
+  const laboratoryHasMethods = useCallback(async (laboratoryId: number): Promise<boolean> => {
+    try {
+      const response = await researchApi.getResearchMethods({
+        laboratory_id: laboratoryId,
+        page: 1,
+        page_size: 1,
+      });
+      return response.total > 0;
+    } catch (error) {
+      console.error('Ошибка при проверке методов лаборатории:', error);
+      return false;
+    }
+  }, []);
+
+  /** Без подразделений, но с методами — сразу на страницу методов лаборатории. */
+  const openLaboratoryWithoutDepartments = useCallback(
+    async (laboratory: Laboratory): Promise<boolean> => {
+      if (!laboratory.id) {
+        return false;
+      }
+      const hasMethods = await laboratoryHasMethods(laboratory.id);
+      if (!hasMethods) {
+        return false;
+      }
+      navigate(`/admin/laboratory/${laboratory.id}`);
+      return true;
+    },
+    [laboratoryHasMethods, navigate]
+  );
 
   useEffect(() => {
-    fetchLaboratories();
-  }, []);
+    void fetchLaboratories();
+  }, [fetchLaboratories]);
 
   // Инициализация из URL после загрузки лабораторий
   useEffect(() => {
@@ -118,13 +152,30 @@ const LaboratoryManagement: React.FC<LaboratoryManagementProps> = ({ onBack }) =
 
       if (urlViewMode === 'departments' && urlLaboratoryId) {
         const laboratoryId = parseInt(urlLaboratoryId, 10);
-        if (!isNaN(laboratoryId)) {
-          // Находим лабораторию в списке
+        if (!isNaN(laboratoryId) && canAccessLaboratory(laboratoryId)) {
           const lab = laboratories.find(l => l.id === laboratoryId);
           if (lab) {
-            setSelectedLaboratory(lab);
-            setViewMode('departments');
-            fetchDepartments(laboratoryId);
+            void (async () => {
+              try {
+                setIsLoading(true);
+                const depts = await laboratoriesApi.getDepartmentsByLaboratory(laboratoryId);
+                const activeDepartments = depts.filter((dept: Department) => !dept.deleted_at);
+                if (activeDepartments.length === 0) {
+                  const opened = await openLaboratoryWithoutDepartments(lab);
+                  if (opened) {
+                    return;
+                  }
+                }
+                setSelectedLaboratory(lab);
+                setViewMode('departments');
+                setDepartments(activeDepartments);
+              } catch (error) {
+                console.error('Ошибка при открытии лаборатории из URL:', error);
+                message.error('Не удалось открыть лабораторию');
+              } finally {
+                setIsLoading(false);
+              }
+            })();
             previousSearchRef.current = currentSearch;
             return;
           }
@@ -133,13 +184,38 @@ const LaboratoryManagement: React.FC<LaboratoryManagementProps> = ({ onBack }) =
     }
 
     previousSearchRef.current = currentSearch;
-  }, [laboratories, searchParams, location.search]);
+  }, [
+    laboratories,
+    searchParams,
+    location.search,
+    canAccessLaboratory,
+    openLaboratoryWithoutDepartments,
+  ]);
 
   useEffect(() => {
     if (viewMode === 'laboratories' && !isInitialMountRef.current) {
-      fetchLaboratories();
+      void fetchLaboratories();
     }
-  }, [viewMode]);
+  }, [viewMode, fetchLaboratories]);
+
+  // Если открыли лабораторию без подразделений, но методы уже есть — не показываем заглушку.
+  useEffect(() => {
+    if (
+      viewMode !== 'departments' ||
+      !selectedLaboratory?.id ||
+      departments.length > 0 ||
+      isLoading
+    ) {
+      return;
+    }
+    void openLaboratoryWithoutDepartments(selectedLaboratory);
+  }, [
+    viewMode,
+    selectedLaboratory,
+    departments.length,
+    isLoading,
+    openLaboratoryWithoutDepartments,
+  ]);
 
   // Синхронизация состояния с URL
   useEffect(() => {
@@ -165,9 +241,28 @@ const LaboratoryManagement: React.FC<LaboratoryManagementProps> = ({ onBack }) =
 
   const handleLaboratoryClick = async (laboratory: Laboratory) => {
     if (!laboratory.id) return;
-    setSelectedLaboratory(laboratory);
-    setViewMode('departments');
-    await fetchDepartments(laboratory.id);
+
+    try {
+      setIsLoading(true);
+      const depts = await laboratoriesApi.getDepartmentsByLaboratory(laboratory.id);
+      const activeDepartments = depts.filter((dept: Department) => !dept.deleted_at);
+
+      if (activeDepartments.length === 0) {
+        const opened = await openLaboratoryWithoutDepartments(laboratory);
+        if (opened) {
+          return;
+        }
+      }
+
+      setSelectedLaboratory(laboratory);
+      setViewMode('departments');
+      setDepartments(activeDepartments);
+    } catch (error) {
+      console.error('Ошибка при открытии лаборатории:', error);
+      message.error('Не удалось открыть лабораторию');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleDepartmentClick = (department: Department) => {
@@ -263,6 +358,7 @@ const LaboratoryManagement: React.FC<LaboratoryManagementProps> = ({ onBack }) =
               showActions={true}
               onEdit={handleEdit}
               onDelete={handleDeleteClick}
+              disabled={!canAccessLaboratory(laboratory.id)}
             />
           ))}
           <AddLaboratoryCard onClick={() => setIsCreateModalOpen(true)} />
@@ -306,6 +402,9 @@ const LaboratoryManagement: React.FC<LaboratoryManagementProps> = ({ onBack }) =
               onEdit={handleEdit}
               onDelete={handleDeleteClick}
               iconIndex={index}
+              disabled={
+                !selectedLaboratory || !canAccessDepartment(selectedLaboratory.id, department.id)
+              }
             />
           ))}
           <AddDepartmentCard onClick={() => setIsCreateDeptModalOpen(true)} />

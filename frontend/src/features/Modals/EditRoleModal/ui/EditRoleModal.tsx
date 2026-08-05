@@ -120,7 +120,7 @@ const EditRoleModal: React.FC<EditRoleModalProps> = ({ open, onClose, onSuccess,
 
   return (
     <Modal
-      header="Редактирование области видимости роли"
+      header="Редактирование роли"
       onClose={handleCancel}
       onCancel={handleCancel}
       onSave={handleSave}

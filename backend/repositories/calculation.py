@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import List, Optional
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -18,7 +17,7 @@ from utils.sorting import build_order_by
 
 async def get_calculation_by_id(
     db: AsyncSession, calculation_id: int, include_deleted: bool = False
-) -> Optional[Calculation]:
+) -> Calculation | None:
     """Получить расчет по ID."""
     query = (
         select(Calculation)
@@ -38,12 +37,12 @@ async def get_calculation_by_id(
 
 async def get_calculations_by_sample(
     db: AsyncSession,
-    sample_id: Optional[int] = None,
-    sample_ids: Optional[List[int]] = None,
+    sample_id: int | None = None,
+    sample_ids: list[int] | None = None,
     include_deleted: bool = False,
-    sort_by: Optional[str] = None,
-    sort_order: Optional[str] = None,
-) -> List[Calculation]:
+    sort_by: str | None = None,
+    sort_order: str | None = None,
+) -> list[Calculation]:
     """Получить список расчетов по пробе без пагинации."""
     query = select(Calculation).options(
         selectinload(Calculation.sample),
@@ -53,7 +52,7 @@ async def get_calculations_by_sample(
     )
 
     if not include_deleted:
-        query = query.where(Calculation.deleted_at.is_(None))
+        query = filter_not_deleted(query, Calculation.deleted_at)
 
     conditions = []
     if sample_id:
@@ -75,17 +74,17 @@ async def get_calculations_by_sample(
 
 async def get_calculations(
     db: AsyncSession,
-    sample_id: Optional[int] = None,
-    sample_ids: Optional[List[int]] = None,
-    laboratory_id: Optional[int] = None,
-    department_id: Optional[int] = None,
-    research_method_id: Optional[int] = None,
+    sample_id: int | None = None,
+    sample_ids: list[int] | None = None,
+    laboratory_id: int | None = None,
+    department_id: int | None = None,
+    research_method_id: int | None = None,
     include_deleted: bool = False,
-    page: Optional[int] = None,
-    page_size: Optional[int] = None,
-    sort_by: Optional[str] = None,
-    sort_order: Optional[str] = None,
-) -> tuple[List[Calculation], int]:
+    page: int | None = None,
+    page_size: int | None = None,
+    sort_by: str | None = None,
+    sort_order: str | None = None,
+) -> tuple[list[Calculation], int]:
     """Получить список расчетов."""
     query = select(Calculation).options(
         selectinload(Calculation.sample),
@@ -95,7 +94,7 @@ async def get_calculations(
     )
 
     if not include_deleted:
-        query = query.where(Calculation.deleted_at.is_(None))
+        query = filter_not_deleted(query, Calculation.deleted_at)
 
     conditions = []
     if sample_id:
@@ -120,7 +119,7 @@ async def get_calculations(
 
     count_query = select(func.count()).select_from(Calculation)
     if not include_deleted:
-        count_query = count_query.where(Calculation.deleted_at.is_(None))
+        count_query = filter_not_deleted(count_query, Calculation.deleted_at)
     count_conditions = []
     if sample_id:
         count_conditions.append(Calculation.sample_id == sample_id)
@@ -148,18 +147,19 @@ async def exists_calculation_by_sample_and_method(
     db: AsyncSession,
     sample_id: int,
     research_method_id: int,
-    exclude_id: Optional[int] = None,
+    exclude_id: int | None = None,
 ) -> bool:
     """Проверить существование расчёта для пробы и метода."""
-    conditions = [
-        Calculation.sample_id == sample_id,
-        Calculation.research_method_id == research_method_id,
-        Calculation.deleted_at.is_(None),
-    ]
+    query = filter_not_deleted(
+        select(Calculation).where(
+            Calculation.sample_id == sample_id,
+            Calculation.research_method_id == research_method_id,
+        ),
+        Calculation.deleted_at,
+    )
     if exclude_id is not None:
-        conditions.append(Calculation.id != exclude_id)
+        query = query.where(Calculation.id != exclude_id)
 
-    query = select(Calculation).where(*conditions)
     existing = await execute_scalar_one_or_none(db, query)
     return existing is not None
 
@@ -178,17 +178,11 @@ async def get_calculations_grouped_by_sample_ids(
     if not sample_ids:
         return {}
 
-    query = (
-        select(Calculation)
-        .where(
-            Calculation.sample_id.in_(sample_ids),
-            Calculation.deleted_at.is_(None),
-        )
-        .options(
-            selectinload(Calculation.research_method).selectinload(
-                ResearchMethod.groups
-            ),
-        )
+    query = filter_not_deleted(
+        select(Calculation).where(Calculation.sample_id.in_(sample_ids)),
+        Calculation.deleted_at,
+    ).options(
+        selectinload(Calculation.research_method).selectinload(ResearchMethod.groups),
     )
     calculations = await execute_scalars_all(db, query)
     by_sample: dict[int, list[Calculation]] = {}

@@ -1,17 +1,15 @@
 from __future__ import annotations
-from typing import Optional
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Query
 from core.auth_decorators import IsAuthenticated
-from core.database import get_db
-from core.exceptions import NotFoundError
-from services.saved_methods_tree import build_saved_methods_tree
-from utils.fixtures import (
-    get_available_fixtures,
+from core.deps import DbSession, UserPermissions
+from services.access_control import enforce_lab_management_access
+from services.fixtures import (
     get_fixture_data,
+    list_available_fixtures,
+    list_fixture_directories,
     list_fixture_files,
-    list_fixture_subdirectories,
 )
+from services.saved_methods_tree import build_saved_methods_tree
 
 router = APIRouter()
 
@@ -28,10 +26,12 @@ router = APIRouter()
 )
 # @IsAuthenticated
 async def get_fixture_directories(
+    effective: UserPermissions,
     laboratory_name: str = Query(..., description="Название лаборатории"),
 ):
     """Возвращает подкаталоги фикстур для указанной лаборатории."""
-    return {"directories": list_fixture_subdirectories(laboratory_name)}
+    enforce_lab_management_access(effective)
+    return {"directories": list_fixture_directories(laboratory_name)}
 
 
 @router.get(
@@ -45,8 +45,12 @@ async def get_fixture_directories(
     responses={200: {"description": "Дерево методов успешно получено"}},
 )
 # @IsAuthenticated
-async def get_saved_methods_tree(db: AsyncSession = Depends(get_db)):
+async def get_saved_methods_tree(
+    db: DbSession,
+    effective: UserPermissions,
+):
     """Возвращает методы из базы, сгруппированные по лаборатории и подразделению."""
+    enforce_lab_management_access(effective)
     return await build_saved_methods_tree(db)
 
 
@@ -62,15 +66,17 @@ async def get_saved_methods_tree(db: AsyncSession = Depends(get_db)):
 )
 # @IsAuthenticated
 async def get_fixtures(
-    laboratory_name: Optional[str] = Query(
+    effective: UserPermissions,
+    laboratory_name: str | None = Query(
         None, description="Название лаборатории (например, ИЛНиНМ)"
     ),
-    department_name: Optional[str] = Query(
+    department_name: str | None = Query(
         None, description="Название подразделения (например, 26 съезда КПСС)"
     ),
 ):
     """Возвращает список доступных фикстур методов исследования."""
-    fixtures = get_available_fixtures(
+    enforce_lab_management_access(effective)
+    fixtures = list_available_fixtures(
         laboratory_name=laboratory_name, department_name=department_name
     )
     return {"fixtures": fixtures}
@@ -88,8 +94,10 @@ async def get_fixtures(
 # @IsAuthenticated
 async def list_fixture_files_endpoint(
     fixture_path: str,
+    effective: UserPermissions,
 ):
     """Возвращает список файлов в указанной директории фикстуры."""
+    enforce_lab_management_access(effective)
     files = list_fixture_files(fixture_path)
     return {"files": files}
 
@@ -109,9 +117,8 @@ async def list_fixture_files_endpoint(
 # @IsAuthenticated
 async def get_fixture(
     fixture_path: str,
+    effective: UserPermissions,
 ):
     """Возвращает данные фикстуры по указанному пути."""
-    data = get_fixture_data(fixture_path)
-    if data is None:
-        raise NotFoundError("Фикстура не найдена")
-    return data
+    enforce_lab_management_access(effective)
+    return get_fixture_data(fixture_path)

@@ -1,13 +1,17 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Checkbox, Form, message } from 'antd';
-import { BiHelpCircle } from 'react-icons/bi';
 import { CalculationResultCard, ParallelCard } from '../../../entities/Cards';
 import { FormItem } from '../../../features/FormItems';
 import { useCalculate } from '../../../shared/model/hooks';
-import Button from '../../../shared/ui/Button/Button';
-import { DatePicker } from '../../../shared/ui/DatePicker';
-import { Select } from '../../../shared/ui/FormItems';
-import Tooltip from '../../../shared/ui/Tooltip/Tooltip';
+import Button from '../../../shared/ui/Button';
+import { DatePicker, Select } from '../../../shared/ui/FormItems';
+import {
+  CalculatorIcon,
+  CircleHelpIcon,
+  type CalculatorIconHandle,
+} from '../../../shared/ui/icons';
+import '../../../shared/ui/icons/icons.css';
+import Tooltip from '../../../shared/ui/Tooltip';
 import {
   CHLORIDE_SALTS_RESULT_DISPLAY_KEY,
   getChlorideSaltsResultDisplay,
@@ -35,6 +39,8 @@ interface CalculationPanelProps {
     laboratoryActivityDate: Dayjs | null
   ) => void;
   onSave?: () => void;
+  canExecute?: boolean;
+  canSave?: boolean;
   lastCalculationResult?: {
     input_data: Record<string, unknown>;
     result: string;
@@ -71,6 +77,8 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
   groupSelector,
   onCalculate,
   onSave,
+  canExecute = true,
+  canSave = true,
   lastCalculationResult,
   onLoadRegistrationData,
   calculationFormPrefill,
@@ -86,6 +94,7 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
   const [waxPrecipitation, setWaxPrecipitation] = useState(false);
   const inputRefs = useRef<Record<string, InputRef | null>>({});
   const mfOilNumericCRef = useRef<Record<string, string>>({});
+  const calculateIconRef = useRef<CalculatorIconHandle>(null);
   const calculateMutation = useCalculate();
   const isCalculating = calculateMutation.isPending;
 
@@ -458,15 +467,16 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
               <DatePicker
                 value={laboratoryActivityDate}
                 onChange={date => {
-                  setLaboratoryActivityDate(date);
+                  const nextDate = (date ?? null) as Dayjs | null;
+                  setLaboratoryActivityDate(nextDate);
                   setDateError('');
-                  onLaboratoryActivityDateChange?.(date);
+                  onLaboratoryActivityDateChange?.(nextDate);
                 }}
                 placeholder="Введите дату лабораторной деятельности"
                 showToday
                 allowClear={true}
-                className={`calculation-panel-date-picker ${dateError ? 'date-picker-error' : ''}`}
-                status={dateError ? 'error' : ''}
+                className={`date-picker calculation-panel-date-picker ${dateError ? 'date-picker-error' : ''}`}
+                status={dateError ? 'error' : undefined}
               />
               {dateError && <div className="calculation-panel-date-error">{dateError}</div>}
             </div>
@@ -522,7 +532,10 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
                     <div className="parallel-card-title-wrapper">
                       <span className="parallel-card-title-text">{colorField.name}</span>
                       <Tooltip title={colorField.description || ''} placement="right">
-                        <BiHelpCircle size={16} className="parallel-card-title-icon" />
+                        <CircleHelpIcon
+                          size={16}
+                          className="parallel-card-title-icon animated-icon"
+                        />
                       </Tooltip>
                     </div>
                   }
@@ -589,10 +602,23 @@ const CalculationPanel: React.FC<CalculationPanelProps> = ({
           ) : null}
 
           <div className="calculation-panel-actions">
-            <Button type="primary" onClick={handleCalculate} loading={isCalculating}>
-              Рассчитать
-            </Button>
-            {onSave && lastCalculationResult && (
+            {canExecute && (
+              <Button
+                type="primary"
+                onClick={handleCalculate}
+                loading={isCalculating}
+                icon={
+                  !isCalculating ? (
+                    <CalculatorIcon ref={calculateIconRef} size={16} className="animated-icon" />
+                  ) : undefined
+                }
+                onMouseEnter={() => calculateIconRef.current?.startAnimation()}
+                onMouseLeave={() => calculateIconRef.current?.stopAnimation()}
+              >
+                Рассчитать
+              </Button>
+            )}
+            {canSave && onSave && lastCalculationResult && (
               <Button type="primary" onClick={onSave}>
                 Сохранить результат
               </Button>

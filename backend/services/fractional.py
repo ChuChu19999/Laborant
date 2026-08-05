@@ -1,5 +1,5 @@
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
-from typing import Any, Dict, Union
+from typing import Any
 import orjson
 from core.logger import logger
 from utils.calculation_engine import (
@@ -31,7 +31,7 @@ def round_to_half(value: Any) -> Decimal:
         return value
 
 
-def round_condensate_distillate_volume(value: Any) -> Union[int, Decimal]:
+def round_condensate_distillate_volume(value: Any) -> int | Decimal:
     """Округление объемной доли отгона в фракционке конденсата."""
     try:
         val = parse_decimal_value(value)
@@ -62,7 +62,7 @@ def round_half_up_to_int(value: Any) -> int:
         return int(value) if value not in (None, "") else 0
 
 
-def calculate_fractional_composition(input_data: Dict[str, Any]) -> Dict[str, Any]:
+def calculate_fractional_composition(input_data: dict[str, Any]) -> dict[str, Any]:
     """Специальная функция для расчета фракционного состава конденсата."""
     try:
         logger.info("Начало расчета фракционного состава конденсата")
@@ -378,7 +378,7 @@ def calculate_fractional_composition(input_data: Dict[str, Any]) -> Dict[str, An
         raise ValueError(f"Ошибка при расчете фракционного состава: {str(e)}")
 
 
-def calculate_fractional_composition_oil(input_data: Dict[str, Any]) -> Dict[str, Any]:
+def calculate_fractional_composition_oil(input_data: dict[str, Any]) -> dict[str, Any]:
     """Специальная функция для расчета фракционного состава нефти."""
     try:
         logger.info("Начало расчета фракционного состава нефти")

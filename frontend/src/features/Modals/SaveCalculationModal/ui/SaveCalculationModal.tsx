@@ -7,6 +7,7 @@ import { equipmentApi } from '../../../../shared/api/equipment';
 import { laboratoriesApi } from '../../../../shared/api/laboratories';
 import { researchApi } from '../../../../shared/api/research';
 import { samplesApi, type Sample } from '../../../../shared/api/samples';
+import { useCan } from '../../../../shared/lib/permissions';
 import { useAutoRefetchQuery } from '../../../../shared/model/lib/useQuery';
 import { Select } from '../../../../shared/ui/FormItems';
 import { Modal } from '../../../../shared/ui/Modal';
@@ -56,6 +57,7 @@ const SaveCalculationModal: React.FC<SaveCalculationModalProps> = ({
   existingEquipmentData,
   previousExecutorHash,
 }) => {
+  const showEquipmentField = useCan('calculations', 'show_equipment');
   const [executor, setExecutor] = useState<Employee | null>(null);
   const [executorError, setExecutorError] = useState('');
   const [selectedSampleId, setSelectedSampleId] = useState<number | undefined>(sampleId);
@@ -115,7 +117,7 @@ const SaveCalculationModal: React.FC<SaveCalculationModalProps> = ({
         departmentId
       ),
     {
-      enabled: open && !!laboratoryId,
+      enabled: open && showEquipmentField && !!laboratoryId,
     }
   );
 
@@ -215,8 +217,11 @@ const SaveCalculationModal: React.FC<SaveCalculationModalProps> = ({
     setSampleError('');
 
     try {
-      const resolvedEquipment =
-        allSelectedEquipment.length > 0 ? allSelectedEquipment : equipment_data;
+      const resolvedEquipment = showEquipmentField
+        ? allSelectedEquipment.length > 0
+          ? allSelectedEquipment
+          : equipment_data
+        : [];
 
       if (editingCalculationId) {
         await calculationApi.replaceCalculation(editingCalculationId, {
@@ -330,86 +335,85 @@ const SaveCalculationModal: React.FC<SaveCalculationModalProps> = ({
             />
           </div>
 
-          <div className="save-calculation-modal-field">
-            <label className="save-calculation-modal-label">Приборы</label>
-            {isLoadingEquipment ? (
-              <div style={{ textAlign: 'center', padding: '20px' }}>
-                <Text type="secondary">Загрузка приборов...</Text>
-              </div>
-            ) : (
-              <Select
-                mode="multiple"
-                value={allSelectedEquipment}
-                onChange={value => {
-                  const requiredIds = availableEquipment.required.map(eq => eq.id);
-                  const newSelected = (value as number[]).filter(id => !requiredIds.includes(id));
-                  setSelectedEquipment(newSelected);
-                }}
-                placeholder="Выберите приборы"
-                disabled={
-                  availableEquipment.required.length === 0 &&
-                  availableEquipment.selectable.length === 0
-                }
-                listHeight={200}
-                maxTagCount="responsive"
-                tagRender={props => {
-                  const isRequired = availableEquipment.required.some(eq => eq.id === props.value);
-                  return (
-                    <span
-                      style={{
-                        display: 'inline-block',
-                        marginRight: '4px',
-                        padding: '2px 8px',
-                        background: isRequired ? '#f0f0f0' : '#e6f7ff',
-                        border: `1px solid ${isRequired ? '#d9d9d9' : '#91d5ff'}`,
-                        borderRadius: '4px',
-                        opacity: isRequired ? 0.6 : 1,
-                      }}
+          {showEquipmentField && (
+            <div className="save-calculation-modal-field">
+              <label className="save-calculation-modal-label">Приборы</label>
+              {isLoadingEquipment ? (
+                <div className="save-calculation-modal-equipment-loading">
+                  <Text type="secondary">Загрузка приборов...</Text>
+                </div>
+              ) : (
+                <Select
+                  mode="multiple"
+                  value={allSelectedEquipment}
+                  onChange={value => {
+                    const requiredIds = availableEquipment.required.map(eq => eq.id);
+                    const newSelected = (value as number[]).filter(id => !requiredIds.includes(id));
+                    setSelectedEquipment(newSelected);
+                  }}
+                  placeholder="Выберите приборы"
+                  disabled={
+                    availableEquipment.required.length === 0 &&
+                    availableEquipment.selectable.length === 0
+                  }
+                  listHeight={200}
+                  maxTagCount="responsive"
+                  tagRender={props => {
+                    const isRequired = availableEquipment.required.some(
+                      eq => eq.id === props.value
+                    );
+                    return (
+                      <span
+                        className={
+                          isRequired
+                            ? 'save-calculation-equipment-tag save-calculation-equipment-tag--required'
+                            : 'save-calculation-equipment-tag'
+                        }
+                      >
+                        {props.label}
+                        {!isRequired && (
+                          <span
+                            className="save-calculation-equipment-tag-remove"
+                            onClick={e => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              const newSelected = selectedEquipment.filter(
+                                id => id !== props.value
+                              );
+                              setSelectedEquipment(newSelected);
+                            }}
+                          >
+                            ×
+                          </span>
+                        )}
+                      </span>
+                    );
+                  }}
+                >
+                  {[...availableEquipment.selectable, ...availableEquipment.required].map(eq => (
+                    <Option
+                      key={eq.id}
+                      value={eq.id}
+                      disabled={availableEquipment.required.some(req => req.id === eq.id)}
                     >
-                      {props.label}
-                      {!isRequired && (
-                        <span
-                          onClick={e => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const newSelected = selectedEquipment.filter(id => id !== props.value);
-                            setSelectedEquipment(newSelected);
-                          }}
-                          style={{ marginLeft: '4px', cursor: 'pointer' }}
-                        >
-                          ×
-                        </span>
-                      )}
-                    </span>
-                  );
-                }}
-              >
-                {[...availableEquipment.selectable, ...availableEquipment.required].map(eq => (
-                  <Option
-                    key={eq.id}
-                    value={eq.id}
-                    disabled={availableEquipment.required.some(req => req.id === eq.id)}
-                  >
-                    <div>
-                      <Text>{eq.name}</Text>
-                      <br />
-                      <Text type="secondary" style={{ fontSize: '12px' }}>
-                        {`Зав. № ${eq.serial_number}`}
-                      </Text>
-                    </div>
-                  </Option>
-                ))}
-              </Select>
-            )}
-            {availableEquipment.required.length > 0 && (
-              <Text
-                type="secondary"
-                style={{ fontSize: '12px', display: 'block', marginTop: '4px' }}
-              >
-                Приборы, отмеченные серым цветом, обязательны и не могут быть удалены
-              </Text>
-            )}
-          </div>
+                      <div>
+                        <Text>{eq.name}</Text>
+                        <br />
+                        <Text type="secondary" className="save-calculation-equipment-serial">
+                          {`Зав. № ${eq.serial_number}`}
+                        </Text>
+                      </div>
+                    </Option>
+                  ))}
+                </Select>
+              )}
+              {availableEquipment.required.length > 0 && (
+                <Text type="secondary" className="save-calculation-equipment-hint">
+                  Приборы, отмеченные серым цветом, обязательны и не могут быть удалены
+                </Text>
+              )}
+            </div>
+          )}
         </div>
       </Modal>
     </div>

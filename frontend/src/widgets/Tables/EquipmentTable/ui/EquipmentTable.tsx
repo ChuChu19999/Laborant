@@ -22,7 +22,7 @@ import { LoadingCard } from '../../../../features/Cards';
 import { type Equipment } from '../../../../shared/api/equipment';
 import { getDateRangePresets } from '../../../../shared/lib/datePresets';
 import { urlParamsToFilters } from '../../../../shared/lib/urlParams';
-import Button from '../../../../shared/ui/Button/Button';
+import Button from '../../../../shared/ui/Button';
 import { Input, Select, RangePicker } from '../../../../shared/ui/FormItems';
 import { formatDate } from '../../../../shared/utils/dateFormatting';
 import './EquipmentTable.css';
@@ -46,6 +46,8 @@ interface EquipmentTableProps {
   sorting?: SortingState;
   onEdit: (equipmentId: number) => void;
   onDelete: (equipmentId: number) => void;
+  canUpdate?: boolean;
+  canDelete?: boolean;
 }
 
 const formatEquipmentType = (type: string): string => {
@@ -68,6 +70,8 @@ const EquipmentTable: React.FC<EquipmentTableProps> = ({
   sorting: externalSorting,
   onEdit,
   onDelete,
+  canUpdate = true,
+  canDelete = true,
 }) => {
   const [internalSorting, setInternalSorting] = React.useState<SortingState>(externalSorting || []);
 
@@ -320,25 +324,29 @@ const EquipmentTable: React.FC<EquipmentTableProps> = ({
         header: 'Действия',
         cell: ({ row }) => (
           <div className="equipment-table-actions">
-            <Button
-              type="text"
-              size="small"
-              icon={<EditOutlined />}
-              onClick={() => onEdit(row.original.id)}
-              className="equipment-table-edit-button"
-            >
-              Редактировать
-            </Button>
-            <Button
-              type="text"
-              danger
-              size="small"
-              icon={<DeleteOutlined />}
-              onClick={() => onDelete(row.original.id)}
-              className="equipment-table-delete-button"
-            >
-              Удалить
-            </Button>
+            {canUpdate && (
+              <Button
+                type="text"
+                size="small"
+                icon={<EditOutlined />}
+                onClick={() => onEdit(row.original.id)}
+                className="equipment-table-edit-button"
+              >
+                Редактировать
+              </Button>
+            )}
+            {canDelete && (
+              <Button
+                type="text"
+                danger
+                size="small"
+                icon={<DeleteOutlined />}
+                onClick={() => onDelete(row.original.id)}
+                className="equipment-table-delete-button"
+              >
+                Удалить
+              </Button>
+            )}
           </div>
         ),
         enableSorting: false,
@@ -347,7 +355,7 @@ const EquipmentTable: React.FC<EquipmentTableProps> = ({
         enableResizing: false,
       },
     ],
-    [onEdit, onDelete]
+    [onEdit, onDelete, canUpdate, canDelete]
   );
 
   const handleColumnFiltersChange = React.useCallback(

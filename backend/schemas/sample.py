@@ -2,13 +2,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-from schemas.common import (
-    NonEmptyStr,
-    OilMassFractionCValue,
-    OptionalNonEmptyStr,
-    OptionalOilMassFractionCValue,
-    validate_oil_mass_fraction_c_value,
-)
+from schemas.common import NonEmptyStr, OptionalNonEmptyStr
 
 SAMPLE_TYPE_CHOICES = Literal[
     "Исследования - ОИС",
@@ -23,7 +17,9 @@ class SampleBase(BaseModel):
         ..., description="Регистрационный номер пробы"
     )
     sample_type: SAMPLE_TYPE_CHOICES | None = Field(None, description="Тип пробы")
-    test_object: str = Field(..., max_length=255, description="Объект испытаний")
+    test_object: Annotated[NonEmptyStr, Field(max_length=255)] = Field(
+        ..., description="Объект испытаний"
+    )
     sampling_date: date | None = Field(None, description="Дата отбора пробы")
     receiving_date: date | None = Field(
         None, description="Дата получения пробы в лабораторию"
@@ -50,7 +46,7 @@ class SampleCreate(SampleBase):
 class SampleUpdate(BaseModel):
     registration_number: Annotated[OptionalNonEmptyStr, Field(max_length=50)] = None
     sample_type: SAMPLE_TYPE_CHOICES | None = None
-    test_object: str | None = Field(None, max_length=255)
+    test_object: Annotated[OptionalNonEmptyStr, Field(max_length=255)] = None
     sampling_date: date | None = None
     receiving_date: date | None = None
     branch_id: int | None = None
@@ -85,6 +81,19 @@ class SampleResponse(SampleBase):
     deleted_at: datetime | None = None
 
 
+def validate_selection_conditions(
+    value: list[dict[str, str]],
+) -> list[dict[str, str]]:
+    for condition in value:
+        if not all(key in condition for key in ["variable", "unit"]):
+            raise ValueError("Каждое условие должно содержать поля 'variable' и 'unit'")
+        if len(condition.keys()) > 2:
+            raise ValueError(
+                "Каждое условие должно содержать только поля 'variable' и 'unit'"
+            )
+    return value
+
+
 class SelectionConditionsBase(BaseModel):
     conditions: list[dict[str, str]] = Field(
         ..., description="JSON с условиями отбора и их единицами измерения"
@@ -93,16 +102,7 @@ class SelectionConditionsBase(BaseModel):
     @field_validator("conditions")
     @classmethod
     def validate_conditions(cls, value: list[dict[str, str]]) -> list[dict[str, str]]:
-        for condition in value:
-            if not all(key in condition for key in ["variable", "unit"]):
-                raise ValueError(
-                    "Каждое условие должно содержать поля 'variable' и 'unit'"
-                )
-            if len(condition.keys()) > 2:
-                raise ValueError(
-                    "Каждое условие должно содержать только поля 'variable' и 'unit'"
-                )
-        return value
+        return validate_selection_conditions(value)
 
 
 class SelectionConditionsCreate(SelectionConditionsBase):
@@ -114,6 +114,15 @@ class SelectionConditionsUpdate(BaseModel):
     conditions: list[dict[str, str]] | None = None
     laboratory_id: int | None = None
     department_id: int | None = None
+
+    @field_validator("conditions")
+    @classmethod
+    def validate_conditions(
+        cls, value: list[dict[str, str]] | None
+    ) -> list[dict[str, str]] | None:
+        if value is None:
+            return value
+        return validate_selection_conditions(value)
 
 
 class SelectionConditionsResponse(SelectionConditionsBase):
@@ -127,47 +136,3 @@ class SelectionConditionsResponse(SelectionConditionsBase):
     created_at: datetime
     updated_at: datetime
     deleted_at: datetime | None = None
-
-
-class MassFractionOilRefractionTableBase(BaseModel):
-    c_value: OilMassFractionCValue = Field(
-        ..., description="Массовая доля нефти (C) в процентах"
-    )
-    n_value: str = Field(..., description="Показатель преломления (n)")
-
-
-class MassFractionOilRefractionTableCreate(MassFractionOilRefractionTableBase):
-    research_method_id: int = Field(..., description="ID метода исследования")
-
-
-class MassFractionOilRefractionTableUpdate(BaseModel):
-    c_value: OptionalOilMassFractionCValue = None
-    n_value: str | None = None
-
-
-class MassFractionOilRefractionTableResponse(MassFractionOilRefractionTableBase):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    research_method_id: int
-    research_method_name: str | None = None
-    created_at: datetime
-    updated_at: datetime
-    deleted_at: datetime | None = None
-
-
-class MassFractionOilRefractionTableBulkUpdate(BaseModel):
-    research_method_id: int = Field(..., description="ID метода исследования")
-    entries: list[dict[str, Any]] = Field(
-        ...,
-        description="Список точек градуировочного графика с полями c_value и n_value",
-    )
-
-    @field_validator("entries")
-    @classmethod
-    def validate_entries(cls, value: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        for entry in value:
-            if "c_value" not in entry or "n_value" not in entry:
-                raise ValueError("Каждая запись должна содержать c_value и n_value")
-            validate_oil_mass_fraction_c_value(str(entry["c_value"]))
-        return value

@@ -5,22 +5,6 @@
   padding: 0px 20px 20px 20px;
 }
 
-.help-page-wrapper .reglaments {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.help-page-wrapper .link {
-  font-family: 'HeliosCondC';
-  font-size: 14px;
-  color: #2196f3;
-}
-
-.help-page-wrapper .link-download {
-  text-decoration: underline;
-}
-
 .help-page-wrapper .title {
   font-family: 'HeliosCondC';
   font-size: 18px;
@@ -41,12 +25,6 @@
   height: 20px;
   background: #0079c2;
   border-radius: 2px;
-}
-
-.help-page-wrapper .block {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
 }
 
 .help-page-wrapper .list {
@@ -91,17 +69,6 @@
   text-decoration: underline;
 }
 
-.help-page-wrapper .list-icon {
-  padding-right: 5px;
-  align-items: center;
-  vertical-align: text-top;
-}
-
-.help-page-wrapper .list-custom {
-  list-style: none;
-  padding: 0 0 0 10px;
-}
-
 .help-page-content {
   padding-top: 20px;
 }
@@ -117,4 +84,49 @@
   color: #0079c2;
   margin: 0;
   padding-bottom: 4px;
+}
+
+.help-guide-section {
+  margin-bottom: 28px;
+}
+
+.help-guide-lead {
+  margin: 0 0 12px 0;
+  font-family: 'HeliosCondC';
+  font-size: 15px;
+  line-height: 1.5;
+  color: #282828;
+}
+
+.help-guide-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.help-guide-step {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px 8px 14px;
+  border-left: 3px solid #0079c2;
+  background: #f3f9fd;
+  border-radius: 0 6px 6px 0;
+}
+
+.help-guide-step-title {
+  font-family: 'HeliosCondC';
+  font-size: 15px;
+  font-weight: 600;
+  color: #0a5088;
+}
+
+.help-guide-step-text {
+  font-family: 'HeliosCondC';
+  font-size: 14px;
+  line-height: 1.45;
+  color: #282828;
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { SettingOutlined } from '@ant-design/icons';
 import { Dropdown, message } from 'antd';
 import { ConfirmationModal } from '../../entities/ConfirmationModal';
@@ -16,6 +16,7 @@ import {
 import { calculationApi } from '../../shared/api/calculation';
 import { laboratoriesApi } from '../../shared/api/laboratories';
 import { samplesApi } from '../../shared/api/samples';
+import { useScopeAccess } from '../../shared/lib/permissions';
 import {
   useResearchMethods,
   useDeleteResearchMethod,
@@ -24,9 +25,9 @@ import {
 } from '../../shared/model/hooks';
 import { useAutoRefetchQuery } from '../../shared/model/lib/useQuery';
 import { useQueryStore } from '../../shared/model/stores';
-import Button from '../../shared/ui/Button/Button';
+import Button from '../../shared/ui/Button';
 import { Select } from '../../shared/ui/FormItems';
-import Layout from '../../shared/ui/Layout/Layout';
+import Layout from '../../shared/ui/Layout';
 import { buildCalculationFormPrefill } from '../../shared/utils/calculationFormPrefill';
 import { isMassFractionOilResearchMethod } from '../../shared/utils/massFractionOilMethod';
 import {
@@ -57,6 +58,7 @@ const AdminPage: React.FC = () => {
     departmentId?: string;
   }>();
   const navigate = useNavigate();
+  const { canAccessRouteScope } = useScopeAccess();
   const [selectedMethodId, setSelectedMethodId] = useState<number | null>(null);
   const [showAddButton] = useState(true);
   const [isCreateCalculationModalOpen, setIsCreateCalculationModalOpen] = useState(false);
@@ -146,9 +148,7 @@ const AdminPage: React.FC = () => {
     if (labId) {
       setResearchMethodsLaboratoryId(labId);
     }
-    if (deptId) {
-      setResearchMethodsDepartmentId(deptId);
-    }
+    setResearchMethodsDepartmentId(deptId);
     setResearchMethodsPageSize(100);
     setResearchMethodsSorting({ sort_by: 'sort_order', sort_order: 'asc' });
   }, [
@@ -233,11 +233,11 @@ const AdminPage: React.FC = () => {
   }, [selectedMethodId]);
 
   const handleBack = () => {
-    if (laboratoryId) {
-      navigate(`/?page=laboratory-management&viewMode=departments&laboratoryId=${laboratoryId}`);
-    } else {
-      navigate('/?page=laboratory-management');
+    if (laboratoryId && departmentId) {
+      navigate(`/laboratory-management?viewMode=departments&laboratoryId=${laboratoryId}`);
+      return;
     }
+    navigate('/laboratory-management');
   };
 
   const handleBackToHome = () => {
@@ -245,7 +245,7 @@ const AdminPage: React.FC = () => {
   };
 
   const handleBackToLaboratories = () => {
-    navigate('/?page=laboratory-management');
+    navigate('/laboratory-management');
   };
 
   const getBreadcrumbs = (): Array<{ label: string; onClick?: () => void }> => {
@@ -848,6 +848,10 @@ const AdminPage: React.FC = () => {
       />
     </div>
   );
+
+  if (!canAccessRouteScope(labId, deptId)) {
+    return <Navigate to="/403" replace />;
+  }
 
   return (
     <Layout title="Администрирование">

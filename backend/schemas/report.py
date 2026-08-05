@@ -1,16 +1,9 @@
 from __future__ import annotations
 from datetime import date, datetime
-from typing import Annotated, Literal
+from typing import Annotated
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 from models.report import ReportType
 from schemas.common import make_enum_validator
-
-ReportTypeValue = Literal[
-    ReportType.SAMPLE_COUNT.value,
-    ReportType.PHYSICOCHEMICAL_CHARACTERISTIC.value,
-    ReportType.KGS_RESULTS.value,
-    ReportType.NKS_RESULTS.value,
-]
 
 _validate_report_type = make_enum_validator(ReportType, "Тип отчёта")
 ReportTypeField = Annotated[str, AfterValidator(_validate_report_type)]

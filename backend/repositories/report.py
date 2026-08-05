@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import List, Optional
 from sqlalchemy import desc, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -27,7 +26,7 @@ def _order_report_templates_by_version_desc(query):
 
 async def get_report_template_by_id(
     db: AsyncSession, template_id: int, include_deleted: bool = False
-) -> Optional[ReportTemplate]:
+) -> ReportTemplate | None:
     """Получить шаблон отчёта по ID."""
     query = (
         select(ReportTemplate)
@@ -47,23 +46,23 @@ async def get_latest_report_template(
     *,
     laboratory_id: int,
     report_type: str,
-    department_id: Optional[int] = None,
-) -> Optional[ReportTemplate]:
+    department_id: int | None = None,
+) -> ReportTemplate | None:
     """Последняя неудалённая версия шаблона для лаборатории и подразделения."""
-    conditions = [
-        ReportTemplate.laboratory_id == laboratory_id,
-        ReportTemplate.report_type == report_type,
-        ReportTemplate.deleted_at.is_(None),
-    ]
+    query = filter_not_deleted(
+        select(ReportTemplate).where(
+            ReportTemplate.laboratory_id == laboratory_id,
+            ReportTemplate.report_type == report_type,
+        ),
+        ReportTemplate.deleted_at,
+    )
     if department_id is not None:
-        conditions.append(ReportTemplate.department_id == department_id)
+        query = query.where(ReportTemplate.department_id == department_id)
     else:
-        conditions.append(ReportTemplate.department_id.is_(None))
+        query = query.where(ReportTemplate.department_id.is_(None))
 
     query = _order_report_templates_by_version_desc(
-        select(ReportTemplate)
-        .where(*conditions)
-        .options(
+        query.options(
             selectinload(ReportTemplate.laboratory),
             selectinload(ReportTemplate.department),
         )
@@ -73,14 +72,14 @@ async def get_latest_report_template(
 
 async def get_report_templates(
     db: AsyncSession,
-    laboratory_id: Optional[int] = None,
-    department_id: Optional[int] = None,
+    laboratory_id: int | None = None,
+    department_id: int | None = None,
     include_deleted: bool = False,
-    page: Optional[int] = None,
-    page_size: Optional[int] = None,
-    sort_by: Optional[str] = None,
-    sort_order: Optional[str] = None,
-) -> tuple[List[ReportTemplate], int]:
+    page: int | None = None,
+    page_size: int | None = None,
+    sort_by: str | None = None,
+    sort_order: str | None = None,
+) -> tuple[list[ReportTemplate], int]:
     """Получить список шаблонов отчётов."""
     query = select(ReportTemplate).options(
         selectinload(ReportTemplate.laboratory),
@@ -88,7 +87,7 @@ async def get_report_templates(
     )
 
     if not include_deleted:
-        query = query.where(ReportTemplate.deleted_at.is_(None))
+        query = filter_not_deleted(query, ReportTemplate.deleted_at)
 
     conditions = []
     if laboratory_id:
@@ -114,7 +113,7 @@ async def get_report_templates(
 
     count_query = select(func.count()).select_from(ReportTemplate)
     if not include_deleted:
-        count_query = count_query.where(ReportTemplate.deleted_at.is_(None))
+        count_query = filter_not_deleted(count_query, ReportTemplate.deleted_at)
     count_conditions = []
     if laboratory_id:
         count_conditions.append(ReportTemplate.laboratory_id == laboratory_id)
@@ -136,15 +135,17 @@ async def get_latest_report_template_for_type(
     db: AsyncSession,
     report_type: str,
     laboratory_id: int,
-    department_id: Optional[int],
-) -> Optional[ReportTemplate]:
+    department_id: int | None,
+) -> ReportTemplate | None:
     """Получить последнюю версию шаблона отчёта по типу."""
     query = _order_report_templates_by_version_desc(
-        select(ReportTemplate).where(
-            ReportTemplate.report_type == report_type,
-            ReportTemplate.laboratory_id == laboratory_id,
-            ReportTemplate.department_id == department_id,
-            ReportTemplate.deleted_at.is_(None),
+        filter_not_deleted(
+            select(ReportTemplate).where(
+                ReportTemplate.report_type == report_type,
+                ReportTemplate.laboratory_id == laboratory_id,
+                ReportTemplate.department_id == department_id,
+            ),
+            ReportTemplate.deleted_at,
         )
     ).limit(1)
     return await execute_scalar_one_or_none(db, query)

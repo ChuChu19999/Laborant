@@ -1,6 +1,7 @@
 import React from 'react';
-import { BiHelpCircle } from 'react-icons/bi';
-import Tooltip from '../../../../shared/ui/Tooltip/Tooltip';
+import { CircleHelpIcon } from '../../../../shared/ui/icons';
+import '../../../../shared/ui/icons/icons.css';
+import Tooltip from '../../../../shared/ui/Tooltip';
 import {
   CONVERGENCE_LABELS,
   formatConvergenceFormula,
@@ -314,7 +315,10 @@ const CalculationResultCard: React.FC<CalculationResultCardProps> = ({ result, c
                   <span>{name}</span>
                   {field?.description && (
                     <Tooltip title={field.description} placement="right">
-                      <BiHelpCircle size={16} className="calculation-intermediate-icon" />
+                      <CircleHelpIcon
+                        size={16}
+                        className="calculation-intermediate-icon animated-icon"
+                      />
                     </Tooltip>
                   )}
                 </div>

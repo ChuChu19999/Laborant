@@ -3,7 +3,6 @@ from fastapi import APIRouter, Depends
 from core.auth_decorators import IsAuthenticated
 from core.security import get_current_user
 from schemas.user import UserResponse
-from utils.auth import get_user_from_token
 
 router = APIRouter()
 
@@ -35,4 +34,12 @@ router = APIRouter()
 # @IsAuthenticated
 async def get_current_user_info(decoded_token: dict = Depends(get_current_user)):
     """Возвращает информацию о текущем авторизованном пользователе на основе JWT токена."""
-    return get_user_from_token(decoded_token)
+    return UserResponse(
+        personnel_number=decoded_token.get("personnelNumber"),
+        department_number=decoded_token.get("departmentNumber"),
+        full_name=decoded_token.get("fullName"),
+        ad_login=decoded_token.get("preferred_username"),
+        email=decoded_token.get("email"),
+        hsnils=decoded_token.get("hashSnils"),
+        is_staff=False,
+    )

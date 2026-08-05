@@ -2,7 +2,6 @@ import base64
 import re
 from copy import copy
 from io import BytesIO
-from typing import Optional
 import openpyxl
 from openpyxl.styles import Font
 from openpyxl.utils import column_index_from_string, get_column_letter
@@ -278,7 +277,7 @@ def copy_row_with_styles(
     target_sheet: openpyxl.worksheet.worksheet.Worksheet,
     source_row: int,
     target_row: int,
-    max_col: Optional[int] = None,
+    max_col: int | None = None,
 ) -> None:
     """Копирует строку с сохранением стилей из исходного листа в целевой."""
     try:
@@ -456,7 +455,7 @@ def get_row_last_used_col(
     sheet,
     row_num: int,
     min_col: int = 1,
-    col_limit: Optional[int] = None,
+    col_limit: int | None = None,
 ) -> int:
     """Возвращает последний столбец с значением в строке шаблона."""
     max_col = col_limit or min(sheet.max_column, 60)
@@ -471,7 +470,7 @@ def get_row_last_used_col(
 def get_row_copy_max_col(
     sheet,
     row_num: int,
-    col_limit: Optional[int] = None,
+    col_limit: int | None = None,
 ) -> int:
     """Возвращает последний столбец строки, который нужно копировать."""
     limit = col_limit or min(sheet.max_column, 60)
@@ -485,7 +484,7 @@ def get_row_copy_max_col(
 def get_sheet_print_bounds(
     sheet,
     col_limit: int = 80,
-    max_row: Optional[int] = None,
+    max_row: int | None = None,
 ) -> tuple[int, int]:
     """Возвращает границы листа для печати по данным и объединениям."""
     last_row = 1
@@ -512,7 +511,7 @@ def get_sheet_print_bounds(
     return last_row, last_col
 
 
-def find_protocol_end_row(sheet) -> Optional[int]:
+def find_protocol_end_row(sheet) -> int | None:
     """Находит строку с фразой «конец протокола»."""
     phrase = "конец протокола"
     max_col = min(sheet.max_column, 80)

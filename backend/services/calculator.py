@@ -1,5 +1,5 @@
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.logger import logger
 from services.chloride_salts import (
@@ -38,7 +38,7 @@ from utils.calculation_engine import (
 )
 
 
-def _variables_from_input_data(input_data: Dict[str, Any]) -> Dict[str, Any]:
+def _variables_from_input_data(input_data: dict[str, Any]) -> dict[str, Any]:
     """Копия input_data только с полями, которые подставляются в формулы расчёта."""
     return {
         k: v
@@ -49,21 +49,21 @@ def _variables_from_input_data(input_data: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _intermediate_fields(research_method: Dict[str, Any]) -> List[Dict[str, Any]]:
+def _intermediate_fields(research_method: dict[str, Any]) -> list[dict[str, Any]]:
     """Промежуточные поля метода; пустой intermediate_data трактуем как отсутствие полей."""
     raw = (research_method.get("intermediate_data") or {}).get("fields") or []
     return [field for field in raw if isinstance(field, dict)]
 
 
-def _convergence_formulas(research_method: Dict[str, Any]) -> List[Dict[str, Any]]:
+def _convergence_formulas(research_method: dict[str, Any]) -> list[dict[str, Any]]:
     """Условия повторяемости; пустой convergence_conditions — без проверок."""
     raw = (research_method.get("convergence_conditions") or {}).get("formulas") or []
     return [condition for condition in raw if isinstance(condition, dict)]
 
 
 def _intermediate_field_by_name(
-    research_method: Dict[str, Any],
-) -> Dict[str, Dict[str, Any]]:
+    research_method: dict[str, Any],
+) -> dict[str, dict[str, Any]]:
     return {
         str(field["name"]): field
         for field in _intermediate_fields(research_method)
@@ -71,7 +71,7 @@ def _intermediate_field_by_name(
     }
 
 
-def _field_uses_custom_rounding(field: Optional[Dict[str, Any]]) -> bool:
+def _field_uses_custom_rounding(field: dict[str, Any] | None) -> bool:
     """Кастомное округление промежуточного поля (не как итог)."""
     if not field:
         return False
@@ -85,10 +85,10 @@ def _quantize_decimal_places(value: Any, decimal_places: int) -> Decimal:
 
 
 def _resolve_intermediate_rounding(
-    field: Optional[Dict[str, Any]],
-    research_method: Dict[str, Any],
-    result_decimal_places: Optional[int],
-) -> Optional[tuple[str, int]]:
+    field: dict[str, Any] | None,
+    research_method: dict[str, Any],
+    result_decimal_places: int | None,
+) -> tuple[str, int] | None:
     """
     Правило округления для подстановки и отображения.
     ("decimal", N) или ("significant", N); None — не округлять.
@@ -119,7 +119,7 @@ def _resolve_intermediate_rounding(
 
 def _apply_intermediate_rounding(
     value: Any,
-    rounding: Optional[tuple[str, int]],
+    rounding: tuple[str, int] | None,
 ) -> Any:
     if rounding is None or not isinstance(value, (int, float, Decimal)):
         return value
@@ -132,9 +132,9 @@ def _apply_intermediate_rounding(
 
 
 def _evaluate_intermediate_field(
-    field: Dict[str, Any],
-    variables: Dict[str, Any],
-    intermediate_fields_by_name: Dict[str, Dict[str, Any]],
+    field: dict[str, Any],
+    variables: dict[str, Any],
+    intermediate_fields_by_name: dict[str, dict[str, Any]],
 ) -> Any:
     """Вычисляет одно промежуточное поле по формуле и текущим переменным."""
     if field.get("use_threshold_table"):
@@ -171,11 +171,11 @@ def _evaluate_intermediate_field(
 
 
 def _build_variables_rounded_chain(
-    input_data: Dict[str, Any],
-    research_method: Dict[str, Any],
-    intermediate_fields_by_name: Dict[str, Dict[str, Any]],
-    result_decimal_places: Optional[int],
-) -> Dict[str, Any]:
+    input_data: dict[str, Any],
+    research_method: dict[str, Any],
+    intermediate_fields_by_name: dict[str, dict[str, Any]],
+    result_decimal_places: int | None,
+) -> dict[str, Any]:
     """Пересчитывает промежуточные поля по цепочке с округлёнными предшественниками."""
     variables_rounded = _variables_from_input_data(input_data)
     logger.info("Пересчёт промежуточных с округлёнными значениями для цепочки формул")
@@ -216,10 +216,10 @@ def _build_variables_rounded_chain(
 def _format_intermediate_display_entry(
     unrounded_value: Any,
     chain_value: Any,
-    field: Optional[Dict[str, Any]],
-    research_method: Dict[str, Any],
-    result_decimal_places: Optional[int],
-) -> Dict[str, str]:
+    field: dict[str, Any] | None,
+    research_method: dict[str, Any],
+    result_decimal_places: int | None,
+) -> dict[str, str]:
     """value из цепочки округлённых значений, reference из неокруглённого расчёта."""
     reference_formatted = _format_intermediate_value_reference(
         unrounded_value, field, research_method, result_decimal_places
@@ -233,9 +233,9 @@ def _format_intermediate_display_entry(
 
 
 def _filter_intermediate_results_for_display(
-    intermediate_results: Dict[str, Any],
-    intermediate_fields_by_name: Dict[str, Dict[str, Any]],
-) -> Dict[str, Any]:
+    intermediate_results: dict[str, Any],
+    intermediate_fields_by_name: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
     """Скрывает поля с show_calculation=False из ответа API."""
     return {
         name: value
@@ -246,10 +246,10 @@ def _filter_intermediate_results_for_display(
 
 def _format_intermediate_value_reference(
     unrounded_value: Any,
-    field: Optional[Dict[str, Any]],
-    research_method: Dict[str, Any],
-    result_decimal_places: Optional[int],
-) -> Dict[str, str]:
+    field: dict[str, Any] | None,
+    research_method: dict[str, Any],
+    result_decimal_places: int | None,
+) -> dict[str, str]:
     """value и reference (+1 знак для decimal, +1 значащая для significant)."""
     if not isinstance(unrounded_value, (int, float, Decimal)):
         text = str(unrounded_value)
@@ -367,9 +367,9 @@ def _round_value(
 
 async def calculate_result(
     db: AsyncSession,
-    input_data: Dict[str, Any],
-    research_method: Dict[str, Any],
-) -> Dict[str, Any]:
+    input_data: dict[str, Any],
+    research_method: dict[str, Any],
+) -> dict[str, Any]:
     """Вычисляет результат расчета."""
     try:
         logger.info("Начало расчета")

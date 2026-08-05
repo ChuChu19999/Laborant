@@ -67,9 +67,7 @@ def round_significant_half_up(value: Any, significant_figures: int) -> Decimal:
 
 
 def _round_to_multiple(number, multiple):
-    """
-    Округляет число до ближайшего кратного заданному числу.
-    """
+    """Округляет число до ближайшего кратного заданному числу."""
     try:
         d = parse_decimal_value(number)
         m = parse_decimal_value(multiple)
@@ -80,18 +78,14 @@ def _round_to_multiple(number, multiple):
 
 
 def round_result(result, rounding_type, rounding_decimal):
-    """
-    Округляет результат по заданному типу и количеству знаков.
-    """
+    """Округляет результат по заданному типу и количеству знаков."""
     if rounding_type == "decimal":
         return round_decimal_half_up(result, rounding_decimal)
     return round_significant_half_up(result, rounding_decimal)
 
 
 def _replace_subscript_digits(text):
-    """
-    Заменяет подстрочные символы на обычные.
-    """
+    """Заменяет подстрочные символы на обычные."""
     subscript_map = {
         "₀": "0",
         "₁": "1",
@@ -177,9 +171,7 @@ def _eval_prepared_formula(
 def evaluate_formula(
     formula, variables, is_condition=False, range_calculation=None, rounding_params=None
 ):
-    """
-    Вычисляет результат формулы.
-    """
+    """Вычисляет результат формулы."""
     try:
         formula = _normalize_formula_text(formula)
 
@@ -369,9 +361,7 @@ def _format_step_decimal(value: Decimal) -> str:
 
 
 def calculate_convergence_steps(formula, variables):
-    """
-    Вычисляет шаги расчета повторяемости.
-    """
+    """Вычисляет шаги расчета повторяемости."""
     try:
         normalized_formula = _normalize_formula_text(formula)
         step1 = normalized_formula
@@ -429,9 +419,7 @@ def calculate_convergence_steps(formula, variables):
 
 
 def _calculate_single_condition(condition, safe_dict):
-    """
-    Вычисляет шаги для одиночного условия.
-    """
+    """Вычисляет шаги для одиночного условия."""
     for operator in ["<=", ">=", ">", "<", "="]:
         if operator in condition:
             left, right = condition.split(operator, 1)
@@ -459,9 +447,7 @@ def _calculate_single_condition(condition, safe_dict):
 
 
 def get_pressure_correction_coefficient(patm):
-    """
-    Определяет коэффициент поправки на атмосферное давление для фракционного состава.
-    """
+    """Определяет коэффициент поправки на атмосферное давление для фракционного состава."""
     try:
         patm_value = parse_decimal_value(patm)
 
@@ -483,9 +469,7 @@ def get_pressure_correction_coefficient(patm):
 
 
 def get_temperature_correction_table():
-    """
-    Возвращает таблицу поправок на температуру для фракционного состава.
-    """
+    """Возвращает таблицу поправок на температуру для фракционного состава."""
     return {
         (11, 20): 0.35,
         (21, 30): 0.36,
@@ -526,9 +510,7 @@ def get_temperature_correction_table():
 
 
 def get_temperature_correction(temperature, patm):
-    """
-    Определяет поправку на температуру для фракционного состава.
-    """
+    """Определяет поправку на температуру для фракционного состава."""
     try:
         temp_value = parse_decimal_value(temperature)
 

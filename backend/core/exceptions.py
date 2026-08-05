@@ -46,6 +46,13 @@ class ConflictError(BusinessLogicError):
         super().__init__(message, status_code=status.HTTP_409_CONFLICT)
 
 
+class ForbiddenError(BusinessLogicError):
+    """Исключение при отказе в доступе."""
+
+    def __init__(self, message: str = "Отказано в доступе"):
+        super().__init__(message, status_code=status.HTTP_403_FORBIDDEN)
+
+
 class ServiceUnavailableError(BusinessLogicError):
     """Исключение при недоступности внешнего сервиса."""
 

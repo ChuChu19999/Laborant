@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { LoadingOutlined } from '@ant-design/icons';
-import { Checkbox, Radio, Spin, TreeSelect, message } from 'antd';
+import { Checkbox, Spin, TreeSelect, message } from 'antd';
 import { FormulaKeyboard } from '../../../../entities/FormulaKeyboard';
 import {
   fixturesApi,
@@ -9,7 +9,7 @@ import {
 } from '../../../../shared/api/fixtures';
 import { researchApi } from '../../../../shared/api/research';
 import { useTestObjectSampleTypeOptions } from '../../../../shared/model/hooks';
-import { Input, Select } from '../../../../shared/ui/FormItems';
+import { Input, RadioGroup, Select } from '../../../../shared/ui/FormItems';
 import { Modal } from '../../../../shared/ui/Modal';
 import type {
   ResearchMethod,
@@ -2017,7 +2017,7 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                           <div className="intermediate-rounding-title">
                             Округление промежуточного значения
                           </div>
-                          <Radio.Group
+                          <RadioGroup
                             className="intermediate-rounding-modes"
                             value={getIntermediateRoundingMode(field)}
                             onChange={e =>
@@ -2026,11 +2026,15 @@ const CreateCalculationModal: React.FC<CreateCalculationModalProps> = ({
                                 e.target.value as 'result' | 'custom' | 'multiple'
                               )
                             }
-                          >
-                            <Radio value="result">Как у результата</Radio>
-                            <Radio value="custom">Задать своё</Radio>
-                            <Radio value="multiple">Округлять до ближайшего кратного</Radio>
-                          </Radio.Group>
+                            options={[
+                              { value: 'result', label: 'Как у результата' },
+                              { value: 'custom', label: 'Задать своё' },
+                              {
+                                value: 'multiple',
+                                label: 'Округлять до ближайшего кратного',
+                              },
+                            ]}
+                          />
                           {getIntermediateRoundingMode(field) === 'custom' && (
                             <div className="intermediate-rounding-nested">
                               <div className="form-group">

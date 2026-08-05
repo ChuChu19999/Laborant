@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { CloseCircleFilled } from '@ant-design/icons';
-import { message } from 'antd';
-import { LoadingCard } from '../../../features/Cards';
+import { message, Spin } from 'antd';
 import { employeesApi } from '../../../shared/api/employees';
 import { Input } from '../../../shared/ui/FormItems';
 import './UserPicker.css';
@@ -278,7 +277,7 @@ const UserPicker: React.FC<UserPickerProps> = ({
           } as React.CSSProperties
         }
       >
-        <LoadingCard loading={loading} />
+        <Spin spinning={loading} size="small" />
         {!loading &&
           options.map(emp => {
             const photoUrl = getPhotoUrl(emp.employeePhoto);

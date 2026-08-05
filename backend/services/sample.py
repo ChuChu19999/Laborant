@@ -1,21 +1,20 @@
 from __future__ import annotations
-from decimal import Decimal
-from typing import List, Optional
 import pendulum
 from sqlalchemy.ext.asyncio import AsyncSession
-from core.exceptions import ConflictError, NotFoundError, ValidationError
-from models.sample import MassFractionOilRefractionTable, Sample, SelectionConditions
+from core.exceptions import (
+    ConflictError,
+    NotFoundError,
+    ServiceUnavailableError,
+    ValidationError,
+)
+from core.logger import logger
+from models.sample import Sample, SelectionConditions
+from repositories import calculation as calculation_repo
 from repositories import laboratory as laboratory_repo
-from repositories import mass_fraction as mass_fraction_repo
-from repositories import research as research_repo
 from repositories import sample as sample_repo
 from repositories import selection_conditions as selection_conditions_repo
 from repositories.base import flush_entity
 from schemas.sample import (
-    MassFractionOilRefractionTableBulkUpdate,
-    MassFractionOilRefractionTableCreate,
-    MassFractionOilRefractionTableResponse,
-    MassFractionOilRefractionTableUpdate,
     SampleCreate,
     SampleResponse,
     SampleUpdate,
@@ -30,8 +29,8 @@ from utils.pagination import calculate_total_pages
 
 
 async def _resolve_added_by_hsnils(
-    search_added_by: Optional[str],
-) -> tuple[Optional[List[str]], bool]:
+    search_added_by: str | None,
+) -> tuple[list[str] | None, bool]:
     """Поиск по ФИО добавившего в список hsnils."""
     if not search_added_by:
         return None, False
@@ -43,7 +42,18 @@ async def _resolve_added_by_hsnils(
     if len(normalized_added_by) < 3:
         return None, True
 
-    employees = await search_employees_by_fio(normalized_added_by, include_photo=False)
+    try:
+        employees = await search_employees_by_fio(
+            normalized_added_by, include_photo=False
+        )
+    except ServiceUnavailableError:
+        # HR недоступен: список проб не валим, фильтр по добавившему пропускаем.
+        logger.warning(
+            "HR недоступен при фильтре added_by=%r, фильтр пропущен",
+            normalized_added_by,
+        )
+        return None, False
+
     matching_hsnils = [
         employee.get("hsnils")
         for employee in employees
@@ -57,34 +67,44 @@ async def _resolve_added_by_hsnils(
 
 async def get_sample_by_id(
     db: AsyncSession, sample_id: int, include_deleted: bool = False
-) -> Optional[Sample]:
+) -> Sample | None:
     """Получить пробу по ID."""
     return await sample_repo.get_sample_by_id(db, sample_id, include_deleted)
 
 
+async def require_sample_by_id(
+    db: AsyncSession, sample_id: int, include_deleted: bool = False
+) -> Sample:
+    """Получить пробу по ID или вернуть 404."""
+    sample = await get_sample_by_id(db, sample_id, include_deleted)
+    if not sample:
+        raise NotFoundError("Проба не найдена")
+    return sample
+
+
 async def get_samples(
     db: AsyncSession,
-    laboratory_id: Optional[int] = None,
-    department_id: Optional[int] = None,
-    page: Optional[int] = None,
-    page_size: Optional[int] = None,
-    search: Optional[str] = None,
-    search_sampling_location: Optional[str] = None,
-    search_protocols: Optional[str] = None,
-    search_added_by: Optional[str] = None,
-    sample_type: Optional[str] = None,
-    sample_types: Optional[List[str]] = None,
-    test_object: Optional[str] = None,
-    test_objects: Optional[List[str]] = None,
-    sort_by: Optional[str] = None,
-    sort_order: Optional[str] = None,
-    sampling_date_from: Optional[pendulum.DateTime] = None,
-    sampling_date_to: Optional[pendulum.DateTime] = None,
-    receiving_date_from: Optional[pendulum.DateTime] = None,
-    receiving_date_to: Optional[pendulum.DateTime] = None,
-    created_at_from: Optional[pendulum.DateTime] = None,
-    created_at_to: Optional[pendulum.DateTime] = None,
-) -> tuple[List[Sample], int, int]:
+    laboratory_id: int | None = None,
+    department_id: int | None = None,
+    page: int | None = None,
+    page_size: int | None = None,
+    search: str | None = None,
+    search_sampling_location: str | None = None,
+    search_protocols: str | None = None,
+    search_added_by: str | None = None,
+    sample_type: str | None = None,
+    sample_types: list[str] | None = None,
+    test_object: str | None = None,
+    test_objects: list[str] | None = None,
+    sort_by: str | None = None,
+    sort_order: str | None = None,
+    sampling_date_from: pendulum.DateTime | None = None,
+    sampling_date_to: pendulum.DateTime | None = None,
+    receiving_date_from: pendulum.DateTime | None = None,
+    receiving_date_to: pendulum.DateTime | None = None,
+    created_at_from: pendulum.DateTime | None = None,
+    created_at_to: pendulum.DateTime | None = None,
+) -> tuple[list[Sample], int, int]:
     """Получить список проб."""
     added_by_hsnils, no_added_by_match = await _resolve_added_by_hsnils(search_added_by)
 
@@ -225,7 +245,9 @@ async def delete_sample(db: AsyncSession, sample_id: int) -> None:
     if not sample:
         raise NotFoundError("Проба не найдена")
 
-    for calc in await sample_repo.get_calculations_by_sample_id(db, sample_id):
+    for calc in await calculation_repo.get_calculations_by_sample(
+        db, sample_id=sample_id
+    ):
         calc.soft_delete()
 
     sample.soft_delete()
@@ -284,22 +306,34 @@ async def get_sample_response_data(db: AsyncSession, sample_id: int) -> SampleRe
 
 async def get_selection_conditions_by_id(
     db: AsyncSession, conditions_id: int, include_deleted: bool = False
-) -> Optional[SelectionConditions]:
+) -> SelectionConditions | None:
     """Получить условия отбора по ID."""
     return await selection_conditions_repo.get_selection_conditions_by_id(
         db, conditions_id, include_deleted
     )
 
 
+async def require_selection_conditions_by_id(
+    db: AsyncSession, conditions_id: int, include_deleted: bool = False
+) -> SelectionConditions:
+    """Получить условия отбора по ID или вернуть 404."""
+    conditions = await get_selection_conditions_by_id(
+        db, conditions_id, include_deleted
+    )
+    if not conditions:
+        raise NotFoundError("Условия отбора не найдены")
+    return conditions
+
+
 async def get_selection_conditions(
     db: AsyncSession,
-    laboratory_id: Optional[int] = None,
-    department_id: Optional[int] = None,
-    page: Optional[int] = None,
-    page_size: Optional[int] = None,
-    sort_by: Optional[str] = None,
-    sort_order: Optional[str] = None,
-) -> tuple[List[SelectionConditions], int, int]:
+    laboratory_id: int | None = None,
+    department_id: int | None = None,
+    page: int | None = None,
+    page_size: int | None = None,
+    sort_by: str | None = None,
+    sort_order: str | None = None,
+) -> tuple[list[SelectionConditions], int, int]:
     """Получить список условий отбора."""
     selection_conditions, total = (
         await selection_conditions_repo.get_selection_conditions(
@@ -419,164 +453,14 @@ async def get_selection_conditions_response_data(
     return build_selection_conditions_response(conditions)
 
 
-async def get_mass_fraction_table_response_data(
-    db: AsyncSession, table_id: int
-) -> MassFractionOilRefractionTableResponse:
-    """Получить точку градуировочного графика с данными для ответа API."""
-    table = await get_mass_fraction_oil_refraction_table_by_id(db, table_id)
-    if not table:
-        raise NotFoundError("Точка градуировочного графика не найдена")
-    table_dict = MassFractionOilRefractionTableResponse.model_validate(
-        table
-    ).model_dump()
-    if table.research_method:
-        table_dict["research_method_name"] = table.research_method.name
-    return MassFractionOilRefractionTableResponse(**table_dict)
-
-
-async def get_mass_fraction_oil_refraction_table_by_id(
-    db: AsyncSession, table_id: int, include_deleted: bool = False
-) -> Optional[MassFractionOilRefractionTable]:
-    """Получить точку градуировочного графика по ID."""
-    return await mass_fraction_repo.get_mass_fraction_oil_refraction_table_by_id(
-        db, table_id, include_deleted
-    )
-
-
-async def get_mass_fraction_oil_refraction_tables(
-    db: AsyncSession,
-    research_method_id: Optional[int] = None,
-    page: Optional[int] = None,
-    page_size: Optional[int] = None,
-    sort_by: Optional[str] = None,
-    sort_order: Optional[str] = None,
-) -> tuple[List[MassFractionOilRefractionTable], int, int]:
-    """Получить точки градуировочного графика."""
-    tables, total = await mass_fraction_repo.get_mass_fraction_oil_refraction_tables(
-        db, research_method_id, page, page_size, sort_by, sort_order
-    )
-
-    if page is not None and page_size is not None:
-        total_pages = calculate_total_pages(total, page_size)
-    else:
-        total_pages = 1 if total > 0 else 0
-
-    return tables, total, total_pages
-
-
-async def create_mass_fraction_oil_refraction_table(
-    db: AsyncSession, table_data: MassFractionOilRefractionTableCreate
-) -> MassFractionOilRefractionTable:
-    """Создать точку градуировочного графика."""
-    if not await research_repo.get_research_method_by_id(
-        db, table_data.research_method_id
-    ):
-        raise NotFoundError("Метод исследования не найден")
-
-    table = MassFractionOilRefractionTable(
-        research_method_id=table_data.research_method_id,
-        c_value=table_data.c_value,
-        n_value=table_data.n_value,
-    )
-    return await mass_fraction_repo.add_mass_fraction_oil_refraction_table(db, table)
-
-
-async def update_mass_fraction_oil_refraction_table(
-    db: AsyncSession, table_id: int, table_data: MassFractionOilRefractionTableUpdate
-) -> MassFractionOilRefractionTable:
-    """Обновить точку градуировочного графика."""
-    table = await get_mass_fraction_oil_refraction_table_by_id(db, table_id)
-    if not table:
-        raise NotFoundError("Точка градуировочного графика не найдена")
-
-    update_data = table_data.model_dump(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(table, key, value)
-
-    await flush_entity(db)
-    return table
-
-
 async def get_registration_number_samples(
     db: AsyncSession,
     method_id: int,
-    laboratory_id: Optional[int] = None,
-    department_id: Optional[int] = None,
-    search: Optional[str] = None,
+    laboratory_id: int | None = None,
+    department_id: int | None = None,
+    search: str | None = None,
 ) -> list[Sample]:
     """Получить пробы с расчётами по методу для автодополнения регистрационных номеров."""
     return await sample_repo.get_samples_with_calculations_by_method(
         db, method_id, laboratory_id, department_id, search
     )
-
-
-async def delete_mass_fraction_oil_refraction_table(
-    db: AsyncSession, table_id: int
-) -> None:
-    """Удалить точку градуировочного графика (мягкое удаление)."""
-    table = await get_mass_fraction_oil_refraction_table_by_id(db, table_id)
-    if not table:
-        raise NotFoundError("Точка градуировочного графика не найдена")
-
-    table.soft_delete()
-    await flush_entity(db)
-
-
-async def bulk_update_mass_fraction_oil_refraction_tables(
-    db: AsyncSession, bulk_data: MassFractionOilRefractionTableBulkUpdate
-) -> dict:
-    """Массовое обновление градуировочного графика."""
-    research_method_id = bulk_data.research_method_id
-    new_entries = bulk_data.entries
-
-    active_tables, _, _ = await get_mass_fraction_oil_refraction_tables(
-        db, research_method_id=research_method_id
-    )
-    active_tables = [table for table in active_tables if not table.deleted_at]
-
-    existing_entries_map = {}
-    for entry in active_tables:
-        key = (Decimal(str(entry.c_value)), Decimal(str(entry.n_value)))
-        existing_entries_map[key] = entry
-
-    new_entries_map = {}
-    for entry in new_entries:
-        c_value = Decimal(str(entry.get("c_value", 0)))
-        n_value = Decimal(str(entry.get("n_value", 0)))
-        key = (c_value, n_value)
-        new_entries_map[key] = entry
-
-    entries_to_deactivate = []
-    entries_to_create = []
-
-    for key, existing_entry in existing_entries_map.items():
-        if key not in new_entries_map:
-            entries_to_deactivate.append(existing_entry)
-
-    for key, new_entry_data in new_entries_map.items():
-        if key not in existing_entries_map:
-            entries_to_create.append(new_entry_data)
-
-    if not entries_to_deactivate and not entries_to_create:
-        return {"message": "Изменений не обнаружено"}
-
-    for entry in entries_to_deactivate:
-        await delete_mass_fraction_oil_refraction_table(db, entry.id)
-
-    created_count = 0
-    for entry_data in entries_to_create:
-        await create_mass_fraction_oil_refraction_table(
-            db,
-            MassFractionOilRefractionTableCreate(
-                research_method_id=research_method_id,
-                c_value=str(entry_data.get("c_value")),
-                n_value=str(entry_data.get("n_value")),
-            ),
-        )
-        created_count += 1
-
-    return {
-        "message": "Градуировочный график успешно обновлен",
-        "created": created_count,
-        "deactivated": len(entries_to_deactivate),
-    }

@@ -11,7 +11,7 @@
 import re
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 import pendulum
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.logger import logger
@@ -63,13 +63,13 @@ class BranchRows:
     rows: list[dict[str, str]] = field(default_factory=list)
 
 
-def _fmt_date(d: Optional[pendulum.Date]) -> str:
+def _fmt_date(d: pendulum.Date | None) -> str:
     if d is None:
         return ""
     return pendulum.instance(d).format("DD.MM.YYYY")
 
 
-def _sample_report_date(s: Sample) -> Optional[pendulum.Date]:
+def _sample_report_date(s: Sample) -> pendulum.Date | None:
     """Дата отбора пробы для вывода в отчёте (выборка проб — по дате получения)."""
     return s.sampling_date
 
@@ -86,9 +86,9 @@ def _sample_indicators_count(s: Sample) -> int:
 async def _get_samples_in_range(
     db: AsyncSession,
     laboratory_id: int,
-    receiving_date_from: Optional[pendulum.DateTime],
-    receiving_date_to: Optional[pendulum.DateTime],
-    department_id: Optional[int] = None,
+    receiving_date_from: pendulum.DateTime | None,
+    receiving_date_to: pendulum.DateTime | None,
+    department_id: int | None = None,
 ) -> list[Sample]:
     """Пробы за период по дате получения с загрузкой branch и sampling_location."""
     return await sample_repo.get_samples_by_receiving_date_range(
@@ -376,7 +376,7 @@ def _build_vneplanovye(
     items = [s for s in samples if _is_vneplanovye_sample(s)]
     if not items:
         return "", []
-    by_key: dict[tuple[str, str, str, Optional[pendulum.Date]], list[Sample]] = (
+    by_key: dict[tuple[str, str, str, pendulum.Date | None], list[Sample]] = (
         defaultdict(list)
     )
     for s in items:
@@ -670,7 +670,7 @@ def _build_prochie(
     ]
     if not items:
         return "", []
-    by_key: dict[tuple[str, str, str, Optional[pendulum.Date]], list[Sample]] = (
+    by_key: dict[tuple[str, str, str, pendulum.Date | None], list[Sample]] = (
         defaultdict(list)
     )
     for s in items:
@@ -714,8 +714,8 @@ def _build_by_test_object_place_date(
     items = [s for s in samples if _test_object_ilike(s, object_key)]
     if not items:
         return "", []
-    by_place_date: dict[tuple[str, Optional[pendulum.Date]], list[Sample]] = (
-        defaultdict(list)
+    by_place_date: dict[tuple[str, pendulum.Date | None], list[Sample]] = defaultdict(
+        list
     )
     for s in items:
         place = (s.sampling_location.name or "").strip() if s.sampling_location else ""
@@ -805,7 +805,7 @@ def _sample_debug_label(s: Sample) -> str:
 
 def _build_sample_count_diagnostics_text(
     samples: list[Sample],
-    row_titles_for_branch: dict[str, Optional[str]],
+    row_titles_for_branch: dict[str, str | None],
 ) -> str:
     """Формирует TXT-диагностику по попаданию проб в строки отчёта."""
     lines: list[str] = []
@@ -926,11 +926,9 @@ def _build_sample_count_diagnostics_text(
 
 def _split_by_branch(
     samples: list[Sample],
-    row_titles_for_branch: dict[str, Optional[str]],
+    row_titles_for_branch: dict[str, str | None],
 ) -> list[BranchRows]:
-    """
-    Разбивает отчёт по branch_id. row_titles_for_branch: заголовок строки -> branch name (None = по всем).
-    """
+    """Разбивает отчёт по branch_id. row_titles_for_branch: заголовок строки -> branch name (None = по всем)."""
     branches_seen: dict[int, tuple[int, str]] = {}
     for s in samples:
         if s.branch_id and s.branch:
@@ -956,7 +954,7 @@ def _split_by_branch(
 
 
 # Какие строки привязаны к филиалу по названию (остальные — общие по лаборатории, но мы режем по branch).
-ROW_TITLE_TO_BRANCH: dict[str, Optional[str]] = {
+ROW_TITLE_TO_BRANCH: dict[str, str | None] = {
     ROW_TITLE_TOVARNAYA_NEFT_NGDU: BRANCH_NGDU,
     ROW_TITLE_EKSPLUATACIONNAYA_NEFT_NGDU: BRANCH_NGDU,
     ROW_TITLE_KALIBROVOCHNAYA_NEFT_UGPU: BRANCH_UGPU,
@@ -990,7 +988,7 @@ ROW_TITLE_EXCLUDED_BRANCHES: dict[str, tuple[str, ...]] = {
 def is_sample_count_row_visible_for_branch(
     row_title: str,
     branch_name: str,
-    row_titles_for_branch: dict[str, Optional[str]],
+    row_titles_for_branch: dict[str, str | None],
 ) -> bool:
     """Проверяет, нужно ли показывать строку отчёта в блоке филиала."""
     only_branch = row_titles_for_branch.get(row_title)
@@ -1014,7 +1012,7 @@ def _normalize_cell_a_for_match(cell_value: Any) -> str:
 
 def match_row_title_to_value(
     cell_a_value: Any, row_values: dict[str, str]
-) -> Optional[str]:
+) -> str | None:
     """
     По значению ячейки A возвращает значение для столбца B из row_values.
     Сопоставление без учёта регистра и лишних пробелов/переносов.
@@ -1032,9 +1030,9 @@ def match_row_title_to_value(
 async def get_sample_count_report_data(
     db: AsyncSession,
     laboratory_id: int,
-    receiving_date_from: Optional[pendulum.DateTime],
-    receiving_date_to: Optional[pendulum.DateTime],
-    department_id: Optional[int] = None,
+    receiving_date_from: pendulum.DateTime | None,
+    receiving_date_to: pendulum.DateTime | None,
+    department_id: int | None = None,
 ) -> dict[str, Any]:
     """
     Возвращает данные для отчёта «Количество проб»: предварительная версия (все строки)

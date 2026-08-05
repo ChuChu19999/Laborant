@@ -1,39 +1,176 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ComponentType, Ref } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { BiChevronsRight, BiUser } from 'react-icons/bi';
-import { routersData } from '../../../app/data';
+import { BiChevronRight, BiChevronsRight, BiUser } from 'react-icons/bi';
 import logoImage from '../../../shared/assets/logo/logo.png';
+import { resolveNavigationKey } from '../../../shared/config/permissions';
 import { PAGE_STATE_KEYS } from '../../../shared/lib/pageStateKeys';
 import { usePageState } from '../../../shared/model/hooks';
+import type { UserPermissions } from '../../../shared/api/userRole';
+import type { AnimatedIconHandle } from '../../../shared/ui/icons';
+import '../../../shared/ui/icons/icons.css';
 import './SideBar.css';
 
-interface SideBarProps {
-  username: string;
-  isAdmin: boolean;
-  onMinimizeChange?: (value: boolean) => void;
-}
+export type SidebarIconProps = {
+  size?: number;
+  className?: string;
+  ref?: Ref<AnimatedIconHandle>;
+};
 
-type RouterItem = {
+export type SidebarIconComponent = ComponentType<SidebarIconProps>;
+
+export type SidebarRouteItem = {
   label: string;
   path: string;
-  icon: React.ReactElement;
-  element: React.ReactElement;
-  children?: RouterItem[];
+  Icon: SidebarIconComponent;
+  children?: SidebarRouteItem[];
+  menuGroup?: boolean;
   doNotShowChildrenInSideBar?: boolean;
 };
 
-const SideBar = ({ username, isAdmin, onMinimizeChange }: SideBarProps) => {
+interface SideBarProps {
+  routes: SidebarRouteItem[];
+  username: string;
+  isAdmin: boolean;
+  permissionsData: UserPermissions;
+  onMinimizeChange?: (value: boolean) => void;
+}
+
+type RouterItem = SidebarRouteItem;
+
+function isLeafRouteAccessible(
+  route: RouterItem,
+  isAdmin: boolean,
+  permissionsData: UserPermissions
+): boolean {
+  if (isAdmin || permissionsData.is_admin) {
+    return true;
+  }
+
+  const navKey = resolveNavigationKey(route.path);
+  if (navKey === 'help' || navKey === 'home') {
+    return true;
+  }
+  if (navKey === 'roles' || navKey === 'test_objects') {
+    return false;
+  }
+  if (navKey === 'admin') {
+    return Boolean(permissionsData.permissions.laboratory_management.access);
+  }
+  if (navKey && navKey in permissionsData.permissions.navigation) {
+    return Boolean(
+      permissionsData.permissions.navigation[
+        navKey as keyof typeof permissionsData.permissions.navigation
+      ]
+    );
+  }
+  return false;
+}
+
+/** Собрать меню: пустые группы скрыть, одну доступную вкладку поднять на верхний уровень. */
+function buildSidebarRoutes(
+  routes: RouterItem[],
+  isAdmin: boolean,
+  permissionsData: UserPermissions
+): RouterItem[] {
+  const result: RouterItem[] = [];
+
+  for (const route of routes) {
+    if (route.menuGroup && route.children) {
+      const children = route.children.filter(child =>
+        isLeafRouteAccessible(child, isAdmin, permissionsData)
+      );
+      if (children.length === 0) {
+        continue;
+      }
+      if (children.length === 1) {
+        result.push(children[0]);
+        continue;
+      }
+      result.push({ ...route, children });
+      continue;
+    }
+
+    if (isLeafRouteAccessible(route, isAdmin, permissionsData)) {
+      result.push(route);
+    }
+  }
+
+  return result;
+}
+
+function isPathActive(pathname: string, routePath: string): boolean {
+  if (routePath === '/') {
+    return pathname === '/';
+  }
+  if (routePath === '/laboratory-management') {
+    return (
+      pathname.startsWith('/laboratory-management') || pathname.startsWith('/admin/laboratory/')
+    );
+  }
+  return pathname === routePath || pathname.startsWith(`${routePath}/`);
+}
+
+interface SidebarMenuRowProps {
+  Icon: SidebarIconComponent;
+  label: string;
+  isActive: boolean;
+  level: number;
+  hasChildren: boolean;
+  isOpen: boolean;
+  onClick: (e: React.MouseEvent) => void;
+}
+
+/** Пункт меню: анимация иконки на hover всей строки. */
+const SidebarMenuRow = ({
+  Icon,
+  label,
+  isActive,
+  level,
+  hasChildren,
+  isOpen,
+  onClick,
+}: SidebarMenuRowProps) => {
+  const iconRef = useRef<AnimatedIconHandle>(null);
+
+  return (
+    <div
+      className={`${isActive ? 'menu-item-active' : 'menu-item'} item-level-${level} menu-item-transition`}
+      onClick={onClick}
+      onMouseEnter={() => iconRef.current?.startAnimation()}
+      onMouseLeave={() => iconRef.current?.stopAnimation()}
+    >
+      <Icon ref={iconRef} size={20} className="animated-icon" />
+      <span className="menu-item-label">{label}</span>
+      {hasChildren && (
+        <BiChevronRight
+          className={`menu-item-chevron${isOpen ? ' menu-item-chevron--open' : ''}`}
+          size={18}
+        />
+      )}
+    </div>
+  );
+};
+
+const SideBar = ({
+  routes,
+  username,
+  isAdmin,
+  permissionsData,
+  onMinimizeChange,
+}: SideBarProps) => {
   const [minimize, setMinimize] = useState(false);
   const [openSubmenus, setOpenSubmenus] = useState<string[]>([]);
   const buttonRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Используем хуки для сохранения и восстановления состояний страниц
   const adminPageState = usePageState({
     storageKey: PAGE_STATE_KEYS.ADMIN_PAGE,
     shouldSave: pathname => pathname.startsWith('/admin/laboratory/'),
-    shouldRemove: pathname => pathname === '/' && !pathname.startsWith('/admin/laboratory/'),
+    shouldRemove: pathname =>
+      pathname === '/laboratory-management' ||
+      (pathname === '/' && !pathname.startsWith('/admin/laboratory/')),
   });
 
   const samplesPageState = usePageState({
@@ -61,72 +198,29 @@ const SideBar = ({ username, isAdmin, onMinimizeChange }: SideBarProps) => {
     shouldSave: pathname => pathname.startsWith('/nd-norms'),
   });
 
-  const mainPageState = usePageState({
-    storageKey: PAGE_STATE_KEYS.MAIN_PAGE,
-    shouldSave: (pathname, search) => {
-      if (pathname !== '/') return false;
-      const searchParams = new URLSearchParams(search);
-      return (
-        searchParams.get('page') === 'laboratory-management' ||
-        searchParams.get('viewMode') === 'departments' ||
-        searchParams.get('viewMode') === 'laboratories'
-      );
-    },
-    shouldRemove: (pathname, search) => {
-      if (pathname !== '/') return false;
-      const searchParams = new URLSearchParams(search);
-      return (
-        searchParams.get('page') !== 'laboratory-management' &&
-        searchParams.get('viewMode') !== 'departments' &&
-        searchParams.get('viewMode') !== 'laboratories'
-      );
-    },
+  const laboratoryManagementPageState = usePageState({
+    storageKey: PAGE_STATE_KEYS.LABORATORY_MANAGEMENT_PAGE,
+    shouldSave: pathname => pathname.startsWith('/laboratory-management'),
+    shouldRemove: pathname => !pathname.startsWith('/laboratory-management'),
   });
 
-  // Фильтруем роуты в зависимости от роли
-  // Для не-админов доступны только: главная и помощь
-  const allowedRoutes = isAdmin
-    ? routersData
-    : routersData.filter(route => route.path === '/' || route.path === '/help');
-
-  const toggleSubmenu = useCallback(
-    (path: string, level = 0) => {
-      const isOpen = openSubmenus.includes(path);
-
-      if (level === 0) {
-        if (isOpen) {
-          setOpenSubmenus([]);
-          return;
-        }
-
-        setOpenSubmenus([path]);
-        return;
-      }
-
-      if (isOpen) {
-        setOpenSubmenus(prevSubmenus => prevSubmenus.filter(item => !item.startsWith(path)));
-        return;
-      }
-
-      setOpenSubmenus(prevSubmenus => [...prevSubmenus, path]);
-    },
-    [openSubmenus]
+  const allowedRoutes = useMemo(
+    () => buildSidebarRoutes(routes, isAdmin, permissionsData),
+    [isAdmin, permissionsData, routes]
   );
 
-  const openLocationSubmenus = useCallback(() => {
-    let previousPath = '';
-
-    const locationSplit = location.pathname.split('/').filter(item => item.length);
-
-    locationSplit.pop();
-
-    const locationPaths = locationSplit.map(item => {
-      previousPath += '/' + item;
-      return previousPath;
+  const toggleSubmenu = useCallback((path: string, level = 0) => {
+    setOpenSubmenus(prev => {
+      const isOpen = prev.includes(path);
+      if (level === 0) {
+        return isOpen ? [] : [path];
+      }
+      if (isOpen) {
+        return prev.filter(item => !item.startsWith(path));
+      }
+      return [...prev, path];
     });
-
-    locationPaths.forEach((item, index) => toggleSubmenu(item, index));
-  }, [location, toggleSubmenu]);
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -148,160 +242,129 @@ const SideBar = ({ username, isAdmin, onMinimizeChange }: SideBarProps) => {
     setOpenSubmenus([]);
   };
 
-  const renderItems = (items: RouterItem[], level = 0, parentPath = '') =>
+  const navigateTo = useCallback(
+    (targetPath: string) => {
+      const go = (pathname: string, search = '') => {
+        navigate({ pathname, search }, { replace: true });
+        setOpenSubmenus([]);
+      };
+
+      if (targetPath === '/') {
+        go('/');
+        return;
+      }
+
+      if (targetPath === '/laboratory-management') {
+        if (adminPageState.restoreState()) {
+          setOpenSubmenus([]);
+          return;
+        }
+        if (laboratoryManagementPageState.restoreState('/laboratory-management', '')) {
+          setOpenSubmenus([]);
+          return;
+        }
+        go(targetPath);
+        return;
+      }
+
+      if (targetPath === '/samples') {
+        if (samplesPageState.restoreState('/samples', '')) {
+          setOpenSubmenus([]);
+          return;
+        }
+        go(targetPath);
+        return;
+      }
+
+      if (targetPath === '/protocols') {
+        if (protocolsPageState.restoreState('/protocols', '')) {
+          setOpenSubmenus([]);
+          return;
+        }
+        go(targetPath);
+        return;
+      }
+
+      if (targetPath === '/equipment') {
+        if (equipmentPageState.restoreState('/equipment', '')) {
+          setOpenSubmenus([]);
+          return;
+        }
+        go(targetPath);
+        return;
+      }
+
+      if (targetPath === '/sampling-locations') {
+        if (samplingLocationsPageState.restoreState('/sampling-locations', '')) {
+          setOpenSubmenus([]);
+          return;
+        }
+        go(targetPath);
+        return;
+      }
+
+      if (targetPath === '/nd-norms') {
+        if (ndNormsPageState.restoreState('/nd-norms', '')) {
+          setOpenSubmenus([]);
+          return;
+        }
+        go(targetPath);
+        return;
+      }
+
+      go(targetPath);
+    },
+    [
+      adminPageState,
+      equipmentPageState,
+      laboratoryManagementPageState,
+      navigate,
+      ndNormsPageState,
+      protocolsPageState,
+      samplesPageState,
+      samplingLocationsPageState,
+    ]
+  );
+
+  const renderItems = (items: RouterItem[], level = 0) =>
     items.map(item => {
-      const currentPath = `${parentPath}${item.path}`;
+      const currentPath = item.path;
       const isOpen = openSubmenus.includes(currentPath);
+      const hasVisibleChildren = Boolean(item.children?.length && !item.doNotShowChildrenInSideBar);
+      const isChildActive = Boolean(
+        item.children?.some(child => isPathActive(location.pathname, child.path))
+      );
       const isCurrentPath =
-        ((!openSubmenus.length || level !== 0) &&
-          (location.pathname === currentPath ||
-            (currentPath === '/' &&
-              (location.pathname.startsWith('/admin/laboratory/') ||
-                location.pathname.startsWith('/?page=laboratory-management'))) ||
-            (currentPath === '/samples' && location.pathname.startsWith('/samples')) ||
-            (currentPath === '/protocols' && location.pathname.startsWith('/protocols')) ||
-            (currentPath === '/equipment' && location.pathname.startsWith('/equipment')) ||
-            (currentPath === '/sampling-locations' &&
-              location.pathname.startsWith('/sampling-locations')) ||
-            (currentPath === '/nd-norms' && location.pathname.startsWith('/nd-norms')))) ||
-        isOpen;
+        (!hasVisibleChildren && isPathActive(location.pathname, currentPath)) ||
+        (hasVisibleChildren && (isOpen || isChildActive));
 
       const openSubmenu = (e: React.MouseEvent) => {
         e.stopPropagation();
         setMinimize(false);
-
-        if (location.pathname !== '/' && location.pathname.startsWith(currentPath)) {
-          openLocationSubmenus();
-          return;
-        }
-
         toggleSubmenu(currentPath, level);
-      };
-
-      const navigateOnClick = () => {
-        const targetPath = currentPath || '/';
-        // Если мы находимся на AdminPage и кликаем на "Главная", не делаем навигацию
-        if (targetPath === '/' && location.pathname.startsWith('/admin/laboratory/')) {
-          return;
-        }
-
-        // Если мы находимся в управлении лабораториями/подразделениями и кликаем на "Главная", не делаем навигацию
-        if (targetPath === '/' && location.pathname === '/') {
-          const searchParams = new URLSearchParams(location.search);
-          const isInLaboratoryManagement =
-            searchParams.get('page') === 'laboratory-management' ||
-            searchParams.get('viewMode') === 'departments' ||
-            searchParams.get('viewMode') === 'laboratories';
-          if (isInLaboratoryManagement) {
-            return;
-          }
-        }
-
-        // Если переходим на главную, проверяем сохраненный путь AdminPage или состояние управления лабораториями
-        if (targetPath === '/') {
-          if (adminPageState.restoreState()) {
-            setOpenSubmenus([]);
-            return;
-          }
-          if (mainPageState.restoreState()) {
-            setOpenSubmenus([]);
-            return;
-          }
-          // Если сохраненного пути нет, сохраняем текущие параметры URL
-          const search = location.search;
-          navigate({ pathname: targetPath, search }, { replace: true });
-          setOpenSubmenus([]);
-          return;
-        }
-
-        // Если переходим на samples, проверяем сохраненный путь samples
-        if (targetPath === '/samples') {
-          if (samplesPageState.restoreState('/samples', '')) {
-            setOpenSubmenus([]);
-            return;
-          }
-          // Если сохраненного пути нет, переходим на базовый путь без параметров
-          navigate({ pathname: targetPath, search: '' }, { replace: true });
-          setOpenSubmenus([]);
-          return;
-        }
-
-        // Если переходим на protocols, проверяем сохраненный путь protocols
-        if (targetPath === '/protocols') {
-          if (protocolsPageState.restoreState('/protocols', '')) {
-            setOpenSubmenus([]);
-            return;
-          }
-          // Если сохраненного пути нет, переходим на базовый путь без параметров
-          navigate({ pathname: targetPath, search: '' }, { replace: true });
-          setOpenSubmenus([]);
-          return;
-        }
-
-        // Если переходим на equipment, проверяем сохраненный путь equipment
-        if (targetPath === '/equipment') {
-          if (equipmentPageState.restoreState('/equipment', '')) {
-            setOpenSubmenus([]);
-            return;
-          }
-          // Если сохраненного пути нет, переходим на базовый путь без параметров
-          navigate({ pathname: targetPath, search: '' }, { replace: true });
-          setOpenSubmenus([]);
-          return;
-        }
-
-        // Если переходим на sampling-locations, проверяем сохраненный путь sampling-locations
-        if (targetPath === '/sampling-locations') {
-          if (samplingLocationsPageState.restoreState('/sampling-locations', '')) {
-            setOpenSubmenus([]);
-            return;
-          }
-          // Если сохраненного пути нет, переходим на базовый путь без параметров
-          navigate({ pathname: targetPath, search: '' }, { replace: true });
-          setOpenSubmenus([]);
-          return;
-        }
-
-        // Если переходим на nd-norms, проверяем сохраненный путь nd-norms
-        if (targetPath === '/nd-norms') {
-          if (ndNormsPageState.restoreState('/nd-norms', '')) {
-            setOpenSubmenus([]);
-            return;
-          }
-          navigate({ pathname: targetPath, search: '' }, { replace: true });
-          setOpenSubmenus([]);
-          return;
-        }
-
-        // Сохраняем query параметры при переключении страниц
-        const search = location.search;
-        // Делаем навигацию
-        navigate({ pathname: targetPath, search }, { replace: true });
-        setOpenSubmenus([]);
       };
 
       return (
         <li key={currentPath} className="sidebar-item">
-          <div
-            ref={buttonRef}
-            className={`${isCurrentPath ? 'menu-item-active' : 'menu-item'} item-level-${level} menu-item-transition`}
-            onClick={
-              item.children?.length && !item.doNotShowChildrenInSideBar
-                ? openSubmenu
-                : navigateOnClick
-            }
-          >
-            {item.icon}
-            <span>{item.label}</span>
-          </div>
+          <SidebarMenuRow
+            Icon={item.Icon}
+            label={item.label}
+            isActive={isCurrentPath}
+            level={level}
+            hasChildren={hasVisibleChildren}
+            isOpen={isOpen}
+            onClick={hasVisibleChildren ? openSubmenu : () => navigateTo(currentPath || '/')}
+          />
 
-          {item.children?.length && !item.doNotShowChildrenInSideBar && isOpen && (
+          {hasVisibleChildren && (
             <ul
-              className={`submenu level-${level + 1} ${minimize ? 'submenu-margin-collapsed' : 'submenu-margin-expanded'}`}
+              className={`submenu level-${level + 1}${isOpen ? ' submenu-open' : ''}`}
+              aria-hidden={!isOpen}
             >
-              <div className="submenu-title">{item.label}</div>
-
-              {renderItems(item.children, level + 1, currentPath)}
+              <div className="submenu-body">
+                <div className="submenu-title">{item.label}</div>
+                {renderItems(item.children || [], level + 1)}
+              </div>
             </ul>
           )}
         </li>
@@ -316,10 +379,7 @@ const SideBar = ({ username, isAdmin, onMinimizeChange }: SideBarProps) => {
             src={logoImage}
             alt="Laborant"
             className={`sidebar-logo ${minimize ? 'collapsed' : ''}`}
-            onClick={() => {
-              // При клике на логотип всегда сбрасываем URL и переходим на главную без параметров
-              navigate({ pathname: '/', search: '' }, { replace: true });
-            }}
+            onClick={() => navigateTo('/')}
             onMouseEnter={e => {
               e.currentTarget.style.opacity = '0.8';
               e.currentTarget.style.transform = 'scale(1.03)';

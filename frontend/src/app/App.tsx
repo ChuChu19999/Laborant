@@ -8,72 +8,54 @@ import './App.css';
 import AdminPage from '../pages/AdminPage/AdminPage';
 import CalculationsPage from '../pages/CalculationsPage/CalculationsPage';
 import EquipmentPage from '../pages/EquipmentPage/EquipmentPage';
+import Page403 from '../pages/ErrorPages/Page403/Page403';
 import Page404 from '../pages/ErrorPages/Page404/Page404';
 import LoadingPage from '../pages/LoadingPage/LoadingPage';
 import NdNormsPage from '../pages/NdNormsPage/NdNormsPage';
 import ProtocolsPage from '../pages/ProtocolsPage/ProtocolsPage';
+import RolePermissionsPage from '../pages/RolePermissionsPage/RolePermissionsPage';
 import SamplesPage from '../pages/SamplesPage/SamplesPage';
 import SamplingLocationsPage from '../pages/SamplingLocationsPage/SamplingLocationsPage';
 import { useAxiosInterceptors } from '../shared/model/auth/useAxiosInterceptors';
+import { useCurrentPermissions } from '../shared/model/auth/useCurrentPermissions';
 import { useKeycloak } from '../shared/model/auth/useKeycloak';
-import ProtectedRoute from '../shared/ui/ProtectedRoute/ProtectedRoute';
+import ProtectedRoute from '../shared/ui/ProtectedRoute';
 import Content from './Content/Content';
 import { routersData } from './data';
+import type { UserPermissions } from '../shared/api/userRole';
 
-// Экземпляр QueryClient
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 30 * 1000, // Данные считаются свежими 30 секунд
-      gcTime: 5 * 60 * 1000, // Кэш хранится 5 минут
-      refetchOnWindowFocus: true, // Включено автообновление при фокусе
-      refetchOnReconnect: true, // Обновление при восстановлении соединения
-      retry: 2, // Количество повторных попыток при ошибке
-      retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 10000), // Экспоненциальная задержка до 10 секунд
+      staleTime: 30 * 1000,
+      gcTime: 5 * 60 * 1000,
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
+      retry: 2,
+      retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 10000),
     },
   },
 });
 
 interface RouteItem {
   path: string;
-  element: React.ReactElement;
+  element?: React.ReactElement;
   children?: RouteItem[];
+  menuGroup?: boolean;
 }
 
-export default function App() {
-  const { isLoading, username } = useKeycloak();
+function AppRoutes({
+  username,
+  permissionsData,
+}: {
+  username: string;
+  permissionsData: UserPermissions;
+}) {
+  const isAdmin = permissionsData.is_admin;
 
-  useAxiosInterceptors();
-
-  const messageConfigRef = useRef(false);
-  const isAdmin = true; // По умолчанию админ (без проверки роли)
-
-  // Компонент для промежуточной перезагрузки
   const ReloadComponent = () => {
     return <Navigate to="/" replace />;
   };
-
-  // Конфигурация для сообщений после монтирования компонента
-  useEffect(() => {
-    if (messageConfigRef.current) return;
-    messageConfigRef.current = true;
-
-    // Уничтожаем все предыдущие сообщения и контейнеры
-    message.destroy();
-
-    // Удаляем все существующие контейнеры сообщений
-    const existingContainers = document.querySelectorAll('.ant-message');
-    existingContainers.forEach(container => container.remove());
-
-    // Настраиваем message API
-    message.config({
-      top: 20,
-      duration: 3,
-      maxCount: 3,
-      rtl: false,
-      getContainer: () => document.body,
-    });
-  }, []);
 
   const getAllRoutes = useMemo(() => {
     const getAllRoutesRecursive = (
@@ -83,10 +65,19 @@ export default function App() {
       let allRoutes: Array<{ path: string; element: React.ReactElement }> = [];
 
       routes.forEach(route => {
-        const fullPath = `${basePath}${route.path}`;
-        // Обертываем элемент в ProtectedRoute для проверки доступа
+        if (route.menuGroup) {
+          if (route.children) {
+            allRoutes = allRoutes.concat(getAllRoutesRecursive(route.children, ''));
+          }
+          return;
+        }
+
+        const fullPath = route.path.startsWith('/') ? route.path : `${basePath}${route.path}`;
+        if (!route.element) {
+          return;
+        }
         const protectedElement = (
-          <ProtectedRoute isAdmin={isAdmin} path={fullPath}>
+          <ProtectedRoute permissionsData={permissionsData} path={fullPath}>
             {route.element}
           </ProtectedRoute>
         );
@@ -100,104 +91,185 @@ export default function App() {
       return allRoutes;
     };
 
-    return getAllRoutesRecursive(routersData);
-  }, [isAdmin]);
+    return getAllRoutesRecursive(routersData as RouteItem[]);
+  }, [permissionsData]);
 
-  // Показываем экран загрузки во время инициализации Keycloak
-  if (isLoading) {
+  if (!permissionsData.access_granted) {
     return (
-      <QueryClientProvider client={queryClient}>
-        <ConfigProvider locale={ruRU}>
-          <AntApp>
-            <LoadingPage isLoading={isLoading} />
-          </AntApp>
-        </ConfigProvider>
-      </QueryClientProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="*" element={<Page403 />} />
+        </Routes>
+      </BrowserRouter>
     );
   }
 
+  const wrap = (path: string, element: React.ReactElement) => (
+    <ProtectedRoute permissionsData={permissionsData} path={path}>
+      {element}
+    </ProtectedRoute>
+  );
+
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <Content
+              username={username || ''}
+              isAdmin={isAdmin}
+              permissionsData={permissionsData}
+            />
+          }
+        >
+          <Route path="/reload" element={<ReloadComponent />} />
+          <Route path="/403" element={<Page403 />} />
+          <>
+            {getAllRoutes.map((item, index) => (
+              <Route key={`${item.path}-${index}`} path={item.path} element={item.element} />
+            ))}
+            <Route
+              path="/roles/:roleId/permissions"
+              element={wrap('/roles/:roleId/permissions', <RolePermissionsPage />)}
+            />
+            <Route
+              path="/admin/laboratory/:laboratoryId"
+              element={wrap('/admin/laboratory/:laboratoryId', <AdminPage />)}
+            />
+            <Route
+              path="/admin/laboratory/:laboratoryId/department/:departmentId"
+              element={wrap(
+                '/admin/laboratory/:laboratoryId/department/:departmentId',
+                <AdminPage />
+              )}
+            />
+            <Route path="/samples" element={wrap('/samples', <SamplesPage />)} />
+            <Route
+              path="/samples/laboratory/:laboratoryId/calculations"
+              element={wrap('/samples/laboratory/:laboratoryId/calculations', <CalculationsPage />)}
+            />
+            <Route
+              path="/samples/laboratory/:laboratoryId"
+              element={wrap('/samples/laboratory/:laboratoryId', <SamplesPage />)}
+            />
+            <Route
+              path="/samples/laboratory/:laboratoryId/department/:departmentId"
+              element={wrap(
+                '/samples/laboratory/:laboratoryId/department/:departmentId',
+                <SamplesPage />
+              )}
+            />
+            <Route
+              path="/samples/laboratory/:laboratoryId/department/:departmentId/calculations"
+              element={wrap(
+                '/samples/laboratory/:laboratoryId/department/:departmentId/calculations',
+                <CalculationsPage />
+              )}
+            />
+            <Route path="/protocols" element={wrap('/protocols', <ProtocolsPage />)} />
+            <Route
+              path="/protocols/laboratory/:laboratoryId"
+              element={wrap('/protocols/laboratory/:laboratoryId', <ProtocolsPage />)}
+            />
+            <Route
+              path="/protocols/laboratory/:laboratoryId/department/:departmentId"
+              element={wrap(
+                '/protocols/laboratory/:laboratoryId/department/:departmentId',
+                <ProtocolsPage />
+              )}
+            />
+            <Route path="/equipment" element={wrap('/equipment', <EquipmentPage />)} />
+            <Route
+              path="/equipment/laboratory/:laboratoryId"
+              element={wrap('/equipment/laboratory/:laboratoryId', <EquipmentPage />)}
+            />
+            <Route
+              path="/equipment/laboratory/:laboratoryId/department/:departmentId"
+              element={wrap(
+                '/equipment/laboratory/:laboratoryId/department/:departmentId',
+                <EquipmentPage />
+              )}
+            />
+            <Route
+              path="/sampling-locations"
+              element={wrap('/sampling-locations', <SamplingLocationsPage />)}
+            />
+            <Route
+              path="/sampling-locations/laboratory/:laboratoryId"
+              element={wrap(
+                '/sampling-locations/laboratory/:laboratoryId',
+                <SamplingLocationsPage />
+              )}
+            />
+            <Route
+              path="/sampling-locations/laboratory/:laboratoryId/department/:departmentId"
+              element={wrap(
+                '/sampling-locations/laboratory/:laboratoryId/department/:departmentId',
+                <SamplingLocationsPage />
+              )}
+            />
+            <Route path="/nd-norms" element={wrap('/nd-norms', <NdNormsPage />)} />
+            <Route
+              path="/nd-norms/laboratory/:laboratoryId"
+              element={wrap('/nd-norms/laboratory/:laboratoryId', <NdNormsPage />)}
+            />
+            <Route
+              path="/nd-norms/laboratory/:laboratoryId/department/:departmentId"
+              element={wrap(
+                '/nd-norms/laboratory/:laboratoryId/department/:departmentId',
+                <NdNormsPage />
+              )}
+            />
+            <Route path="*" element={<Page404 />} />
+          </>
+        </Route>
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+function AppContent() {
+  const { isLoading: isKeycloakLoading, username } = useKeycloak();
+  useAxiosInterceptors();
+
+  const messageConfigRef = useRef(false);
+  const { isLoading: isPermissionsLoading, data: permissionsData } = useCurrentPermissions({
+    isKeycloakReady: !isKeycloakLoading,
+  });
+
+  useEffect(() => {
+    if (messageConfigRef.current) return;
+    messageConfigRef.current = true;
+
+    message.destroy();
+
+    const existingContainers = document.querySelectorAll('.ant-message');
+    existingContainers.forEach(container => container.remove());
+
+    message.config({
+      top: 20,
+      duration: 3,
+      maxCount: 3,
+      rtl: false,
+      getContainer: () => document.body,
+    });
+  }, []);
+
+  if (isKeycloakLoading || isPermissionsLoading) {
+    return <LoadingPage isLoading />;
+  }
+
+  return <AppRoutes username={username || ''} permissionsData={permissionsData} />;
+}
+
+export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ConfigProvider locale={ruRU}>
         <AntApp>
           <div>
-            <BrowserRouter>
-              <Routes>
-                <Route path="/" element={<Content username={username || ''} isAdmin={isAdmin} />}>
-                  <Route path="/reload" element={<ReloadComponent />} />
-                  <>
-                    {getAllRoutes.map((item, index) => (
-                      <Route
-                        key={`${item.path}-${index}`}
-                        path={item.path}
-                        element={item.element}
-                      />
-                    ))}
-                    <Route
-                      path="/admin/laboratory/:laboratoryId"
-                      element={
-                        <ProtectedRoute isAdmin={isAdmin} path="/admin/laboratory/:laboratoryId">
-                          <AdminPage />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/admin/laboratory/:laboratoryId/department/:departmentId"
-                      element={
-                        <ProtectedRoute
-                          isAdmin={isAdmin}
-                          path="/admin/laboratory/:laboratoryId/department/:departmentId"
-                        >
-                          <AdminPage />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route path="/samples" element={<SamplesPage />} />
-                    <Route
-                      path="/samples/laboratory/:laboratoryId/calculations"
-                      element={<CalculationsPage />}
-                    />
-                    <Route path="/samples/laboratory/:laboratoryId" element={<SamplesPage />} />
-                    <Route
-                      path="/samples/laboratory/:laboratoryId/department/:departmentId"
-                      element={<SamplesPage />}
-                    />
-                    <Route
-                      path="/samples/laboratory/:laboratoryId/department/:departmentId/calculations"
-                      element={<CalculationsPage />}
-                    />
-                    <Route path="/protocols" element={<ProtocolsPage />} />
-                    <Route path="/protocols/laboratory/:laboratoryId" element={<ProtocolsPage />} />
-                    <Route
-                      path="/protocols/laboratory/:laboratoryId/department/:departmentId"
-                      element={<ProtocolsPage />}
-                    />
-                    <Route path="/equipment" element={<EquipmentPage />} />
-                    <Route path="/equipment/laboratory/:laboratoryId" element={<EquipmentPage />} />
-                    <Route
-                      path="/equipment/laboratory/:laboratoryId/department/:departmentId"
-                      element={<EquipmentPage />}
-                    />
-                    <Route path="/sampling-locations" element={<SamplingLocationsPage />} />
-                    <Route
-                      path="/sampling-locations/laboratory/:laboratoryId"
-                      element={<SamplingLocationsPage />}
-                    />
-                    <Route
-                      path="/sampling-locations/laboratory/:laboratoryId/department/:departmentId"
-                      element={<SamplingLocationsPage />}
-                    />
-                    <Route path="/nd-norms" element={<NdNormsPage />} />
-                    <Route path="/nd-norms/laboratory/:laboratoryId" element={<NdNormsPage />} />
-                    <Route
-                      path="/nd-norms/laboratory/:laboratoryId/department/:departmentId"
-                      element={<NdNormsPage />}
-                    />
-                    <Route path="*" element={<Page404 />} />
-                  </>
-                </Route>
-              </Routes>
-            </BrowserRouter>
+            <AppContent />
           </div>
         </AntApp>
       </ConfigProvider>

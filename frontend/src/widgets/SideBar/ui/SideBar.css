@@ -1,12 +1,27 @@
 .sidebar-wrapper {
+  position: relative;
   height: 100vh;
-  overflow-y: hidden;
+  overflow: visible;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   transition: all 0.4s ease;
   background: linear-gradient(180deg, rgb(0, 121, 194) 40%, rgb(0, 74, 119));
   color: #fff;
+  z-index: 20;
+}
+
+/* Основная колонка поверх выезжающего подменю — подменю на всю высоту wrapper. */
+.sidebar-wrapper::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  background: linear-gradient(180deg, rgb(0, 121, 194) 40%, rgb(0, 74, 119));
+  pointer-events: none;
 }
 
 .sidebar-wrapper.collapsed {
@@ -15,14 +30,15 @@
 }
 
 .sidebar-wrapper:not(.collapsed) {
-  min-width: 200px;
-  max-width: 200px;
+  min-width: 220px;
+  max-width: 220px;
 }
 
 .sidebar-wrapper .content {
   display: flex;
   flex-direction: column;
   align-items: center;
+  width: 100%;
 }
 
 .sidebar-wrapper .logo {
@@ -59,17 +75,19 @@
 
 .sidebar-wrapper .menu-item {
   position: relative;
+  z-index: 3;
   width: 100%;
-  height: 45px;
+  min-height: 45px;
+  height: auto;
   padding: 0 15px;
   cursor: pointer;
   font-family: 'HeliosCondC';
   font-size: 15px;
-  white-space: nowrap;
+  white-space: normal;
   overflow: hidden;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   transition: 0.3s;
 }
 
@@ -78,11 +96,39 @@
   font-size: 20px;
 }
 
-.sidebar-wrapper .menu-item span {
+.sidebar-wrapper .menu-item .animated-icon {
+  flex-shrink: 0;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  color: inherit;
+}
+
+.sidebar-wrapper .menu-item .menu-item-label {
   opacity: 1;
   width: auto;
-  margin-left: 10px;
+  margin-left: 0;
   transition: all 0.2s ease-in-out;
+  flex: 1;
+  min-width: 0;
+  line-height: 1.25;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.sidebar-wrapper .menu-item-chevron {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 18px !important;
+  transition: transform 0.3s ease;
+}
+
+.sidebar-wrapper .menu-item-chevron--open {
+  transform: rotate(90deg);
 }
 
 .sidebar-wrapper.collapsed .menu-item {
@@ -90,7 +136,8 @@
   padding: 0 28px;
 }
 
-.sidebar-wrapper.collapsed .menu-item span {
+.sidebar-wrapper.collapsed .menu-item .menu-item-label,
+.sidebar-wrapper.collapsed .menu-item-chevron {
   opacity: 0;
   width: 0;
   margin-left: 0;
@@ -103,19 +150,21 @@
 
 .sidebar-wrapper .menu-item-active {
   position: relative;
+  z-index: 3;
   width: 100%;
-  height: 45px;
+  min-height: 45px;
+  height: auto;
   padding: 0 15px 0 10px;
   cursor: pointer;
   font-family: 'HeliosCondC';
   font-size: 15px;
   background-color: rgba(4, 59, 107, 0.39);
   border-left: 5px solid #ff4d07;
-  white-space: nowrap;
+  white-space: normal;
   overflow: hidden;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .sidebar-wrapper .menu-item-active svg {
@@ -123,11 +172,28 @@
   font-size: 20px;
 }
 
-.sidebar-wrapper .menu-item-active span {
+.sidebar-wrapper .menu-item-active .animated-icon {
+  flex-shrink: 0;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  color: inherit;
+}
+
+.sidebar-wrapper .menu-item-active .menu-item-label {
   opacity: 1;
   width: auto;
-  margin-left: 10px;
+  margin-left: 0;
   transition: all 0.2s ease-in-out;
+  flex: 1;
+  min-width: 0;
+  line-height: 1.25;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .sidebar-wrapper.collapsed .menu-item-active {
@@ -135,7 +201,8 @@
   padding: 0 28px;
 }
 
-.sidebar-wrapper.collapsed .menu-item-active span {
+.sidebar-wrapper.collapsed .menu-item-active .menu-item-label,
+.sidebar-wrapper.collapsed .menu-item-active .menu-item-chevron {
   opacity: 0;
   width: 0;
   margin-left: 0;
@@ -171,31 +238,49 @@
 }
 
 .sidebar-wrapper .submenu {
-  z-index: 4;
-  margin-left: 20px;
-  display: none;
-  height: 100%;
   box-sizing: border-box;
-  transition: 0.3s;
-  padding: 0px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
 }
 
 .sidebar-wrapper .submenu-title {
-  padding: 20px 0 10px 0;
+  padding: 10px 0 10px 0;
   font-family: 'HeliosCondC';
+  font-size: 16px;
   text-decoration: underline;
-  text-underline-offset: 6px;
+  text-underline-offset: 7px;
   align-self: center;
+  white-space: nowrap;
 }
 
 .sidebar-wrapper .submenu.level-1 {
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   position: absolute;
   top: 0;
-  width: 200px;
+  left: 100%;
+  width: 220px;
+  height: 100%;
   background: linear-gradient(180deg, rgb(0, 158, 225) 40%, rgb(0, 112, 159));
-  background-color: #e1e1e1;
+  z-index: 1;
+  overflow: hidden;
+  transform: translateX(-100%);
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    transform 0.28s ease-out,
+    visibility 0s linear 0.28s;
+}
+
+.sidebar-wrapper .submenu.level-1.submenu-open {
+  transform: translateX(0);
+  visibility: visible;
+  pointer-events: auto;
+  transition:
+    transform 0.28s ease-out,
+    visibility 0s linear 0s;
 }
 
 .sidebar-wrapper .submenu.level-2 {
@@ -203,17 +288,20 @@
   flex-direction: column;
   position: absolute;
   top: 0;
+  left: 100%;
   width: 200px;
+  height: 100vh;
   background: linear-gradient(180deg, rgb(123, 174, 208) 40%, rgb(94, 133, 159));
-  background-color: #d1d1d1;
+  z-index: 31;
 }
 
-.sidebar-wrapper.collapsed .submenu.level-1 {
-  margin-left: 60px;
-}
-
-.sidebar-wrapper:not(.collapsed) .submenu.level-1 {
-  margin-left: 200px;
+.sidebar-wrapper .submenu-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .sidebar-wrapper .collapsed {
@@ -228,6 +316,7 @@
   align-items: center;
   justify-content: flex-start;
   flex-direction: row;
+  width: 100%;
   padding: 20px;
   border-top: 1px solid #bdbfc1;
   transition: all 0.4s ease;
@@ -302,9 +391,12 @@
 }
 
 .sidebar-wrapper .footer {
+  position: relative;
+  z-index: 3;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  width: 100%;
 }
 
 .sidebar-wrapper.collapsed .footer {
@@ -315,7 +407,13 @@
   align-items: flex-end;
 }
 
+.sidebar-wrapper .footer .user {
+  align-self: stretch;
+}
+
 .sidebar-wrapper .logo-container {
+  position: relative;
+  z-index: 3;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -351,12 +449,4 @@
 
 .menu-item-transition {
   transition: 0.3s;
-}
-
-.submenu-margin-collapsed {
-  margin-left: 60px;
-}
-
-.submenu-margin-expanded {
-  margin-left: 200px;
 }

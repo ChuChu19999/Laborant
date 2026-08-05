@@ -1,33 +1,53 @@
 from __future__ import annotations
 from fastapi import APIRouter, Request
 from . import (
+    branches,
     calculation,
+    departments,
     employees,
     equipment,
     fixtures,
-    laboratory,
+    laboratories,
+    mass_fraction_oil,
     nd_norm,
-    protocol,
+    protocol_templates,
+    protocols,
     report,
-    research,
+    research_method_groups,
+    research_methods,
     role,
-    sample,
+    samples,
+    sampling_locations,
+    selection_conditions,
     test_object,
     user,
+    user_role,
+    well_modes,
 )
 
 api_router = APIRouter(prefix="/api")
 
 api_router.include_router(user.router, tags=("user",))
+api_router.include_router(user_role.router, tags=("user_role",))
 api_router.include_router(employees.router, prefix="/employees", tags=("employees",))
-api_router.include_router(laboratory.router, tags=("laboratory",))
-api_router.include_router(research.router, tags=("research",))
-api_router.include_router(sample.router, tags=("sample",))
+api_router.include_router(sampling_locations.router, tags=("sampling_locations",))
+api_router.include_router(well_modes.router, tags=("well_modes",))
+api_router.include_router(laboratories.router, tags=("laboratories",))
+api_router.include_router(departments.router, tags=("departments",))
+api_router.include_router(branches.router, tags=("branches",))
+api_router.include_router(research_methods.router, tags=("research_methods",))
+api_router.include_router(
+    research_method_groups.router, tags=("research_method_groups",)
+)
+api_router.include_router(samples.router, tags=("samples",))
+api_router.include_router(selection_conditions.router, tags=("selection_conditions",))
+api_router.include_router(mass_fraction_oil.router, tags=("mass_fraction_oil",))
 api_router.include_router(equipment.router, tags=("equipment",))
 api_router.include_router(nd_norm.router, tags=("nd_norm",))
 api_router.include_router(role.router, tags=("role",))
 api_router.include_router(test_object.router, tags=("test_object",))
-api_router.include_router(protocol.router, tags=("protocol",))
+api_router.include_router(protocols.router, tags=("protocols",))
+api_router.include_router(protocol_templates.router, tags=("protocol_templates",))
 api_router.include_router(report.router, tags=("report",))
 api_router.include_router(calculation.router, tags=("calculation",))
 api_router.include_router(fixtures.router, tags=("fixtures",))

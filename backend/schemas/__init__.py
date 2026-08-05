@@ -28,6 +28,12 @@ from schemas.laboratory import (
     WellModeResponse,
     WellModeUpdate,
 )
+from schemas.mass_fraction import (
+    MassFractionOilRefractionTableBulkUpdate,
+    MassFractionOilRefractionTableCreate,
+    MassFractionOilRefractionTableResponse,
+    MassFractionOilRefractionTableUpdate,
+)
 from schemas.nd_norm import (
     NdNormCreate,
     NdNormMethodDataItem,
@@ -65,16 +71,13 @@ from schemas.research import (
 )
 from schemas.role import (
     RoleCreate,
+    RolePermissions,
     RoleResponse,
-    RoleTypeValue,
+    RoleTypeField,
     RoleUpdate,
-    visibility_scope_to_dict,
+    UserPermissionsResponse,
 )
 from schemas.sample import (
-    MassFractionOilRefractionTableBulkUpdate,
-    MassFractionOilRefractionTableCreate,
-    MassFractionOilRefractionTableResponse,
-    MassFractionOilRefractionTableUpdate,
     SampleCreate,
     SampleResponse,
     SampleUpdate,
@@ -93,10 +96,13 @@ from schemas.test_object import (
     TestObjectResponse,
     TestObjectSelectItem,
     TestObjectUpdate,
-    VisibilityScope,
-    VisibilityScopeEntity,
 )
 from schemas.user import UserResponse
+from schemas.visibility import (
+    VisibilityScope,
+    VisibilityScopeEntity,
+    visibility_scope_to_dict,
+)
 
 __all__ = [
     "PaginatedResponse",
@@ -157,7 +163,9 @@ __all__ = [
     "RoleCreate",
     "RoleUpdate",
     "RoleResponse",
-    "RoleTypeValue",
+    "RolePermissions",
+    "RoleTypeField",
+    "UserPermissionsResponse",
     "visibility_scope_to_dict",
     "ReportTemplateCreate",
     "ReportTemplateUpdate",

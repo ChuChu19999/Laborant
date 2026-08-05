@@ -8,6 +8,7 @@ from models.laboratory import (
     SamplingLocation,
     WellMode,
 )
+from models.mass_fraction import MassFractionOilRefractionTable
 from models.nd_norm import NdNorm
 from models.protocol import Protocol, ProtocolTemplate
 from models.report import ReportTemplate, ReportType
@@ -15,11 +16,10 @@ from models.research import (
     ResearchMethod,
     ResearchMethodGroup,
     RoundingType,
-    SampleType,
     research_method_groups_association,
 )
 from models.role import Role, RoleType
-from models.sample import MassFractionOilRefractionTable, Sample, SelectionConditions
+from models.sample import Sample, SelectionConditions
 from models.test_object import TestObject
 
 __all__ = [
@@ -33,7 +33,6 @@ __all__ = [
     "ResearchMethodGroup",
     "research_method_groups_association",
     "RoundingType",
-    "SampleType",
     "Sample",
     "SelectionConditions",
     "MassFractionOilRefractionTable",

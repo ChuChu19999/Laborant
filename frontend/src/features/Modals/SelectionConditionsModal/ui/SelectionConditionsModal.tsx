@@ -8,7 +8,7 @@ import {
   useUpdateSelectionConditions,
 } from '../../../../shared/model/hooks';
 import { useAutoRefetchQuery } from '../../../../shared/model/lib/useQuery';
-import Button from '../../../../shared/ui/Button/Button';
+import Button from '../../../../shared/ui/Button';
 import { Input } from '../../../../shared/ui/FormItems';
 import { Modal } from '../../../../shared/ui/Modal';
 import type { SelectionCondition } from '../../../../shared/api/selectionConditions';

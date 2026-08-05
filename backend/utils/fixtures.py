@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 import orjson
 from core.logger import logger
 
@@ -13,9 +13,9 @@ FIXTURE_SUBDIR_LABELS = {
 
 
 def get_available_fixtures(
-    laboratory_name: Optional[str] = None,
-    department_name: Optional[str] = None,
-) -> List[str]:
+    laboratory_name: str | None = None,
+    department_name: str | None = None,
+) -> list[str]:
     """
     Получить список доступных фикстур методов исследования.
 
@@ -65,7 +65,7 @@ def get_available_fixtures(
     return sorted(available_fixtures)
 
 
-def get_fixture_data(fixture_path: str) -> Optional[Dict[str, Any]]:
+def get_fixture_data(fixture_path: str) -> dict[str, Any] | None:
     """Получить данные фикстуры по пути."""
     try:
         fixture_file = FIXTURES_BASE_PATH / fixture_path
@@ -80,7 +80,7 @@ def get_fixture_data(fixture_path: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-def list_fixture_subdirectories(laboratory_name: str) -> List[Dict[str, Any]]:
+def list_fixture_subdirectories(laboratory_name: str) -> list[dict[str, Any]]:
     """
     Подкаталоги лаборатории с JSON-фикстурами для дерева выбора на фронтенде.
 
@@ -92,8 +92,8 @@ def list_fixture_subdirectories(laboratory_name: str) -> List[Dict[str, Any]]:
     if not lab_path.exists() or not lab_path.is_dir():
         return []
 
-    grouped_paths: Dict[str, List[str]] = {}
-    label_order: List[str] = []
+    grouped_paths: dict[str, list[str]] = {}
+    label_order: list[str] = []
 
     for fixture_type_dir in sorted(lab_path.iterdir(), key=lambda p: p.name):
         if fixture_type_dir.is_dir() and _has_json_files(fixture_type_dir):
@@ -107,14 +107,14 @@ def list_fixture_subdirectories(laboratory_name: str) -> List[Dict[str, Any]]:
                 label_order.append(label)
             grouped_paths[label].append(rel)
 
-    entries: List[Dict[str, Any]] = []
+    entries: list[dict[str, Any]] = []
     for label in label_order:
         paths = grouped_paths[label]
         entries.append({"path": paths[0], "paths": paths, "label": label})
     return entries
 
 
-def list_fixture_files(fixture_path: str) -> List[str]:
+def list_fixture_files(fixture_path: str) -> list[str]:
     """Получить список файлов в директории фикстуры."""
     try:
         fixture_dir = FIXTURES_BASE_PATH / fixture_path

@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import Any, Dict, List, Optional
 import pendulum
 from sqlalchemy import desc, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,7 +25,7 @@ from utils.sorting import build_order_by
 
 async def get_protocol_by_id(
     db: AsyncSession, protocol_id: int, include_deleted: bool = False
-) -> Optional[Protocol]:
+) -> Protocol | None:
     """Получить протокол по ID."""
     query = (
         select(Protocol)
@@ -44,31 +43,31 @@ async def get_protocol_by_id(
 
 async def get_protocols(
     db: AsyncSession,
-    laboratory_id: Optional[int] = None,
-    department_id: Optional[int] = None,
+    laboratory_id: int | None = None,
+    department_id: int | None = None,
     include_deleted: bool = False,
-    page: Optional[int] = None,
-    page_size: Optional[int] = None,
-    sort_by: Optional[str] = None,
-    sort_order: Optional[str] = None,
-    is_accredited: Optional[bool] = None,
-    search: Optional[str] = None,
-    search_date: Optional[str] = None,
-    search_sampling_act: Optional[str] = None,
-    sample_ids_for_search: Optional[List[int]] = None,
+    page: int | None = None,
+    page_size: int | None = None,
+    sort_by: str | None = None,
+    sort_order: str | None = None,
+    is_accredited: bool | None = None,
+    search: str | None = None,
+    search_date: str | None = None,
+    search_sampling_act: str | None = None,
+    sample_ids_for_search: list[int] | None = None,
     no_sample_match: bool = False,
-    test_protocol_date_from: Optional[pendulum.DateTime] = None,
-    test_protocol_date_to: Optional[pendulum.DateTime] = None,
-    created_at_from: Optional[pendulum.DateTime] = None,
-    created_at_to: Optional[pendulum.DateTime] = None,
-) -> tuple[List[Protocol], int]:
+    test_protocol_date_from: pendulum.DateTime | None = None,
+    test_protocol_date_to: pendulum.DateTime | None = None,
+    created_at_from: pendulum.DateTime | None = None,
+    created_at_to: pendulum.DateTime | None = None,
+) -> tuple[list[Protocol], int]:
     """Получить список протоколов."""
     query = select(Protocol).options(
         selectinload(Protocol.laboratory), selectinload(Protocol.department)
     )
 
     if not include_deleted:
-        query = query.where(Protocol.deleted_at.is_(None))
+        query = filter_not_deleted(query, Protocol.deleted_at)
 
     conditions = _build_protocol_conditions(
         laboratory_id=laboratory_id,
@@ -121,7 +120,7 @@ async def get_protocols(
 
     count_query = select(func.count()).select_from(Protocol)
     if not include_deleted:
-        count_query = count_query.where(Protocol.deleted_at.is_(None))
+        count_query = filter_not_deleted(count_query, Protocol.deleted_at)
 
     count_conditions = _build_protocol_conditions(
         laboratory_id=laboratory_id,
@@ -151,18 +150,18 @@ async def get_protocols(
 
 def _build_protocol_conditions(
     *,
-    laboratory_id: Optional[int],
-    department_id: Optional[int],
-    is_accredited: Optional[bool],
-    search: Optional[str],
-    search_date: Optional[str],
-    search_sampling_act: Optional[str],
-    sample_ids_for_search: Optional[List[int]],
+    laboratory_id: int | None,
+    department_id: int | None,
+    is_accredited: bool | None,
+    search: str | None,
+    search_date: str | None,
+    search_sampling_act: str | None,
+    sample_ids_for_search: list[int] | None,
     no_sample_match: bool,
-    test_protocol_date_from: Optional[pendulum.DateTime],
-    test_protocol_date_to: Optional[pendulum.DateTime],
-    created_at_from: Optional[pendulum.DateTime],
-    created_at_to: Optional[pendulum.DateTime],
+    test_protocol_date_from: pendulum.DateTime | None,
+    test_protocol_date_to: pendulum.DateTime | None,
+    created_at_from: pendulum.DateTime | None,
+    created_at_to: pendulum.DateTime | None,
 ) -> list:
     """Собрать условия фильтрации протоколов."""
     conditions = []
@@ -224,48 +223,21 @@ def _build_protocol_conditions(
     return conditions
 
 
-async def get_protocol_template_by_id_simple(
-    db: AsyncSession, template_id: int
-) -> Optional[ProtocolTemplate]:
-    """Получить шаблон протокола по ID без связей."""
-    query = select(ProtocolTemplate).where(ProtocolTemplate.id == template_id)
-    return await execute_scalar_one_or_none(db, query)
-
-
 async def exists_protocol_by_sampling_act(
     db: AsyncSession,
     sampling_act_number: str,
-    exclude_id: Optional[int] = None,
+    exclude_id: int | None = None,
 ) -> bool:
     """Проверить существование протокола с таким номером акта отбора."""
-    conditions = [
-        Protocol.sampling_act_number == sampling_act_number,
-        Protocol.deleted_at.is_(None),
-    ]
+    query = filter_not_deleted(
+        select(Protocol).where(Protocol.sampling_act_number == sampling_act_number),
+        Protocol.deleted_at,
+    )
     if exclude_id is not None:
-        conditions.append(Protocol.id != exclude_id)
+        query = query.where(Protocol.id != exclude_id)
 
-    query = select(Protocol).where(*conditions)
     result = await db.execute(query)
     return result.scalars().first() is not None
-
-
-async def get_samples_by_ids(db: AsyncSession, sample_ids: list[int]) -> list[Sample]:
-    """Получить пробы по списку ID."""
-    query = (
-        select(Sample)
-        .where(
-            Sample.id.in_(sample_ids),
-            Sample.deleted_at.is_(None),
-        )
-        .options(
-            selectinload(Sample.laboratory),
-            selectinload(Sample.department),
-            selectinload(Sample.branch),
-            selectinload(Sample.sampling_location),
-        )
-    )
-    return await execute_scalars_all(db, query)
 
 
 async def add_protocol(db: AsyncSession, protocol: Protocol) -> Protocol:
@@ -276,7 +248,7 @@ async def add_protocol(db: AsyncSession, protocol: Protocol) -> Protocol:
 
 async def get_protocol_template_by_id(
     db: AsyncSession, template_id: int, include_deleted: bool = False
-) -> Optional[ProtocolTemplate]:
+) -> ProtocolTemplate | None:
     """Получить шаблон протокола по ID."""
     query = (
         select(ProtocolTemplate)
@@ -293,14 +265,14 @@ async def get_protocol_template_by_id(
 
 async def get_protocol_templates(
     db: AsyncSession,
-    laboratory_id: Optional[int] = None,
-    department_id: Optional[int] = None,
+    laboratory_id: int | None = None,
+    department_id: int | None = None,
     include_deleted: bool = False,
-    page: Optional[int] = None,
-    page_size: Optional[int] = None,
-    sort_by: Optional[str] = None,
-    sort_order: Optional[str] = None,
-) -> tuple[List[ProtocolTemplate], int]:
+    page: int | None = None,
+    page_size: int | None = None,
+    sort_by: str | None = None,
+    sort_order: str | None = None,
+) -> tuple[list[ProtocolTemplate], int]:
     """Получить список шаблонов протоколов."""
     query = select(ProtocolTemplate).options(
         selectinload(ProtocolTemplate.laboratory),
@@ -308,7 +280,7 @@ async def get_protocol_templates(
     )
 
     if not include_deleted:
-        query = query.where(ProtocolTemplate.deleted_at.is_(None))
+        query = filter_not_deleted(query, ProtocolTemplate.deleted_at)
 
     conditions = []
     if laboratory_id:
@@ -339,7 +311,7 @@ async def get_protocol_templates(
 
     count_query = select(func.count()).select_from(ProtocolTemplate)
     if not include_deleted:
-        count_query = count_query.where(ProtocolTemplate.deleted_at.is_(None))
+        count_query = filter_not_deleted(count_query, ProtocolTemplate.deleted_at)
     count_conditions = []
     if laboratory_id:
         count_conditions.append(ProtocolTemplate.laboratory_id == laboratory_id)
@@ -361,20 +333,18 @@ async def get_latest_protocol_template(
     db: AsyncSession,
     name: str,
     laboratory_id: int,
-    department_id: Optional[int],
-) -> Optional[ProtocolTemplate]:
+    department_id: int | None,
+) -> ProtocolTemplate | None:
     """Получить последнюю версию шаблона протокола."""
-    query = (
-        select(ProtocolTemplate)
-        .where(
+    query = filter_not_deleted(
+        select(ProtocolTemplate).where(
             ProtocolTemplate.name == name,
             ProtocolTemplate.laboratory_id == laboratory_id,
             ProtocolTemplate.department_id == department_id,
-            ProtocolTemplate.deleted_at.is_(None),
-        )
-        .order_by(ProtocolTemplate.version.desc())
-        .limit(1)
+        ),
+        ProtocolTemplate.deleted_at,
     )
+    query = query.order_by(ProtocolTemplate.version.desc()).limit(1)
     return await execute_scalar_one_or_none(db, query)
 
 
@@ -387,25 +357,30 @@ async def add_protocol_template(
 
 
 async def get_protocols_by_sample_ids(
-    db: AsyncSession, sample_ids: List[int]
+    db: AsyncSession, sample_ids: list[int]
 ) -> tuple[list[Protocol], list[Sample]]:
     """Получить протоколы и пробы для списка ID проб."""
     if not sample_ids:
         return [], []
 
     protocols_result = await db.execute(
-        select(Protocol).where(
-            Protocol.deleted_at.is_(None),
-            text(
-                "EXISTS (SELECT 1 FROM jsonb_array_elements_text(samples::jsonb) AS elem WHERE elem::int = ANY(:sample_ids))"
-            ).bindparams(bindparam("sample_ids")),
+        filter_not_deleted(
+            select(Protocol).where(
+                text(
+                    "EXISTS (SELECT 1 FROM jsonb_array_elements_text(samples::jsonb) AS elem WHERE elem::int = ANY(:sample_ids))"
+                ).bindparams(bindparam("sample_ids")),
+            ),
+            Protocol.deleted_at,
         ),
         {"sample_ids": sample_ids},
     )
     all_protocols = list(protocols_result.scalars().all())
 
     samples_result = await db.execute(
-        select(Sample).where(Sample.id.in_(sample_ids), Sample.deleted_at.is_(None))
+        filter_not_deleted(
+            select(Sample).where(Sample.id.in_(sample_ids)),
+            Sample.deleted_at,
+        )
     )
     samples_list = list(samples_result.scalars().all())
 
@@ -417,9 +392,11 @@ async def get_sample_ids_by_registration_search(
 ) -> list[int]:
     """Найти ID проб по регистрационному номеру."""
     matching_samples = await db.execute(
-        select(Sample.id).where(
-            Sample.registration_number.ilike(f"%{search_samples}%"),
-            Sample.deleted_at.is_(None),
+        filter_not_deleted(
+            select(Sample.id).where(
+                Sample.registration_number.ilike(f"%{search_samples}%"),
+            ),
+            Sample.deleted_at,
         )
     )
     return [row[0] for row in matching_samples.fetchall()]

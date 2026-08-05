@@ -7,8 +7,8 @@ import {
   type ColumnDef,
   type ColumnSizingState,
 } from '@tanstack/react-table';
-import { LoadingCard } from '../../../../features/Cards';
-import Button from '../../../../shared/ui/Button/Button';
+import { Spin } from 'antd';
+import Button from '../../../../shared/ui/Button';
 import './MassFractionOilRefractionDirectoryTable.css';
 
 /** В модалке градуировки — русский разделитель в ячейках. */
@@ -99,7 +99,7 @@ const MassFractionOilRefractionDirectoryTable: React.FC<
 
   return (
     <div className="mass-fraction-oil-refraction-directory-table-container">
-      <LoadingCard loading={loading} />
+      {loading ? <Spin size="large" /> : null}
       {!loading && (
         <div className="mass-fraction-oil-refraction-directory-table-wrapper">
           <table className="mass-fraction-oil-refraction-directory-table">

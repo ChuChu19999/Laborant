@@ -1,12 +1,10 @@
 from __future__ import annotations
 import zipfile
 from io import BytesIO
-from typing import List, Optional
 import pendulum
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.exceptions import NotFoundError, ValidationError
 from models.report import ReportTemplate, ReportType
-from repositories import laboratory as laboratory_repo
 from repositories import report as report_repo
 from repositories.base import flush_entity
 from schemas.report import (
@@ -25,6 +23,7 @@ from services.ilninm_reports.physicochemical_generator import (
     build_physicochemical_excel,
 )
 from services.ilninm_reports.sample_count_generator import build_sample_count_excel
+from services.laboratory import require_laboratory_by_id
 from services.visibility import validate_lab_and_department
 from utils.ilninm_sampling_location import resolve_sampling_location_db_name
 from utils.pagination import calculate_total_pages
@@ -41,9 +40,19 @@ def require_active_report_template(template: ReportTemplate) -> ReportTemplate:
 
 async def get_report_template_by_id(
     db: AsyncSession, template_id: int, include_deleted: bool = False
-) -> Optional[ReportTemplate]:
+) -> ReportTemplate | None:
     """Получить шаблон отчёта по ID."""
     return await report_repo.get_report_template_by_id(db, template_id, include_deleted)
+
+
+async def require_report_template_by_id(
+    db: AsyncSession, template_id: int, include_deleted: bool = False
+) -> ReportTemplate:
+    """Получить шаблон отчёта по ID или вернуть 404."""
+    template = await get_report_template_by_id(db, template_id, include_deleted)
+    if not template:
+        raise NotFoundError("Шаблон отчёта не найден")
+    return template
 
 
 async def get_latest_report_template(
@@ -51,8 +60,8 @@ async def get_latest_report_template(
     *,
     laboratory_id: int,
     report_type: str,
-    department_id: Optional[int] = None,
-) -> Optional[ReportTemplate]:
+    department_id: int | None = None,
+) -> ReportTemplate | None:
     """Последняя неудалённая версия шаблона для лаборатории и подразделения."""
     return await report_repo.get_latest_report_template(
         db,
@@ -64,14 +73,14 @@ async def get_latest_report_template(
 
 async def get_report_templates(
     db: AsyncSession,
-    laboratory_id: Optional[int] = None,
-    department_id: Optional[int] = None,
+    laboratory_id: int | None = None,
+    department_id: int | None = None,
     include_deleted: bool = False,
-    page: Optional[int] = None,
-    page_size: Optional[int] = None,
-    sort_by: Optional[str] = None,
-    sort_order: Optional[str] = None,
-) -> tuple[List[ReportTemplate], int, int]:
+    page: int | None = None,
+    page_size: int | None = None,
+    sort_by: str | None = None,
+    sort_order: str | None = None,
+) -> tuple[list[ReportTemplate], int, int]:
     """Получить список шаблонов отчётов."""
     templates, total = await report_repo.get_report_templates(
         db,
@@ -199,11 +208,6 @@ async def get_report_template_response_data(
     return build_report_template_response(template)
 
 
-async def get_laboratory_by_id(db: AsyncSession, laboratory_id: int):
-    """Получить лабораторию по ID."""
-    return await laboratory_repo.get_laboratory_by_id(db, laboratory_id)
-
-
 def parse_report_period_bounds(date_from, date_to):
     """Преобразует date из схемы в границы периода для отчётов."""
     try:
@@ -221,15 +225,13 @@ async def resolve_ilninm_report_template(
     db: AsyncSession,
     laboratory_id: int,
     report_type: str,
-    template_id: Optional[int],
-    department_id: Optional[int],
+    template_id: int | None,
+    department_id: int | None,
     report_type_label: str,
     template_not_found_msg: str,
 ) -> ReportTemplate:
     """Проверить лабораторию ИЛНиНМ и вернуть активный шаблон отчёта."""
-    lab = await get_laboratory_by_id(db, laboratory_id)
-    if not lab:
-        raise NotFoundError("Лаборатория не найдена")
+    lab = await require_laboratory_by_id(db, laboratory_id)
     if lab.name != LABORATORY_NAME_ILNINM:
         raise ValidationError(
             f"Отчёт «{report_type_label}» доступен только "

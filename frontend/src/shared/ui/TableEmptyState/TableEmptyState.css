@@ -1,0 +1,30 @@
+.table-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px 24px;
+  text-align: center;
+}
+
+.table-empty-state-title {
+  margin: 0;
+  font-family: 'HeliosCondC';
+  font-size: 16px;
+  font-weight: 600;
+  color: #282828;
+}
+
+.table-empty-state-description {
+  margin: 0;
+  max-width: 420px;
+  font-family: 'HeliosCondC';
+  font-size: 14px;
+  line-height: 1.45;
+  color: #5f6770;
+}
+
+.table-empty-state-action {
+  margin-top: 8px;
+}

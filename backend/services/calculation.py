@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.exceptions import ConflictError, NotFoundError, ValidationError
 from core.logger import logger
@@ -33,21 +32,31 @@ from utils.pagination import calculate_total_pages
 
 async def get_calculation_by_id(
     db: AsyncSession, calculation_id: int, include_deleted: bool = False
-) -> Optional[Calculation]:
+) -> Calculation | None:
     """Получить расчет по ID."""
     return await calculation_repo.get_calculation_by_id(
         db, calculation_id, include_deleted
     )
 
 
+async def require_calculation_by_id(
+    db: AsyncSession, calculation_id: int, include_deleted: bool = False
+) -> Calculation:
+    """Получить расчет по ID или вернуть 404."""
+    calculation = await get_calculation_by_id(db, calculation_id, include_deleted)
+    if not calculation:
+        raise NotFoundError("Расчет не найден")
+    return calculation
+
+
 async def get_calculations_by_sample(
     db: AsyncSession,
-    sample_id: Optional[int] = None,
-    sample_ids: Optional[List[int]] = None,
+    sample_id: int | None = None,
+    sample_ids: list[int] | None = None,
     include_deleted: bool = False,
-    sort_by: Optional[str] = None,
-    sort_order: Optional[str] = None,
-) -> List[Calculation]:
+    sort_by: str | None = None,
+    sort_order: str | None = None,
+) -> list[Calculation]:
     """Получить список расчетов по пробе без пагинации."""
     return await calculation_repo.get_calculations_by_sample(
         db, sample_id, sample_ids, include_deleted, sort_by, sort_order
@@ -56,17 +65,17 @@ async def get_calculations_by_sample(
 
 async def get_calculations(
     db: AsyncSession,
-    sample_id: Optional[int] = None,
-    sample_ids: Optional[List[int]] = None,
-    laboratory_id: Optional[int] = None,
-    department_id: Optional[int] = None,
-    research_method_id: Optional[int] = None,
+    sample_id: int | None = None,
+    sample_ids: list[int] | None = None,
+    laboratory_id: int | None = None,
+    department_id: int | None = None,
+    research_method_id: int | None = None,
     include_deleted: bool = False,
-    page: Optional[int] = None,
-    page_size: Optional[int] = None,
-    sort_by: Optional[str] = None,
-    sort_order: Optional[str] = None,
-) -> tuple[List[Calculation], int, int]:
+    page: int | None = None,
+    page_size: int | None = None,
+    sort_by: str | None = None,
+    sort_order: str | None = None,
+) -> tuple[list[Calculation], int, int]:
     """Получить список расчетов."""
     calculations, total = await calculation_repo.get_calculations(
         db,
@@ -252,7 +261,7 @@ def _resolve_equipment_ids(equipment_data: list) -> list[int]:
 async def _build_calculation_response(
     db: AsyncSession,
     calculation: Calculation,
-    equipment_map: Optional[dict[int, Equipment]] = None,
+    equipment_map: dict[int, Equipment] | None = None,
 ) -> CalculationResponse:
     """Собрать ответ API по расчёту с загруженными связями."""
     calc_dict = CalculationResponse.model_validate(
@@ -294,7 +303,7 @@ async def _build_calculation_response(
 async def _build_calculation_response_with_equipment_map(
     db: AsyncSession,
     calculation: Calculation,
-    equipment_map: Optional[dict[int, Equipment]] = None,
+    equipment_map: dict[int, Equipment] | None = None,
 ) -> CalculationResponse:
     """Собрать ответ по расчёту с предзагруженным словарём оборудования."""
     return await _build_calculation_response(db, calculation, equipment_map)
@@ -460,7 +469,7 @@ async def _validate_research_method_version_change(
     old_method_id: int,
     new_method_id: int,
     laboratory_id: int,
-    department_id: Optional[int],
+    department_id: int | None,
 ) -> None:
     """Разрешить смену метода только при переходе на актуальную версию той же методики."""
     old_method = await get_research_method_by_id(

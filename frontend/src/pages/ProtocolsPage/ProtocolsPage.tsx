@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { PlusOutlined } from '@ant-design/icons';
 import { message } from 'antd';
 import dayjs from 'dayjs';
@@ -9,12 +9,13 @@ import { CreateProtocolModal, EditProtocolModal, DeleteProtocolModal } from '../
 import { laboratoriesApi } from '../../shared/api/laboratories';
 import { protocolsApi } from '../../shared/api/protocols';
 import { extractErrorMessage } from '../../shared/lib/errors/extractErrorMessage';
+import { useCan, useScopeAccess } from '../../shared/lib/permissions';
 import { useProtocols } from '../../shared/model/hooks';
 import { useAutoRefetchQuery } from '../../shared/model/lib/useQuery';
 import { useQueryStore } from '../../shared/model/stores';
-import Button from '../../shared/ui/Button/Button';
+import Button from '../../shared/ui/Button';
 import { LaboratoryCard, DepartmentCard } from '../../shared/ui/Cards';
-import Layout from '../../shared/ui/Layout/Layout';
+import Layout from '../../shared/ui/Layout';
 import { NavigationBar } from '../../widgets/NavigationBar';
 import { ProtocolsTable } from '../../widgets/Tables/ProtocolsTable';
 import type { Laboratory, Department } from '../../shared/api/laboratories';
@@ -57,6 +58,10 @@ const ProtocolsPage: React.FC = () => {
     departmentId?: string;
   }>();
   const navigate = useNavigate();
+  const { canAccessLaboratory, canAccessDepartment, canAccessRouteScope } = useScopeAccess();
+  const canCreateProtocol = useCan('protocols', 'create');
+  const canUpdateProtocol = useCan('protocols', 'update');
+  const canDeleteProtocol = useCan('protocols', 'delete');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedProtocol, setSelectedProtocol] = useState<Protocol | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -357,6 +362,10 @@ const ProtocolsPage: React.FC = () => {
     return breadcrumbs;
   };
 
+  if (!canAccessRouteScope(effectiveLabId, effectiveDeptId)) {
+    return <Navigate to="/403" replace />;
+  }
+
   if (!effectiveLabId && laboratories?.items) {
     return (
       <Layout title="Протоколы">
@@ -373,6 +382,7 @@ const ProtocolsPage: React.FC = () => {
                 laboratory={laboratory}
                 onClick={handleLaboratoryClick}
                 showActions={false}
+                disabled={!canAccessLaboratory(laboratory.id)}
               />
             ))}
           </div>
@@ -395,6 +405,7 @@ const ProtocolsPage: React.FC = () => {
                 onClick={handleDepartmentClick}
                 showActions={false}
                 iconIndex={index}
+                disabled={!canAccessDepartment(effectiveLabId, department.id)}
               />
             ))}
           </div>
@@ -414,13 +425,15 @@ const ProtocolsPage: React.FC = () => {
       <div className="protocols-page-container">
         <div className="protocols-page-header">
           <div className="protocols-page-header-left">
-            <Button
-              type="primary"
-              onClick={() => setIsCreateModalOpen(true)}
-              icon={<PlusOutlined />}
-            >
-              Добавить протокол
-            </Button>
+            {canCreateProtocol && (
+              <Button
+                type="primary"
+                onClick={() => setIsCreateModalOpen(true)}
+                icon={<PlusOutlined />}
+              >
+                Добавить протокол
+              </Button>
+            )}
           </div>
           <div className="protocols-page-header-right">
             <ResetFiltersButton
@@ -455,6 +468,15 @@ const ProtocolsPage: React.FC = () => {
             onEdit={handleEdit}
             onDelete={handleDelete}
             onGenerateExcel={handleGenerateExcel}
+            onCreate={() => setIsCreateModalOpen(true)}
+            onResetFilters={() => {
+              protocols.setFilters(undefined);
+              protocols.setSorting(undefined);
+              protocols.setPage(1);
+            }}
+            canUpdate={canUpdateProtocol}
+            canDelete={canDeleteProtocol}
+            canCreate={canCreateProtocol}
           />
         </div>
       </div>

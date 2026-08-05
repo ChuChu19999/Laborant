@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Radio } from 'antd';
-import Button from '../../../../shared/ui/Button/Button';
+import Button from '../../../../shared/ui/Button';
+import { RadioGroup } from '../../../../shared/ui/FormItems';
 import { Modal } from '../../../../shared/ui/Modal';
 import type { MethodologyChoice } from '../../../../shared/api/calculation';
 import './MethodologyVersionChoiceModal.css';
@@ -93,17 +93,15 @@ const MethodologyVersionChoiceModal: React.FC<MethodologyVersionChoiceModalProps
                 <span className="methodology-version-choice-modal-marker">б)</span>
                 <strong>По актуальной методике</strong> — выберите подходящую версию:
               </p>
-              <Radio.Group
+              <RadioGroup
                 className="methodology-version-choice-modal-radio-group"
                 value={selectedCandidateId}
                 onChange={event => setSelectedCandidateId(event.target.value)}
-              >
-                {choice.candidate_methods?.map(candidate => (
-                  <Radio key={candidate.id} value={candidate.id}>
-                    {candidate.name}
-                  </Radio>
-                ))}
-              </Radio.Group>
+                options={choice.candidate_methods?.map(candidate => ({
+                  value: candidate.id,
+                  label: candidate.name,
+                }))}
+              />
             </div>
           ) : (
             <p>

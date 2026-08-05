@@ -1,6 +1,7 @@
 import { axiosInstance } from '../config/axios';
 import type { PaginatedResponse } from './research';
 import type { VisibilityScope } from './testObjects';
+import type { RolePermissions } from '../config/permissions';
 import type { RoleTypeValue } from '../lib/roleTypeOptions';
 
 export interface RoleCatalogItem {
@@ -8,6 +9,7 @@ export interface RoleCatalogItem {
   name: string;
   role_type: RoleTypeValue;
   visibility_scope: VisibilityScope;
+  permissions: RolePermissions;
   created_at: string;
   updated_at: string;
   deleted_at?: string;
@@ -17,12 +19,14 @@ export interface RoleCreate {
   name: string;
   role_type: RoleTypeValue;
   visibility_scope: VisibilityScope;
+  permissions?: RolePermissions;
 }
 
 export interface RoleUpdate {
   name?: string;
   role_type?: RoleTypeValue;
   visibility_scope?: VisibilityScope;
+  permissions?: RolePermissions;
 }
 
 export interface RoleFilters {

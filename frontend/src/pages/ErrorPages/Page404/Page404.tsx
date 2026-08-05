@@ -1,4 +1,4 @@
-import Layout from '../../../shared/ui/Layout/Layout';
+import Layout from '../../../shared/ui/Layout';
 import './Page404.css';
 
 const Page404 = () => {

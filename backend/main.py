@@ -18,9 +18,7 @@ from core.swagger import setup_swagger_ui
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    Lifecycle hooks для управления ресурсами приложения.
-    """
+    """Lifecycle hooks для управления ресурсами приложения."""
     yield
     await close_all_clients()
 

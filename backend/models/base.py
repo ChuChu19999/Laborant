@@ -1,6 +1,5 @@
 from __future__ import annotations
 from datetime import datetime
-from typing import Optional
 import pendulum
 from sqlalchemy import DateTime, String, event
 from sqlalchemy.orm import Mapped, mapped_column
@@ -23,15 +22,15 @@ class BaseModel(Base):
         onupdate=func.now(),
         nullable=False,
     )
-    deleted_at: Mapped[Optional[datetime]] = mapped_column(
+    deleted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    created_by: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    created_by_hash: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
-    updated_by: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    updated_by_hash: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
-    deleted_by: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    deleted_by_hash: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    created_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_by_hash: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    updated_by_hash: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    deleted_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    deleted_by_hash: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
     def soft_delete(self):
         """Мягкое удаление записи с установкой deleted_by, deleted_by_hash и deleted_at."""

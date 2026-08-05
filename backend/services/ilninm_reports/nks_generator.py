@@ -1,6 +1,6 @@
 import base64
 from io import BytesIO
-from typing import Any, Optional
+from typing import Any
 import openpyxl
 from openpyxl.cell.cell import Cell
 from openpyxl.styles import Font
@@ -63,7 +63,7 @@ def _writable_cell(
 
 def _template_data_row_height(
     ws: openpyxl.worksheet.worksheet.Worksheet, template_row: int
-) -> Optional[float]:
+) -> float | None:
     row_dim = ws.row_dimensions.get(template_row)
     if row_dim and row_dim.height is not None:
         return row_dim.height
@@ -73,7 +73,7 @@ def _template_data_row_height(
 def _lock_data_row_height(
     ws: openpyxl.worksheet.worksheet.Worksheet,
     row: int,
-    height: Optional[float],
+    height: float | None,
 ) -> None:
     if height is None:
         return
@@ -109,7 +109,7 @@ def _write_data_row(
     well: str,
     sampling_date: str,
     values_by_column: dict[int, str],
-    template_row_height: Optional[float],
+    template_row_height: float | None,
 ) -> None:
     if output_row != template_row:
         copy_row_formatting(ws, ws, template_row, output_row, merged_cells_map=None)
@@ -141,7 +141,7 @@ async def build_nks_excel(
     sampling_date_to: Any,
     report_month: int,
     report_year: int,
-    department_id: Optional[int] = None,
+    department_id: int | None = None,
 ) -> bytes:
     """Строит Excel по шаблону: шапка с периодом, строки данных с 19-й строки."""
     template_bytes = base64.b64decode(template_file_base64)

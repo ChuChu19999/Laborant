@@ -6,8 +6,8 @@ import { LoadingCard } from '../../features/Cards';
 import { CreateRoleModal, DeleteRoleModal, EditRoleModal } from '../../features/Modals';
 import { ROLE_TYPES } from '../../shared/lib/roleTypeOptions';
 import { useRoles } from '../../shared/model/hooks';
-import Button from '../../shared/ui/Button/Button';
-import Layout from '../../shared/ui/Layout/Layout';
+import Button from '../../shared/ui/Button';
+import Layout from '../../shared/ui/Layout';
 import { NavigationBar } from '../../widgets/NavigationBar';
 import { RolesTable } from '../../widgets/Tables/RolesTable';
 import type { RoleCatalogItem } from '../../shared/api/roles';
@@ -104,6 +104,13 @@ const RolesPage: React.FC = () => {
     [roles.data]
   );
 
+  const handleConfigure = useCallback(
+    (id: number) => {
+      navigate(`/roles/${id}/permissions`);
+    },
+    [navigate]
+  );
+
   const handleModalSuccess = useCallback(() => {
     setIsCreateModalOpen(false);
     setIsEditModalOpen(false);
@@ -130,7 +137,7 @@ const RolesPage: React.FC = () => {
               icon={<PlusOutlined />}
               onClick={() => setIsCreateModalOpen(true)}
             >
-              Добавить область видимости роли
+              Добавить роль
             </Button>
           </div>
           <div className="roles-page-header-right">
@@ -166,6 +173,7 @@ const RolesPage: React.FC = () => {
             }
             onEdit={handleEdit}
             onDelete={handleDelete}
+            onConfigure={handleConfigure}
           />
         </div>
       </div>

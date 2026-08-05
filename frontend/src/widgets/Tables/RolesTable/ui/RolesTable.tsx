@@ -1,6 +1,6 @@
 import React from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { DeleteOutlined, EditOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, SettingOutlined } from '@ant-design/icons';
 import {
   useReactTable,
   getCoreRowModel,
@@ -18,7 +18,7 @@ import { FaSortUp, FaSortDown, FaSort } from 'react-icons/fa';
 import { LoadingCard } from '../../../../features/Cards';
 import { formatRoleType, ROLE_TYPE_OPTIONS } from '../../../../shared/lib/roleTypeOptions';
 import { urlParamsToFilters } from '../../../../shared/lib/urlParams';
-import Button from '../../../../shared/ui/Button/Button';
+import Button from '../../../../shared/ui/Button';
 import { Input, Select } from '../../../../shared/ui/FormItems';
 import type { RoleCatalogItem } from '../../../../shared/api/roles';
 import './RolesTable.css';
@@ -35,6 +35,7 @@ interface RolesTableProps {
   sorting?: SortingState;
   onEdit: (id: number) => void;
   onDelete: (id: number) => void;
+  onConfigure: (id: number) => void;
 }
 
 const formatVisibilityScope = (item: RoleCatalogItem): string => {
@@ -82,6 +83,7 @@ const RolesTable: React.FC<RolesTableProps> = ({
   sorting: externalSorting,
   onEdit,
   onDelete,
+  onConfigure,
 }) => {
   const [searchParams] = useSearchParams();
   const filterKeys = React.useMemo(() => ['name', 'role_type'], []);
@@ -169,6 +171,15 @@ const RolesTable: React.FC<RolesTableProps> = ({
             <Button
               type="text"
               size="small"
+              icon={<SettingOutlined />}
+              onClick={() => onConfigure(row.original.id)}
+              className="roles-table-configure-button"
+            >
+              Настроить
+            </Button>
+            <Button
+              type="text"
+              size="small"
               icon={<EditOutlined />}
               onClick={() => onEdit(row.original.id)}
               className="roles-table-edit-button"
@@ -189,11 +200,11 @@ const RolesTable: React.FC<RolesTableProps> = ({
         ),
         enableSorting: false,
         enableColumnFilter: false,
-        size: 220,
+        size: 320,
         enableResizing: false,
       },
     ],
-    [onEdit, onDelete]
+    [onEdit, onDelete, onConfigure]
   );
 
   const handleColumnFiltersChange = React.useCallback(

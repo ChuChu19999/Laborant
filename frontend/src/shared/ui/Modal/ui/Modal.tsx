@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { BiX } from 'react-icons/bi';
-import Button from '../../Button/Button';
+import Button from '../../Button';
 import './Modal.css';
 
 interface ModalProps {

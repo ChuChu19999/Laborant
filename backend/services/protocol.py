@@ -1,12 +1,13 @@
 from __future__ import annotations
 import base64
-from typing import Any, List, Optional
+from typing import Any
 import pendulum
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.exceptions import ConflictError, NotFoundError, ValidationError
 from models.protocol import Protocol, ProtocolTemplate
 from repositories import laboratory as laboratory_repo
 from repositories import protocol as protocol_repo
+from repositories import sample as sample_repo
 from repositories.base import flush_entity
 from schemas.protocol import (
     ProtocolCreate,
@@ -35,30 +36,40 @@ from utils.protocol_generator_utils import (
 
 async def get_protocol_by_id(
     db: AsyncSession, protocol_id: int, include_deleted: bool = False
-) -> Optional[Protocol]:
+) -> Protocol | None:
     """Получить протокол по ID."""
     return await protocol_repo.get_protocol_by_id(db, protocol_id, include_deleted)
 
 
+async def require_protocol_by_id(
+    db: AsyncSession, protocol_id: int, include_deleted: bool = False
+) -> Protocol:
+    """Получить протокол по ID или вернуть 404."""
+    protocol = await get_protocol_by_id(db, protocol_id, include_deleted)
+    if not protocol:
+        raise NotFoundError("Протокол не найден")
+    return protocol
+
+
 async def get_protocols(
     db: AsyncSession,
-    laboratory_id: Optional[int] = None,
-    department_id: Optional[int] = None,
+    laboratory_id: int | None = None,
+    department_id: int | None = None,
     include_deleted: bool = False,
-    page: Optional[int] = None,
-    page_size: Optional[int] = None,
-    sort_by: Optional[str] = None,
-    sort_order: Optional[str] = None,
-    is_accredited: Optional[bool] = None,
-    search: Optional[str] = None,
-    search_date: Optional[str] = None,
-    search_sampling_act: Optional[str] = None,
-    search_samples: Optional[str] = None,
-    test_protocol_date_from: Optional[pendulum.DateTime] = None,
-    test_protocol_date_to: Optional[pendulum.DateTime] = None,
-    created_at_from: Optional[pendulum.DateTime] = None,
-    created_at_to: Optional[pendulum.DateTime] = None,
-) -> tuple[List[Protocol], int, int]:
+    page: int | None = None,
+    page_size: int | None = None,
+    sort_by: str | None = None,
+    sort_order: str | None = None,
+    is_accredited: bool | None = None,
+    search: str | None = None,
+    search_date: str | None = None,
+    search_sampling_act: str | None = None,
+    search_samples: str | None = None,
+    test_protocol_date_from: pendulum.DateTime | None = None,
+    test_protocol_date_to: pendulum.DateTime | None = None,
+    created_at_from: pendulum.DateTime | None = None,
+    created_at_to: pendulum.DateTime | None = None,
+) -> tuple[list[Protocol], int, int]:
     """Получить список протоколов."""
     sample_ids_for_search = None
     no_sample_match = False
@@ -107,8 +118,8 @@ async def create_protocol(db: AsyncSession, protocol_data: ProtocolCreate) -> Pr
     )
 
     if protocol_data.protocol_template_id:
-        if not await protocol_repo.get_protocol_template_by_id_simple(
-            db, protocol_data.protocol_template_id
+        if not await get_protocol_template_by_id(
+            db, protocol_data.protocol_template_id, include_deleted=True
         ):
             raise NotFoundError("Шаблон протокола не найден")
 
@@ -118,7 +129,7 @@ async def create_protocol(db: AsyncSession, protocol_data: ProtocolCreate) -> Pr
         raise ConflictError("Протокол с таким номером акта отбора уже существует")
 
     if protocol_data.samples:
-        samples_list = await protocol_repo.get_samples_by_ids(db, protocol_data.samples)
+        samples_list = await sample_repo.get_samples_by_ids(db, protocol_data.samples)
 
         if len(samples_list) != len(protocol_data.samples):
             raise NotFoundError("Одна или несколько проб не найдены")
@@ -170,10 +181,17 @@ async def update_protocol(
         ):
             raise ConflictError("Протокол с таким номером акта отбора уже существует")
 
+    if (
+        "protocol_template_id" in update_data
+        and update_data["protocol_template_id"] is not None
+    ):
+        if not await get_protocol_template_by_id(
+            db, update_data["protocol_template_id"], include_deleted=True
+        ):
+            raise NotFoundError("Шаблон протокола не найден")
+
     if "samples" in update_data and update_data["samples"] is not None:
-        samples_list = await protocol_repo.get_samples_by_ids(
-            db, update_data["samples"]
-        )
+        samples_list = await sample_repo.get_samples_by_ids(db, update_data["samples"])
 
         if len(samples_list) != len(update_data["samples"]):
             raise NotFoundError("Одна или несколько проб не найдены")
@@ -223,23 +241,33 @@ async def delete_protocol(db: AsyncSession, protocol_id: int) -> None:
 
 async def get_protocol_template_by_id(
     db: AsyncSession, template_id: int, include_deleted: bool = False
-) -> Optional[ProtocolTemplate]:
+) -> ProtocolTemplate | None:
     """Получить шаблон протокола по ID."""
     return await protocol_repo.get_protocol_template_by_id(
         db, template_id, include_deleted
     )
 
 
+async def require_protocol_template_by_id(
+    db: AsyncSession, template_id: int, include_deleted: bool = False
+) -> ProtocolTemplate:
+    """Получить шаблон протокола по ID или вернуть 404."""
+    template = await get_protocol_template_by_id(db, template_id, include_deleted)
+    if not template:
+        raise NotFoundError("Шаблон протокола не найден")
+    return template
+
+
 async def get_protocol_templates(
     db: AsyncSession,
-    laboratory_id: Optional[int] = None,
-    department_id: Optional[int] = None,
+    laboratory_id: int | None = None,
+    department_id: int | None = None,
     include_deleted: bool = False,
-    page: Optional[int] = None,
-    page_size: Optional[int] = None,
-    sort_by: Optional[str] = None,
-    sort_order: Optional[str] = None,
-) -> tuple[List[ProtocolTemplate], int, int]:
+    page: int | None = None,
+    page_size: int | None = None,
+    sort_by: str | None = None,
+    sort_order: str | None = None,
+) -> tuple[list[ProtocolTemplate], int, int]:
     """Получить список шаблонов протоколов."""
     templates, total = await protocol_repo.get_protocol_templates(
         db,
@@ -340,7 +368,7 @@ async def get_protocol_response_data(
 
     protocol_abbreviation = ""
     if protocol.samples:
-        samples_list = await protocol_repo.get_samples_by_ids(db, protocol.samples)
+        samples_list = await sample_repo.get_samples_by_ids(db, protocol.samples)
         abbreviations = await get_protocol_abbreviations_by_names(
             db,
             [sample.test_object for sample in samples_list if sample.test_object],
@@ -384,7 +412,7 @@ async def get_protocol_template_response_data(
 
 async def get_samples_by_ids(db: AsyncSession, sample_ids: list[int]):
     """Получить пробы по списку ID."""
-    return await protocol_repo.get_samples_by_ids(db, sample_ids)
+    return await sample_repo.get_samples_by_ids(db, sample_ids)
 
 
 def _enrich_protocol_dict(

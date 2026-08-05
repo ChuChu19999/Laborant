@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 from sqlalchemy import JSON, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from core.config import get_database_schema
@@ -28,7 +28,7 @@ class NdNorm(BaseModel):
         ForeignKey(f"{get_database_schema()}.laboratories.id", ondelete="CASCADE"),
         nullable=False,
     )
-    department_id: Mapped[Optional[int]] = mapped_column(
+    department_id: Mapped[int | None] = mapped_column(
         Integer,
         ForeignKey(f"{get_database_schema()}.departments.id", ondelete="CASCADE"),
         nullable=True,
@@ -41,7 +41,7 @@ class NdNorm(BaseModel):
     )
 
     laboratory: Mapped["Laboratory"] = relationship(back_populates="nd_norms")
-    department: Mapped[Optional["Department"]] = relationship(back_populates="nd_norms")
+    department: Mapped["Department | None"] = relationship(back_populates="nd_norms")
 
     __table_args__ = (
         Index("idx_nd_norm_name", "name"),

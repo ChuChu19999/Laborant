@@ -7,8 +7,8 @@ import {
   type ColumnDef,
   type ColumnSizingState,
 } from '@tanstack/react-table';
-import { LoadingCard } from '../../../../features/Cards';
-import Button from '../../../../shared/ui/Button/Button';
+import { Spin } from 'antd';
+import Button from '../../../../shared/ui/Button';
 import type { SelectionCondition } from '../../../../shared/api/selectionConditions';
 import './SelectionConditionsTable.css';
 
@@ -93,7 +93,7 @@ const SelectionConditionsTable: React.FC<SelectionConditionsTableProps> = ({
 
   return (
     <div className="selection-conditions-table-container">
-      <LoadingCard loading={loading} />
+      {loading ? <Spin size="large" /> : null}
       {!loading && (
         <div className="selection-conditions-table-wrapper">
           <table className="selection-conditions-table">

@@ -1,11 +1,9 @@
 from __future__ import annotations
-from typing import List, Optional
 import pendulum
 from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from models.equipment import Equipment
-from models.research import ResearchMethod
 from repositories.base import (
     add_and_flush,
     execute_scalar_one_or_none,
@@ -19,7 +17,7 @@ from utils.sorting import build_order_by
 
 async def get_equipment_by_id(
     db: AsyncSession, equipment_id: int, include_deleted: bool = False
-) -> Optional[Equipment]:
+) -> Equipment | None:
     """Получить оборудование по ID."""
     query = (
         select(Equipment)
@@ -54,21 +52,21 @@ async def get_equipment_by_ids(
 
 async def get_equipment(
     db: AsyncSession,
-    laboratory_id: Optional[int] = None,
-    department_id: Optional[int] = None,
-    equipment_types: Optional[List[str]] = None,
-    page: Optional[int] = None,
-    page_size: Optional[int] = None,
-    search: Optional[str] = None,
-    sort_by: Optional[str] = None,
-    sort_order: Optional[str] = None,
-    verification_date_from: Optional[pendulum.DateTime] = None,
-    verification_date_to: Optional[pendulum.DateTime] = None,
-    verification_end_date_from: Optional[pendulum.DateTime] = None,
-    verification_end_date_to: Optional[pendulum.DateTime] = None,
-    created_at_from: Optional[pendulum.DateTime] = None,
-    created_at_to: Optional[pendulum.DateTime] = None,
-) -> tuple[List[Equipment], int]:
+    laboratory_id: int | None = None,
+    department_id: int | None = None,
+    equipment_types: list[str] | None = None,
+    page: int | None = None,
+    page_size: int | None = None,
+    search: str | None = None,
+    sort_by: str | None = None,
+    sort_order: str | None = None,
+    verification_date_from: pendulum.DateTime | None = None,
+    verification_date_to: pendulum.DateTime | None = None,
+    verification_end_date_from: pendulum.DateTime | None = None,
+    verification_end_date_to: pendulum.DateTime | None = None,
+    created_at_from: pendulum.DateTime | None = None,
+    created_at_to: pendulum.DateTime | None = None,
+) -> tuple[list[Equipment], int]:
     """Получить список оборудования."""
     query = filter_not_deleted(
         select(Equipment),
@@ -130,10 +128,9 @@ async def get_equipment(
         order_by = build_order_by(sort_by, sort_order, sort_mapping, Equipment.name)
         query = query.order_by(order_by)
 
-    count_query = (
-        select(func.count())
-        .select_from(Equipment)
-        .where(Equipment.deleted_at.is_(None))
+    count_query = filter_not_deleted(
+        select(func.count()).select_from(Equipment),
+        Equipment.deleted_at,
     )
     count_conditions = []
     if laboratory_id:
@@ -180,13 +177,15 @@ async def get_latest_equipment_version(
     db: AsyncSession,
     name: str,
     laboratory_id: int,
-    department_id: Optional[int],
-) -> Optional[Equipment]:
+    department_id: int | None,
+) -> Equipment | None:
     """Получить последнюю версию оборудования по имени."""
-    latest_query = select(Equipment).where(
-        Equipment.name == name,
-        Equipment.laboratory_id == laboratory_id,
-        Equipment.deleted_at.is_(None),
+    latest_query = filter_not_deleted(
+        select(Equipment).where(
+            Equipment.name == name,
+            Equipment.laboratory_id == laboratory_id,
+        ),
+        Equipment.deleted_at,
     )
 
     if department_id:
@@ -202,30 +201,3 @@ async def add_equipment(db: AsyncSession, equipment: Equipment) -> Equipment:
     """Добавить оборудование в сессию."""
     await add_and_flush(db, equipment)
     return equipment
-
-
-async def get_research_methods_for_equipment_update(
-    db: AsyncSession,
-    laboratory_id: int,
-    department_id: Optional[int],
-) -> list[ResearchMethod]:
-    """Получить методы исследования для обновления при смене версии прибора."""
-    methods_query = select(ResearchMethod).where(
-        ResearchMethod.deleted_at.is_(None),
-        ResearchMethod.laboratory_id == laboratory_id,
-    )
-
-    if department_id:
-        methods_query = methods_query.where(
-            ResearchMethod.department_id == department_id
-        )
-
-    return await execute_scalars_all(db, methods_query)
-
-
-async def get_all_research_methods_for_equipment_removal(
-    db: AsyncSession,
-) -> list[ResearchMethod]:
-    """Получить все неудалённые методы исследования."""
-    methods_query = select(ResearchMethod).where(ResearchMethod.deleted_at.is_(None))
-    return await execute_scalars_all(db, methods_query)

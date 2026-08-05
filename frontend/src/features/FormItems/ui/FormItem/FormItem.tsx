@@ -1,7 +1,7 @@
 import React from 'react';
 import { Divider, Form } from 'antd';
 import { BiInfoCircle } from 'react-icons/bi';
-import Tooltip from '../../../../shared/ui/Tooltip/Tooltip';
+import Tooltip from '../../../../shared/ui/Tooltip';
 import './FormItem.css';
 
 interface FormItemProps extends React.ComponentProps<typeof Form.Item> {

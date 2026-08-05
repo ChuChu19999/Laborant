@@ -8,7 +8,7 @@ export const useCreateRole = () => {
     [['roles']],
     {
       onSuccess: () => {
-        message.success('Область видимости роли успешно добавлена');
+        message.success('Роль успешно добавлена');
       },
     }
   );
@@ -20,7 +20,7 @@ export const useUpdateRole = () => {
     [['roles']],
     {
       onSuccess: () => {
-        message.success('Область видимости роли успешно обновлена');
+        message.success('Роль успешно обновлена');
       },
     }
   );
@@ -32,7 +32,7 @@ export const useDeleteRole = () => {
     [['roles']],
     {
       onSuccess: () => {
-        message.success('Область видимости роли успешно удалена');
+        message.success('Роль успешно удалена');
       },
     }
   );

@@ -227,12 +227,14 @@
   align-items: center;
 }
 
+.roles-table-configure-button,
 .roles-table-edit-button {
   color: #1890ff !important;
   font-family: 'HeliosCondC';
   font-size: 14px;
 }
 
+.roles-table-configure-button:hover,
 .roles-table-edit-button:hover {
   background-color: rgba(24, 144, 255, 0.1) !important;
   color: #1890ff !important;

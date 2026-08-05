@@ -1,17 +1,18 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { PlusOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { ResetFiltersButton } from '../../entities/ResetFiltersButton';
 import { LoadingCard } from '../../features/Cards';
 import { CreateNdNormModal, EditNdNormModal, DeleteNdNormModal } from '../../features/Modals';
 import { laboratoriesApi } from '../../shared/api/laboratories';
+import { useCan, useScopeAccess } from '../../shared/lib/permissions';
 import { useNdNorms, useResearchMethodsForLab } from '../../shared/model/hooks';
 import { useAutoRefetchQuery } from '../../shared/model/lib/useQuery';
 import { useQueryStore } from '../../shared/model/stores';
-import Button from '../../shared/ui/Button/Button';
+import Button from '../../shared/ui/Button';
 import { LaboratoryCard, DepartmentCard } from '../../shared/ui/Cards';
-import Layout from '../../shared/ui/Layout/Layout';
+import Layout from '../../shared/ui/Layout';
 import { NavigationBar } from '../../widgets/NavigationBar';
 import { NdNormsTable } from '../../widgets/Tables/NdNormsTable';
 import type { Laboratory, Department } from '../../shared/api/laboratories';
@@ -26,6 +27,10 @@ const NdNormsPage: React.FC = () => {
     departmentId?: string;
   }>();
   const navigate = useNavigate();
+  const { canAccessLaboratory, canAccessDepartment, canAccessRouteScope } = useScopeAccess();
+  const canCreateNdNorm = useCan('nd_norms', 'create');
+  const canUpdateNdNorm = useCan('nd_norms', 'update');
+  const canDeleteNdNorm = useCan('nd_norms', 'delete');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedNdNorm, setSelectedNdNorm] = useState<NdNorm | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -286,6 +291,10 @@ const NdNormsPage: React.FC = () => {
     return breadcrumbs;
   };
 
+  if (!canAccessRouteScope(effectiveLabId, effectiveDeptId)) {
+    return <Navigate to="/403" replace />;
+  }
+
   if (!effectiveLabId && laboratories?.items) {
     return (
       <Layout title="Нормы НД">
@@ -302,6 +311,7 @@ const NdNormsPage: React.FC = () => {
                 laboratory={laboratory}
                 onClick={handleLaboratoryClick}
                 showActions={false}
+                disabled={!canAccessLaboratory(laboratory.id)}
               />
             ))}
           </div>
@@ -324,6 +334,7 @@ const NdNormsPage: React.FC = () => {
                 onClick={handleDepartmentClick}
                 showActions={false}
                 iconIndex={index}
+                disabled={!canAccessDepartment(effectiveLabId, department.id)}
               />
             ))}
           </div>
@@ -344,13 +355,15 @@ const NdNormsPage: React.FC = () => {
       <div className="nd-norms-page-container">
         <div className="nd-norms-page-header">
           <div className="nd-norms-page-header-left">
-            <Button
-              type="primary"
-              onClick={() => setIsCreateModalOpen(true)}
-              icon={<PlusOutlined />}
-            >
-              Добавить норму
-            </Button>
+            {canCreateNdNorm && (
+              <Button
+                type="primary"
+                onClick={() => setIsCreateModalOpen(true)}
+                icon={<PlusOutlined />}
+              >
+                Добавить норму
+              </Button>
+            )}
           </div>
           <div className="nd-norms-page-header-right">
             <ResetFiltersButton
@@ -387,6 +400,8 @@ const NdNormsPage: React.FC = () => {
             }
             onEdit={handleEdit}
             onDelete={handleDelete}
+            canUpdate={canUpdateNdNorm}
+            canDelete={canDeleteNdNorm}
           />
         </div>
       </div>

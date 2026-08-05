@@ -1,16 +1,14 @@
+from __future__ import annotations
 import base64
 import re
 from contextvars import ContextVar
 from copy import copy
 from dataclasses import dataclass
 from io import BytesIO
-from typing import Any, Dict, List, Optional
-from urllib.parse import quote
+from typing import Any
 import openpyxl
 import orjson
 import pendulum
-from fastapi import HTTPException, status
-from fastapi.responses import Response
 from openpyxl.styles import Border
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.header_footer import _HeaderFooterPart
@@ -94,9 +92,9 @@ def _scan_row_max_col(sheet, row_num: int, col_limit: int = 60) -> int:
 
 async def process_cell_markers(
     protocol: Protocol,
-    samples: List[Sample],
+    samples: list[Sample],
     cell_value: str,
-    selection_conditions_templates: Optional[List[Dict[str, Any]]] = None,
+    selection_conditions_templates: list[dict[str, Any]] | None = None,
     sampling_location_name_only: bool = False,
 ) -> str:
     """Обрабатывает все метки в ячейке."""
@@ -160,7 +158,7 @@ async def process_cell_markers(
 
 async def get_marker_value_title(
     protocol: Protocol,
-    samples: List[Sample],
+    samples: list[Sample],
     marker: str,
     *,
     sampling_location_name_only: bool = False,
@@ -345,10 +343,10 @@ async def get_marker_value_title(
 
 
 def process_selection_conditions_row(
-    samples: List[Sample],
+    samples: list[Sample],
     cell_value: str,
-    selection_conditions_templates: Optional[List[Dict[str, Any]]] = None,
-) -> Optional[str]:
+    selection_conditions_templates: list[dict[str, Any]] | None = None,
+) -> str | None:
     """Обрабатывает метки условий отбора в ячейке."""
     if not cell_value or not isinstance(cell_value, str):
         return cell_value
@@ -491,11 +489,11 @@ def process_selection_conditions_row(
 
 async def process_header(
     protocol: Protocol,
-    samples: List[Sample],
+    samples: list[Sample],
     template_sheet,
     new_sheet,
     merged_cells_map,
-    selection_conditions_templates: Optional[List[Dict[str, Any]]] = None,
+    selection_conditions_templates: list[dict[str, Any]] | None = None,
     sampling_location_name_only: bool = False,
 ):
     """Обрабатывает шапку протокола."""
@@ -560,12 +558,12 @@ async def process_header(
 
 async def process_header_and_conditions(
     protocol: Protocol,
-    samples: List[Sample],
+    samples: list[Sample],
     template_sheet,
     new_sheet,
     start_row,
     merged_cells_map,
-    selection_conditions_templates: Optional[List[Dict[str, Any]]] = None,
+    selection_conditions_templates: list[dict[str, Any]] | None = None,
     sampling_location_name_only: bool = False,
 ):
     """Обрабатывает заголовок и условия отбора после шапки до начала таблицы."""
@@ -633,7 +631,7 @@ async def process_header_and_conditions(
 
 
 async def process_footer_test_protocol_number(
-    protocol: Protocol, samples: List[Sample], text
+    protocol: Protocol, samples: list[Sample], text
 ) -> _HeaderFooterPart:
     """Подставляет номер протокола и аббревиатуру в тексте колонтитула."""
     orig_text = text
@@ -674,13 +672,13 @@ async def process_footer_test_protocol_number(
 
 async def process_footer(
     protocol: Protocol,
-    samples: List[Sample],
+    samples: list[Sample],
     template_sheet,
     current_sheet,
     footer_start,
     merged_cells_map,
     current_row,
-    selection_conditions_templates: Optional[List[Dict[str, Any]]] = None,
+    selection_conditions_templates: list[dict[str, Any]] | None = None,
     sampling_location_name_only: bool = False,
 ):
     """Обрабатывает оставшиеся строки после последней таблицы (подвал протокола)."""
@@ -736,13 +734,13 @@ async def process_footer(
 
 async def process_between_tables(
     protocol: Protocol,
-    samples: List[Sample],
+    samples: list[Sample],
     template_sheet,
     current_sheet,
     table_end,
     merged_cells_map,
     current_row,
-    selection_conditions_templates: Optional[List[Dict[str, Any]]] = None,
+    selection_conditions_templates: list[dict[str, Any]] | None = None,
     sampling_location_name_only: bool = False,
 ):
     """Обрабатывает данные между таблицами."""
@@ -903,7 +901,7 @@ def _primary_group_name(method: ResearchMethod | None) -> str:
 
 def _find_calculation_for_if_line(
     conditions: dict[str, str],
-    calculations: List[Calculation],
+    calculations: list[Calculation],
 ) -> Calculation | None:
     """Находит расчёт, подходящий под условие {if line}."""
     required_name = (conditions.get("name_method") or "").strip()
@@ -1468,16 +1466,16 @@ def _expand_fractional_if_line_row(
     return current_row, next_id
 
 
-def _collect_valid_calculations(samples: List[Sample]) -> List[Calculation]:
+def _collect_valid_calculations(samples: list[Sample]) -> list[Calculation]:
     """Собирает расчёты для таблицы методов с фильтрацией по объекту испытаний."""
     test_objects = [sample.test_object for sample in samples if sample.test_object]
-    calculations: List[Calculation] = []
+    calculations: list[Calculation] = []
     for sample in samples:
         for calc in sample.calculations:
             if calc.deleted_at is None and calc.research_method:
                 calculations.append(calc)
 
-    valid_calculations: List[Calculation] = []
+    valid_calculations: list[Calculation] = []
     for calc in calculations:
         method_name = calc.research_method.name.lower()
         if "фракционный состав" in method_name and method_name not in [
@@ -1521,7 +1519,7 @@ def _condensate_kk_measurement_error(field_value) -> str:
 
 
 # План колонок таблицы 1 (сохраняется до финального copy_column_dimensions).
-_table1_column_plan_ctx: ContextVar[Optional["Table1ColumnPlan"]] = ContextVar(
+_table1_column_plan_ctx: ContextVar["Table1ColumnPlan" | None] = ContextVar(
     "table1_column_plan", default=None
 )
 
@@ -1562,7 +1560,7 @@ class Table1ColumnPlan:
 
 def get_marker_value_sync(
     protocol: Protocol,
-    samples: List[Sample],
+    samples: list[Sample],
     marker: str,
     *,
     sampling_location_name_only: bool = False,
@@ -2026,7 +2024,7 @@ def apply_table1_column_widths(
 async def _load_applicable_nd_norms(
     db: AsyncSession,
     protocol: Protocol,
-    samples: List[Sample],
+    samples: list[Sample],
     method_ids: set[int],
 ) -> list[tuple[NdNorm, dict[int, str]]]:
     """Загружает нормы НД, применимые к методам протокола."""
@@ -2849,14 +2847,14 @@ def _write_column_table_row(
 
 async def process_methods_table_columns(
     protocol: Protocol,
-    samples: List[Sample],
+    samples: list[Sample],
     template_sheet,
     new_sheet,
     table_start: int,
     merged_cells_map,
     current_row: int,
     db: AsyncSession,
-    selection_conditions_templates: Optional[List[Dict[str, Any]]] = None,
+    selection_conditions_templates: list[dict[str, Any]] | None = None,
     sampling_location_name_only: bool = False,
 ):
     """
@@ -2992,13 +2990,13 @@ async def process_methods_table_columns(
 
 
 async def process_methods_table(
-    samples: List[Sample],
+    samples: list[Sample],
     template_sheet,
     new_sheet,
     table_start,
     merged_cells_map,
     current_row,
-    selection_conditions_templates: Optional[List[Dict[str, Any]]] = None,
+    selection_conditions_templates: list[dict[str, Any]] | None = None,
     *,
     protocol: Protocol | None = None,
     db: AsyncSession | None = None,
@@ -3130,7 +3128,7 @@ async def process_methods_table(
     return current_sheet
 
 
-def _collect_equipment_ids_from_samples(samples: List[Sample]) -> set[int]:
+def _collect_equipment_ids_from_samples(samples: list[Sample]) -> set[int]:
     """Собирает уникальные ID оборудования из поля calculation.equipment_data для всех проб."""
     equipment_ids: set[int] = set()
 
@@ -3169,7 +3167,7 @@ def _collect_equipment_ids_from_samples(samples: List[Sample]) -> set[int]:
 
 
 def process_equipment_table(
-    equipment_list: List[Equipment],
+    equipment_list: list[Equipment],
     template_sheet,
     current_sheet,
     table_start,
@@ -3295,7 +3293,7 @@ def process_equipment_table(
 
 
 def process_nd_table(
-    samples: List[Sample],
+    samples: list[Sample],
     template_sheet,
     current_sheet,
     table_start,
@@ -3399,8 +3397,10 @@ def process_nd_table(
     return current_sheet
 
 
-async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> Response:
-    """Генерирует Excel файл протокола."""
+async def generate_protocol_excel(
+    db: AsyncSession, protocol_id: int
+) -> tuple[bytes, str]:
+    """Генерирует Excel файл протокола. Возвращает содержимое и имя файла."""
     try:
         _table1_column_plan_ctx.set(None)
         query = (
@@ -3468,7 +3468,7 @@ async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> Respons
 
         # Собираем список используемого оборудования для всех расчетов по пробам
         equipment_ids = _collect_equipment_ids_from_samples(samples)
-        equipment_list: List[Equipment] = []
+        equipment_list: list[Equipment] = []
         if equipment_ids:
             equipment_query = select(Equipment).where(Equipment.id.in_(equipment_ids))
             equipment_result = await db.execute(equipment_query)
@@ -3707,29 +3707,11 @@ async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> Respons
 
         clean_protocol_number = re.sub(r'[<>:"/\\|?*\x00-\x1F]', "_", protocol_number)
         clean_protocol_number = clean_protocol_number.replace(" ", "_")
-
-        # Формируем имя файла с русскими символами
         filename_ru = f"Протокол_{clean_protocol_number}.xlsx"
+        return output.getvalue(), filename_ru
 
-        # Кодируем русское имя файла для HTTP‑заголовка (RFC 5987)
-        encoded_filename = quote(filename_ru, safe="", encoding="utf-8")
-
-        # Используем только filename* для избежания проблем с latin-1 кодированием в Starlette
-        content_disposition = f"attachment; filename*=UTF-8''{encoded_filename}"
-
-        return Response(
-            content=output.getvalue(),
-            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": content_disposition},
-        )
-
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except ValidationError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except (NotFoundError, ValidationError):
+        raise
     except Exception as e:
         logger.error(f"Ошибка при генерации протокола: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Ошибка при генерации протокола: {str(e)}",
-        )
+        raise ValidationError(f"Ошибка при генерации протокола: {str(e)}") from e

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, Navigate } from 'react-router-dom';
 import { Spin, message } from 'antd';
 import { LoadingCard } from '../../features/Cards';
 import { SaveCalculationModal, MethodologyVersionChoiceModal } from '../../features/Modals';
@@ -13,9 +13,10 @@ import { laboratoriesApi, type Laboratory } from '../../shared/api/laboratories'
 import { researchApi } from '../../shared/api/research';
 import { samplesApi, type Sample } from '../../shared/api/samples';
 import { extractErrorMessage } from '../../shared/lib/errors/extractErrorMessage';
+import { useCan, useScopeAccess } from '../../shared/lib/permissions';
 import { useAutoRefetchQuery } from '../../shared/model/lib/useQuery';
 import { Select } from '../../shared/ui/FormItems';
-import Layout from '../../shared/ui/Layout/Layout';
+import Layout from '../../shared/ui/Layout';
 import {
   buildAvailableMethodsFromResearchMethod,
   buildCalculationFormPrefill,
@@ -59,6 +60,10 @@ const CalculationsPage: React.FC = () => {
   }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { canAccessRouteScope } = useScopeAccess();
+  const canExecuteCalculations = useCan('calculations', 'execute');
+  const canCreateCalculation = useCan('calculations', 'create');
+  const canUpdateCalculation = useCan('calculations', 'update');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [availableMethods, setAvailableMethods] = useState<AvailableMethod[]>([]);
@@ -641,6 +646,8 @@ const CalculationsPage: React.FC = () => {
     return groupMethods.length > 1;
   })();
 
+  const canSaveCalculation = isEditMode ? canUpdateCalculation : canCreateCalculation;
+
   const rightPanel = (
     <div className="calculations-page-right-panel">
       {!selectedMethodId || !currentMethod ? (
@@ -685,13 +692,19 @@ const CalculationsPage: React.FC = () => {
             ) : undefined
           }
           onCalculate={handleCalculate}
-          onSave={handleOpenSaveModal}
+          onSave={canSaveCalculation ? handleOpenSaveModal : undefined}
           lastCalculationResult={lastCalculationResult[currentMethod.id]}
           onLaboratoryActivityDateChange={handleLaboratoryActivityDateChange}
+          canExecute={canExecuteCalculations}
+          canSave={canSaveCalculation}
         />
       )}
     </div>
   );
+
+  if (!canAccessRouteScope(labId, deptId)) {
+    return <Navigate to="/403" replace />;
+  }
 
   if (isLoadingSample) {
     return (

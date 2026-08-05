@@ -25,7 +25,7 @@ import { getDateRangePresets } from '../../../../shared/lib/datePresets';
 import { urlFilterValueToStringArray, urlParamsToFilters } from '../../../../shared/lib/urlParams';
 import { type ResearchMethodDisplayItem } from '../../../../shared/model/hooks/useResearchMethodsForLab';
 import { useAutoRefetchQuery } from '../../../../shared/model/lib/useQuery';
-import Button from '../../../../shared/ui/Button/Button';
+import Button from '../../../../shared/ui/Button';
 import { Input, RangePicker, Select } from '../../../../shared/ui/FormItems';
 import { formatDate } from '../../../../shared/utils/dateFormatting';
 import './NdNormsTable.css';
@@ -47,6 +47,8 @@ interface NdNormsTableProps {
   sorting?: SortingState;
   onEdit: (ndNormId: number) => void;
   onDelete: (ndNormId: number) => void;
+  canUpdate?: boolean;
+  canDelete?: boolean;
 }
 
 const getMethodValue = (ndNorm: NdNorm, methodId: number): string => {
@@ -70,6 +72,8 @@ const NdNormsTable: React.FC<NdNormsTableProps> = ({
   sorting: externalSorting,
   onEdit,
   onDelete,
+  canUpdate = true,
+  canDelete = true,
 }) => {
   const [internalSorting, setInternalSorting] = React.useState<SortingState>(externalSorting || []);
 
@@ -229,25 +233,29 @@ const NdNormsTable: React.FC<NdNormsTableProps> = ({
         header: 'Действия',
         cell: ({ row }) => (
           <div className="nd-norms-table-actions">
-            <Button
-              type="text"
-              size="small"
-              icon={<EditOutlined />}
-              onClick={() => onEdit(row.original.id)}
-              className="nd-norms-table-edit-button"
-            >
-              Редактировать
-            </Button>
-            <Button
-              type="text"
-              danger
-              size="small"
-              icon={<DeleteOutlined />}
-              onClick={() => onDelete(row.original.id)}
-              className="nd-norms-table-delete-button"
-            >
-              Удалить
-            </Button>
+            {canUpdate && (
+              <Button
+                type="text"
+                size="small"
+                icon={<EditOutlined />}
+                onClick={() => onEdit(row.original.id)}
+                className="nd-norms-table-edit-button"
+              >
+                Редактировать
+              </Button>
+            )}
+            {canDelete && (
+              <Button
+                type="text"
+                danger
+                size="small"
+                icon={<DeleteOutlined />}
+                onClick={() => onDelete(row.original.id)}
+                className="nd-norms-table-delete-button"
+              >
+                Удалить
+              </Button>
+            )}
           </div>
         ),
         enableSorting: false,
@@ -256,7 +264,7 @@ const NdNormsTable: React.FC<NdNormsTableProps> = ({
         enableResizing: false,
       },
     ];
-  }, [methods, onEdit, onDelete]);
+  }, [methods, onEdit, onDelete, canUpdate, canDelete]);
 
   const handleColumnFiltersChange = React.useCallback(
     (updater: ColumnFiltersState | ((old: ColumnFiltersState) => ColumnFiltersState)) => {

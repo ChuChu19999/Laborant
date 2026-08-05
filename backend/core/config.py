@@ -8,23 +8,23 @@ class Settings(BaseSettings):
     """Настройки приложения из переменных окружения."""
 
     SECRET_KEY: str
-    DEBUG: bool = False
+    DEBUG: bool
 
     DATABASE_URL: str
-    POSTGRES_DB_SCHEMA: str = ""
+    POSTGRES_DB_SCHEMA: str
 
-    CORS_ALLOWED_ORIGINS: str = ""
-    CORS_ALLOW_METHODS: str = ""
-    CORS_ALLOW_HEADERS: str = ""
+    CORS_ALLOWED_ORIGINS: str
+    CORS_ALLOW_METHODS: str
+    CORS_ALLOW_HEADERS: str
     CORS_ALLOW_CREDENTIALS: bool
 
-    KEYCLOAK_PUBLIC_KEY_URL: str = ""
+    KEYCLOAK_PUBLIC_KEY_URL: str
 
-    CERT_PATH: str = ""
+    CERT_PATH: str
 
-    HR_API_URL: str = ""
+    HR_API_URL: str
 
-    LOG_HEADERS: bool = False
+    LOG_HEADERS: bool
 
     @property
     def DATABASE_SCHEMA(self) -> str:

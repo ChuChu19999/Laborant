@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import Optional
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from models.role import Role
@@ -18,7 +17,7 @@ async def get_role_by_id(
     db: AsyncSession,
     role_id: int,
     include_deleted: bool = False,
-) -> Optional[Role]:
+) -> Role | None:
     """Получить роль по ID."""
     query = select(Role).where(Role.id == role_id)
     if not include_deleted:
@@ -28,12 +27,12 @@ async def get_role_by_id(
 
 async def get_roles(
     db: AsyncSession,
-    search: Optional[str] = None,
-    role_type: Optional[str] = None,
-    sort_by: Optional[str] = None,
-    sort_order: Optional[str] = None,
-    page: Optional[int] = None,
-    page_size: Optional[int] = None,
+    search: str | None = None,
+    role_type: str | None = None,
+    sort_by: str | None = None,
+    sort_order: str | None = None,
+    page: int | None = None,
+    page_size: int | None = None,
 ) -> tuple[list[Role], int]:
     """Получить список ролей из справочника."""
     query = filter_not_deleted(select(Role), Role.deleted_at)
@@ -59,8 +58,9 @@ async def get_roles(
     )
     query = query.order_by(order_by)
 
-    count_query = (
-        select(func.count()).select_from(Role).where(Role.deleted_at.is_(None))
+    count_query = filter_not_deleted(
+        select(func.count()).select_from(Role),
+        Role.deleted_at,
     )
     if search:
         count_query = count_query.where(Role.name.ilike(f"%{search}%"))
@@ -75,22 +75,37 @@ async def get_roles(
     return items, total
 
 
+async def get_roles_by_names(
+    db: AsyncSession,
+    names: list[str],
+) -> list[Role]:
+    """Получить роли."""
+    if not names:
+        return []
+    unique_names = list(dict.fromkeys(names))
+    query = filter_not_deleted(select(Role), Role.deleted_at).where(
+        Role.name.in_(unique_names)
+    )
+    return await execute_scalars_all(db, query)
+
+
 async def exists_role_by_name_and_type(
     db: AsyncSession,
     name: str,
     role_type: str,
-    exclude_id: Optional[int] = None,
+    exclude_id: int | None = None,
 ) -> bool:
     """Проверить существование роли с таким наименованием и типом."""
-    conditions = [
-        func.lower(Role.name) == name.lower(),
-        Role.role_type == role_type,
-        Role.deleted_at.is_(None),
-    ]
+    query = filter_not_deleted(
+        select(Role).where(
+            func.lower(Role.name) == name.lower(),
+            Role.role_type == role_type,
+        ),
+        Role.deleted_at,
+    )
     if exclude_id is not None:
-        conditions.append(Role.id != exclude_id)
+        query = query.where(Role.id != exclude_id)
 
-    query = select(Role).where(*conditions)
     existing = await execute_scalar_one_or_none(db, query)
     return existing is not None
 

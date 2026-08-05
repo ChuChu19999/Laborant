@@ -1,14 +1,14 @@
-from typing import Any, Optional
+from typing import Any
 
 CHLORIDE_SALTS_METHOD_NAME = "Массовая концентрация хлористых солей"
 CHLORIDE_SALTS_RESULT_DISPLAY_KEY = "_chloride_salts_result_display"
 
 
-def is_chloride_salts_method_name(name: Optional[str]) -> bool:
+def is_chloride_salts_method_name(name: str | None) -> bool:
     return (name or "").strip() == CHLORIDE_SALTS_METHOD_NAME
 
 
-def get_chloride_salts_result_display(input_data: Any) -> Optional[str]:
+def get_chloride_salts_result_display(input_data: Any) -> str | None:
     if not isinstance(input_data, dict):
         return None
     label = input_data.get(CHLORIDE_SALTS_RESULT_DISPLAY_KEY)
@@ -20,7 +20,7 @@ def get_chloride_salts_result_display(input_data: Any) -> Optional[str]:
 
 def format_calculation_result_for_display(
     result: Any,
-    method_name: Optional[str],
+    method_name: str | None,
     input_data: Any,
 ) -> str:
     """Числовой итог из БД подменяется подписью условия повторяемости, если она сохранена."""

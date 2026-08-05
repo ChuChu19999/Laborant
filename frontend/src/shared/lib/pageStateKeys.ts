@@ -9,4 +9,5 @@ export const PAGE_STATE_KEYS = {
   ND_NORMS_PAGE: 'lastNdNormsPagePath',
   SAMPLING_LOCATIONS_PAGE: 'lastSamplingLocationsPagePath',
   MAIN_PAGE: 'lastMainPagePath',
+  LABORATORY_MANAGEMENT_PAGE: 'lastLaboratoryManagementPagePath',
 } as const;

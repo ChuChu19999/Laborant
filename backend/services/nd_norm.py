@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import List, Optional
 import pendulum
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.exceptions import NotFoundError, ValidationError
@@ -18,8 +17,8 @@ from utils.pagination import calculate_total_pages
 
 
 def _normalize_method_data(
-    method_data: Optional[List[NdNormMethodDataItem]],
-) -> List[dict]:
+    method_data: list[NdNormMethodDataItem] | None,
+) -> list[dict]:
     if not method_data:
         return []
     return [{"method_id": item.method_id, "value": item.value} for item in method_data]
@@ -29,7 +28,7 @@ async def _validate_test_object(
     db: AsyncSession,
     test_object: str,
     laboratory_id: int,
-    department_id: Optional[int],
+    department_id: int | None,
 ) -> None:
     names = await get_test_object_names(db, laboratory_id, department_id)
     normalized = test_object.strip().lower()
@@ -39,9 +38,9 @@ async def _validate_test_object(
 
 async def _validate_method_data(
     db: AsyncSession,
-    method_data: List[NdNormMethodDataItem],
+    method_data: list[NdNormMethodDataItem],
     laboratory_id: int,
-    department_id: Optional[int],
+    department_id: int | None,
 ) -> None:
     if not method_data:
         return
@@ -62,9 +61,21 @@ async def get_nd_norm_by_id(
     db: AsyncSession,
     nd_norm_id: int,
     include_deleted: bool = False,
-) -> Optional[NdNorm]:
+) -> NdNorm | None:
     """Получить норму НД по ID."""
     return await nd_norm_repo.get_nd_norm_by_id(db, nd_norm_id, include_deleted)
+
+
+async def require_nd_norm_by_id(
+    db: AsyncSession,
+    nd_norm_id: int,
+    include_deleted: bool = False,
+) -> NdNorm:
+    """Получить норму НД по ID или вернуть 404."""
+    nd_norm = await get_nd_norm_by_id(db, nd_norm_id, include_deleted)
+    if not nd_norm:
+        raise NotFoundError("Норма НД не найдена")
+    return nd_norm
 
 
 def build_nd_norm_response(nd_norm: NdNorm) -> NdNormResponse:
@@ -79,18 +90,18 @@ def build_nd_norm_response(nd_norm: NdNorm) -> NdNormResponse:
 
 async def get_nd_norms(
     db: AsyncSession,
-    laboratory_id: Optional[int] = None,
-    department_id: Optional[int] = None,
-    page: Optional[int] = None,
-    page_size: Optional[int] = None,
-    search: Optional[str] = None,
-    test_object: Optional[str] = None,
-    test_objects: Optional[List[str]] = None,
-    sort_by: Optional[str] = None,
-    sort_order: Optional[str] = None,
-    created_at_from: Optional[pendulum.DateTime] = None,
-    created_at_to: Optional[pendulum.DateTime] = None,
-) -> tuple[List[NdNorm], int, int]:
+    laboratory_id: int | None = None,
+    department_id: int | None = None,
+    page: int | None = None,
+    page_size: int | None = None,
+    search: str | None = None,
+    test_object: str | None = None,
+    test_objects: list[str] | None = None,
+    sort_by: str | None = None,
+    sort_order: str | None = None,
+    created_at_from: pendulum.DateTime | None = None,
+    created_at_to: pendulum.DateTime | None = None,
+) -> tuple[list[NdNorm], int, int]:
     """Получить список норм НД."""
     items, total = await nd_norm_repo.get_nd_norms(
         db,

@@ -110,7 +110,7 @@ const handleDateInput = (e: React.KeyboardEvent<HTMLInputElement>) => {
 };
 
 const DatePicker = (props: DatePickerProps) => {
-  const { format, inputReadOnly, onChange, disableYearNavigation = true, ...restProps } = props;
+  const { format, inputReadOnly, disableYearNavigation = true, className, ...restProps } = props;
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -164,20 +164,13 @@ const DatePicker = (props: DatePickerProps) => {
     };
   }, []);
 
-  const handleChange = (date: unknown, dateString: string | string[]) => {
-    if (onChange) {
-      onChange(date, dateString);
-    }
-  };
-
   return (
     <ConfigProvider locale={ruRU}>
       <div ref={containerRef}>
         <AntDatePicker
-          className={props.className || 'date-picker'}
+          className={className || 'date-picker'}
           format={format || 'DD.MM.YYYY'}
           inputReadOnly={inputReadOnly ?? false}
-          onChange={handleChange}
           superNextIcon={disableYearNavigation ? null : undefined}
           superPrevIcon={disableYearNavigation ? null : undefined}
           {...restProps}

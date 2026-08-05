@@ -2,9 +2,9 @@ import React from 'react';
 import { Checkbox, Col, Row } from 'antd';
 import { Form } from 'antd/lib';
 import { BiX, BiPlus } from 'react-icons/bi';
-import Button from '../../../../shared/ui/Button/Button';
+import Button from '../../../../shared/ui/Button';
 import { Select } from '../../../../shared/ui/FormItems';
-import Tooltip from '../../../../shared/ui/Tooltip/Tooltip';
+import Tooltip from '../../../../shared/ui/Tooltip';
 import './ElementsList.css';
 
 interface FormDataItem {

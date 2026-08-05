@@ -1,6 +1,6 @@
 import React from 'react';
 import { ExperimentOutlined } from '@ant-design/icons';
-import Button from '../../Button/Button';
+import Button from '../../Button';
 import type { Laboratory as LaboratoryType } from '../../../api/laboratories';
 import './LaboratoryCard.css';
 
@@ -14,6 +14,7 @@ interface LaboratoryCardProps {
   showActions?: boolean;
   onEdit?: (laboratory: Laboratory, e: React.MouseEvent) => void;
   onDelete?: (laboratory: Laboratory, e: React.MouseEvent) => void;
+  disabled?: boolean;
 }
 
 const LaboratoryCard = ({
@@ -22,19 +23,34 @@ const LaboratoryCard = ({
   showActions = false,
   onEdit,
   onDelete,
+  disabled = false,
 }: LaboratoryCardProps) => {
   const handleEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (disabled) {
+      return;
+    }
     onEdit?.(laboratory, e);
   };
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (disabled) {
+      return;
+    }
     onDelete?.(laboratory, e);
   };
 
   return (
-    <div className="laboratory-card" onClick={() => onClick?.(laboratory)}>
+    <div
+      className={`laboratory-card${disabled ? ' laboratory-card--disabled' : ''}`}
+      onClick={() => {
+        if (!disabled) {
+          onClick?.(laboratory);
+        }
+      }}
+      aria-disabled={disabled}
+    >
       <div className="laboratory-card-content">
         <div className="laboratory-card-header">
           <ExperimentOutlined className="laboratory-icon" />
@@ -52,7 +68,7 @@ const LaboratoryCard = ({
           </div>
         )}
       </div>
-      {showActions && (
+      {showActions && !disabled && (
         <div className="laboratory-card-actions" onClick={e => e.stopPropagation()}>
           <div className="button-wrapper">
             <Button

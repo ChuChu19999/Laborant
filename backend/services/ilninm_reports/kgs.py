@@ -9,7 +9,6 @@ import re
 from dataclasses import dataclass
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Optional
 import pendulum
 from sqlalchemy.ext.asyncio import AsyncSession
 from models.calculation import Calculation
@@ -36,7 +35,6 @@ from services.ilninm_reports.physicochemical import (
     format_report_period,
     get_calculations_by_sample,
 )
-from utils.filters import add_date_range_filter
 
 KGS_ABSENCE_DISPLAY = "отсутствие"
 
@@ -78,7 +76,7 @@ def _is_kgs_sample(sample: Sample) -> bool:
     return TEST_OBJECT_DEGASSED_CONDENSATE in obj
 
 
-def _find_sampling_location_prefix(name: str) -> Optional[str]:
+def _find_sampling_location_prefix(name: str) -> str | None:
     for rx in _KGS_LOCATION_PREFIX_RE:
         match = rx.search(name)
         if match:
@@ -130,7 +128,7 @@ def _format_kgs_cell_display(value: str) -> str:
     return value.strip()
 
 
-def _parse_numeric_for_average(value: str) -> Optional[float]:
+def _parse_numeric_for_average(value: str) -> float | None:
     text = (value or "").strip().lower()
     if text in _TEXT_ZERO_FOR_AVERAGE:
         return None
@@ -194,7 +192,7 @@ def _find_value_for_column(
 async def _get_samples_for_kgs_report(
     db: AsyncSession,
     laboratory_id: int,
-    department_id: Optional[int],
+    department_id: int | None,
     sampling_date_from: pendulum.DateTime,
     sampling_date_to: pendulum.DateTime,
 ) -> list[Sample]:
@@ -236,7 +234,7 @@ class KgsReportLocationGroup:
 async def get_kgs_report_groups(
     db: AsyncSession,
     laboratory_id: int,
-    department_id: Optional[int],
+    department_id: int | None,
     sampling_date_from: pendulum.DateTime,
     sampling_date_to: pendulum.DateTime,
 ) -> list[KgsReportLocationGroup]:

@@ -18,19 +18,34 @@ import dayjs, { type Dayjs } from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 import { BiChevronLeft, BiChevronRight, BiChevronsLeft, BiChevronsRight } from 'react-icons/bi';
 import { FaSortUp, FaSortDown, FaSort } from 'react-icons/fa';
+import { ResetFiltersButton } from '../../../../entities/ResetFiltersButton';
 import { LoadingCard } from '../../../../features/Cards';
 import { employeesApi } from '../../../../shared/api/employees';
 import { type Sample, samplesApi } from '../../../../shared/api/samples';
 import { getDateRangePresets } from '../../../../shared/lib/datePresets';
 import { urlFilterValueToStringArray, urlParamsToFilters } from '../../../../shared/lib/urlParams';
 import { useAutoRefetchQuery } from '../../../../shared/model/lib';
-import Button from '../../../../shared/ui/Button/Button';
+import Button from '../../../../shared/ui/Button';
 import { Input, Select, RangePicker } from '../../../../shared/ui/FormItems';
+import { TableEmptyState } from '../../../../shared/ui/TableEmptyState';
 import { formatDate } from '../../../../shared/utils/dateFormatting';
 import { formatWellDisplay } from '../../../../shared/utils/sampleFormatting';
 import './SamplesTable.css';
 
 dayjs.extend(customParseFormat);
+
+function hasActiveColumnFilters(filters: ColumnFiltersState): boolean {
+  return filters.some(filter => {
+    const value = filter.value;
+    if (value == null || value === '') {
+      return false;
+    }
+    if (Array.isArray(value)) {
+      return value.some(item => item != null && item !== '');
+    }
+    return true;
+  });
+}
 
 interface SamplesTableProps {
   data: Sample[];
@@ -47,6 +62,12 @@ interface SamplesTableProps {
   onEdit: (sampleId: number) => void;
   onDelete: (sampleId: number) => void;
   onFillCalculations?: (sampleId: number) => void;
+  onCreate?: () => void;
+  onResetFilters?: () => void;
+  canUpdate?: boolean;
+  canDelete?: boolean;
+  canFillCalculations?: boolean;
+  canCreate?: boolean;
 }
 
 const SamplesTable: React.FC<SamplesTableProps> = ({
@@ -64,6 +85,12 @@ const SamplesTable: React.FC<SamplesTableProps> = ({
   onEdit,
   onDelete,
   onFillCalculations,
+  onCreate,
+  onResetFilters,
+  canUpdate = true,
+  canDelete = true,
+  canFillCalculations = true,
+  canCreate = false,
 }) => {
   const [internalSorting, setInternalSorting] = React.useState<SortingState>(externalSorting || []);
 
@@ -458,7 +485,7 @@ const SamplesTable: React.FC<SamplesTableProps> = ({
         header: 'Действия',
         cell: ({ row }) => (
           <div className="samples-table-actions">
-            {onFillCalculations && (
+            {onFillCalculations && canFillCalculations && (
               <Button
                 type="text"
                 size="small"
@@ -469,25 +496,29 @@ const SamplesTable: React.FC<SamplesTableProps> = ({
                 Расчеты
               </Button>
             )}
-            <Button
-              type="text"
-              size="small"
-              icon={<EditOutlined />}
-              onClick={() => onEdit(row.original.id)}
-              className="samples-table-edit-button"
-            >
-              Редактировать
-            </Button>
-            <Button
-              type="text"
-              danger
-              size="small"
-              icon={<DeleteOutlined />}
-              onClick={() => onDelete(row.original.id)}
-              className="samples-table-delete-button"
-            >
-              Удалить
-            </Button>
+            {canUpdate && (
+              <Button
+                type="text"
+                size="small"
+                icon={<EditOutlined />}
+                onClick={() => onEdit(row.original.id)}
+                className="samples-table-edit-button"
+              >
+                Редактировать
+              </Button>
+            )}
+            {canDelete && (
+              <Button
+                type="text"
+                danger
+                size="small"
+                icon={<DeleteOutlined />}
+                onClick={() => onDelete(row.original.id)}
+                className="samples-table-delete-button"
+              >
+                Удалить
+              </Button>
+            )}
           </div>
         ),
         enableSorting: false,
@@ -496,7 +527,7 @@ const SamplesTable: React.FC<SamplesTableProps> = ({
         enableResizing: false,
       },
     ],
-    [onEdit, onDelete, onFillCalculations, employeesMap]
+    [onEdit, onDelete, onFillCalculations, canUpdate, canDelete, canFillCalculations, employeesMap]
   );
 
   const handleColumnFiltersChange = React.useCallback(
@@ -826,7 +857,27 @@ const SamplesTable: React.FC<SamplesTableProps> = ({
                 {table.getRowModel().rows.length === 0 ? (
                   <tr>
                     <td colSpan={columns.length} className="samples-table-empty-cell">
-                      Пробы не найдены
+                      {hasActiveColumnFilters(columnFilters) ? (
+                        <TableEmptyState
+                          title="Ничего не найдено"
+                          description="Попробуйте изменить условия поиска или сбросить фильтры."
+                          action={
+                            onResetFilters ? <ResetFiltersButton onReset={onResetFilters} /> : null
+                          }
+                        />
+                      ) : (
+                        <TableEmptyState
+                          title="Здесь будут поступления проб"
+                          description="Зарегистрируйте первую пробу, чтобы начать расчёты."
+                          action={
+                            canCreate && onCreate ? (
+                              <Button type="primary" onClick={onCreate}>
+                                Добавить пробу
+                              </Button>
+                            ) : null
+                          }
+                        />
+                      )}
                     </td>
                   </tr>
                 ) : (

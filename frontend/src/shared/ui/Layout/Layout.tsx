@@ -1,5 +1,6 @@
 import { Helmet } from 'react-helmet';
-import { BiCog } from 'react-icons/bi';
+import { SettingsIcon } from '../icons';
+import '../icons/icons.css';
 import './Layout.css';
 
 interface LayoutProps {
@@ -27,7 +28,11 @@ const Layout = ({
       <div className={`${headerClassName || ''} header`}>
         <p className="header-text">{title}</p>
         {settings && (
-          <BiCog color="#BDBFC1" size={25} className="header-settings" onClick={onSettingsClick} />
+          <SettingsIcon
+            size={25}
+            className="header-settings animated-icon"
+            onClick={onSettingsClick}
+          />
         )}
       </div>
       <div className="content">{children}</div>

@@ -1,14 +1,14 @@
-from typing import Optional
 import httpx
 from core.logger import logger
 
-_hr_client: Optional[httpx.AsyncClient] = None
+_hr_client: httpx.AsyncClient | None = None
 
 
 async def get_hr_client() -> httpx.AsyncClient:
     """
-    Получение переиспользуемого HTTP клиента для HR API.
-    Клиент создается один раз и переиспользуется для всех запросов.
+    Переиспользуемый HTTP-клиент для HR API.
+
+    verify=False — осознанно (внутренняя сеть; CERT_PATH для HR не применяем).
     """
     global _hr_client
     if _hr_client is None:

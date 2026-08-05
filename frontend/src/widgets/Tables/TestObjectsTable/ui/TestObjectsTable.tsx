@@ -17,7 +17,7 @@ import { BiChevronLeft, BiChevronRight, BiChevronsLeft, BiChevronsRight } from '
 import { FaSortUp, FaSortDown, FaSort } from 'react-icons/fa';
 import { LoadingCard } from '../../../../features/Cards';
 import { urlParamsToFilters } from '../../../../shared/lib/urlParams';
-import Button from '../../../../shared/ui/Button/Button';
+import Button from '../../../../shared/ui/Button';
 import { Input, Select } from '../../../../shared/ui/FormItems';
 import type { TestObjectCatalogItem } from '../../../../shared/api/testObjects';
 import './TestObjectsTable.css';
@@ -34,6 +34,8 @@ interface TestObjectsTableProps {
   sorting?: SortingState;
   onEdit: (id: number) => void;
   onDelete: (id: number) => void;
+  canUpdate?: boolean;
+  canDelete?: boolean;
 }
 
 const formatVisibilityScope = (item: TestObjectCatalogItem): string => {
@@ -81,6 +83,8 @@ const TestObjectsTable: React.FC<TestObjectsTableProps> = ({
   sorting: externalSorting,
   onEdit,
   onDelete,
+  canUpdate = true,
+  canDelete = true,
 }) => {
   const [searchParams] = useSearchParams();
   const filterKeys = React.useMemo(() => ['name', 'tag'], []);
@@ -175,25 +179,29 @@ const TestObjectsTable: React.FC<TestObjectsTableProps> = ({
         header: 'Действия',
         cell: ({ row }) => (
           <div className="test-objects-table-actions">
-            <Button
-              type="text"
-              size="small"
-              icon={<EditOutlined />}
-              onClick={() => onEdit(row.original.id)}
-              className="test-objects-table-edit-button"
-            >
-              Редактировать
-            </Button>
-            <Button
-              type="text"
-              danger
-              size="small"
-              icon={<DeleteOutlined />}
-              onClick={() => onDelete(row.original.id)}
-              className="test-objects-table-delete-button"
-            >
-              Удалить
-            </Button>
+            {canUpdate && (
+              <Button
+                type="text"
+                size="small"
+                icon={<EditOutlined />}
+                onClick={() => onEdit(row.original.id)}
+                className="test-objects-table-edit-button"
+              >
+                Редактировать
+              </Button>
+            )}
+            {canDelete && (
+              <Button
+                type="text"
+                danger
+                size="small"
+                icon={<DeleteOutlined />}
+                onClick={() => onDelete(row.original.id)}
+                className="test-objects-table-delete-button"
+              >
+                Удалить
+              </Button>
+            )}
           </div>
         ),
         enableSorting: false,
@@ -202,7 +210,7 @@ const TestObjectsTable: React.FC<TestObjectsTableProps> = ({
         enableResizing: false,
       },
     ],
-    [onEdit, onDelete]
+    [onEdit, onDelete, canUpdate, canDelete]
   );
 
   const handleColumnFiltersChange = React.useCallback(

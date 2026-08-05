@@ -1,12 +1,8 @@
 import builtins
 import logging
 import sys
-from typing import TYPE_CHECKING
 from loguru import logger
 from core.config import settings
-
-if TYPE_CHECKING:
-    from loguru import Logger
 
 
 class InterceptHandler(logging.Handler):

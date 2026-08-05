@@ -2,7 +2,7 @@ from __future__ import annotations
 from sqlalchemy import Float, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from models.sample import MassFractionOilRefractionTable
+from models.mass_fraction import MassFractionOilRefractionTable
 from repositories.base import (
     add_and_flush,
     execute_scalar_one_or_none,
@@ -96,11 +96,13 @@ async def get_mass_fraction_refraction_entries(
 ) -> list[MassFractionOilRefractionTable]:
     """Получить точки градуировочного графика для метода."""
     result = await db.execute(
-        select(MassFractionOilRefractionTable)
-        .where(
-            MassFractionOilRefractionTable.research_method_id == research_method_id,
-            MassFractionOilRefractionTable.deleted_at.is_(None),
+        filter_not_deleted(
+            select(MassFractionOilRefractionTable)
+            .where(
+                MassFractionOilRefractionTable.research_method_id == research_method_id
+            )
+            .order_by(cast(MassFractionOilRefractionTable.c_value, Float)),
+            MassFractionOilRefractionTable.deleted_at,
         )
-        .order_by(cast(MassFractionOilRefractionTable.c_value, Float))
     )
     return list(result.scalars().all())

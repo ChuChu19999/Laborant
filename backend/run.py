@@ -8,9 +8,7 @@ init(autoreset=True)
 
 
 def colorize_log_line(line: str) -> str:
-    """
-    Добавляет цвета к логам uvicorn.
-    """
+    """Добавляет цвета к логам uvicorn."""
     # Цвета для разных типов сообщений
     if "INFO:" in line or "Starting" in line:
         return f"{Fore.CYAN}{line}{Style.RESET_ALL}"
@@ -70,9 +68,7 @@ def colorize_log_line(line: str) -> str:
 
 
 def run_uvicorn_with_colors():
-    """
-    Запускает uvicorn с перехватом и цветным форматированием вывода.
-    """
+    """Запускает uvicorn с перехватом и цветным форматированием вывода."""
     process = subprocess.Popen(
         [
             "uvicorn",

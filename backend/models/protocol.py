@@ -1,6 +1,6 @@
 from __future__ import annotations
 from datetime import date
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 from sqlalchemy import JSON, Boolean, Date, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from core.config import get_database_schema
@@ -15,10 +15,10 @@ class Protocol(BaseModel):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
-    test_protocol_number: Mapped[Optional[str]] = mapped_column(
+    test_protocol_number: Mapped[str | None] = mapped_column(
         String(100), nullable=True, comment="Номер протокола испытаний"
     )
-    test_protocol_date: Mapped[Optional[date]] = mapped_column(
+    test_protocol_date: Mapped[date | None] = mapped_column(
         Date, nullable=True, comment="Дата протокола испытаний"
     )
     is_accredited: Mapped[bool] = mapped_column(
@@ -27,19 +27,19 @@ class Protocol(BaseModel):
     sampling_act_number: Mapped[str] = mapped_column(
         String(50), nullable=False, comment="Номер акта отбора"
     )
-    issued: Mapped[Optional[str]] = mapped_column(
+    issued: Mapped[str | None] = mapped_column(
         String(150), nullable=True, comment="hsnils лица, оформившего протокол"
     )
-    approved: Mapped[Optional[str]] = mapped_column(
+    approved: Mapped[str | None] = mapped_column(
         String(150), nullable=True, comment="hsnils лица, утвердившего протокол"
     )
-    issued_position: Mapped[Optional[str]] = mapped_column(
+    issued_position: Mapped[str | None] = mapped_column(
         String(100), nullable=True, comment="Должность оформившего"
     )
-    approved_position: Mapped[Optional[str]] = mapped_column(
+    approved_position: Mapped[str | None] = mapped_column(
         String(100), nullable=True, comment="Должность утвердившего"
     )
-    protocol_template_id: Mapped[Optional[int]] = mapped_column(
+    protocol_template_id: Mapped[int | None] = mapped_column(
         Integer,
         ForeignKey(
             f"{get_database_schema()}.protocol_templates.id", ondelete="SET NULL"
@@ -51,12 +51,12 @@ class Protocol(BaseModel):
         ForeignKey(f"{get_database_schema()}.laboratories.id", ondelete="CASCADE"),
         nullable=False,
     )
-    department_id: Mapped[Optional[int]] = mapped_column(
+    department_id: Mapped[int | None] = mapped_column(
         Integer,
         ForeignKey(f"{get_database_schema()}.departments.id", ondelete="CASCADE"),
         nullable=True,
     )
-    samples: Mapped[Optional[list[Any]]] = mapped_column(
+    samples: Mapped[list[Any] | None] = mapped_column(
         JSON,
         nullable=True,
         default=list,
@@ -64,10 +64,8 @@ class Protocol(BaseModel):
     )
 
     laboratory: Mapped["Laboratory"] = relationship(back_populates="protocols")
-    department: Mapped[Optional["Department"]] = relationship(
-        back_populates="protocols"
-    )
-    protocol_template: Mapped[Optional["ProtocolTemplate"]] = relationship(
+    department: Mapped["Department | None"] = relationship(back_populates="protocols")
+    protocol_template: Mapped["ProtocolTemplate | None"] = relationship(
         back_populates="protocols"
     )
 
@@ -102,14 +100,14 @@ class ProtocolTemplate(BaseModel):
         ForeignKey(f"{get_database_schema()}.laboratories.id", ondelete="CASCADE"),
         nullable=False,
     )
-    department_id: Mapped[Optional[int]] = mapped_column(
+    department_id: Mapped[int | None] = mapped_column(
         Integer,
         ForeignKey(f"{get_database_schema()}.departments.id", ondelete="CASCADE"),
         nullable=True,
     )
 
     laboratory: Mapped["Laboratory"] = relationship(back_populates="protocol_templates")
-    department: Mapped[Optional["Department"]] = relationship(
+    department: Mapped["Department | None"] = relationship(
         back_populates="protocol_templates"
     )
     protocols: Mapped[list["Protocol"]] = relationship(

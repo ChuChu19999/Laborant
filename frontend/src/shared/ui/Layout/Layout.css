@@ -45,6 +45,11 @@
 .layout-wrapper .header-settings {
   cursor: pointer;
   margin-right: 10px;
+  color: #bdbfc1;
+}
+
+.layout-wrapper .header-settings:hover {
+  color: #8a8c8e;
 }
 
 .layout-wrapper .content {

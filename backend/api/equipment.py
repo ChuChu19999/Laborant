@@ -1,10 +1,10 @@
 from __future__ import annotations
 from fastapi import APIRouter, Depends
 from core.auth_decorators import IsAuthenticated
-from core.deps import DbSession, EquipmentListFilters
-from core.exceptions import NotFoundError
+from core.deps import DbSession, EquipmentListFilters, UserPermissions
 from schemas.equipment import EquipmentCreate, EquipmentResponse, EquipmentUpdate
 from schemas.pagination import PaginatedResponse
+from services.access_control import enforce_crud_access
 from services.equipment import (
     build_equipment_response,
     create_equipment,
@@ -12,7 +12,7 @@ from services.equipment import (
 )
 from services.equipment import get_equipment as get_equipment_list
 from services.equipment import (
-    get_equipment_by_id,
+    require_equipment_by_id,
     update_equipment,
 )
 
@@ -33,9 +33,17 @@ router = APIRouter()
 # @IsAuthenticated
 async def list_equipment(
     db: DbSession,
+    effective: UserPermissions,
     filters: EquipmentListFilters = Depends(),
 ):
     """Возвращает список оборудования с пагинацией или без."""
+    enforce_crud_access(
+        effective,
+        "equipment",
+        "read",
+        filters.laboratory_id,
+        filters.department_id,
+    )
     equipment_list, total, total_pages = await get_equipment_list(
         db,
         laboratory_id=filters.laboratory_id,
@@ -80,8 +88,16 @@ async def list_equipment(
 async def create_equipment_endpoint(
     equipment_data: EquipmentCreate,
     db: DbSession,
+    effective: UserPermissions,
 ):
     """Добавляет новое оборудование на основе переданных данных."""
+    enforce_crud_access(
+        effective,
+        "equipment",
+        "create",
+        equipment_data.laboratory_id,
+        equipment_data.department_id,
+    )
     equipment = await create_equipment(db, equipment_data)
     return build_equipment_response(equipment)
 
@@ -100,11 +116,17 @@ async def create_equipment_endpoint(
 async def get_equipment_endpoint(
     equipment_id: int,
     db: DbSession,
+    effective: UserPermissions,
 ):
     """Возвращает информацию об оборудовании по его идентификатору."""
-    equipment = await get_equipment_by_id(db, equipment_id)
-    if not equipment:
-        raise NotFoundError("Оборудование не найдено")
+    equipment = await require_equipment_by_id(db, equipment_id)
+    enforce_crud_access(
+        effective,
+        "equipment",
+        "read",
+        equipment.laboratory_id,
+        equipment.department_id,
+    )
     return build_equipment_response(equipment)
 
 
@@ -123,8 +145,13 @@ async def update_equipment_endpoint(
     equipment_id: int,
     equipment_data: EquipmentUpdate,
     db: DbSession,
+    effective: UserPermissions,
 ):
     """Обновляет существующее оборудование."""
+    existing = await require_equipment_by_id(db, equipment_id)
+    lab_id = equipment_data.laboratory_id or existing.laboratory_id
+    dept_id = equipment_data.department_id or existing.department_id
+    enforce_crud_access(effective, "equipment", "update", lab_id, dept_id)
     equipment = await update_equipment(db, equipment_id, equipment_data)
     return build_equipment_response(equipment)
 
@@ -143,6 +170,15 @@ async def update_equipment_endpoint(
 async def delete_equipment_endpoint(
     equipment_id: int,
     db: DbSession,
+    effective: UserPermissions,
 ):
     """Выполняет мягкое удаление оборудования."""
+    equipment = await require_equipment_by_id(db, equipment_id)
+    enforce_crud_access(
+        effective,
+        "equipment",
+        "delete",
+        equipment.laboratory_id,
+        equipment.department_id,
+    )
     await delete_equipment(db, equipment_id)

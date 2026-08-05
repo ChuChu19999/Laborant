@@ -1,7 +1,7 @@
 import base64
 from copy import copy
 from io import BytesIO
-from typing import Any, Optional
+from typing import Any
 import openpyxl
 import pendulum
 from openpyxl.cell.cell import Cell
@@ -327,9 +327,9 @@ async def build_sample_count_excel(
     db: AsyncSession,
     template_file_base64: str,
     laboratory_id: int,
-    receiving_date_from: Optional[Any],
-    receiving_date_to: Optional[Any],
-    department_id: Optional[int] = None,
+    receiving_date_from: Any | None,
+    receiving_date_to: Any | None,
+    department_id: int | None = None,
 ) -> tuple[bytes, bytes]:
     """
     Строит Excel-файл отчёта «Количество проб»: для каждого branch копируется

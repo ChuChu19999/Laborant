@@ -110,7 +110,7 @@ const CreateRoleModal: React.FC<CreateRoleModalProps> = ({ open, onClose, onSucc
 
   return (
     <Modal
-      header="Добавление области видимости роли"
+      header="Добавление роли"
       onClose={onClose}
       onCancel={handleCancel}
       onSave={handleSave}

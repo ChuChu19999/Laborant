@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import {
   PlusOutlined,
   EditOutlined,
@@ -30,10 +30,12 @@ import {
   type SamplingLocation,
   type WellMode,
 } from '../../shared/api/samplingLocations';
+import { SAMPLING_TERMINOLOGY_LABELS } from '../../shared/config/permissions';
+import { useCan, usePermissionsContext, useScopeAccess } from '../../shared/lib/permissions';
 import { useAutoRefetchQuery } from '../../shared/model/lib/useQuery';
-import Button from '../../shared/ui/Button/Button';
+import Button from '../../shared/ui/Button';
 import { DepartmentCard, LaboratoryCard } from '../../shared/ui/Cards';
-import Layout from '../../shared/ui/Layout/Layout';
+import Layout from '../../shared/ui/Layout';
 import { NavigationBar } from '../../widgets/NavigationBar';
 import { ThreePanel } from '../../widgets/ThreePanel';
 import './SamplingLocationsPage.css';
@@ -45,6 +47,13 @@ const SamplingLocationsPage: React.FC = () => {
   }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { permissionsData } = usePermissionsContext();
+  const { canAccessLaboratory, canAccessDepartment, canAccessRouteScope } = useScopeAccess();
+  const canCreateSamplingLocation = useCan('sampling_locations', 'create');
+  const canUpdateSamplingLocation = useCan('sampling_locations', 'update');
+  const canDeleteSamplingLocation = useCan('sampling_locations', 'delete');
+  const terminologyLabel =
+    SAMPLING_TERMINOLOGY_LABELS[permissionsData.permissions.sampling_terminology || 'well_mode'];
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<SamplingLocation | null>(null);
   const [selectedWellMode, setSelectedWellMode] = useState<WellMode | null>(null);
@@ -319,6 +328,10 @@ const SamplingLocationsPage: React.FC = () => {
     (labId && !laboratory && !departments) ||
     (labId && (deptId || departmentsList.length === 0) && !branches && branchesList.length === 0);
 
+  if (!canAccessRouteScope(labId, deptId)) {
+    return <Navigate to="/403" replace />;
+  }
+
   if (isInitialLoading) {
     return (
       <Layout title="Места отбора проб">
@@ -340,6 +353,7 @@ const SamplingLocationsPage: React.FC = () => {
                 laboratory={laboratory}
                 onClick={handleLaboratoryClick}
                 showActions={false}
+                disabled={!canAccessLaboratory(laboratory.id)}
               />
             ))}
           </div>
@@ -361,6 +375,7 @@ const SamplingLocationsPage: React.FC = () => {
                 onClick={handleDepartmentClick}
                 showActions={false}
                 iconIndex={index}
+                disabled={!labId || !canAccessDepartment(labId, department.id)}
               />
             ))}
           </div>
@@ -381,14 +396,16 @@ const SamplingLocationsPage: React.FC = () => {
           <div className="sampling-locations-branches">
             <div className="sampling-locations-branches-header">
               <h3 className="sampling-locations-branches-title">Филиалы</h3>
-              <IconButton
-                aria-label="добавить филиал"
-                size="small"
-                className="sampling-locations-branches-add-button"
-                onClick={() => setIsCreateBranchModalOpen(true)}
-              >
-                <AddIcon fontSize="small" className="sampling-locations-branches-add-icon" />
-              </IconButton>
+              {canCreateSamplingLocation && (
+                <IconButton
+                  aria-label="добавить филиал"
+                  size="small"
+                  className="sampling-locations-branches-add-button"
+                  onClick={() => setIsCreateBranchModalOpen(true)}
+                >
+                  <AddIcon fontSize="small" className="sampling-locations-branches-add-icon" />
+                </IconButton>
+              )}
             </div>
             <div className="sampling-locations-branches-content">
               {branchesList.length === 0 ? (
@@ -421,26 +438,30 @@ const SamplingLocationsPage: React.FC = () => {
                         </div>
                       </div>
                       <div className="sampling-locations-branch-item-actions">
-                        <Button
-                          type="text"
-                          size="small"
-                          icon={<EditOutlined />}
-                          onClick={e => {
-                            e.stopPropagation();
-                            handleEditBranch(branch);
-                          }}
-                          className="sampling-locations-edit-button"
-                        />
-                        <Button
-                          type="text"
-                          size="small"
-                          icon={<DeleteOutlined />}
-                          danger
-                          onClick={e => {
-                            e.stopPropagation();
-                            handleDeleteBranch(branch);
-                          }}
-                        />
+                        {canUpdateSamplingLocation && (
+                          <Button
+                            type="text"
+                            size="small"
+                            icon={<EditOutlined />}
+                            onClick={e => {
+                              e.stopPropagation();
+                              handleEditBranch(branch);
+                            }}
+                            className="sampling-locations-edit-button"
+                          />
+                        )}
+                        {canDeleteSamplingLocation && (
+                          <Button
+                            type="text"
+                            size="small"
+                            icon={<DeleteOutlined />}
+                            danger
+                            onClick={e => {
+                              e.stopPropagation();
+                              handleDeleteBranch(branch);
+                            }}
+                          />
+                        )}
                       </div>
                     </div>
                   ))}
@@ -468,14 +489,16 @@ const SamplingLocationsPage: React.FC = () => {
                     )}
                   </div>
                   <div className="sampling-locations-add-button-container">
-                    <Button
-                      type="primary"
-                      icon={<PlusOutlined />}
-                      size="small"
-                      onClick={() => setIsCreateLocationModalOpen(true)}
-                    >
-                      Добавить место отбора пробы
-                    </Button>
+                    {canCreateSamplingLocation && (
+                      <Button
+                        type="primary"
+                        icon={<PlusOutlined />}
+                        size="small"
+                        onClick={() => setIsCreateLocationModalOpen(true)}
+                      >
+                        Добавить место отбора пробы
+                      </Button>
+                    )}
                   </div>
                 </div>
 
@@ -504,20 +527,24 @@ const SamplingLocationsPage: React.FC = () => {
                           </div>
                         </div>
                         <div className="sampling-locations-item-actions">
-                          <Button
-                            type="text"
-                            size="small"
-                            icon={<EditOutlined />}
-                            onClick={() => handleEditLocation(location)}
-                            className="sampling-locations-edit-button"
-                          />
-                          <Button
-                            type="text"
-                            size="small"
-                            icon={<DeleteOutlined />}
-                            danger
-                            onClick={() => handleDeleteLocation(location)}
-                          />
+                          {canUpdateSamplingLocation && (
+                            <Button
+                              type="text"
+                              size="small"
+                              icon={<EditOutlined />}
+                              onClick={() => handleEditLocation(location)}
+                              className="sampling-locations-edit-button"
+                            />
+                          )}
+                          {canDeleteSamplingLocation && (
+                            <Button
+                              type="text"
+                              size="small"
+                              icon={<DeleteOutlined />}
+                              danger
+                              onClick={() => handleDeleteLocation(location)}
+                            />
+                          )}
                         </div>
                       </div>
                     ))}
@@ -532,25 +559,25 @@ const SamplingLocationsPage: React.FC = () => {
             {!selectedBranch ? (
               <div className="sampling-locations-placeholder">
                 <h3>Выберите филиал</h3>
-                <p>Выберите филиал слева, чтобы просмотреть режимы скважины (точки отбора).</p>
+                <p>Выберите филиал слева, чтобы просмотреть {terminologyLabel.toLowerCase()}.</p>
               </div>
             ) : (
               <div className="sampling-locations-list-wrapper">
                 <div className="sampling-locations-list-header">
                   <div>
-                    <h3 className="sampling-locations-list-title">
-                      Режимы скважины (точки отбора)
-                    </h3>
+                    <h3 className="sampling-locations-list-title">{terminologyLabel}</h3>
                   </div>
                   <div className="sampling-locations-add-button-container">
-                    <Button
-                      type="primary"
-                      icon={<PlusOutlined />}
-                      size="small"
-                      onClick={() => setIsCreateWellModeModalOpen(true)}
-                    >
-                      Добавить режим скважины (точку отбора)
-                    </Button>
+                    {canCreateSamplingLocation && (
+                      <Button
+                        type="primary"
+                        icon={<PlusOutlined />}
+                        size="small"
+                        onClick={() => setIsCreateWellModeModalOpen(true)}
+                      >
+                        Добавить {terminologyLabel.toLowerCase()}
+                      </Button>
+                    )}
                   </div>
                 </div>
 
@@ -560,10 +587,10 @@ const SamplingLocationsPage: React.FC = () => {
                   </div>
                 ) : wellModes.length === 0 ? (
                   <div className="sampling-locations-empty">
-                    <h4>Нет режимов скважины (точек отбора)</h4>
+                    <h4>Нет {terminologyLabel.toLowerCase()}</h4>
                     <p>
-                      Добавьте первый режим скважины (точку отбора), нажав на кнопку «Добавить режим
-                      скважины (точку отбора)».
+                      Добавьте первую запись, нажав на кнопку «Добавить{' '}
+                      {terminologyLabel.toLowerCase()}».
                     </p>
                   </div>
                 ) : (
@@ -579,20 +606,24 @@ const SamplingLocationsPage: React.FC = () => {
                           </div>
                         </div>
                         <div className="sampling-locations-item-actions">
-                          <Button
-                            type="text"
-                            size="small"
-                            icon={<EditOutlined />}
-                            onClick={() => handleEditWellMode(wellMode)}
-                            className="sampling-locations-edit-button"
-                          />
-                          <Button
-                            type="text"
-                            size="small"
-                            icon={<DeleteOutlined />}
-                            danger
-                            onClick={() => handleDeleteWellMode(wellMode)}
-                          />
+                          {canUpdateSamplingLocation && (
+                            <Button
+                              type="text"
+                              size="small"
+                              icon={<EditOutlined />}
+                              onClick={() => handleEditWellMode(wellMode)}
+                              className="sampling-locations-edit-button"
+                            />
+                          )}
+                          {canDeleteSamplingLocation && (
+                            <Button
+                              type="text"
+                              size="small"
+                              icon={<DeleteOutlined />}
+                              danger
+                              onClick={() => handleDeleteWellMode(wellMode)}
+                            />
+                          )}
                         </div>
                       </div>
                     ))}

@@ -1,6 +1,6 @@
 import base64
 from copy import copy
-from typing import Any, Dict
+from typing import Any
 from openpyxl.cell.cell import MergedCell
 from openpyxl.styles import Alignment, Font
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -48,7 +48,7 @@ def _find_header_marker_rows(worksheet) -> tuple[int | None, int | None]:
 
 async def get_excel_styles(
     db: AsyncSession, template_id: int, section: str
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Получить стили для ячеек в файле."""
     del section
     template = await get_protocol_template_by_id(db, template_id)
@@ -59,7 +59,7 @@ async def get_excel_styles(
     workbook = load_sanitized_template_workbook(raw)
     worksheet = workbook.active
 
-    styles: Dict[str, Any] = {}
+    styles: dict[str, Any] = {}
     start_header_row, end_header_row = _find_header_marker_rows(worksheet)
 
     if start_header_row is None or end_header_row is None:
@@ -106,9 +106,9 @@ async def save_excel_section(
     db: AsyncSession,
     template_id: int,
     data: list,
-    styles: Dict[str, Any],
+    styles: dict[str, Any],
     section: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Сохранить изменения в секции Excel файла."""
     current_template = await get_protocol_template_by_id(db, template_id)
     if not current_template:
