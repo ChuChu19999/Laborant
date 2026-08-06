@@ -36,6 +36,7 @@ export const NAVIGATION_KEYS = [
   'equipment',
   'sampling_locations',
   'nd_norms',
+  'refraction_tables',
   'test_objects',
 ] as const;
 
@@ -46,6 +47,7 @@ export const CONFIGURABLE_NAVIGATION_KEYS = [
   'equipment',
   'sampling_locations',
   'nd_norms',
+  'refraction_tables',
 ] as const;
 
 export type NavigationKey = (typeof NAVIGATION_KEYS)[number];
@@ -57,6 +59,7 @@ export const NAVIGATION_PATH_MAP: Record<string, NavigationKey | 'help' | 'roles
   '/equipment': 'equipment',
   '/sampling-locations': 'sampling_locations',
   '/nd-norms': 'nd_norms',
+  '/refraction-tables': 'refraction_tables',
   '/test-objects': 'test_objects',
   '/help': 'help',
   '/roles': 'roles',
@@ -69,6 +72,7 @@ export const NAVIGATION_LABELS: Record<NavigationKey, string> = {
   equipment: 'Приборы',
   sampling_locations: 'Места отбора проб',
   nd_norms: 'Нормы НД',
+  refraction_tables: 'Градуировочный график',
   test_objects: 'Объекты испытаний',
 };
 
@@ -84,6 +88,7 @@ export interface NavigationPermissions {
   equipment: boolean;
   sampling_locations: boolean;
   nd_norms: boolean;
+  refraction_tables: boolean;
   test_objects: boolean;
 }
 
@@ -106,6 +111,7 @@ export interface RolePermissions {
   equipment: CrudPermissions;
   sampling_locations: CrudPermissions;
   nd_norms: CrudPermissions;
+  refraction_tables: CrudPermissions;
   test_objects: CrudPermissions;
   calculations: {
     execute: boolean;
@@ -125,6 +131,7 @@ export const defaultRolePermissions = (): RolePermissions => ({
     equipment: false,
     sampling_locations: false,
     nd_norms: false,
+    refraction_tables: false,
     test_objects: false,
   },
   laboratory_management: { access: false },
@@ -137,6 +144,7 @@ export const defaultRolePermissions = (): RolePermissions => ({
   equipment: { read: false, create: false, update: false, delete: false },
   sampling_locations: { read: false, create: false, update: false, delete: false },
   nd_norms: { read: false, create: false, update: false, delete: false },
+  refraction_tables: { read: false, create: false, update: false, delete: false },
   test_objects: { read: false, create: false, update: false, delete: false },
   calculations: {
     execute: false,
@@ -160,6 +168,10 @@ export function syncCrudReadFromNavigation(permissions: RolePermissions): RolePe
       read: navigation.sampling_locations,
     },
     nd_norms: { ...permissions.nd_norms, read: navigation.nd_norms },
+    refraction_tables: {
+      ...permissions.refraction_tables,
+      read: navigation.refraction_tables,
+    },
   };
 }
 
@@ -189,6 +201,9 @@ export function resolveNavigationKey(
   }
   if (pathname.startsWith('/nd-norms')) {
     return 'nd_norms';
+  }
+  if (pathname.startsWith('/refraction-tables')) {
+    return 'refraction_tables';
   }
   if (pathname.startsWith('/test-objects')) {
     return 'test_objects';

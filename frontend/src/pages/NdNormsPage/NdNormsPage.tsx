@@ -27,17 +27,16 @@ const NdNormsPage: React.FC = () => {
     departmentId?: string;
   }>();
   const navigate = useNavigate();
+  const labId = laboratoryId ? parseInt(laboratoryId, 10) : undefined;
+  const deptId = departmentId ? parseInt(departmentId, 10) : undefined;
   const { canAccessLaboratory, canAccessDepartment, canAccessRouteScope } = useScopeAccess();
-  const canCreateNdNorm = useCan('nd_norms', 'create');
-  const canUpdateNdNorm = useCan('nd_norms', 'update');
-  const canDeleteNdNorm = useCan('nd_norms', 'delete');
+  const canCreateNdNorm = useCan('nd_norms', 'create', labId, deptId);
+  const canUpdateNdNorm = useCan('nd_norms', 'update', labId, deptId);
+  const canDeleteNdNorm = useCan('nd_norms', 'delete', labId, deptId);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedNdNorm, setSelectedNdNorm] = useState<NdNorm | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-
-  const labId = laboratoryId ? parseInt(laboratoryId, 10) : undefined;
-  const deptId = departmentId ? parseInt(departmentId, 10) : undefined;
 
   const {
     ndNormsQuery,

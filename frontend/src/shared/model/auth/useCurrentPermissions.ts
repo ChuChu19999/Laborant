@@ -21,6 +21,7 @@ const deniedDefaults = (): UserPermissions => ({
   is_admin: false,
   role_names: [],
   role_types: [],
+  scopes: [],
   permissions: defaultRolePermissions(),
   visibility_scope: {
     laboratory_ids: [],

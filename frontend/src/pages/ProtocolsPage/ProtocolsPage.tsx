@@ -58,17 +58,16 @@ const ProtocolsPage: React.FC = () => {
     departmentId?: string;
   }>();
   const navigate = useNavigate();
+  const labId = laboratoryId ? parseInt(laboratoryId, 10) : undefined;
+  const deptId = departmentId ? parseInt(departmentId, 10) : undefined;
   const { canAccessLaboratory, canAccessDepartment, canAccessRouteScope } = useScopeAccess();
-  const canCreateProtocol = useCan('protocols', 'create');
-  const canUpdateProtocol = useCan('protocols', 'update');
-  const canDeleteProtocol = useCan('protocols', 'delete');
+  const canCreateProtocol = useCan('protocols', 'create', labId, deptId);
+  const canUpdateProtocol = useCan('protocols', 'update', labId, deptId);
+  const canDeleteProtocol = useCan('protocols', 'delete', labId, deptId);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedProtocol, setSelectedProtocol] = useState<Protocol | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-
-  const labId = laboratoryId ? parseInt(laboratoryId, 10) : undefined;
-  const deptId = departmentId ? parseInt(departmentId, 10) : undefined;
 
   const {
     protocolsQuery,

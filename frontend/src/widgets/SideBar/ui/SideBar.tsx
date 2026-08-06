@@ -198,6 +198,11 @@ const SideBar = ({
     shouldSave: pathname => pathname.startsWith('/nd-norms'),
   });
 
+  const refractionTablesPageState = usePageState({
+    storageKey: PAGE_STATE_KEYS.REFRACTION_TABLES_PAGE,
+    shouldSave: pathname => pathname.startsWith('/refraction-tables'),
+  });
+
   const laboratoryManagementPageState = usePageState({
     storageKey: PAGE_STATE_KEYS.LABORATORY_MANAGEMENT_PAGE,
     shouldSave: pathname => pathname.startsWith('/laboratory-management'),
@@ -312,6 +317,15 @@ const SideBar = ({
         return;
       }
 
+      if (targetPath === '/refraction-tables') {
+        if (refractionTablesPageState.restoreState('/refraction-tables', '')) {
+          setOpenSubmenus([]);
+          return;
+        }
+        go(targetPath);
+        return;
+      }
+
       go(targetPath);
     },
     [
@@ -321,6 +335,7 @@ const SideBar = ({
       navigate,
       ndNormsPageState,
       protocolsPageState,
+      refractionTablesPageState,
       samplesPageState,
       samplingLocationsPageState,
     ]

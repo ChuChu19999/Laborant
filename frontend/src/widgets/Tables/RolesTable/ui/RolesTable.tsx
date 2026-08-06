@@ -39,34 +39,27 @@ interface RolesTableProps {
 }
 
 const formatVisibilityScope = (item: RoleCatalogItem): string => {
-  const scope = item.visibility_scope;
-  const hasLabs = (scope.laboratory_ids?.length || 0) > 0;
-  const hasDepartments = (scope.department_ids?.length || 0) > 0;
-
-  if (!hasLabs && !hasDepartments) {
-    return 'Все лаборатории и подразделения';
+  const scopes = item.scopes || [];
+  if (scopes.length === 0) {
+    return 'Нет доступа';
   }
 
   const parts: string[] = [];
-
-  scope.laboratories?.forEach(entry => {
-    parts.push(entry.name);
-  });
-
-  scope.departments?.forEach(entry => {
-    parts.push(entry.name);
-  });
-
-  if (parts.length === 0) {
-    const labIds = scope.laboratory_ids?.join(', ') || '';
-    const deptIds = scope.department_ids?.join(', ') || '';
-    if (labIds) {
-      parts.push(`Лаборатории: ${labIds}`);
+  scopes.forEach(scope => {
+    if (scope.department_name) {
+      parts.push(scope.department_name);
+      return;
     }
-    if (deptIds) {
-      parts.push(`Подразделения: ${deptIds}`);
+    if (scope.laboratory_name) {
+      parts.push(scope.laboratory_name);
+      return;
     }
-  }
+    if (scope.department_id != null) {
+      parts.push(`Подразделение #${scope.department_id}`);
+      return;
+    }
+    parts.push(`Лаборатория #${scope.laboratory_id}`);
+  });
 
   return parts.join('; ');
 };
@@ -157,7 +150,7 @@ const RolesTable: React.FC<RolesTableProps> = ({
       },
       {
         id: 'visibility_scope',
-        header: 'Область видимости',
+        header: 'Лаборатории / подразделения',
         cell: ({ row }) => formatVisibilityScope(row.original),
         enableSorting: false,
         enableColumnFilter: false,

@@ -57,7 +57,7 @@ const SaveCalculationModal: React.FC<SaveCalculationModalProps> = ({
   existingEquipmentData,
   previousExecutorHash,
 }) => {
-  const showEquipmentField = useCan('calculations', 'show_equipment');
+  const showEquipmentField = useCan('calculations', 'show_equipment', laboratoryId, departmentId);
   const [executor, setExecutor] = useState<Employee | null>(null);
   const [executorError, setExecutorError] = useState('');
   const [selectedSampleId, setSelectedSampleId] = useState<number | undefined>(sampleId);

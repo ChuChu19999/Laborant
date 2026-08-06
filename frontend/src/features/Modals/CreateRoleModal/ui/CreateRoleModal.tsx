@@ -1,19 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { message } from 'antd';
-import { VisibilityScopeForm } from '../../../../entities/VisibilityScopeForm';
 import { ROLE_TYPE_OPTIONS } from '../../../../shared/lib/roleTypeOptions';
 import { useCreateRole } from '../../../../shared/model/hooks';
 import { Input, Select } from '../../../../shared/ui/FormItems';
 import { Modal } from '../../../../shared/ui/Modal';
 import type { RoleCreate } from '../../../../shared/api/roles';
-import type { VisibilityScope } from '../../../../shared/api/testObjects';
 import type { RoleTypeValue } from '../../../../shared/lib/roleTypeOptions';
 import './CreateRoleModal.css';
-
-const EMPTY_VISIBILITY_SCOPE: VisibilityScope = {
-  laboratory_ids: [],
-  department_ids: [],
-};
 
 interface CreateRoleModalProps {
   open: boolean;
@@ -25,14 +18,12 @@ const CreateRoleModal: React.FC<CreateRoleModalProps> = ({ open, onClose, onSucc
   const createMutation = useCreateRole();
   const [name, setName] = useState('');
   const [roleType, setRoleType] = useState<RoleTypeValue | undefined>(undefined);
-  const [visibilityScope, setVisibilityScope] = useState<VisibilityScope>(EMPTY_VISIBILITY_SCOPE);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (open) {
       setName('');
       setRoleType(undefined);
-      setVisibilityScope(EMPTY_VISIBILITY_SCOPE);
       setErrors({});
     }
   }, [open]);
@@ -86,20 +77,16 @@ const CreateRoleModal: React.FC<CreateRoleModalProps> = ({ open, onClose, onSucc
     const payload: RoleCreate = {
       name: name.trim(),
       role_type: roleType,
-      visibility_scope: {
-        laboratory_ids: visibilityScope.laboratory_ids,
-        department_ids: visibilityScope.department_ids,
-      },
+      scopes: [],
     };
 
     await createMutation.mutateAsync(payload);
     onSuccess();
-  }, [name, roleType, visibilityScope, createMutation, onSuccess, validateForm]);
+  }, [name, roleType, createMutation, onSuccess, validateForm]);
 
   const handleCancel = useCallback(() => {
     setName('');
     setRoleType(undefined);
-    setVisibilityScope(EMPTY_VISIBILITY_SCOPE);
     setErrors({});
     onClose();
   }, [onClose]);
@@ -143,11 +130,6 @@ const CreateRoleModal: React.FC<CreateRoleModalProps> = ({ open, onClose, onSucc
             options={ROLE_TYPE_OPTIONS}
             status={errors.role_type ? 'error' : ''}
           />
-        </div>
-
-        <div className="form-group">
-          <label>Область видимости</label>
-          <VisibilityScopeForm value={visibilityScope} onChange={setVisibilityScope} />
         </div>
       </div>
     </Modal>

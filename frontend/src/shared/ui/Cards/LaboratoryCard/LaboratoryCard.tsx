@@ -1,7 +1,10 @@
 import React from 'react';
-import { ExperimentOutlined } from '@ant-design/icons';
+import { ExperimentOutlined, SettingOutlined } from '@ant-design/icons';
+import { Dropdown } from 'antd';
 import Button from '../../Button';
+import Tooltip from '../../Tooltip';
 import type { Laboratory as LaboratoryType } from '../../../api/laboratories';
+import type { MenuProps } from 'antd';
 import './LaboratoryCard.css';
 
 type Laboratory = LaboratoryType & {
@@ -14,6 +17,7 @@ interface LaboratoryCardProps {
   showActions?: boolean;
   onEdit?: (laboratory: Laboratory, e: React.MouseEvent) => void;
   onDelete?: (laboratory: Laboratory, e: React.MouseEvent) => void;
+  settingsMenuItems?: MenuProps['items'];
   disabled?: boolean;
 }
 
@@ -23,6 +27,7 @@ const LaboratoryCard = ({
   showActions = false,
   onEdit,
   onDelete,
+  settingsMenuItems,
   disabled = false,
 }: LaboratoryCardProps) => {
   const handleEdit = (e: React.MouseEvent) => {
@@ -41,6 +46,8 @@ const LaboratoryCard = ({
     onDelete?.(laboratory, e);
   };
 
+  const showSettings = Boolean(settingsMenuItems?.length) && !disabled;
+
   return (
     <div
       className={`laboratory-card${disabled ? ' laboratory-card--disabled' : ''}`}
@@ -51,6 +58,21 @@ const LaboratoryCard = ({
       }}
       aria-disabled={disabled}
     >
+      {showSettings && (
+        <div className="laboratory-card-settings" onClick={e => e.stopPropagation()}>
+          <Dropdown menu={{ items: settingsMenuItems }} trigger={['click']}>
+            <Tooltip title="Настройки" placement="top">
+              <button
+                type="button"
+                className="laboratory-card-settings-button"
+                aria-label="Настройки"
+              >
+                <SettingOutlined />
+              </button>
+            </Tooltip>
+          </Dropdown>
+        </div>
+      )}
       <div className="laboratory-card-content">
         <div className="laboratory-card-header">
           <ExperimentOutlined className="laboratory-icon" />

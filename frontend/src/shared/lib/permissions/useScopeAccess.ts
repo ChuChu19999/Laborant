@@ -1,26 +1,21 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
+import { canAccessDepartmentFromScopes, canAccessLaboratoryFromScopes } from './roleScopes';
 import { usePermissionsContext } from './usePermissions';
-import {
-  isLaboratoryCardAccessible,
-  isScopeUnrestricted,
-  isVisibleInScope,
-} from './visibilityScope';
 
-/** Проверки доступа к карточкам лабораторий и подразделений по visibility_scope. */
+/** Проверки доступа к карточкам лабораторий и подразделений по привязкам роли. */
 export function useScopeAccess() {
   const { isAdmin, permissionsData } = usePermissionsContext();
-  const unrestricted =
-    isAdmin || permissionsData.is_admin || isScopeUnrestricted(permissionsData.visibility_scope);
-  const scope = permissionsData.visibility_scope;
+  const unrestricted = isAdmin || permissionsData.is_admin;
+  const scopes = useMemo(() => permissionsData.scopes || [], [permissionsData.scopes]);
 
   const canAccessLaboratory = useCallback(
     (laboratoryId: number) => {
       if (unrestricted) {
         return true;
       }
-      return isLaboratoryCardAccessible(scope, laboratoryId);
+      return canAccessLaboratoryFromScopes(scopes, laboratoryId);
     },
-    [unrestricted, scope]
+    [unrestricted, scopes]
   );
 
   const canAccessDepartment = useCallback(
@@ -28,9 +23,9 @@ export function useScopeAccess() {
       if (unrestricted) {
         return true;
       }
-      return isVisibleInScope(scope, laboratoryId, departmentId);
+      return canAccessDepartmentFromScopes(scopes, laboratoryId, departmentId);
     },
-    [unrestricted, scope]
+    [unrestricted, scopes]
   );
 
   /** Проверка lab/dept из URL: нет доступа → показывать 403. */

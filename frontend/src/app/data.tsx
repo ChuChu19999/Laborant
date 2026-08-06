@@ -5,6 +5,7 @@ import LaboratoryManagementPage from '../pages/LaboratoryManagementPage/Laborato
 import MainPage from '../pages/MainPage/MainPage';
 import NdNormsPage from '../pages/NdNormsPage/NdNormsPage';
 import ProtocolsPage from '../pages/ProtocolsPage/ProtocolsPage';
+import RefractionTablesPage from '../pages/RefractionTablesPage/RefractionTablesPage';
 import RolesPage from '../pages/RolesPage/RolesPage';
 import SamplesPage from '../pages/SamplesPage/SamplesPage';
 import SamplingLocationsPage from '../pages/SamplingLocationsPage/SamplingLocationsPage';
@@ -73,6 +74,12 @@ export const routersData: RouterDataItem[] = [
         path: '/nd-norms',
         Icon: BookTextIcon,
         element: <NdNormsPage />,
+      },
+      {
+        label: 'Градуировочный график',
+        path: '/refraction-tables',
+        Icon: BookTextIcon,
+        element: <RefractionTablesPage />,
       },
     ],
   },

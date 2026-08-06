@@ -7,6 +7,7 @@ export const PAGE_STATE_KEYS = {
   PROTOCOLS_PAGE: 'lastProtocolsPagePath',
   EQUIPMENT_PAGE: 'lastEquipmentPagePath',
   ND_NORMS_PAGE: 'lastNdNormsPagePath',
+  REFRACTION_TABLES_PAGE: 'lastRefractionTablesPagePath',
   SAMPLING_LOCATIONS_PAGE: 'lastSamplingLocationsPagePath',
   MAIN_PAGE: 'lastMainPagePath',
   LABORATORY_MANAGEMENT_PAGE: 'lastLaboratoryManagementPagePath',

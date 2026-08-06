@@ -31,7 +31,12 @@ import {
   type WellMode,
 } from '../../shared/api/samplingLocations';
 import { SAMPLING_TERMINOLOGY_LABELS } from '../../shared/config/permissions';
-import { useCan, usePermissionsContext, useScopeAccess } from '../../shared/lib/permissions';
+import {
+  useCan,
+  usePermissionsContext,
+  useScopeAccess,
+  resolvePermissionsForScope,
+} from '../../shared/lib/permissions';
 import { useAutoRefetchQuery } from '../../shared/model/lib/useQuery';
 import Button from '../../shared/ui/Button';
 import { DepartmentCard, LaboratoryCard } from '../../shared/ui/Cards';
@@ -47,13 +52,18 @@ const SamplingLocationsPage: React.FC = () => {
   }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const labId = laboratoryId ? parseInt(laboratoryId, 10) : undefined;
+  const deptId = departmentId ? parseInt(departmentId, 10) : undefined;
   const { permissionsData } = usePermissionsContext();
   const { canAccessLaboratory, canAccessDepartment, canAccessRouteScope } = useScopeAccess();
-  const canCreateSamplingLocation = useCan('sampling_locations', 'create');
-  const canUpdateSamplingLocation = useCan('sampling_locations', 'update');
-  const canDeleteSamplingLocation = useCan('sampling_locations', 'delete');
+  const canCreateSamplingLocation = useCan('sampling_locations', 'create', labId, deptId);
+  const canUpdateSamplingLocation = useCan('sampling_locations', 'update', labId, deptId);
+  const canDeleteSamplingLocation = useCan('sampling_locations', 'delete', labId, deptId);
+  const scopedPermissions =
+    resolvePermissionsForScope(permissionsData.scopes, labId, deptId) ||
+    permissionsData.permissions;
   const terminologyLabel =
-    SAMPLING_TERMINOLOGY_LABELS[permissionsData.permissions.sampling_terminology || 'well_mode'];
+    SAMPLING_TERMINOLOGY_LABELS[scopedPermissions.sampling_terminology || 'well_mode'];
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<SamplingLocation | null>(null);
   const [selectedWellMode, setSelectedWellMode] = useState<WellMode | null>(null);
@@ -67,9 +77,6 @@ const SamplingLocationsPage: React.FC = () => {
   const [isCreateWellModeModalOpen, setIsCreateWellModeModalOpen] = useState(false);
   const [isEditWellModeModalOpen, setIsEditWellModeModalOpen] = useState(false);
   const [isDeleteWellModeModalOpen, setIsDeleteWellModeModalOpen] = useState(false);
-
-  const labId = laboratoryId ? parseInt(laboratoryId, 10) : undefined;
-  const deptId = departmentId ? parseInt(departmentId, 10) : undefined;
 
   const { data: laboratories } = useAutoRefetchQuery<{ items: Laboratory[] }>(
     ['sampling-locations', 'laboratories'],

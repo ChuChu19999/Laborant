@@ -1,7 +1,15 @@
 import React from 'react';
-import { DeploymentUnitOutlined, ClusterOutlined, BranchesOutlined } from '@ant-design/icons';
+import {
+  DeploymentUnitOutlined,
+  ClusterOutlined,
+  BranchesOutlined,
+  SettingOutlined,
+} from '@ant-design/icons';
+import { Dropdown } from 'antd';
 import Button from '../../Button';
+import Tooltip from '../../Tooltip';
 import type { Department as DepartmentType } from '../../../api/laboratories';
+import type { MenuProps } from 'antd';
 import './DepartmentCard.css';
 
 const deptIcons = [DeploymentUnitOutlined, ClusterOutlined, BranchesOutlined];
@@ -14,6 +22,7 @@ interface DepartmentCardProps {
   showActions?: boolean;
   onEdit?: (department: Department, e: React.MouseEvent) => void;
   onDelete?: (department: Department, e: React.MouseEvent) => void;
+  settingsMenuItems?: MenuProps['items'];
   iconIndex?: number;
   disabled?: boolean;
 }
@@ -24,10 +33,12 @@ const DepartmentCard = ({
   showActions = false,
   onEdit,
   onDelete,
+  settingsMenuItems,
   iconIndex = 0,
   disabled = false,
 }: DepartmentCardProps) => {
   const DeptIcon = deptIcons[iconIndex % deptIcons.length];
+  const showSettings = Boolean(settingsMenuItems?.length) && !disabled;
 
   const handleEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -55,6 +66,21 @@ const DepartmentCard = ({
       }}
       aria-disabled={disabled}
     >
+      {showSettings && (
+        <div className="department-card-settings" onClick={e => e.stopPropagation()}>
+          <Dropdown menu={{ items: settingsMenuItems }} trigger={['click']}>
+            <Tooltip title="Настройки" placement="top">
+              <button
+                type="button"
+                className="department-card-settings-button"
+                aria-label="Настройки"
+              >
+                <SettingOutlined />
+              </button>
+            </Tooltip>
+          </Dropdown>
+        </div>
+      )}
       <div className="department-card-content">
         <div className="department-card-header">
           <DeptIcon className="department-icon" />

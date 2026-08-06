@@ -35,10 +35,12 @@ const SamplesPage: React.FC = () => {
     departmentId?: string;
   }>();
   const navigate = useNavigate();
+  const labId = laboratoryId ? parseInt(laboratoryId, 10) : undefined;
+  const deptId = departmentId ? parseInt(departmentId, 10) : undefined;
   const { canAccessLaboratory, canAccessDepartment, canAccessRouteScope } = useScopeAccess();
-  const canUpdateSample = useCan('samples', 'update');
-  const canDeleteSample = useCan('samples', 'delete');
-  const canExecuteCalculations = useCan('calculations', 'execute');
+  const canUpdateSample = useCan('samples', 'update', labId, deptId);
+  const canDeleteSample = useCan('samples', 'delete', labId, deptId);
+  const canExecuteCalculations = useCan('calculations', 'execute', labId, deptId);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedSample, setSelectedSample] = useState<Sample | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -46,9 +48,6 @@ const SamplesPage: React.FC = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isGenerateReportModalOpen, setIsGenerateReportModalOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-
-  const labId = laboratoryId ? parseInt(laboratoryId, 10) : undefined;
-  const deptId = departmentId ? parseInt(departmentId, 10) : undefined;
 
   const {
     samplesQuery,

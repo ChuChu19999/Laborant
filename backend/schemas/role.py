@@ -1,7 +1,13 @@
 from __future__ import annotations
 from datetime import datetime
 from typing import Annotated, Any, Literal
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+)
 from models.role import RoleType
 from schemas.common import NonEmptyStr, OptionalNonEmptyStr, make_enum_validator
 from schemas.visibility import VisibilityScope
@@ -10,6 +16,7 @@ from utils.permissions_constants import (
     default_role_permissions,
     normalize_permissions,
 )
+from utils.role_scopes import normalize_role_scopes
 
 _validate_role_type = make_enum_validator(RoleType, "Тип роли")
 RoleTypeField = Annotated[str, AfterValidator(_validate_role_type)]
@@ -23,6 +30,7 @@ class NavigationPermissions(BaseModel):
     equipment: bool = False
     sampling_locations: bool = False
     nd_norms: bool = False
+    refraction_tables: bool = False
     test_objects: bool = False
 
 
@@ -66,6 +74,7 @@ class RolePermissions(BaseModel):
     equipment: CrudPermissions = Field(default_factory=CrudPermissions)
     sampling_locations: CrudPermissions = Field(default_factory=CrudPermissions)
     nd_norms: CrudPermissions = Field(default_factory=CrudPermissions)
+    refraction_tables: CrudPermissions = Field(default_factory=CrudPermissions)
     test_objects: CrudPermissions = Field(default_factory=CrudPermissions)
     calculations: CalculationsPermissions = Field(
         default_factory=CalculationsPermissions
@@ -88,18 +97,60 @@ def permissions_to_dict(
     return normalize_permissions(permissions)
 
 
+class RoleScopeBinding(BaseModel):
+    """Привязка прав роли к лаборатории или подразделению."""
+
+    laboratory_id: int = Field(..., gt=0, description="ID лаборатории")
+    department_id: int | None = Field(
+        default=None,
+        gt=0,
+        description="ID подразделения; null — вся лаборатория",
+    )
+    permissions: RolePermissions = Field(
+        default_factory=RolePermissions.default,
+        description="Матрица прав для этой области",
+    )
+    laboratory_name: str | None = Field(
+        default=None,
+        description="Название лаборатории для отображения",
+    )
+    department_name: str | None = Field(
+        default=None,
+        description="Название подразделения для отображения",
+    )
+
+
+class RoleScopeBindingInput(BaseModel):
+    """Входная привязка без подписей."""
+
+    laboratory_id: int = Field(..., gt=0)
+    department_id: int | None = Field(default=None, gt=0)
+    permissions: RolePermissions = Field(default_factory=RolePermissions.default)
+
+
+def scopes_to_storage(
+    scopes: list[RoleScopeBindingInput] | list[RoleScopeBinding],
+) -> list[dict[str, Any]]:
+    """Сериализация привязок для сохранения в БД."""
+    raw = [
+        {
+            "laboratory_id": item.laboratory_id,
+            "department_id": item.department_id,
+            "permissions": permissions_to_dict(item.permissions),
+        }
+        for item in scopes
+    ]
+    return normalize_role_scopes(raw)
+
+
 class RoleBase(BaseModel):
     name: Annotated[NonEmptyStr, Field(max_length=255)] = Field(
         ..., description="Наименование роли"
     )
     role_type: RoleTypeField = Field(..., description="Тип роли: laborant, engineer")
-    visibility_scope: VisibilityScope = Field(
-        default_factory=VisibilityScope,
-        description="Область видимости по лабораториям и подразделениям",
-    )
-    permissions: RolePermissions = Field(
-        default_factory=RolePermissions.default,
-        description="Матрица прав доступа роли",
+    scopes: list[RoleScopeBindingInput] = Field(
+        default_factory=list,
+        description="Привязки прав к лабораториям и подразделениям",
     )
 
 
@@ -110,14 +161,16 @@ class RoleCreate(RoleBase):
 class RoleUpdate(BaseModel):
     name: Annotated[OptionalNonEmptyStr, Field(max_length=255)] = None
     role_type: RoleTypeField | None = None
-    visibility_scope: VisibilityScope | None = None
-    permissions: RolePermissions | None = None
+    scopes: list[RoleScopeBindingInput] | None = None
 
 
-class RoleResponse(RoleBase):
+class RoleResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    name: str
+    role_type: str
+    scopes: list[RoleScopeBinding] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
     deleted_at: datetime | None = None
@@ -130,8 +183,18 @@ class UserPermissionsResponse(BaseModel):
     is_admin: bool
     role_names: list[str] = Field(default_factory=list)
     role_types: list[str] = Field(default_factory=list)
-    permissions: RolePermissions = Field(default_factory=RolePermissions.default)
-    visibility_scope: VisibilityScope = Field(default_factory=VisibilityScope)
+    scopes: list[RoleScopeBinding] = Field(
+        default_factory=list,
+        description="Привязки прав по лабораториям и подразделениям",
+    )
+    permissions: RolePermissions = Field(
+        default_factory=RolePermissions.default,
+        description="Объединённые права по всем привязкам (для навигации без контекста)",
+    )
+    visibility_scope: VisibilityScope = Field(
+        default_factory=VisibilityScope,
+        description="Область видимости: пустой список = нет доступа (кроме admin)",
+    )
 
 
 __all__ = [
@@ -141,6 +204,9 @@ __all__ = [
     "RoleResponse",
     "RoleTypeField",
     "RolePermissions",
+    "RoleScopeBinding",
+    "RoleScopeBindingInput",
     "UserPermissionsResponse",
     "permissions_to_dict",
+    "scopes_to_storage",
 ]

@@ -28,6 +28,7 @@ NAVIGATION_KEYS = (
     "equipment",
     "sampling_locations",
     "nd_norms",
+    "refraction_tables",
     "test_objects",
 )
 
@@ -36,6 +37,7 @@ CRUD_RESOURCES = (
     "equipment",
     "sampling_locations",
     "nd_norms",
+    "refraction_tables",
 )
 
 
@@ -61,6 +63,12 @@ def default_role_permissions() -> dict[str, Any]:
             "delete": False,
         },
         "nd_norms": {"read": False, "create": False, "update": False, "delete": False},
+        "refraction_tables": {
+            "read": False,
+            "create": False,
+            "update": False,
+            "delete": False,
+        },
         "test_objects": {
             "read": False,
             "create": False,
@@ -223,39 +231,6 @@ def merge_permissions(items: list[dict[str, Any]]) -> dict[str, Any]:
         result[resource]["read"] = bool(result["navigation"].get(resource, False))
 
     return result
-
-
-def merge_visibility_scopes(
-    scopes: list[dict[str, Any] | None],
-) -> dict[str, list[int]]:
-    """Объединить области видимости (union id). Пустой scope = без ограничений."""
-    laboratory_ids: set[int] = set()
-    department_ids: set[int] = set()
-    has_unrestricted = False
-
-    for raw in scopes:
-        if not raw or not isinstance(raw, dict):
-            has_unrestricted = True
-            continue
-        labs = raw.get("laboratory_ids") or []
-        depts = raw.get("department_ids") or []
-        if not labs and not depts:
-            has_unrestricted = True
-            continue
-        for item in labs:
-            if isinstance(item, int) and item > 0:
-                laboratory_ids.add(item)
-        for item in depts:
-            if isinstance(item, int) and item > 0:
-                department_ids.add(item)
-
-    if has_unrestricted:
-        return {"laboratory_ids": [], "department_ids": []}
-
-    return {
-        "laboratory_ids": sorted(laboratory_ids),
-        "department_ids": sorted(department_ids),
-    }
 
 
 def has_permission(

@@ -466,8 +466,12 @@ async def update_research_method_group(
 
         old_method_ids = {method.id for method in group.methods}
         new_method_ids = set(group_data.method_ids)
+        # Скрытые версии остаются в группе.
+        soft_deleted_method_ids = {
+            method.id for method in group.methods if method.deleted_at is not None
+        }
 
-        methods_to_remove = old_method_ids - new_method_ids
+        methods_to_remove = (old_method_ids - new_method_ids) - soft_deleted_method_ids
         methods_to_add = new_method_ids - old_method_ids
 
         if methods_to_remove:

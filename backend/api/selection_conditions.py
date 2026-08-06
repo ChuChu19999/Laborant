@@ -8,7 +8,10 @@ from schemas.sample import (
     SelectionConditionsResponse,
     SelectionConditionsUpdate,
 )
-from services.access_control import enforce_lab_management_access
+from services.access_control import (
+    enforce_lab_management_access,
+    enforce_selection_conditions_read,
+)
 from services.sample import (
     build_selection_conditions_response,
     create_selection_conditions,
@@ -40,7 +43,9 @@ async def list_selection_conditions(
     params: ScopeSortPaginationParams = Depends(),
 ):
     """Возвращает список условий отбора с пагинацией или без."""
-    enforce_lab_management_access(effective, params.laboratory_id, params.department_id)
+    enforce_selection_conditions_read(
+        effective, params.laboratory_id, params.department_id
+    )
     conditions, total, total_pages = await get_selection_conditions(
         db,
         laboratory_id=params.laboratory_id,

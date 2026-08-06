@@ -1,4 +1,5 @@
 import { axiosInstance } from '../config/axios';
+import type { RoleScopeBinding } from './roles';
 import type { VisibilityScope } from './testObjects';
 import type { RolePermissions } from '../config/permissions';
 
@@ -7,6 +8,7 @@ export interface UserPermissions {
   is_admin: boolean;
   role_names: string[];
   role_types: string[];
+  scopes: RoleScopeBinding[];
   permissions: RolePermissions;
   visibility_scope: VisibilityScope;
 }

@@ -10,6 +10,9 @@ import {
   CreateDepartmentModal,
   EditDepartmentModal,
   DeleteDepartmentModal,
+  EditProtocolTemplateModal,
+  EditReportTemplateModal,
+  SelectionConditionsModal,
 } from '../../../features/Modals';
 import { laboratoriesApi } from '../../../shared/api/laboratories';
 import { researchApi } from '../../../shared/api/research';
@@ -23,6 +26,7 @@ import {
 } from '../../../shared/ui/Cards';
 import { NavigationBar } from '../../NavigationBar';
 import type { Laboratory, Department } from '../../../shared/api/laboratories';
+import type { MenuProps } from 'antd';
 import './LaboratoryManagement.css';
 
 interface LaboratoryManagementProps {
@@ -30,6 +34,12 @@ interface LaboratoryManagementProps {
 }
 
 type ViewMode = 'laboratories' | 'departments';
+
+type SettingsScope = {
+  laboratoryId: number;
+  departmentId?: number;
+  entityName?: string;
+};
 
 const LaboratoryManagement: React.FC<LaboratoryManagementProps> = ({ onBack }) => {
   const { canAccessLaboratory, canAccessDepartment } = useScopeAccess();
@@ -51,6 +61,10 @@ const LaboratoryManagement: React.FC<LaboratoryManagementProps> = ({ onBack }) =
   const [isEditDeptModalOpen, setIsEditDeptModalOpen] = useState(false);
   const [isDeleteDeptModalOpen, setIsDeleteDeptModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Laboratory | Department | null>(null);
+  const [settingsScope, setSettingsScope] = useState<SettingsScope | null>(null);
+  const [isProtocolTemplateModalOpen, setIsProtocolTemplateModalOpen] = useState(false);
+  const [isReportTemplateModalOpen, setIsReportTemplateModalOpen] = useState(false);
+  const [isSelectionConditionsModalOpen, setIsSelectionConditionsModalOpen] = useState(false);
 
   const fetchLaboratories = useCallback(async () => {
     try {
@@ -317,6 +331,40 @@ const LaboratoryManagement: React.FC<LaboratoryManagementProps> = ({ onBack }) =
     setSelectedItem(null);
   };
 
+  const openSettingsForScope = useCallback((scope: SettingsScope) => {
+    setSettingsScope(scope);
+  }, []);
+
+  const buildSettingsMenuItems = useCallback(
+    (scope: SettingsScope): MenuProps['items'] => [
+      {
+        key: 'protocol-template',
+        label: 'Шаблон протокола',
+        onClick: () => {
+          openSettingsForScope(scope);
+          setIsProtocolTemplateModalOpen(true);
+        },
+      },
+      {
+        key: 'report-template',
+        label: 'Шаблоны отчётов',
+        onClick: () => {
+          openSettingsForScope(scope);
+          setIsReportTemplateModalOpen(true);
+        },
+      },
+      {
+        key: 'selection-conditions',
+        label: 'Условия отбора',
+        onClick: () => {
+          openSettingsForScope(scope);
+          setIsSelectionConditionsModalOpen(true);
+        },
+      },
+    ],
+    [openSettingsForScope]
+  );
+
   const handleSuccess = () => {
     if (viewMode === 'laboratories') {
       fetchLaboratories();
@@ -359,6 +407,14 @@ const LaboratoryManagement: React.FC<LaboratoryManagementProps> = ({ onBack }) =
               onEdit={handleEdit}
               onDelete={handleDeleteClick}
               disabled={!canAccessLaboratory(laboratory.id)}
+              settingsMenuItems={
+                !(laboratory.departments_count && laboratory.departments_count > 0)
+                  ? buildSettingsMenuItems({
+                      laboratoryId: laboratory.id,
+                      entityName: laboratory.name,
+                    })
+                  : undefined
+              }
             />
           ))}
           <AddLaboratoryCard onClick={() => setIsCreateModalOpen(true)} />
@@ -404,6 +460,15 @@ const LaboratoryManagement: React.FC<LaboratoryManagementProps> = ({ onBack }) =
               iconIndex={index}
               disabled={
                 !selectedLaboratory || !canAccessDepartment(selectedLaboratory.id, department.id)
+              }
+              settingsMenuItems={
+                selectedLaboratory
+                  ? buildSettingsMenuItems({
+                      laboratoryId: selectedLaboratory.id,
+                      departmentId: department.id,
+                      entityName: department.name,
+                    })
+                  : undefined
               }
             />
           ))}
@@ -455,6 +520,32 @@ const LaboratoryManagement: React.FC<LaboratoryManagementProps> = ({ onBack }) =
         onClose={handleModalClose}
         onSuccess={handleSuccess}
       />
+
+      {isProtocolTemplateModalOpen && settingsScope && (
+        <EditProtocolTemplateModal
+          open={isProtocolTemplateModalOpen}
+          onClose={() => setIsProtocolTemplateModalOpen(false)}
+          laboratoryId={settingsScope.laboratoryId}
+          departmentId={settingsScope.departmentId}
+        />
+      )}
+      {isReportTemplateModalOpen && settingsScope && (
+        <EditReportTemplateModal
+          open={isReportTemplateModalOpen}
+          onClose={() => setIsReportTemplateModalOpen(false)}
+          laboratoryId={settingsScope.laboratoryId}
+          departmentId={settingsScope.departmentId}
+        />
+      )}
+      {isSelectionConditionsModalOpen && settingsScope && (
+        <SelectionConditionsModal
+          open={isSelectionConditionsModalOpen}
+          onClose={() => setIsSelectionConditionsModalOpen(false)}
+          laboratoryId={settingsScope.laboratoryId}
+          departmentId={settingsScope.departmentId}
+          entityName={settingsScope.entityName}
+        />
+      )}
     </div>
   );
 };

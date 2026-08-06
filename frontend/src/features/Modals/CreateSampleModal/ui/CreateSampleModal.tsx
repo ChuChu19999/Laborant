@@ -8,7 +8,10 @@ import { laboratoriesApi } from '../../../../shared/api/laboratories';
 import { samplesApi } from '../../../../shared/api/samples';
 import { samplingLocationsApi } from '../../../../shared/api/samplingLocations';
 import { SAMPLING_TERMINOLOGY_LABELS } from '../../../../shared/config/permissions';
-import { usePermissionsContext } from '../../../../shared/lib/permissions';
+import {
+  usePermissionsContext,
+  resolvePermissionsForScope,
+} from '../../../../shared/lib/permissions';
 import { useCreateSample } from '../../../../shared/model/hooks';
 import { useAutoRefetchQuery } from '../../../../shared/model/lib/useQuery';
 import { Input, Select, DatePicker } from '../../../../shared/ui/FormItems';
@@ -38,6 +41,15 @@ const CreateSampleModal: React.FC<CreateSampleModalProps> = ({
   departmentId,
 }) => {
   const { isAdmin, permissionsData } = usePermissionsContext();
+  const scopedPermissions = useMemo(() => {
+    if (isAdmin || permissionsData.is_admin) {
+      return null;
+    }
+    return (
+      resolvePermissionsForScope(permissionsData.scopes, laboratoryId, departmentId) ||
+      permissionsData.permissions
+    );
+  }, [isAdmin, permissionsData, laboratoryId, departmentId]);
   const visibleFields = useMemo(() => {
     if (isAdmin || permissionsData.is_admin) {
       return new Set([
@@ -50,10 +62,14 @@ const CreateSampleModal: React.FC<CreateSampleModalProps> = ({
         'receipt_date',
       ]);
     }
-    return new Set(permissionsData.permissions.samples.visible_fields);
-  }, [isAdmin, permissionsData]);
+    return new Set(scopedPermissions?.samples.visible_fields || []);
+  }, [isAdmin, permissionsData, scopedPermissions]);
   const terminologyLabel =
-    SAMPLING_TERMINOLOGY_LABELS[permissionsData.permissions.sampling_terminology || 'well_mode'];
+    SAMPLING_TERMINOLOGY_LABELS[
+      scopedPermissions?.sampling_terminology ||
+        permissionsData.permissions.sampling_terminology ||
+        'well_mode'
+    ];
   const canShow = (field: string) => visibleFields.has(field);
 
   const createSampleMutation = useCreateSample();

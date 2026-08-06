@@ -129,6 +129,11 @@
   text-overflow: ellipsis;
 }
 
+/* Перенос после анимации появления текста (max-width 0.2s + opacity delay 0.12s). */
+.sidebar-wrapper:not(.collapsed) .menu-item .menu-item-label {
+  animation: sidebar-label-allow-wrap 0s linear 0.32s forwards;
+}
+
 .sidebar-wrapper .menu-item-chevron {
   margin-left: auto;
   flex-shrink: 0;
@@ -219,6 +224,18 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.sidebar-wrapper:not(.collapsed) .menu-item-active .menu-item-label {
+  animation: sidebar-label-allow-wrap 0s linear 0.32s forwards;
+}
+
+@keyframes sidebar-label-allow-wrap {
+  to {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+  }
 }
 
 .sidebar-wrapper.collapsed .menu-item-active {

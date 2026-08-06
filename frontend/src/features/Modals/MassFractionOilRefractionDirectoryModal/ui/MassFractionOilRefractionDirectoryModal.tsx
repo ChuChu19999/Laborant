@@ -15,6 +15,7 @@ interface MassFractionOilRefractionDirectoryModalProps {
   onClose: () => void;
   researchMethodId?: number;
   methodName?: string;
+  canUpdate?: boolean;
 }
 
 interface EntryRow {
@@ -52,7 +53,7 @@ function toApiDecimalString(v: string): string {
 
 const MassFractionOilRefractionDirectoryModal: React.FC<
   MassFractionOilRefractionDirectoryModalProps
-> = ({ open, onClose, researchMethodId }) => {
+> = ({ open, onClose, researchMethodId, canUpdate = true }) => {
   const [entries, setEntries] = useState<EntryRow[]>([]);
   const [originalEntries, setOriginalEntries] = useState<EntryRow[]>([]);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -287,53 +288,55 @@ const MassFractionOilRefractionDirectoryModal: React.FC<
       showEditButton={false}
       editable={false}
       modalWidth="1000"
-      onSave={handleSave}
+      onSave={canUpdate ? handleSave : undefined}
     >
       <div className="mass-fraction-oil-refraction-directory-modal-content">
-        <div className="mass-fraction-oil-refraction-directory-modal-form">
-          <div className="form-row">
-            <Input
-              placeholder="Массовая доля нефти (C), %"
-              value={newEntry.c_value}
-              onChange={e => handleCValueChange(e.target.value)}
-              className="mass-fraction-oil-refraction-directory-modal-input"
-            />
-            <Input
-              placeholder="Показатель преломления (n)"
-              value={newEntry.n_value}
-              onChange={e => handleNValueChange(e.target.value)}
-              className="mass-fraction-oil-refraction-directory-modal-input"
-            />
-            {editingIndex === null ? (
-              <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-                Добавить
-              </Button>
-            ) : (
-              <div className="mass-fraction-oil-refraction-directory-modal-actions">
-                <Button
-                  type="primary"
-                  onClick={handleUpdate}
-                  className="mass-fraction-oil-refraction-directory-modal-save-button"
-                >
-                  Сохранить
+        {canUpdate && (
+          <div className="mass-fraction-oil-refraction-directory-modal-form">
+            <div className="form-row">
+              <Input
+                placeholder="Массовая доля нефти (C), %"
+                value={newEntry.c_value}
+                onChange={e => handleCValueChange(e.target.value)}
+                className="mass-fraction-oil-refraction-directory-modal-input"
+              />
+              <Input
+                placeholder="Показатель преломления (n)"
+                value={newEntry.n_value}
+                onChange={e => handleNValueChange(e.target.value)}
+                className="mass-fraction-oil-refraction-directory-modal-input"
+              />
+              {editingIndex === null ? (
+                <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                  Добавить
                 </Button>
-                <Button
-                  onClick={handleEditCancel}
-                  className="mass-fraction-oil-refraction-directory-modal-cancel-button"
-                >
-                  Отмена
-                </Button>
-              </div>
-            )}
+              ) : (
+                <div className="mass-fraction-oil-refraction-directory-modal-actions">
+                  <Button
+                    type="primary"
+                    onClick={handleUpdate}
+                    className="mass-fraction-oil-refraction-directory-modal-save-button"
+                  >
+                    Сохранить
+                  </Button>
+                  <Button
+                    onClick={handleEditCancel}
+                    className="mass-fraction-oil-refraction-directory-modal-cancel-button"
+                  >
+                    Отмена
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="mass-fraction-oil-refraction-directory-modal-table-container">
           <MassFractionOilRefractionDirectoryTable
             data={entries}
             loading={isLoading}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
+            onEdit={canUpdate ? handleEdit : undefined}
+            onDelete={canUpdate ? handleDelete : undefined}
           />
         </div>
       </div>

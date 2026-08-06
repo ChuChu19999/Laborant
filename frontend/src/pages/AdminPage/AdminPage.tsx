@@ -1,17 +1,13 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { SettingOutlined } from '@ant-design/icons';
-import { Dropdown, message } from 'antd';
+import { message } from 'antd';
 import { ConfirmationModal } from '../../entities/ConfirmationModal';
 import RegistrationNumberPicker from '../../entities/RegistrationNumberPicker/ui/RegistrationNumberPicker';
 import {
   CreateCalculationModal,
   SaveCalculationModal,
-  SelectionConditionsModal,
-  MassFractionOilRefractionDirectoryModal,
   EquipmentDefaultModal,
-  EditProtocolTemplateModal,
-  EditReportTemplateModal,
 } from '../../features/Modals';
 import { calculationApi } from '../../shared/api/calculation';
 import { laboratoriesApi } from '../../shared/api/laboratories';
@@ -28,8 +24,8 @@ import { useQueryStore } from '../../shared/model/stores';
 import Button from '../../shared/ui/Button';
 import { Select } from '../../shared/ui/FormItems';
 import Layout from '../../shared/ui/Layout';
+import Tooltip from '../../shared/ui/Tooltip';
 import { buildCalculationFormPrefill } from '../../shared/utils/calculationFormPrefill';
-import { isMassFractionOilResearchMethod } from '../../shared/utils/massFractionOilMethod';
 import {
   getActiveGroupMethodsForSelect,
   getFirstGroupMethodId,
@@ -65,11 +61,7 @@ const AdminPage: React.FC = () => {
   const [editCalculationMethodId, setEditCalculationMethodId] = useState<number | undefined>(
     undefined
   );
-  const [isSelectionConditionsModalOpen, setIsSelectionConditionsModalOpen] = useState(false);
-  const [isRefractionTableModalOpen, setIsRefractionTableModalOpen] = useState(false);
   const [isEquipmentModalOpen, setIsEquipmentModalOpen] = useState(false);
-  const [isProtocolTemplateModalOpen, setIsProtocolTemplateModalOpen] = useState(false);
-  const [isReportTemplateModalOpen, setIsReportTemplateModalOpen] = useState(false);
   const [isSaveCalculationModalOpen, setIsSaveCalculationModalOpen] = useState(false);
   const [lastCalculationResult, setLastCalculationResult] = useState<
     Record<
@@ -494,44 +486,16 @@ const AdminPage: React.FC = () => {
     return true;
   }, [currentMethodGroup, groupMethods]);
 
-  const handleOpenSelectionConditionsModal = () => {
-    setIsSelectionConditionsModalOpen(true);
-  };
-
-  const handleCloseSelectionConditionsModal = () => {
-    setIsSelectionConditionsModalOpen(false);
-  };
-
-  const handleOpenRefractionTableModal = () => {
-    setIsRefractionTableModalOpen(true);
-  };
-
-  const handleCloseRefractionTableModal = () => {
-    setIsRefractionTableModalOpen(false);
-  };
-
   const handleOpenEquipmentModal = () => {
+    if (!currentMethod) {
+      message.warning('Сначала выберите метод исследования');
+      return;
+    }
     setIsEquipmentModalOpen(true);
   };
 
   const handleCloseEquipmentModal = () => {
     setIsEquipmentModalOpen(false);
-  };
-
-  const handleOpenProtocolTemplateModal = () => {
-    setIsProtocolTemplateModalOpen(true);
-  };
-
-  const handleCloseProtocolTemplateModal = () => {
-    setIsProtocolTemplateModalOpen(false);
-  };
-
-  const handleOpenReportTemplateModal = () => {
-    setIsReportTemplateModalOpen(true);
-  };
-
-  const handleCloseReportTemplateModal = () => {
-    setIsReportTemplateModalOpen(false);
   };
 
   const handleCalculate = async (
@@ -771,45 +735,14 @@ const AdminPage: React.FC = () => {
             </Button>
           </div>
         )}
-        <Dropdown
-          menu={{
-            items: [
-              {
-                key: 'protocol-template',
-                label: 'Шаблон протокола',
-                onClick: handleOpenProtocolTemplateModal,
-              },
-              {
-                key: 'report-template',
-                label: 'Шаблон отчёта',
-                onClick: handleOpenReportTemplateModal,
-              },
-              {
-                key: 'selection-conditions',
-                label: 'Условия отбора',
-                onClick: handleOpenSelectionConditionsModal,
-              },
-              {
-                key: 'equipment',
-                label: 'Приборы по умолчанию',
-                onClick: handleOpenEquipmentModal,
-                disabled: !currentMethod,
-              },
-              ...(currentMethod && isMassFractionOilResearchMethod(currentMethod)
-                ? [
-                    {
-                      key: 'refraction-table',
-                      label: 'Градуировочный график',
-                      onClick: handleOpenRefractionTableModal,
-                    },
-                  ]
-                : []),
-            ],
-          }}
-          trigger={['click']}
-        >
-          <Button icon={<SettingOutlined />} className="admin-page-button-settings" />
-        </Dropdown>
+        <Tooltip title="Приборы по умолчанию" placement="top">
+          <Button
+            icon={<SettingOutlined />}
+            className="admin-page-button-settings"
+            onClick={handleOpenEquipmentModal}
+            disabled={!currentMethod}
+          />
+        </Tooltip>
       </div>
       <CalculationPanel
         hasNoMethods={hasNoMethods}
@@ -885,44 +818,11 @@ const AdminPage: React.FC = () => {
         onCancel={handleDeleteCancel}
         modalWidth="450"
       />
-      {isSelectionConditionsModalOpen && (
-        <SelectionConditionsModal
-          open={isSelectionConditionsModalOpen}
-          onClose={handleCloseSelectionConditionsModal}
-          laboratoryId={labId}
-          departmentId={deptId}
-          entityName={department?.name || laboratory?.name}
-        />
-      )}
-      {isRefractionTableModalOpen && currentMethod && (
-        <MassFractionOilRefractionDirectoryModal
-          open={isRefractionTableModalOpen}
-          onClose={handleCloseRefractionTableModal}
-          researchMethodId={currentMethod.id}
-          methodName={currentMethod.name}
-        />
-      )}
       {isEquipmentModalOpen && currentMethod && (
         <EquipmentDefaultModal
           open={isEquipmentModalOpen}
           onClose={handleCloseEquipmentModal}
           currentMethod={currentMethod}
-          laboratoryId={labId}
-          departmentId={deptId}
-        />
-      )}
-      {isProtocolTemplateModalOpen && labId && (
-        <EditProtocolTemplateModal
-          open={isProtocolTemplateModalOpen}
-          onClose={handleCloseProtocolTemplateModal}
-          laboratoryId={labId}
-          departmentId={deptId}
-        />
-      )}
-      {isReportTemplateModalOpen && labId && (
-        <EditReportTemplateModal
-          open={isReportTemplateModalOpen}
-          onClose={handleCloseReportTemplateModal}
           laboratoryId={labId}
           departmentId={deptId}
         />

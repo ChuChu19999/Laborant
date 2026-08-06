@@ -1,12 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { message } from 'antd';
-import { VisibilityScopeForm } from '../../../../entities/VisibilityScopeForm';
 import { ROLE_TYPE_OPTIONS } from '../../../../shared/lib/roleTypeOptions';
 import { useUpdateRole } from '../../../../shared/model/hooks';
 import { Input, Select } from '../../../../shared/ui/FormItems';
 import { Modal } from '../../../../shared/ui/Modal';
 import type { RoleCatalogItem } from '../../../../shared/api/roles';
-import type { VisibilityScope } from '../../../../shared/api/testObjects';
 import type { RoleTypeValue } from '../../../../shared/lib/roleTypeOptions';
 import '../../CreateRoleModal/ui/CreateRoleModal.css';
 
@@ -21,10 +19,6 @@ const EditRoleModal: React.FC<EditRoleModalProps> = ({ open, onClose, onSuccess,
   const updateMutation = useUpdateRole();
   const [name, setName] = useState('');
   const [roleType, setRoleType] = useState<RoleTypeValue | undefined>(undefined);
-  const [visibilityScope, setVisibilityScope] = useState<VisibilityScope>({
-    laboratory_ids: [],
-    department_ids: [],
-  });
   const [errors, setErrors] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -34,10 +28,6 @@ const EditRoleModal: React.FC<EditRoleModalProps> = ({ open, onClose, onSuccess,
 
     setName(role.name);
     setRoleType(role.role_type);
-    setVisibilityScope({
-      laboratory_ids: role.visibility_scope.laboratory_ids || [],
-      department_ids: role.visibility_scope.department_ids || [],
-    });
     setErrors({});
   }, [open, role]);
 
@@ -92,23 +82,15 @@ const EditRoleModal: React.FC<EditRoleModalProps> = ({ open, onClose, onSuccess,
       data: {
         name: name.trim(),
         role_type: roleType,
-        visibility_scope: {
-          laboratory_ids: visibilityScope.laboratory_ids,
-          department_ids: visibilityScope.department_ids,
-        },
       },
     });
     onSuccess();
-  }, [role, name, roleType, visibilityScope, updateMutation, onSuccess, validateForm]);
+  }, [role, name, roleType, updateMutation, onSuccess, validateForm]);
 
   const handleCancel = useCallback(() => {
     if (role) {
       setName(role.name);
       setRoleType(role.role_type);
-      setVisibilityScope({
-        laboratory_ids: role.visibility_scope.laboratory_ids || [],
-        department_ids: role.visibility_scope.department_ids || [],
-      });
     }
     setErrors({});
     onClose();
@@ -153,11 +135,6 @@ const EditRoleModal: React.FC<EditRoleModalProps> = ({ open, onClose, onSuccess,
             options={ROLE_TYPE_OPTIONS}
             status={errors.role_type ? 'error' : ''}
           />
-        </div>
-
-        <div className="form-group">
-          <label>Область видимости</label>
-          <VisibilityScopeForm value={visibilityScope} onChange={setVisibilityScope} />
         </div>
       </div>
     </Modal>

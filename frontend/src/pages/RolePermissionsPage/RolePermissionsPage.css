@@ -66,6 +66,35 @@
   margin-top: 8px;
 }
 
+.role-permissions-scope-select {
+  width: 100%;
+  max-width: 720px;
+}
+
+.role-permissions-scope-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.role-permissions-scope-tab {
+  border: 1px solid #d9d9d9;
+  background: #fff;
+  color: #333;
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.role-permissions-scope-tab.is-active {
+  border-color: #1677ff;
+  color: #1677ff;
+  background: #e6f4ff;
+}
+
 .role-permissions-actions {
   display: flex;
   gap: 12px;

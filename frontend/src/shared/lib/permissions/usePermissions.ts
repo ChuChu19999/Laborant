@@ -1,5 +1,6 @@
 import { useOutletContext } from 'react-router-dom';
 import { defaultRolePermissions } from '../../config/permissions';
+import { resolvePermissionsForScope } from './roleScopes';
 import type { UserPermissions } from '../../api/userRole';
 import type { CrudPermissions, RolePermissions } from '../../config/permissions';
 
@@ -18,6 +19,7 @@ export function usePermissionsContext(): PermissionsOutletContext {
         is_admin: false,
         role_names: [],
         role_types: [],
+        scopes: [],
         permissions: defaultRolePermissions(),
         visibility_scope: { laboratory_ids: [], department_ids: [] },
       },
@@ -25,20 +27,11 @@ export function usePermissionsContext(): PermissionsOutletContext {
   );
 }
 
-export function useCan(
+function checkPermission(
+  permissions: RolePermissions,
   resource: keyof RolePermissions | 'laboratory_management',
   action?: string
 ): boolean {
-  const { isAdmin, permissionsData } = usePermissionsContext();
-  if (isAdmin || permissionsData.is_admin) {
-    return true;
-  }
-  if (!permissionsData.access_granted) {
-    return false;
-  }
-
-  const permissions = permissionsData.permissions;
-
   if (resource === 'laboratory_management') {
     return Boolean(permissions.laboratory_management.access);
   }
@@ -69,7 +62,6 @@ export function useCan(
   if (section && typeof section === 'object' && action && 'read' in section) {
     const navKey = resource as keyof typeof permissions.navigation;
     const hasNav = navKey in permissions.navigation && Boolean(permissions.navigation[navKey]);
-    // Просмотр и мутации каталога требуют доступ к вкладке.
     if (!hasNav) {
       return false;
     }
@@ -80,4 +72,29 @@ export function useCan(
   }
 
   return false;
+}
+
+export function useCan(
+  resource: keyof RolePermissions | 'laboratory_management',
+  action?: string,
+  laboratoryId?: number | null,
+  departmentId?: number | null
+): boolean {
+  const { isAdmin, permissionsData } = usePermissionsContext();
+  if (isAdmin || permissionsData.is_admin) {
+    return true;
+  }
+  if (!permissionsData.access_granted) {
+    return false;
+  }
+
+  if (laboratoryId != null || departmentId != null) {
+    const scoped = resolvePermissionsForScope(permissionsData.scopes, laboratoryId, departmentId);
+    if (!scoped) {
+      return false;
+    }
+    return checkPermission(scoped, resource, action);
+  }
+
+  return checkPermission(permissionsData.permissions, resource, action);
 }

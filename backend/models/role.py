@@ -26,17 +26,11 @@ class Role(BaseModel):
         nullable=False,
         comment="Тип роли: laborant, engineer",
     )
-    visibility_scope: Mapped[dict[str, Any]] = mapped_column(
+    scopes: Mapped[list[Any]] = mapped_column(
         JSON,
         nullable=False,
-        default=lambda: {"laboratory_ids": [], "department_ids": []},
-        comment="Область видимости: laboratory_ids, department_ids",
-    )
-    permissions: Mapped[dict[str, Any]] = mapped_column(
-        JSON,
-        nullable=False,
-        default=dict,
-        comment="Матрица прав доступа роли",
+        default=list,
+        comment="Привязки: laboratory_id, department_id, permissions",
     )
 
     __table_args__ = (

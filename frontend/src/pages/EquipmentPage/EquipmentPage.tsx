@@ -31,17 +31,16 @@ const EquipmentPage: React.FC = () => {
     departmentId?: string;
   }>();
   const navigate = useNavigate();
+  const labId = laboratoryId ? parseInt(laboratoryId, 10) : undefined;
+  const deptId = departmentId ? parseInt(departmentId, 10) : undefined;
   const { canAccessLaboratory, canAccessDepartment, canAccessRouteScope } = useScopeAccess();
-  const canCreateEquipment = useCan('equipment', 'create');
-  const canUpdateEquipment = useCan('equipment', 'update');
-  const canDeleteEquipment = useCan('equipment', 'delete');
+  const canCreateEquipment = useCan('equipment', 'create', labId, deptId);
+  const canUpdateEquipment = useCan('equipment', 'update', labId, deptId);
+  const canDeleteEquipment = useCan('equipment', 'delete', labId, deptId);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-
-  const labId = laboratoryId ? parseInt(laboratoryId, 10) : undefined;
-  const deptId = departmentId ? parseInt(departmentId, 10) : undefined;
 
   const {
     equipmentQuery,

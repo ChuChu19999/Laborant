@@ -60,10 +60,20 @@ const CalculationsPage: React.FC = () => {
   }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const labId = laboratoryId
+    ? parseInt(laboratoryId, 10)
+    : searchParams.get('laboratory_id')
+      ? parseInt(searchParams.get('laboratory_id')!, 10)
+      : undefined;
+  const deptId = departmentId
+    ? parseInt(departmentId, 10)
+    : searchParams.get('department_id')
+      ? parseInt(searchParams.get('department_id')!, 10)
+      : undefined;
   const { canAccessRouteScope } = useScopeAccess();
-  const canExecuteCalculations = useCan('calculations', 'execute');
-  const canCreateCalculation = useCan('calculations', 'create');
-  const canUpdateCalculation = useCan('calculations', 'update');
+  const canExecuteCalculations = useCan('calculations', 'execute', labId, deptId);
+  const canCreateCalculation = useCan('calculations', 'create', labId, deptId);
+  const canUpdateCalculation = useCan('calculations', 'update', labId, deptId);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [availableMethods, setAvailableMethods] = useState<AvailableMethod[]>([]);
@@ -92,16 +102,6 @@ const CalculationsPage: React.FC = () => {
   );
 
   // Получаем параметры из URL или из query параметров (для обратной совместимости)
-  const labId = laboratoryId
-    ? parseInt(laboratoryId, 10)
-    : searchParams.get('laboratory_id')
-      ? parseInt(searchParams.get('laboratory_id')!, 10)
-      : undefined;
-  const deptId = departmentId
-    ? parseInt(departmentId, 10)
-    : searchParams.get('department_id')
-      ? parseInt(searchParams.get('department_id')!, 10)
-      : undefined;
   const sampleIdNum = sampleId
     ? parseInt(sampleId, 10)
     : searchParams.get('sampleId')

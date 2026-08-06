@@ -26,14 +26,15 @@ interface EntryRow {
 interface MassFractionOilRefractionDirectoryTableProps {
   data: EntryRow[];
   loading?: boolean;
-  onEdit: (index: number) => void;
-  onDelete: (index: number) => void;
+  onEdit?: (index: number) => void;
+  onDelete?: (index: number) => void;
 }
 
 const MassFractionOilRefractionDirectoryTable: React.FC<
   MassFractionOilRefractionDirectoryTableProps
 > = ({ data, loading = false, onEdit, onDelete }) => {
   const [columnSizing, setColumnSizing] = React.useState<ColumnSizingState>({});
+  const canEdit = Boolean(onEdit && onDelete);
 
   const columns = React.useMemo<ColumnDef<EntryRow>[]>(
     () => [
@@ -51,38 +52,42 @@ const MassFractionOilRefractionDirectoryTable: React.FC<
         size: 300,
         cell: ({ row }) => formatRefractionCellForDisplay(row.original.n_value),
       },
-      {
-        id: 'actions',
-        header: 'Действия',
-        enableSorting: false,
-        size: 200,
-        enableResizing: false,
-        cell: ({ row }) => (
-          <div className="mass-fraction-oil-refraction-directory-table-actions">
-            <Button
-              type="text"
-              size="small"
-              icon={<EditOutlined />}
-              onClick={() => onEdit(row.index)}
-              className="mass-fraction-oil-refraction-directory-table-edit-button"
-            >
-              Редактировать
-            </Button>
-            <Button
-              type="text"
-              danger
-              size="small"
-              icon={<DeleteOutlined />}
-              onClick={() => onDelete(row.index)}
-              className="mass-fraction-oil-refraction-directory-table-delete-button"
-            >
-              Удалить
-            </Button>
-          </div>
-        ),
-      },
+      ...(canEdit
+        ? [
+            {
+              id: 'actions',
+              header: 'Действия',
+              enableSorting: false,
+              size: 200,
+              enableResizing: false,
+              cell: ({ row }: { row: { index: number } }) => (
+                <div className="mass-fraction-oil-refraction-directory-table-actions">
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<EditOutlined />}
+                    onClick={() => onEdit?.(row.index)}
+                    className="mass-fraction-oil-refraction-directory-table-edit-button"
+                  >
+                    Редактировать
+                  </Button>
+                  <Button
+                    type="text"
+                    danger
+                    size="small"
+                    icon={<DeleteOutlined />}
+                    onClick={() => onDelete?.(row.index)}
+                    className="mass-fraction-oil-refraction-directory-table-delete-button"
+                  >
+                    Удалить
+                  </Button>
+                </div>
+              ),
+            } as ColumnDef<EntryRow>,
+          ]
+        : []),
     ],
-    [onEdit, onDelete]
+    [onEdit, onDelete, canEdit]
   );
 
   const table = useReactTable<EntryRow>({

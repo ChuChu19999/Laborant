@@ -13,6 +13,7 @@ import Page404 from '../pages/ErrorPages/Page404/Page404';
 import LoadingPage from '../pages/LoadingPage/LoadingPage';
 import NdNormsPage from '../pages/NdNormsPage/NdNormsPage';
 import ProtocolsPage from '../pages/ProtocolsPage/ProtocolsPage';
+import RefractionTablesPage from '../pages/RefractionTablesPage/RefractionTablesPage';
 import RolePermissionsPage from '../pages/RolePermissionsPage/RolePermissionsPage';
 import SamplesPage from '../pages/SamplesPage/SamplesPage';
 import SamplingLocationsPage from '../pages/SamplingLocationsPage/SamplingLocationsPage';
@@ -219,6 +220,24 @@ function AppRoutes({
               element={wrap(
                 '/nd-norms/laboratory/:laboratoryId/department/:departmentId',
                 <NdNormsPage />
+              )}
+            />
+            <Route
+              path="/refraction-tables"
+              element={wrap('/refraction-tables', <RefractionTablesPage />)}
+            />
+            <Route
+              path="/refraction-tables/laboratory/:laboratoryId"
+              element={wrap(
+                '/refraction-tables/laboratory/:laboratoryId',
+                <RefractionTablesPage />
+              )}
+            />
+            <Route
+              path="/refraction-tables/laboratory/:laboratoryId/department/:departmentId"
+              element={wrap(
+                '/refraction-tables/laboratory/:laboratoryId/department/:departmentId',
+                <RefractionTablesPage />
               )}
             />
             <Route path="*" element={<Page404 />} />
