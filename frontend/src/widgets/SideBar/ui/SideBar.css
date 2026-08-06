@@ -52,6 +52,11 @@
 .sidebar-wrapper .arrowButton {
   transition: 0.4s;
   margin: 20px;
+  display: block;
+}
+
+.sidebar-wrapper.collapsed .arrowButton {
+  margin: 16px auto;
 }
 
 .sidebar-wrapper:not(.collapsed) .arrowButton {
@@ -76,6 +81,7 @@
 .sidebar-wrapper .menu-item {
   position: relative;
   z-index: 3;
+  box-sizing: border-box;
   width: 100%;
   min-height: 45px;
   height: auto;
@@ -110,21 +116,30 @@
 
 .sidebar-wrapper .menu-item .menu-item-label {
   opacity: 1;
-  width: auto;
+  max-width: 160px;
   margin-left: 0;
-  transition: all 0.2s ease-in-out;
+  transition:
+    opacity 0.15s ease-in-out 0.12s,
+    max-width 0.2s ease-in-out;
   flex: 1;
   min-width: 0;
   line-height: 1.25;
-  white-space: normal;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sidebar-wrapper .menu-item-chevron {
   margin-left: auto;
   flex-shrink: 0;
+  opacity: 1;
+  max-width: 24px;
+  overflow: hidden;
   font-size: 18px !important;
-  transition: transform 0.3s ease;
+  transition:
+    opacity 0.15s ease-in-out 0.12s,
+    max-width 0.2s ease-in-out,
+    transform 0.3s ease;
 }
 
 .sidebar-wrapper .menu-item-chevron--open {
@@ -133,15 +148,21 @@
 
 .sidebar-wrapper.collapsed .menu-item {
   justify-content: center;
-  padding: 0 28px;
+  padding: 0;
+  gap: 0;
 }
 
 .sidebar-wrapper.collapsed .menu-item .menu-item-label,
 .sidebar-wrapper.collapsed .menu-item-chevron {
   opacity: 0;
-  width: 0;
-  margin-left: 0;
-  transition: all 0.2s ease-in-out;
+  max-width: 0;
+  flex: 0 0 0;
+  min-width: 0;
+  margin: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.1s ease-in-out 0s,
+    max-width 0.2s ease-in-out 0s;
 }
 
 .sidebar-wrapper .menu-item:hover {
@@ -151,6 +172,7 @@
 .sidebar-wrapper .menu-item-active {
   position: relative;
   z-index: 3;
+  box-sizing: border-box;
   width: 100%;
   min-height: 45px;
   height: auto;
@@ -186,27 +208,48 @@
 
 .sidebar-wrapper .menu-item-active .menu-item-label {
   opacity: 1;
-  width: auto;
+  max-width: 160px;
   margin-left: 0;
-  transition: all 0.2s ease-in-out;
+  transition:
+    opacity 0.15s ease-in-out 0.12s,
+    max-width 0.2s ease-in-out;
   flex: 1;
   min-width: 0;
   line-height: 1.25;
-  white-space: normal;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sidebar-wrapper.collapsed .menu-item-active {
   justify-content: center;
-  padding: 0 28px;
+  /* border-left не сдвигает иконку: индикатор поверх, иконка по центру полосы */
+  border-left: none;
+  padding: 0;
+  gap: 0;
+}
+
+.sidebar-wrapper.collapsed .menu-item-active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  background: #ff4d07;
 }
 
 .sidebar-wrapper.collapsed .menu-item-active .menu-item-label,
 .sidebar-wrapper.collapsed .menu-item-active .menu-item-chevron {
   opacity: 0;
-  width: 0;
-  margin-left: 0;
-  transition: all 0.2s ease-in-out;
+  max-width: 0;
+  flex: 0 0 0;
+  min-width: 0;
+  margin: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.1s ease-in-out 0s,
+    max-width 0.2s ease-in-out 0s;
 }
 
 .sidebar-wrapper .user-name {
@@ -304,13 +347,6 @@
   overflow-x: hidden;
 }
 
-.sidebar-wrapper .collapsed {
-  padding: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
 .sidebar-wrapper .user {
   display: flex;
   align-items: center;
@@ -322,6 +358,11 @@
   transition: all 0.4s ease;
   height: 75px;
   box-sizing: border-box;
+}
+
+.sidebar-wrapper.collapsed .user {
+  justify-content: center;
+  padding: 15px 0;
 }
 
 .sidebar-wrapper .user-icon {
@@ -438,8 +479,8 @@
 }
 
 .sidebar-logo.collapsed {
-  width: 55px;
-  height: 55px;
+  width: 40px;
+  height: 40px;
 }
 
 .sidebar-logo:not(.collapsed) {
