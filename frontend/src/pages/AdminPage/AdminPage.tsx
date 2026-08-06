@@ -54,7 +54,7 @@ const AdminPage: React.FC = () => {
     departmentId?: string;
   }>();
   const navigate = useNavigate();
-  const { canAccessRouteScope } = useScopeAccess();
+  const { canAccessFeatureRoute } = useScopeAccess();
   const [selectedMethodId, setSelectedMethodId] = useState<number | null>(null);
   const [showAddButton] = useState(true);
   const [isCreateCalculationModalOpen, setIsCreateCalculationModalOpen] = useState(false);
@@ -782,7 +782,7 @@ const AdminPage: React.FC = () => {
     </div>
   );
 
-  if (!canAccessRouteScope(labId, deptId)) {
+  if (!canAccessFeatureRoute('laboratory_management', 'access', labId, deptId)) {
     return <Navigate to="/403" replace />;
   }
 

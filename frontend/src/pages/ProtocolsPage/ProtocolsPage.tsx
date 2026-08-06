@@ -60,7 +60,7 @@ const ProtocolsPage: React.FC = () => {
   const navigate = useNavigate();
   const labId = laboratoryId ? parseInt(laboratoryId, 10) : undefined;
   const deptId = departmentId ? parseInt(departmentId, 10) : undefined;
-  const { canAccessLaboratory, canAccessDepartment, canAccessRouteScope } = useScopeAccess();
+  const { canAccessFeature, canAccessFeatureRoute } = useScopeAccess();
   const canCreateProtocol = useCan('protocols', 'create', labId, deptId);
   const canUpdateProtocol = useCan('protocols', 'update', labId, deptId);
   const canDeleteProtocol = useCan('protocols', 'delete', labId, deptId);
@@ -361,7 +361,7 @@ const ProtocolsPage: React.FC = () => {
     return breadcrumbs;
   };
 
-  if (!canAccessRouteScope(effectiveLabId, effectiveDeptId)) {
+  if (!canAccessFeatureRoute('protocols', 'read', effectiveLabId, effectiveDeptId)) {
     return <Navigate to="/403" replace />;
   }
 
@@ -381,7 +381,7 @@ const ProtocolsPage: React.FC = () => {
                 laboratory={laboratory}
                 onClick={handleLaboratoryClick}
                 showActions={false}
-                disabled={!canAccessLaboratory(laboratory.id)}
+                disabled={!canAccessFeature('protocols', 'read', laboratory.id)}
               />
             ))}
           </div>
@@ -404,7 +404,7 @@ const ProtocolsPage: React.FC = () => {
                 onClick={handleDepartmentClick}
                 showActions={false}
                 iconIndex={index}
-                disabled={!canAccessDepartment(effectiveLabId, department.id)}
+                disabled={!canAccessFeature('protocols', 'read', effectiveLabId, department.id)}
               />
             ))}
           </div>

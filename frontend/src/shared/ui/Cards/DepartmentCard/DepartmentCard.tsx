@@ -92,25 +92,29 @@ const DepartmentCard = ({
           </div>
         )}
       </div>
-      {showActions && !disabled && (
+      {showActions && !disabled && (onEdit || onDelete) && (
         <div className="department-card-actions" onClick={e => e.stopPropagation()}>
-          <div className="button-wrapper">
-            <Button
-              title="Редактировать"
-              onClick={handleEdit}
-              type="default"
-              className="edit-btn"
-            />
-          </div>
-          <div className="button-wrapper">
-            <Button
-              title="Удалить"
-              onClick={handleDelete}
-              type="default"
-              danger
-              className="delete-btn"
-            />
-          </div>
+          {onEdit && (
+            <div className="button-wrapper">
+              <Button
+                title="Редактировать"
+                onClick={handleEdit}
+                type="default"
+                className="edit-btn"
+              />
+            </div>
+          )}
+          {onDelete && (
+            <div className="button-wrapper">
+              <Button
+                title="Удалить"
+                onClick={handleDelete}
+                type="default"
+                danger
+                className="delete-btn"
+              />
+            </div>
+          )}
         </div>
       )}
     </div>

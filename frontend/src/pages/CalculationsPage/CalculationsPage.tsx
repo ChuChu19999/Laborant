@@ -70,7 +70,7 @@ const CalculationsPage: React.FC = () => {
     : searchParams.get('department_id')
       ? parseInt(searchParams.get('department_id')!, 10)
       : undefined;
-  const { canAccessRouteScope } = useScopeAccess();
+  const { canAccessFeatureRoute } = useScopeAccess();
   const canExecuteCalculations = useCan('calculations', 'execute', labId, deptId);
   const canCreateCalculation = useCan('calculations', 'create', labId, deptId);
   const canUpdateCalculation = useCan('calculations', 'update', labId, deptId);
@@ -702,7 +702,7 @@ const CalculationsPage: React.FC = () => {
     </div>
   );
 
-  if (!canAccessRouteScope(labId, deptId)) {
+  if (!canAccessFeatureRoute('calculations', 'execute', labId, deptId)) {
     return <Navigate to="/403" replace />;
   }
 

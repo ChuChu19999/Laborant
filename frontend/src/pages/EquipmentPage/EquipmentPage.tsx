@@ -33,7 +33,7 @@ const EquipmentPage: React.FC = () => {
   const navigate = useNavigate();
   const labId = laboratoryId ? parseInt(laboratoryId, 10) : undefined;
   const deptId = departmentId ? parseInt(departmentId, 10) : undefined;
-  const { canAccessLaboratory, canAccessDepartment, canAccessRouteScope } = useScopeAccess();
+  const { canAccessFeature, canAccessFeatureRoute } = useScopeAccess();
   const canCreateEquipment = useCan('equipment', 'create', labId, deptId);
   const canUpdateEquipment = useCan('equipment', 'update', labId, deptId);
   const canDeleteEquipment = useCan('equipment', 'delete', labId, deptId);
@@ -316,7 +316,7 @@ const EquipmentPage: React.FC = () => {
     return breadcrumbs;
   };
 
-  if (!canAccessRouteScope(effectiveLabId, effectiveDeptId)) {
+  if (!canAccessFeatureRoute('equipment', 'read', effectiveLabId, effectiveDeptId)) {
     return <Navigate to="/403" replace />;
   }
 
@@ -336,7 +336,7 @@ const EquipmentPage: React.FC = () => {
                 laboratory={laboratory}
                 onClick={handleLaboratoryClick}
                 showActions={false}
-                disabled={!canAccessLaboratory(laboratory.id)}
+                disabled={!canAccessFeature('equipment', 'read', laboratory.id)}
               />
             ))}
           </div>
@@ -359,7 +359,7 @@ const EquipmentPage: React.FC = () => {
                 onClick={handleDepartmentClick}
                 showActions={false}
                 iconIndex={index}
-                disabled={!canAccessDepartment(effectiveLabId, department.id)}
+                disabled={!canAccessFeature('equipment', 'read', effectiveLabId, department.id)}
               />
             ))}
           </div>

@@ -1,7 +1,7 @@
 from __future__ import annotations
 from fastapi import APIRouter, Query
 from core.auth_decorators import IsAuthenticated
-from core.deps import DbSession, UserPermissions
+from core.deps import DbSession, UserPermissions, require_admin
 from schemas.laboratory import (
     DepartmentCreate,
     DepartmentResponse,
@@ -85,10 +85,11 @@ async def get_departments_by_laboratory(
     response_model=DepartmentResponse,
     status_code=201,
     summary="Добавление нового подразделения",
-    description="Добавляет новое подразделение на основе переданных данных.",
+    description="Добавляет новое подразделение. Доступно только admin.",
     responses={
         201: {"description": "Подразделение успешно добавлено"},
         400: {"description": "Некорректные данные для добавления подразделения"},
+        403: {"description": "Отказано в доступе"},
     },
 )
 # @IsAuthenticated
@@ -97,8 +98,8 @@ async def create_department(
     db: DbSession,
     effective: UserPermissions,
 ):
-    """Добавляет новое подразделение на основе переданных данных."""
-    enforce_lab_management_access(effective, department_data.laboratory_id)
+    """Добавляет новое подразделение. Только admin."""
+    require_admin(effective)
     department = await create_department_service(db, department_data)
     return DepartmentResponse.model_validate(department)
 
@@ -132,9 +133,10 @@ async def update_department(
     "/departments/{department_id}/",
     status_code=204,
     summary="Удаление подразделения",
-    description="Выполняет мягкое удаление подразделения.",
+    description="Выполняет мягкое удаление подразделения. Доступно только admin.",
     responses={
         204: {"description": "Подразделение успешно удалено"},
+        403: {"description": "Отказано в доступе"},
         404: {"description": "Подразделение не найдено"},
     },
 )
@@ -144,7 +146,6 @@ async def delete_department(
     db: DbSession,
     effective: UserPermissions,
 ):
-    """Выполняет мягкое удаление подразделения."""
-    department = await require_department_by_id(db, department_id)
-    enforce_lab_management_access(effective, department.laboratory_id, department_id)
+    """Выполняет мягкое удаление подразделения. Только admin."""
+    require_admin(effective)
     await delete_department_service(db, department_id)

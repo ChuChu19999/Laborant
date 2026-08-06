@@ -1,7 +1,7 @@
 from __future__ import annotations
 from fastapi import APIRouter, Query
 from core.auth_decorators import IsAuthenticated
-from core.deps import DbSession, UserPermissions
+from core.deps import DbSession, UserPermissions, require_admin
 from schemas.laboratory import (
     LaboratoryCreate,
     LaboratoryResponse,
@@ -62,10 +62,11 @@ async def list_laboratories(
     response_model=LaboratoryResponse,
     status_code=201,
     summary="Добавление новой лаборатории",
-    description="Добавляет новую лабораторию на основе переданных данных.",
+    description="Добавляет новую лабораторию. Доступно только admin.",
     responses={
         201: {"description": "Лаборатория успешно добавлена"},
         400: {"description": "Некорректные данные для добавления лаборатории"},
+        403: {"description": "Отказано в доступе"},
     },
 )
 # @IsAuthenticated
@@ -74,8 +75,8 @@ async def create_laboratory(
     db: DbSession,
     effective: UserPermissions,
 ):
-    """Добавляет новую лабораторию на основе переданных данных."""
-    enforce_lab_management_access(effective)
+    """Добавляет новую лабораторию. Только admin."""
+    require_admin(effective)
     laboratory = await create_laboratory_service(db, laboratory_data)
     return LaboratoryResponse.model_validate(laboratory)
 
@@ -128,9 +129,10 @@ async def update_laboratory(
     "/laboratories/{laboratory_id:int}/",
     status_code=204,
     summary="Удаление лаборатории",
-    description="Выполняет мягкое удаление лаборатории.",
+    description="Выполняет мягкое удаление лаборатории. Доступно только admin.",
     responses={
         204: {"description": "Лаборатория успешно удалена"},
+        403: {"description": "Отказано в доступе"},
         404: {"description": "Лаборатория не найдена"},
     },
 )
@@ -140,6 +142,6 @@ async def delete_laboratory(
     db: DbSession,
     effective: UserPermissions,
 ):
-    """Выполняет мягкое удаление лаборатории."""
-    enforce_lab_management_access(effective, laboratory_id)
+    """Выполняет мягкое удаление лаборатории. Только admin."""
+    require_admin(effective)
     await delete_laboratory_service(db, laboratory_id)

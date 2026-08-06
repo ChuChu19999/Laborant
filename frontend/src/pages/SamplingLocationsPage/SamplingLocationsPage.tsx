@@ -55,7 +55,7 @@ const SamplingLocationsPage: React.FC = () => {
   const labId = laboratoryId ? parseInt(laboratoryId, 10) : undefined;
   const deptId = departmentId ? parseInt(departmentId, 10) : undefined;
   const { permissionsData } = usePermissionsContext();
-  const { canAccessLaboratory, canAccessDepartment, canAccessRouteScope } = useScopeAccess();
+  const { canAccessFeature, canAccessFeatureRoute } = useScopeAccess();
   const canCreateSamplingLocation = useCan('sampling_locations', 'create', labId, deptId);
   const canUpdateSamplingLocation = useCan('sampling_locations', 'update', labId, deptId);
   const canDeleteSamplingLocation = useCan('sampling_locations', 'delete', labId, deptId);
@@ -335,7 +335,7 @@ const SamplingLocationsPage: React.FC = () => {
     (labId && !laboratory && !departments) ||
     (labId && (deptId || departmentsList.length === 0) && !branches && branchesList.length === 0);
 
-  if (!canAccessRouteScope(labId, deptId)) {
+  if (!canAccessFeatureRoute('sampling_locations', 'read', labId, deptId)) {
     return <Navigate to="/403" replace />;
   }
 
@@ -360,7 +360,7 @@ const SamplingLocationsPage: React.FC = () => {
                 laboratory={laboratory}
                 onClick={handleLaboratoryClick}
                 showActions={false}
-                disabled={!canAccessLaboratory(laboratory.id)}
+                disabled={!canAccessFeature('sampling_locations', 'read', laboratory.id)}
               />
             ))}
           </div>
@@ -382,7 +382,7 @@ const SamplingLocationsPage: React.FC = () => {
                 onClick={handleDepartmentClick}
                 showActions={false}
                 iconIndex={index}
-                disabled={!labId || !canAccessDepartment(labId, department.id)}
+                disabled={!canAccessFeature('sampling_locations', 'read', labId, department.id)}
               />
             ))}
           </div>

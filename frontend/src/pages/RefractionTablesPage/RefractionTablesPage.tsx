@@ -22,7 +22,7 @@ const RefractionTablesPage: React.FC = () => {
   const navigate = useNavigate();
   const labId = laboratoryId ? parseInt(laboratoryId, 10) : undefined;
   const deptId = departmentId ? parseInt(departmentId, 10) : undefined;
-  const { canAccessLaboratory, canAccessDepartment, canAccessRouteScope } = useScopeAccess();
+  const { canAccessFeature, canAccessFeatureRoute } = useScopeAccess();
   const canUpdate = useCan('refraction_tables', 'update', labId, deptId);
 
   const [selectedMethod, setSelectedMethod] = useState<ResearchMethod | null>(null);
@@ -118,7 +118,7 @@ const RefractionTablesPage: React.FC = () => {
     return breadcrumbs;
   };
 
-  if (!canAccessRouteScope(labId, deptId)) {
+  if (!canAccessFeatureRoute('refraction_tables', 'read', labId, deptId)) {
     return <Navigate to="/403" replace />;
   }
 
@@ -138,7 +138,7 @@ const RefractionTablesPage: React.FC = () => {
                 laboratory={item}
                 onClick={handleLaboratoryClick}
                 showActions={false}
-                disabled={!canAccessLaboratory(item.id)}
+                disabled={!canAccessFeature('refraction_tables', 'read', item.id)}
               />
             ))}
           </div>
@@ -169,7 +169,7 @@ const RefractionTablesPage: React.FC = () => {
                 onClick={handleDepartmentClick}
                 showActions={false}
                 iconIndex={index}
-                disabled={!canAccessDepartment(labId, department.id)}
+                disabled={!canAccessFeature('refraction_tables', 'read', labId, department.id)}
               />
             ))}
           </div>

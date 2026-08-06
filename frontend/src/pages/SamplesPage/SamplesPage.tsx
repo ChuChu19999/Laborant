@@ -37,7 +37,7 @@ const SamplesPage: React.FC = () => {
   const navigate = useNavigate();
   const labId = laboratoryId ? parseInt(laboratoryId, 10) : undefined;
   const deptId = departmentId ? parseInt(departmentId, 10) : undefined;
-  const { canAccessLaboratory, canAccessDepartment, canAccessRouteScope } = useScopeAccess();
+  const { canAccessFeature, canAccessFeatureRoute } = useScopeAccess();
   const canUpdateSample = useCan('samples', 'update', labId, deptId);
   const canDeleteSample = useCan('samples', 'delete', labId, deptId);
   const canExecuteCalculations = useCan('calculations', 'execute', labId, deptId);
@@ -401,7 +401,7 @@ const SamplesPage: React.FC = () => {
     return breadcrumbs;
   };
 
-  if (!canAccessRouteScope(effectiveLabId, effectiveDeptId)) {
+  if (!canAccessFeatureRoute('navigation', 'samples', effectiveLabId, effectiveDeptId)) {
     return <Navigate to="/403" replace />;
   }
 
@@ -421,7 +421,7 @@ const SamplesPage: React.FC = () => {
                 laboratory={laboratoryItem}
                 onClick={handleLaboratoryClick}
                 showActions={false}
-                disabled={!canAccessLaboratory(laboratoryItem.id)}
+                disabled={!canAccessFeature('navigation', 'samples', laboratoryItem.id)}
               />
             ))}
           </div>
@@ -444,7 +444,7 @@ const SamplesPage: React.FC = () => {
                 onClick={handleDepartmentClick}
                 showActions={false}
                 iconIndex={index}
-                disabled={!canAccessDepartment(effectiveLabId, department.id)}
+                disabled={!canAccessFeature('navigation', 'samples', effectiveLabId, department.id)}
               />
             ))}
           </div>

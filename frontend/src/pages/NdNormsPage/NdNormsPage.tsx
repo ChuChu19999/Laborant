@@ -29,7 +29,7 @@ const NdNormsPage: React.FC = () => {
   const navigate = useNavigate();
   const labId = laboratoryId ? parseInt(laboratoryId, 10) : undefined;
   const deptId = departmentId ? parseInt(departmentId, 10) : undefined;
-  const { canAccessLaboratory, canAccessDepartment, canAccessRouteScope } = useScopeAccess();
+  const { canAccessFeature, canAccessFeatureRoute } = useScopeAccess();
   const canCreateNdNorm = useCan('nd_norms', 'create', labId, deptId);
   const canUpdateNdNorm = useCan('nd_norms', 'update', labId, deptId);
   const canDeleteNdNorm = useCan('nd_norms', 'delete', labId, deptId);
@@ -290,7 +290,7 @@ const NdNormsPage: React.FC = () => {
     return breadcrumbs;
   };
 
-  if (!canAccessRouteScope(effectiveLabId, effectiveDeptId)) {
+  if (!canAccessFeatureRoute('nd_norms', 'read', effectiveLabId, effectiveDeptId)) {
     return <Navigate to="/403" replace />;
   }
 
@@ -310,7 +310,7 @@ const NdNormsPage: React.FC = () => {
                 laboratory={laboratory}
                 onClick={handleLaboratoryClick}
                 showActions={false}
-                disabled={!canAccessLaboratory(laboratory.id)}
+                disabled={!canAccessFeature('nd_norms', 'read', laboratory.id)}
               />
             ))}
           </div>
@@ -333,7 +333,7 @@ const NdNormsPage: React.FC = () => {
                 onClick={handleDepartmentClick}
                 showActions={false}
                 iconIndex={index}
-                disabled={!canAccessDepartment(effectiveLabId, department.id)}
+                disabled={!canAccessFeature('nd_norms', 'read', effectiveLabId, department.id)}
               />
             ))}
           </div>

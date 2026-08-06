@@ -16,7 +16,7 @@ import {
 } from '../../../features/Modals';
 import { laboratoriesApi } from '../../../shared/api/laboratories';
 import { researchApi } from '../../../shared/api/research';
-import { useScopeAccess } from '../../../shared/lib/permissions';
+import { usePermissionsContext, useScopeAccess } from '../../../shared/lib/permissions';
 import { updateUrlParams } from '../../../shared/lib/urlParams';
 import {
   LaboratoryCard,
@@ -42,7 +42,9 @@ type SettingsScope = {
 };
 
 const LaboratoryManagement: React.FC<LaboratoryManagementProps> = ({ onBack }) => {
-  const { canAccessLaboratory, canAccessDepartment } = useScopeAccess();
+  const { isAdmin, permissionsData } = usePermissionsContext();
+  const canManageStructure = isAdmin || permissionsData.is_admin;
+  const { canAccessFeature } = useScopeAccess();
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -166,7 +168,10 @@ const LaboratoryManagement: React.FC<LaboratoryManagementProps> = ({ onBack }) =
 
       if (urlViewMode === 'departments' && urlLaboratoryId) {
         const laboratoryId = parseInt(urlLaboratoryId, 10);
-        if (!isNaN(laboratoryId) && canAccessLaboratory(laboratoryId)) {
+        if (
+          !isNaN(laboratoryId) &&
+          canAccessFeature('laboratory_management', 'access', laboratoryId)
+        ) {
           const lab = laboratories.find(l => l.id === laboratoryId);
           if (lab) {
             void (async () => {
@@ -202,7 +207,7 @@ const LaboratoryManagement: React.FC<LaboratoryManagementProps> = ({ onBack }) =
     laboratories,
     searchParams,
     location.search,
-    canAccessLaboratory,
+    canAccessFeature,
     openLaboratoryWithoutDepartments,
   ]);
 
@@ -339,7 +344,7 @@ const LaboratoryManagement: React.FC<LaboratoryManagementProps> = ({ onBack }) =
     (scope: SettingsScope): MenuProps['items'] => [
       {
         key: 'protocol-template',
-        label: 'Шаблон протокола',
+        label: 'Шаблоны протоколов',
         onClick: () => {
           openSettingsForScope(scope);
           setIsProtocolTemplateModalOpen(true);
@@ -405,8 +410,8 @@ const LaboratoryManagement: React.FC<LaboratoryManagementProps> = ({ onBack }) =
               onClick={handleLaboratoryClick}
               showActions={true}
               onEdit={handleEdit}
-              onDelete={handleDeleteClick}
-              disabled={!canAccessLaboratory(laboratory.id)}
+              onDelete={canManageStructure ? handleDeleteClick : undefined}
+              disabled={!canAccessFeature('laboratory_management', 'access', laboratory.id)}
               settingsMenuItems={
                 !(laboratory.departments_count && laboratory.departments_count > 0)
                   ? buildSettingsMenuItems({
@@ -417,7 +422,7 @@ const LaboratoryManagement: React.FC<LaboratoryManagementProps> = ({ onBack }) =
               }
             />
           ))}
-          <AddLaboratoryCard onClick={() => setIsCreateModalOpen(true)} />
+          {canManageStructure && <AddLaboratoryCard onClick={() => setIsCreateModalOpen(true)} />}
         </div>
       ) : isLoading && viewMode === 'departments' ? (
         <LoadingCard loading={isLoading} />
@@ -440,10 +445,12 @@ const LaboratoryManagement: React.FC<LaboratoryManagementProps> = ({ onBack }) =
                   <h3 className="empty-departments-button-text">Добавить метод расчета</h3>
                 </div>
               </button>
-              <AddDepartmentCard
-                text="Добавить первое подразделение"
-                onClick={() => setIsCreateDeptModalOpen(true)}
-              />
+              {canManageStructure && (
+                <AddDepartmentCard
+                  text="Добавить первое подразделение"
+                  onClick={() => setIsCreateDeptModalOpen(true)}
+                />
+              )}
             </div>
           </div>
         </div>
@@ -456,10 +463,16 @@ const LaboratoryManagement: React.FC<LaboratoryManagementProps> = ({ onBack }) =
               onClick={handleDepartmentClick}
               showActions={true}
               onEdit={handleEdit}
-              onDelete={handleDeleteClick}
+              onDelete={canManageStructure ? handleDeleteClick : undefined}
               iconIndex={index}
               disabled={
-                !selectedLaboratory || !canAccessDepartment(selectedLaboratory.id, department.id)
+                !selectedLaboratory ||
+                !canAccessFeature(
+                  'laboratory_management',
+                  'access',
+                  selectedLaboratory.id,
+                  department.id
+                )
               }
               settingsMenuItems={
                 selectedLaboratory
@@ -472,7 +485,9 @@ const LaboratoryManagement: React.FC<LaboratoryManagementProps> = ({ onBack }) =
               }
             />
           ))}
-          <AddDepartmentCard onClick={() => setIsCreateDeptModalOpen(true)} />
+          {canManageStructure && (
+            <AddDepartmentCard onClick={() => setIsCreateDeptModalOpen(true)} />
+          )}
         </div>
       )}
 
