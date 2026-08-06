@@ -1,5 +1,6 @@
 from __future__ import annotations
 from fastapi import APIRouter, Query
+from core.auth_decorators import IsAuthenticated
 from core.deps import DbSession, UserPermissions
 from schemas.mass_fraction import (
     MassFractionOilRefractionTableBulkUpdate,
