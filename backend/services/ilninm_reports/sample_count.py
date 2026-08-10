@@ -8,9 +8,9 @@
 Места отбора с префиксами «ГКП-21» и «ГКП-22» сопоставляются по началу имени.
 """
 
-import re
 from collections import defaultdict
 from dataclasses import dataclass, field
+import re
 from typing import Any
 import pendulum
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -49,8 +49,7 @@ from .constants import (
 # УКПГ-1АВ, УКПГ-1В, УКПГ-2В, УКПГ-5В, УКПГ-8В в названии места отбора: с начала или после пробела/запятой,
 # затем снова пробел, запятая или конец строки — чтобы сработало к примеру на «УКПГ-2В НСПК УУКГН», и вхождение в длинную строку.
 _VALANZHIN_UKPG_RE = tuple(
-    re.compile(rf"(?:^|[\s,;]){re.escape(p)}(?=[\s,;]|$)")
-    for p in SAMPLING_LOCATION_PREFIXES_VALANZHIN_UKPG
+    re.compile(rf"(?:^|[\s,;]){re.escape(p)}(?=[\s,;]|$)") for p in SAMPLING_LOCATION_PREFIXES_VALANZHIN_UKPG
 )
 
 
@@ -183,17 +182,14 @@ def _sampling_location_name_starts_with(s: Sample, prefix: str) -> bool:
 
 
 def _is_gkp_21_or_22_location(s: Sample) -> bool:
-    return _sampling_location_name_starts_with(
-        s, GKP_SAMPLING_NAME_PREFIX_21
-    ) or _sampling_location_name_starts_with(s, GKP_SAMPLING_NAME_PREFIX_22)
+    return _sampling_location_name_starts_with(s, GKP_SAMPLING_NAME_PREFIX_21) or _sampling_location_name_starts_with(
+        s, GKP_SAMPLING_NAME_PREFIX_22
+    )
 
 
 def _is_tovarnaya_produkciya_ois_location(s: Sample) -> bool:
     """Место отбора для «Товарная продукция ОИС»: ГКП-21/22 или УКПГ-21/22 с начала имени."""
-    return any(
-        _sampling_location_name_starts_with(s, prefix)
-        for prefix in TOVARNAYA_PRODUKCIYA_OIS_SAMPLING_PREFIXES
-    )
+    return any(_sampling_location_name_starts_with(s, prefix) for prefix in TOVARNAYA_PRODUKCIYA_OIS_SAMPLING_PREFIXES)
 
 
 def _is_ukpg_11v_location(s: Sample) -> bool:
@@ -216,17 +212,12 @@ def _is_valanzhin_ukpg_sampling_location(s: Sample) -> bool:
 
 def _split_gkp_21_22_samples(items: list[Sample]) -> tuple[list[Sample], list[Sample]]:
     """ГКП-22 имеет приоритет: проба с префиксом 22 не попадает в блок 21."""
-    gkp22 = [
-        s
-        for s in items
-        if _sampling_location_name_starts_with(s, GKP_SAMPLING_NAME_PREFIX_22)
-    ]
+    gkp22 = [s for s in items if _sampling_location_name_starts_with(s, GKP_SAMPLING_NAME_PREFIX_22)]
     in_gkp22 = {id(s) for s in gkp22}
     gkp21 = [
         s
         for s in items
-        if _sampling_location_name_starts_with(s, GKP_SAMPLING_NAME_PREFIX_21)
-        and id(s) not in in_gkp22
+        if _sampling_location_name_starts_with(s, GKP_SAMPLING_NAME_PREFIX_21) and id(s) not in in_gkp22
     ]
     return gkp21, gkp22
 
@@ -329,14 +320,10 @@ def _build_ekspluatacionnaya_neft_ngdu(
         ):
             if not (s.well or "").strip():
                 continue
-            raw_loc_name = (
-                (s.sampling_location.name or "").strip() if s.sampling_location else ""
-            )
+            raw_loc_name = (s.sampling_location.name or "").strip() if s.sampling_location else ""
             display_name = DISPLAY_NAMES_CDGGKN.get(raw_loc_name, raw_loc_name)
             report_date = _sample_report_date(s)
-            date_part = (
-                _fmt_date(report_date) if report_date else "(дата отбора не указана)"
-            )
+            date_part = _fmt_date(report_date) if report_date else "(дата отбора не указана)"
             lines.append(f"{display_name} {format_well_display(s.well)} от {date_part}")
         lines.append("")
     if lines and lines[-1] == "":
@@ -348,12 +335,7 @@ def _build_kalibrovochnaya_neft_ugpu(
     samples: list[Sample],
 ) -> tuple[str, list[Sample]]:
     """Калибровочная нефть УГПУ: объект «нефть калибровочная», филиал УГПУ."""
-    items = [
-        s
-        for s in samples
-        if _branch_name_equals(s, BRANCH_UGPU)
-        and _test_object_ilike(s, "нефть калибровочная")
-    ]
+    items = [s for s in samples if _branch_name_equals(s, BRANCH_UGPU) and _test_object_ilike(s, "нефть калибровочная")]
     if not items:
         return "", []
     by_loc: dict[str, int] = defaultdict(int)
@@ -376,9 +358,7 @@ def _build_vneplanovye(
     items = [s for s in samples if _is_vneplanovye_sample(s)]
     if not items:
         return "", []
-    by_key: dict[tuple[str, str, str, pendulum.Date | None], list[Sample]] = (
-        defaultdict(list)
-    )
+    by_key: dict[tuple[str, str, str, pendulum.Date | None], list[Sample]] = defaultdict(list)
     for s in items:
         place = _sampling_location_display_name(s)
         well_key = (s.well or "").strip()
@@ -417,11 +397,7 @@ def _build_pasportizaciya(
 
     Места отбора с префиксом ГКП-21 и ГКП-22 сюда не входят — они только в «ГКП-21 ГКП-22».
     """
-    items = [
-        s
-        for s in samples
-        if _sample_type_equals(s, "Паспортизация") and not _is_gkp_21_or_22_location(s)
-    ]
+    items = [s for s in samples if _sample_type_equals(s, "Паспортизация") and not _is_gkp_21_or_22_location(s)]
     if not items:
         return "", []
     by_loc: dict[str, list[Sample]] = defaultdict(list)
@@ -445,11 +421,7 @@ def _build_gkp_21_gkp_22(
     sample_type: str = "Паспортизация",
 ) -> tuple[str, list[Sample]]:
     """Паспортизация по ГКП-21/22: сводка по показателям и датам отбора."""
-    items = [
-        s
-        for s in samples
-        if _sample_type_equals(s, sample_type) and _is_gkp_21_or_22_location(s)
-    ]
+    items = [s for s in samples if _sample_type_equals(s, sample_type) and _is_gkp_21_or_22_location(s)]
     if not items:
         return "", []
     gkp21, gkp22 = _split_gkp_21_22_samples(items)
@@ -584,12 +556,8 @@ def _build_ois(
         ):
             well_key = (s.well or "").strip()
             report_date = _sample_report_date(s)
-            date_part = (
-                _fmt_date(report_date) if report_date else "(дата отбора не указана)"
-            )
-            lines.append(
-                f"{display_name} {format_well_display(well_key)} от {date_part}"
-            )
+            date_part = _fmt_date(report_date) if report_date else "(дата отбора не указана)"
+            lines.append(f"{display_name} {format_well_display(well_key)} от {date_part}")
         lines.append("")
     if lines and lines[-1] == "":
         lines.pop()
@@ -620,9 +588,7 @@ def _build_tovarnaya_produkciya_ois(
         block = [title]
         for s in sorted(subset, key=lambda x: (_sample_report_date_sort_key(x), x.id)):
             report_date = _sample_report_date(s)
-            block.append(
-                _fmt_date(report_date) if report_date else "(дата отбора не указана)"
-            )
+            block.append(_fmt_date(report_date) if report_date else "(дата отбора не указана)")
         blocks.append(block)
     lines: list[str] = []
     for idx, block in enumerate(blocks):
@@ -670,9 +636,7 @@ def _build_prochie(
     ]
     if not items:
         return "", []
-    by_key: dict[tuple[str, str, str, pendulum.Date | None], list[Sample]] = (
-        defaultdict(list)
-    )
+    by_key: dict[tuple[str, str, str, pendulum.Date | None], list[Sample]] = defaultdict(list)
     for s in items:
         place = (s.sampling_location.name or "").strip() if s.sampling_location else ""
         place_key = place if place else "(место отбора не указано)"
@@ -714,9 +678,7 @@ def _build_by_test_object_place_date(
     items = [s for s in samples if _test_object_ilike(s, object_key)]
     if not items:
         return "", []
-    by_place_date: dict[tuple[str, pendulum.Date | None], list[Sample]] = defaultdict(
-        list
-    )
+    by_place_date: dict[tuple[str, pendulum.Date | None], list[Sample]] = defaultdict(list)
     for s in items:
         place = (s.sampling_location.name or "").strip() if s.sampling_location else ""
         by_place_date[(place, _sample_report_date(s))].append(s)
@@ -846,20 +808,14 @@ def _build_sample_count_diagnostics_text(
     }
 
     for _, branch_name in branches_seen.values():
-        branch_samples = [
-            s
-            for s in samples
-            if s.branch and (s.branch.name or "").strip() == branch_name
-        ]
+        branch_samples = [s for s in samples if s.branch and (s.branch.name or "").strip() == branch_name]
         lines.append(f"=== Филиал: {branch_name} ===")
         lines.append(f"Всего проб филиала за период: {len(branch_samples)}")
         branch_included: set[int] = set()
         usage_by_sample: dict[int, set[str]] = defaultdict(set)
 
         for row_title, builder in builders.items():
-            if not is_sample_count_row_visible_for_branch(
-                row_title, branch_name, row_titles_for_branch
-            ):
+            if not is_sample_count_row_visible_for_branch(row_title, branch_name, row_titles_for_branch):
                 continue
             value, used = builder(branch_samples)
             if not value or not used:
@@ -883,14 +839,10 @@ def _build_sample_count_diagnostics_text(
         ):
             lines.append(f"  - {_sample_debug_label(s)}")
 
-        repeated_rows = {
-            sid: rows for sid, rows in usage_by_sample.items() if len(rows) > 1
-        }
+        repeated_rows = {sid: rows for sid, rows in usage_by_sample.items() if len(rows) > 1}
         for sid, row_titles in usage_by_sample.items():
             usage_global[sid].update(row_titles)
-        lines.append(
-            f"Повторяются в нескольких строках отчёта (по филиалу): {len(repeated_rows)}"
-        )
+        lines.append(f"Повторяются в нескольких строках отчёта (по филиалу): {len(repeated_rows)}")
         for sid in sorted(repeated_rows.keys()):
             sample = next((s for s in branch_samples if s.id == sid), None)
             if not sample:
@@ -909,12 +861,8 @@ def _build_sample_count_diagnostics_text(
         key=lambda x: (_sample_report_date_sort_key(x), x.id),
     ):
         lines.append(f"- {_sample_debug_label(s)}")
-    repeated_period = {
-        sid: titles for sid, titles in usage_global.items() if len(titles) > 1
-    }
-    lines.append(
-        f"Повторяются в нескольких строках отчёта (сводка за период): {len(repeated_period)}"
-    )
+    repeated_period = {sid: titles for sid, titles in usage_global.items() if len(titles) > 1}
+    lines.append(f"Повторяются в нескольких строках отчёта (сводка за период): {len(repeated_period)}")
     for sid in sorted(repeated_period.keys()):
         sample = samples_by_id.get(sid)
         if not sample:
@@ -940,16 +888,12 @@ def _split_by_branch(
         row_values = _build_all_row_values(branch_samples)
         rows = []
         for row_title, value in row_values.items():
-            if not is_sample_count_row_visible_for_branch(
-                row_title, branch_name, row_titles_for_branch
-            ):
+            if not is_sample_count_row_visible_for_branch(row_title, branch_name, row_titles_for_branch):
                 continue
             if value:
                 rows.append({"label": row_title, "value": value})
         if rows:
-            result.append(
-                BranchRows(branch_id=branch_id, branch_name=branch_name, rows=rows)
-            )
+            result.append(BranchRows(branch_id=branch_id, branch_name=branch_name, rows=rows))
     return result
 
 
@@ -1010,9 +954,7 @@ def _normalize_cell_a_for_match(cell_value: Any) -> str:
     return s.replace("\n", " ").replace("\r", " ")
 
 
-def match_row_title_to_value(
-    cell_a_value: Any, row_values: dict[str, str]
-) -> str | None:
+def match_row_title_to_value(cell_a_value: Any, row_values: dict[str, str]) -> str | None:
     """
     По значению ячейки A возвращает значение для столбца B из row_values.
     Сопоставление без учёта регистра и лишних пробелов/переносов.
@@ -1060,7 +1002,5 @@ async def get_sample_count_report_data(
             }
             for br in by_branch
         ],
-        "diagnostics_txt": _build_sample_count_diagnostics_text(
-            samples, ROW_TITLE_TO_BRANCH
-        ),
+        "diagnostics_txt": _build_sample_count_diagnostics_text(samples, ROW_TITLE_TO_BRANCH),
     }

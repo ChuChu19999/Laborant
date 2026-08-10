@@ -18,32 +18,20 @@ class Protocol(BaseModel):
     test_protocol_number: Mapped[str | None] = mapped_column(
         String(100), nullable=True, comment="Номер протокола испытаний"
     )
-    test_protocol_date: Mapped[date | None] = mapped_column(
-        Date, nullable=True, comment="Дата протокола испытаний"
-    )
+    test_protocol_date: Mapped[date | None] = mapped_column(Date, nullable=True, comment="Дата протокола испытаний")
     is_accredited: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False, comment="Признак аккредитации протокола"
     )
-    sampling_act_number: Mapped[str] = mapped_column(
-        String(50), nullable=False, comment="Номер акта отбора"
-    )
-    issued: Mapped[str | None] = mapped_column(
-        String(150), nullable=True, comment="hsnils лица, оформившего протокол"
-    )
+    sampling_act_number: Mapped[str] = mapped_column(String(50), nullable=False, comment="Номер акта отбора")
+    issued: Mapped[str | None] = mapped_column(String(150), nullable=True, comment="hsnils лица, оформившего протокол")
     approved: Mapped[str | None] = mapped_column(
         String(150), nullable=True, comment="hsnils лица, утвердившего протокол"
     )
-    issued_position: Mapped[str | None] = mapped_column(
-        String(100), nullable=True, comment="Должность оформившего"
-    )
-    approved_position: Mapped[str | None] = mapped_column(
-        String(100), nullable=True, comment="Должность утвердившего"
-    )
+    issued_position: Mapped[str | None] = mapped_column(String(100), nullable=True, comment="Должность оформившего")
+    approved_position: Mapped[str | None] = mapped_column(String(100), nullable=True, comment="Должность утвердившего")
     protocol_template_id: Mapped[int | None] = mapped_column(
         Integer,
-        ForeignKey(
-            f"{get_database_schema()}.protocol_templates.id", ondelete="SET NULL"
-        ),
+        ForeignKey(f"{get_database_schema()}.protocol_templates.id", ondelete="SET NULL"),
         nullable=True,
     )
     laboratory_id: Mapped[int] = mapped_column(
@@ -65,9 +53,7 @@ class Protocol(BaseModel):
 
     laboratory: Mapped["Laboratory"] = relationship(back_populates="protocols")
     department: Mapped["Department | None"] = relationship(back_populates="protocols")
-    protocol_template: Mapped["ProtocolTemplate | None"] = relationship(
-        back_populates="protocols"
-    )
+    protocol_template: Mapped["ProtocolTemplate | None"] = relationship(back_populates="protocols")
 
     __table_args__ = (
         Index("idx_protocol_test_protocol_number", "test_protocol_number"),
@@ -85,16 +71,10 @@ class ProtocolTemplate(BaseModel):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
-    name: Mapped[str] = mapped_column(
-        String(100), nullable=False, comment="Название шаблона"
-    )
-    version: Mapped[str] = mapped_column(
-        String(8), nullable=False, comment="Версия шаблона (например, v1)"
-    )
+    name: Mapped[str] = mapped_column(String(100), nullable=False, comment="Название шаблона")
+    version: Mapped[str] = mapped_column(String(8), nullable=False, comment="Версия шаблона (например, v1)")
     file: Mapped[str] = mapped_column(String, nullable=False, comment="xlsx файл")
-    file_name: Mapped[str] = mapped_column(
-        String(100), nullable=False, comment="Имя файла"
-    )
+    file_name: Mapped[str] = mapped_column(String(100), nullable=False, comment="Имя файла")
     laboratory_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey(f"{get_database_schema()}.laboratories.id", ondelete="CASCADE"),
@@ -107,12 +87,8 @@ class ProtocolTemplate(BaseModel):
     )
 
     laboratory: Mapped["Laboratory"] = relationship(back_populates="protocol_templates")
-    department: Mapped["Department | None"] = relationship(
-        back_populates="protocol_templates"
-    )
-    protocols: Mapped[list["Protocol"]] = relationship(
-        back_populates="protocol_template"
-    )
+    department: Mapped["Department | None"] = relationship(back_populates="protocol_templates")
+    protocols: Mapped[list["Protocol"]] = relationship(back_populates="protocol_template")
 
     __table_args__ = (
         Index("idx_protocol_template_name", "name"),

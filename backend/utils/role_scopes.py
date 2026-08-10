@@ -15,9 +15,7 @@ def normalize_role_scope_entry(raw: dict[str, Any] | None) -> dict[str, Any] | N
     if not isinstance(laboratory_id, int) or laboratory_id <= 0:
         return None
     department_id = raw.get("department_id")
-    if department_id is not None and (
-        not isinstance(department_id, int) or department_id <= 0
-    ):
+    if department_id is not None and (not isinstance(department_id, int) or department_id <= 0):
         department_id = None
     return {
         "laboratory_id": laboratory_id,
@@ -44,9 +42,7 @@ def normalize_role_scopes(raw: list[Any] | None) -> list[dict[str, Any]]:
         by_key[key] = {
             "laboratory_id": entry["laboratory_id"],
             "department_id": entry["department_id"],
-            "permissions": merge_permissions(
-                [existing["permissions"], entry["permissions"]]
-            ),
+            "permissions": merge_permissions([existing["permissions"], entry["permissions"]]),
         }
 
     return sorted(
@@ -99,9 +95,7 @@ def role_scope_matches(
         if any(entry.get("department_id") == department_id for entry in normalized):
             return True
         if laboratory_id is not None and any(
-            entry["laboratory_id"] == laboratory_id
-            and entry.get("department_id") is None
-            for entry in normalized
+            entry["laboratory_id"] == laboratory_id and entry.get("department_id") is None for entry in normalized
         ):
             return True
         return False
@@ -131,10 +125,7 @@ def resolve_permissions_for_scope(
                 return entry["permissions"]
         if laboratory_id is not None:
             for entry in normalized:
-                if (
-                    entry["laboratory_id"] == laboratory_id
-                    and entry.get("department_id") is None
-                ):
+                if entry["laboratory_id"] == laboratory_id and entry.get("department_id") is None:
                     return entry["permissions"]
         return None
 
@@ -142,16 +133,11 @@ def resolve_permissions_for_scope(
         lab_level = [
             entry["permissions"]
             for entry in normalized
-            if entry["laboratory_id"] == laboratory_id
-            and entry.get("department_id") is None
+            if entry["laboratory_id"] == laboratory_id and entry.get("department_id") is None
         ]
         if lab_level:
             return merge_permissions(lab_level)
-        lab_any = [
-            entry["permissions"]
-            for entry in normalized
-            if entry["laboratory_id"] == laboratory_id
-        ]
+        lab_any = [entry["permissions"] for entry in normalized if entry["laboratory_id"] == laboratory_id]
         if lab_any:
             return merge_permissions(lab_any)
         return None

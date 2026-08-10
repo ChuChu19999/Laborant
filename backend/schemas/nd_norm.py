@@ -32,12 +32,8 @@ class NdNormMethodDataItem(BaseModel):
 
 
 class NdNormCreate(BaseModel):
-    name: Annotated[NonEmptyStr, Field(max_length=255)] = Field(
-        ..., description="Наименование нормы"
-    )
-    test_object: Annotated[NonEmptyStr, Field(max_length=255)] = Field(
-        ..., description="Объект испытаний"
-    )
+    name: Annotated[NonEmptyStr, Field(max_length=255)] = Field(..., description="Наименование нормы")
+    test_object: Annotated[NonEmptyStr, Field(max_length=255)] = Field(..., description="Объект испытаний")
     laboratory_id: int = Field(..., description="ID лаборатории")
     department_id: int | None = Field(None, description="ID подразделения")
     method_data: list[NdNormMethodDataItem] = Field(

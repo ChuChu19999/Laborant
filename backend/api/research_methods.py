@@ -1,6 +1,5 @@
 from __future__ import annotations
 from fastapi import APIRouter, Depends, Query
-from core.auth_decorators import IsAuthenticated
 from core.deps import DbSession, ScopePaginationParams, UserPermissions
 from schemas.pagination import PaginatedResponse
 from schemas.research import (
@@ -92,9 +91,7 @@ async def create_research_method_endpoint(
     effective: UserPermissions,
 ):
     """Добавляет новый метод исследования на основе переданных данных."""
-    enforce_lab_management_access(
-        effective, method_data.laboratory_id, method_data.department_id
-    )
+    enforce_lab_management_access(effective, method_data.laboratory_id, method_data.department_id)
     method = await create_research_method(db, method_data)
     return await get_research_method_response_data(db, method.id)
 
@@ -108,9 +105,7 @@ async def create_research_method_endpoint(
         "Методы возвращаются сгруппированными по группам, если они принадлежат группе. "
         "Если указан sample_id, исключаются методы, уже привязанные к этой пробе."
     ),
-    responses={
-        200: {"description": "Список доступных методов исследования успешно получен"}
-    },
+    responses={200: {"description": "Список доступных методов исследования успешно получен"}},
 )
 # @IsAuthenticated
 async def get_available_research_methods_endpoint(
@@ -118,9 +113,7 @@ async def get_available_research_methods_endpoint(
     effective: UserPermissions,
     laboratory_id: int = Query(..., description="ID лаборатории"),
     department_id: int | None = Query(None, description="ID подразделения"),
-    sample_id: int | None = Query(
-        None, description="ID пробы (для исключения уже использованных методов)"
-    ),
+    sample_id: int | None = Query(None, description="ID пробы (для исключения уже использованных методов)"),
 ):
     """Возвращает список доступных методов исследования для указанной лаборатории и подразделения."""
     enforce_nav_access(effective, "samples", laboratory_id, department_id)
@@ -150,9 +143,7 @@ async def get_research_method(
     include_deleted: bool = Query(False),
 ):
     """Возвращает информацию о методе исследования по его идентификатору."""
-    method = await require_research_method_by_id(
-        db, method_id, include_deleted=include_deleted
-    )
+    method = await require_research_method_by_id(db, method_id, include_deleted=include_deleted)
     enforce_research_methods_read(effective, method.laboratory_id, method.department_id)
     return ResearchMethodResponse.model_validate(method)
 
@@ -233,9 +224,7 @@ async def update_research_method_sort_order_endpoint(
     "/sort-order/batch/",
     status_code=200,
     summary="Массовое обновление порядка сортировки методов исследования",
-    description=(
-        "Выполняет массовое обновление порядка сортировки методов и групп исследования."
-    ),
+    description=("Выполняет массовое обновление порядка сортировки методов и групп исследования."),
     responses={
         200: {"description": "Порядок сортировки успешно обновлен"},
         400: {"description": "Некорректные данные для обновления"},

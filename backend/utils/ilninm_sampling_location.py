@@ -11,7 +11,4 @@ def resolve_sampling_location_db_name(sampling_location: str) -> str:
         return DISPLAY_TO_DB_NAME_CDGGKN[key]
     if key in SAMPLING_LOCATIONS_CDGGKN:
         return key
-    raise ValueError(
-        "Место отбора должно быть «ЦДГГКН №1», «ЦДГГКН №2» "
-        "или «Цех по ДГГКН №1», «Цех по ДГГКН №2»"
-    )
+    raise ValueError("Место отбора должно быть «ЦДГГКН №1», «ЦДГГКН №2» или «Цех по ДГГКН №1», «Цех по ДГГКН №2»")

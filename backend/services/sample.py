@@ -9,10 +9,12 @@ from core.exceptions import (
 )
 from core.logger import logger
 from models.sample import Sample, SelectionConditions
-from repositories import calculation as calculation_repo
-from repositories import laboratory as laboratory_repo
-from repositories import sample as sample_repo
-from repositories import selection_conditions as selection_conditions_repo
+from repositories import (
+    calculation as calculation_repo,
+    laboratory as laboratory_repo,
+    sample as sample_repo,
+    selection_conditions as selection_conditions_repo,
+)
 from repositories.base import flush_entity
 from schemas.sample import (
     SampleCreate,
@@ -43,9 +45,7 @@ async def _resolve_added_by_hsnils(
         return None, True
 
     try:
-        employees = await search_employees_by_fio(
-            normalized_added_by, include_photo=False
-        )
+        employees = await search_employees_by_fio(normalized_added_by, include_photo=False)
     except ServiceUnavailableError:
         # HR недоступен: список проб не валим, фильтр по добавившему пропускаем.
         logger.warning(
@@ -55,9 +55,7 @@ async def _resolve_added_by_hsnils(
         return None, False
 
     matching_hsnils = [
-        employee.get("hsnils")
-        for employee in employees
-        if isinstance(employee, dict) and employee.get("hsnils")
+        employee.get("hsnils") for employee in employees if isinstance(employee, dict) and employee.get("hsnils")
     ]
 
     if matching_hsnils:
@@ -65,16 +63,12 @@ async def _resolve_added_by_hsnils(
     return None, True
 
 
-async def get_sample_by_id(
-    db: AsyncSession, sample_id: int, include_deleted: bool = False
-) -> Sample | None:
+async def get_sample_by_id(db: AsyncSession, sample_id: int, include_deleted: bool = False) -> Sample | None:
     """Получить пробу по ID."""
     return await sample_repo.get_sample_by_id(db, sample_id, include_deleted)
 
 
-async def require_sample_by_id(
-    db: AsyncSession, sample_id: int, include_deleted: bool = False
-) -> Sample:
+async def require_sample_by_id(db: AsyncSession, sample_id: int, include_deleted: bool = False) -> Sample:
     """Получить пробу по ID или вернуть 404."""
     sample = await get_sample_by_id(db, sample_id, include_deleted)
     if not sample:
@@ -143,17 +137,13 @@ async def get_samples(
 
 async def create_sample(db: AsyncSession, sample_data: SampleCreate) -> Sample:
     """Добавить пробу."""
-    await validate_lab_and_department(
-        db, sample_data.laboratory_id, sample_data.department_id
-    )
+    await validate_lab_and_department(db, sample_data.laboratory_id, sample_data.department_id)
     if sample_data.branch_id:
         if not await laboratory_repo.get_branch_by_id(db, sample_data.branch_id):
             raise NotFoundError("Филиал не найден")
 
     if sample_data.sampling_location_id:
-        if not await laboratory_repo.get_sampling_location_by_id(
-            db, sample_data.sampling_location_id
-        ):
+        if not await laboratory_repo.get_sampling_location_by_id(db, sample_data.sampling_location_id):
             raise NotFoundError("Место отбора пробы не найдено")
 
     if await sample_repo.exists_sample_by_registration(
@@ -192,9 +182,7 @@ async def create_sample(db: AsyncSession, sample_data: SampleCreate) -> Sample:
     return await sample_repo.add_sample(db, sample)
 
 
-async def update_sample(
-    db: AsyncSession, sample_id: int, sample_data: SampleUpdate
-) -> Sample:
+async def update_sample(db: AsyncSession, sample_id: int, sample_data: SampleUpdate) -> Sample:
     """Обновить пробу."""
     sample = await get_sample_by_id(db, sample_id)
     if not sample:
@@ -217,16 +205,8 @@ async def update_sample(
         setattr(sample, key, value)
 
     if sample_data.laboratory_id is not None or sample_data.department_id is not None:
-        lab_id = (
-            sample_data.laboratory_id
-            if sample_data.laboratory_id is not None
-            else sample.laboratory_id
-        )
-        dept_id = (
-            sample_data.department_id
-            if sample_data.department_id is not None
-            else sample.department_id
-        )
+        lab_id = sample_data.laboratory_id if sample_data.laboratory_id is not None else sample.laboratory_id
+        dept_id = sample_data.department_id if sample_data.department_id is not None else sample.department_id
 
         await validate_lab_and_department(db, lab_id, dept_id)
 
@@ -245,18 +225,14 @@ async def delete_sample(db: AsyncSession, sample_id: int) -> None:
     if not sample:
         raise NotFoundError("Проба не найдена")
 
-    for calc in await calculation_repo.get_calculations_by_sample(
-        db, sample_id=sample_id
-    ):
+    for calc in await calculation_repo.get_calculations_by_sample(db, sample_id=sample_id):
         calc.soft_delete()
 
     sample.soft_delete()
     await flush_entity(db)
 
 
-def build_sample_response(
-    sample: Sample, protocols: list | None = None
-) -> SampleResponse:
+def build_sample_response(sample: Sample, protocols: list | None = None) -> SampleResponse:
     """Собрать ответ API по пробе с наименованиями связей."""
     sample_dict = SampleResponse.model_validate(sample).model_dump()
     if sample.laboratory:
@@ -272,16 +248,11 @@ def build_sample_response(
     return SampleResponse(**sample_dict)
 
 
-async def build_samples_list_response(
-    db: AsyncSession, samples: list[Sample]
-) -> list[SampleResponse]:
+async def build_samples_list_response(db: AsyncSession, samples: list[Sample]) -> list[SampleResponse]:
     """Собрать ответы API по списку проб с пакетной загрузкой протоколов."""
     sample_ids = [sample.id for sample in samples]
     protocols_by_sample = await get_protocols_by_sample_ids(db, sample_ids)
-    return [
-        build_sample_response(sample, protocols=protocols_by_sample.get(sample.id, []))
-        for sample in samples
-    ]
+    return [build_sample_response(sample, protocols=protocols_by_sample.get(sample.id, [])) for sample in samples]
 
 
 def build_selection_conditions_response(
@@ -308,18 +279,14 @@ async def get_selection_conditions_by_id(
     db: AsyncSession, conditions_id: int, include_deleted: bool = False
 ) -> SelectionConditions | None:
     """Получить условия отбора по ID."""
-    return await selection_conditions_repo.get_selection_conditions_by_id(
-        db, conditions_id, include_deleted
-    )
+    return await selection_conditions_repo.get_selection_conditions_by_id(db, conditions_id, include_deleted)
 
 
 async def require_selection_conditions_by_id(
     db: AsyncSession, conditions_id: int, include_deleted: bool = False
 ) -> SelectionConditions:
     """Получить условия отбора по ID или вернуть 404."""
-    conditions = await get_selection_conditions_by_id(
-        db, conditions_id, include_deleted
-    )
+    conditions = await get_selection_conditions_by_id(db, conditions_id, include_deleted)
     if not conditions:
         raise NotFoundError("Условия отбора не найдены")
     return conditions
@@ -335,10 +302,8 @@ async def get_selection_conditions(
     sort_order: str | None = None,
 ) -> tuple[list[SelectionConditions], int, int]:
     """Получить список условий отбора."""
-    selection_conditions, total = (
-        await selection_conditions_repo.get_selection_conditions(
-            db, laboratory_id, department_id, page, page_size, sort_by, sort_order
-        )
+    selection_conditions, total = await selection_conditions_repo.get_selection_conditions(
+        db, laboratory_id, department_id, page, page_size, sort_by, sort_order
     )
 
     if page is not None and page_size is not None:
@@ -354,38 +319,25 @@ async def create_selection_conditions(
 ) -> SelectionConditions:
     """Создать условия отбора."""
     if not conditions_data.laboratory_id and not conditions_data.department_id:
-        raise ValidationError(
-            "Условия отбора должны быть привязаны к лаборатории или подразделению"
-        )
+        raise ValidationError("Условия отбора должны быть привязаны к лаборатории или подразделению")
 
     if conditions_data.laboratory_id:
-        if not await laboratory_repo.get_laboratory_by_id(
-            db, conditions_data.laboratory_id
-        ):
+        if not await laboratory_repo.get_laboratory_by_id(db, conditions_data.laboratory_id):
             raise NotFoundError("Лаборатория не найдена")
 
     if conditions_data.department_id:
-        dept = await laboratory_repo.get_department_by_id(
-            db, conditions_data.department_id
-        )
+        dept = await laboratory_repo.get_department_by_id(db, conditions_data.department_id)
         if not dept:
             raise NotFoundError("Подразделение не найдено")
-        if (
-            conditions_data.laboratory_id
-            and dept.laboratory_id != conditions_data.laboratory_id
-        ):
-            raise ValidationError(
-                "Подразделение должно принадлежать выбранной лаборатории"
-            )
+        if conditions_data.laboratory_id and dept.laboratory_id != conditions_data.laboratory_id:
+            raise ValidationError("Подразделение должно принадлежать выбранной лаборатории")
 
     selection_conditions = SelectionConditions(
         conditions=conditions_data.conditions,
         laboratory_id=conditions_data.laboratory_id,
         department_id=conditions_data.department_id,
     )
-    return await selection_conditions_repo.add_selection_conditions(
-        db, selection_conditions
-    )
+    return await selection_conditions_repo.add_selection_conditions(db, selection_conditions)
 
 
 async def update_selection_conditions(
@@ -400,10 +352,7 @@ async def update_selection_conditions(
     for key, value in update_data.items():
         setattr(selection_conditions, key, value)
 
-    if (
-        conditions_data.laboratory_id is not None
-        or conditions_data.department_id is not None
-    ):
+    if conditions_data.laboratory_id is not None or conditions_data.department_id is not None:
         lab_id = (
             conditions_data.laboratory_id
             if conditions_data.laboratory_id is not None
@@ -416,18 +365,14 @@ async def update_selection_conditions(
         )
 
         if not lab_id and not dept_id:
-            raise ValidationError(
-                "Условия отбора должны быть привязаны к лаборатории или подразделению"
-            )
+            raise ValidationError("Условия отбора должны быть привязаны к лаборатории или подразделению")
 
         if dept_id:
             dept = await laboratory_repo.get_department_by_id(db, dept_id)
             if not dept:
                 raise NotFoundError("Подразделение не найдено")
             if lab_id and dept.laboratory_id != lab_id:
-                raise ValidationError(
-                    "Подразделение должно принадлежать выбранной лаборатории"
-                )
+                raise ValidationError("Подразделение должно принадлежать выбранной лаборатории")
 
     await flush_entity(db)
     return selection_conditions
@@ -443,9 +388,7 @@ async def delete_selection_conditions(db: AsyncSession, conditions_id: int) -> N
     await flush_entity(db)
 
 
-async def get_selection_conditions_response_data(
-    db: AsyncSession, conditions_id: int
-) -> SelectionConditionsResponse:
+async def get_selection_conditions_response_data(db: AsyncSession, conditions_id: int) -> SelectionConditionsResponse:
     """Получить условия отбора с данными для ответа API."""
     conditions = await get_selection_conditions_by_id(db, conditions_id)
     if not conditions:

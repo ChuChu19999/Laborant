@@ -13,12 +13,8 @@ from schemas.common import (
 
 
 class MassFractionOilRefractionTableBase(BaseModel):
-    c_value: OilMassFractionCValue = Field(
-        ..., description="Массовая доля нефти (C) в процентах"
-    )
-    n_value: OilMassFractionNValue = Field(
-        ..., description="Показатель преломления (n)"
-    )
+    c_value: OilMassFractionCValue = Field(..., description="Массовая доля нефти (C) в процентах")
+    n_value: OilMassFractionNValue = Field(..., description="Показатель преломления (n)")
 
 
 class MassFractionOilRefractionTableCreate(MassFractionOilRefractionTableBase):
@@ -58,12 +54,8 @@ class MassFractionOilRefractionTableBulkUpdate(BaseModel):
             validated.append(
                 {
                     **entry,
-                    "c_value": validate_oil_mass_fraction_c_value(
-                        str(entry["c_value"])
-                    ),
-                    "n_value": validate_oil_mass_fraction_n_value(
-                        str(entry["n_value"])
-                    ),
+                    "c_value": validate_oil_mass_fraction_c_value(str(entry["c_value"])),
+                    "n_value": validate_oil_mass_fraction_n_value(str(entry["n_value"])),
                 }
             )
         return validated

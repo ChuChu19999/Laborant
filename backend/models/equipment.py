@@ -21,9 +21,7 @@ class Equipment(BaseModel):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
-    type: Mapped[str] = mapped_column(
-        String(20), nullable=False, comment="Тип прибора или оборудования"
-    )
+    type: Mapped[str] = mapped_column(String(20), nullable=False, comment="Тип прибора или оборудования")
     name: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
@@ -35,17 +33,13 @@ class Equipment(BaseModel):
     verification_info: Mapped[str] = mapped_column(
         String(255), nullable=False, comment="Сведения о результатах поверки"
     )
-    verification_date: Mapped[date] = mapped_column(
-        Date, nullable=False, comment="Дата поверки"
-    )
+    verification_date: Mapped[date] = mapped_column(Date, nullable=False, comment="Дата поверки")
     verification_end_date: Mapped[date] = mapped_column(
         Date,
         nullable=False,
         comment="Дата окончания срока действия поверки",
     )
-    version: Mapped[str] = mapped_column(
-        String(8), nullable=False, comment="Версия прибора (например, v1)"
-    )
+    version: Mapped[str] = mapped_column(String(8), nullable=False, comment="Версия прибора (например, v1)")
     laboratory_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey(f"{get_database_schema()}.laboratories.id", ondelete="CASCADE"),

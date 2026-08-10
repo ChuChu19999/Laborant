@@ -1,7 +1,6 @@
 from __future__ import annotations
 import base64
 from fastapi import APIRouter, Depends, Query
-from core.auth_decorators import IsAuthenticated
 from core.deps import DbSession, ScopeSortPaginationParams, UserPermissions
 from core.responses import build_attachment_response
 from schemas.pagination import PaginatedResponse
@@ -77,9 +76,7 @@ async def list_report_templates(
     "/report-templates/available/",
     response_model=list[ReportTemplateResponse],
     summary="Получение доступных шаблонов отчётов",
-    description=(
-        "Возвращает список доступных шаблонов отчётов для указанной лаборатории и подразделения."
-    ),
+    description=("Возвращает список доступных шаблонов отчётов для указанной лаборатории и подразделения."),
     responses={200: {"description": "Список доступных шаблонов успешно получен"}},
 )
 # @IsAuthenticated
@@ -121,9 +118,7 @@ async def create_report_template_endpoint(
     effective: UserPermissions,
 ):
     """Добавляет новый шаблон отчёта на основе переданных данных."""
-    enforce_lab_management_access(
-        effective, template_data.laboratory_id, template_data.department_id
-    )
+    enforce_lab_management_access(effective, template_data.laboratory_id, template_data.department_id)
     template = await create_report_template(db, template_data)
     return await get_report_template_response_data(db, template.id)
 
@@ -146,14 +141,10 @@ async def get_report_template(
 ):
     """Возвращает информацию о шаблоне отчёта по его идентификатору или файл при download=true."""
     template = await require_report_template_by_id(db, template_id)
-    enforce_lab_management_access(
-        effective, template.laboratory_id, template.department_id
-    )
+    enforce_lab_management_access(effective, template.laboratory_id, template.department_id)
     if download:
         file_data = base64.b64decode(template.file)
-        return build_attachment_response(
-            file_data, template.file_name, "application/octet-stream"
-        )
+        return build_attachment_response(file_data, template.file_name, "application/octet-stream")
 
     return build_report_template_response(template)
 
@@ -177,9 +168,7 @@ async def update_report_template_endpoint(
 ):
     """Обновляет существующий шаблон отчёта."""
     template = await require_report_template_by_id(db, template_id)
-    enforce_lab_management_access(
-        effective, template.laboratory_id, template.department_id
-    )
+    enforce_lab_management_access(effective, template.laboratory_id, template.department_id)
     template = await update_report_template(db, template_id, template_data)
     return await get_report_template_response_data(db, template.id)
 

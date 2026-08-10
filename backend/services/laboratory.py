@@ -27,14 +27,10 @@ async def get_laboratory_by_id(
     db: AsyncSession, laboratory_id: int, include_deleted: bool = False
 ) -> Laboratory | None:
     """Получить лабораторию по ID."""
-    return await laboratory_repo.get_laboratory_by_id(
-        db, laboratory_id, include_deleted
-    )
+    return await laboratory_repo.get_laboratory_by_id(db, laboratory_id, include_deleted)
 
 
-async def require_laboratory_by_id(
-    db: AsyncSession, laboratory_id: int, include_deleted: bool = False
-) -> Laboratory:
+async def require_laboratory_by_id(db: AsyncSession, laboratory_id: int, include_deleted: bool = False) -> Laboratory:
     """Получить лабораторию по ID или вернуть 404."""
     laboratory = await get_laboratory_by_id(db, laboratory_id, include_deleted)
     if not laboratory:
@@ -51,9 +47,7 @@ async def get_laboratories(
     sort_order: str | None = None,
 ) -> tuple[list[Laboratory], int, int]:
     """Получить список лабораторий."""
-    laboratories, total = await laboratory_repo.get_laboratories(
-        db, page, page_size, search, sort_by, sort_order
-    )
+    laboratories, total = await laboratory_repo.get_laboratories(db, page, page_size, search, sort_by, sort_order)
 
     if page is not None and page_size is not None:
         total_pages = calculate_total_pages(total, page_size)
@@ -66,9 +60,7 @@ async def get_laboratories(
 def build_laboratory_response(lab: Laboratory) -> LaboratoryResponse:
     """Собрать ответ лаборатории с числом активных подразделений."""
     lab_dict = LaboratoryResponse.model_validate(lab).model_dump()
-    lab_dict["departments_count"] = len(
-        [d for d in lab.departments if d.deleted_at is None]
-    )
+    lab_dict["departments_count"] = len([d for d in lab.departments if d.deleted_at is None])
     return LaboratoryResponse(**lab_dict)
 
 
@@ -93,9 +85,7 @@ async def get_laboratories_response_data(
     return items, total, total_pages
 
 
-async def create_laboratory(
-    db: AsyncSession, laboratory_data: LaboratoryCreate
-) -> Laboratory:
+async def create_laboratory(db: AsyncSession, laboratory_data: LaboratoryCreate) -> Laboratory:
     """Создать лабораторию."""
     if await laboratory_repo.exists_laboratory_by_name(db, laboratory_data.name):
         raise ConflictError("Лаборатория с таким названием уже существует")
@@ -104,26 +94,20 @@ async def create_laboratory(
         name=laboratory_data.name.strip(),
         full_name=laboratory_data.full_name.strip(),
         laboratory_location=(
-            laboratory_data.laboratory_location.strip()
-            if laboratory_data.laboratory_location
-            else None
+            laboratory_data.laboratory_location.strip() if laboratory_data.laboratory_location else None
         ),
     )
     return await laboratory_repo.add_laboratory(db, laboratory)
 
 
-async def update_laboratory(
-    db: AsyncSession, laboratory_id: int, laboratory_data: LaboratoryUpdate
-) -> Laboratory:
+async def update_laboratory(db: AsyncSession, laboratory_id: int, laboratory_data: LaboratoryUpdate) -> Laboratory:
     """Обновить лабораторию."""
     laboratory = await get_laboratory_by_id(db, laboratory_id)
     if not laboratory:
         raise NotFoundError("Лаборатория не найдена")
 
     if laboratory_data.name is not None:
-        if await laboratory_repo.exists_laboratory_by_name(
-            db, laboratory_data.name, exclude_id=laboratory_id
-        ):
+        if await laboratory_repo.exists_laboratory_by_name(db, laboratory_data.name, exclude_id=laboratory_id):
             raise ConflictError("Лаборатория с таким названием уже существует")
         laboratory.name = laboratory_data.name.strip()
 
@@ -140,9 +124,7 @@ async def update_laboratory(
 
 async def delete_laboratory(db: AsyncSession, laboratory_id: int) -> None:
     """Удалить лабораторию (мягкое удаление)."""
-    laboratory = await laboratory_repo.get_laboratory_with_departments_for_delete(
-        db, laboratory_id
-    )
+    laboratory = await laboratory_repo.get_laboratory_with_departments_for_delete(db, laboratory_id)
 
     if not laboratory:
         raise NotFoundError("Лаборатория не найдена")
@@ -159,14 +141,10 @@ async def get_department_by_id(
     db: AsyncSession, department_id: int, include_deleted: bool = False
 ) -> Department | None:
     """Получить подразделение по ID."""
-    return await laboratory_repo.get_department_by_id(
-        db, department_id, include_deleted
-    )
+    return await laboratory_repo.get_department_by_id(db, department_id, include_deleted)
 
 
-async def require_department_by_id(
-    db: AsyncSession, department_id: int, include_deleted: bool = False
-) -> Department:
+async def require_department_by_id(db: AsyncSession, department_id: int, include_deleted: bool = False) -> Department:
     """Получить подразделение по ID или вернуть 404."""
     department = await get_department_by_id(db, department_id, include_deleted)
     if not department:
@@ -204,9 +182,7 @@ async def get_departments(
     return departments, total, total_pages
 
 
-async def create_department(
-    db: AsyncSession, department_data: DepartmentCreate
-) -> Department:
+async def create_department(db: AsyncSession, department_data: DepartmentCreate) -> Department:
     """Создать подразделение."""
     laboratory = await get_laboratory_by_id(db, department_data.laboratory_id)
     if not laboratory:
@@ -215,9 +191,7 @@ async def create_department(
     if await laboratory_repo.exists_department_by_name_and_laboratory(
         db, department_data.laboratory_id, department_data.name
     ):
-        raise ConflictError(
-            "Подразделение с таким названием уже существует для данной лаборатории"
-        )
+        raise ConflictError("Подразделение с таким названием уже существует для данной лаборатории")
 
     department = Department(
         laboratory_id=department_data.laboratory_id,
@@ -227,9 +201,7 @@ async def create_department(
     return await laboratory_repo.add_department(db, department)
 
 
-async def update_department(
-    db: AsyncSession, department_id: int, department_data: DepartmentUpdate
-) -> Department:
+async def update_department(db: AsyncSession, department_id: int, department_data: DepartmentUpdate) -> Department:
     """Обновить подразделение."""
     department = await get_department_by_id(db, department_id)
     if not department:
@@ -242,9 +214,7 @@ async def update_department(
             department_data.name,
             exclude_id=department_id,
         ):
-            raise ConflictError(
-                "Подразделение с таким названием уже существует для данной лаборатории"
-            )
+            raise ConflictError("Подразделение с таким названием уже существует для данной лаборатории")
         department.name = department_data.name.strip()
 
     if department_data.laboratory_location is not None:
@@ -265,16 +235,12 @@ async def delete_department(db: AsyncSession, department_id: int) -> None:
     await flush_entity(db)
 
 
-async def get_branch_by_id(
-    db: AsyncSession, branch_id: int, include_deleted: bool = False
-) -> Branch | None:
+async def get_branch_by_id(db: AsyncSession, branch_id: int, include_deleted: bool = False) -> Branch | None:
     """Получить филиал по ID."""
     return await laboratory_repo.get_branch_by_id(db, branch_id, include_deleted)
 
 
-async def require_branch_by_id(
-    db: AsyncSession, branch_id: int, include_deleted: bool = False
-) -> Branch:
+async def require_branch_by_id(db: AsyncSession, branch_id: int, include_deleted: bool = False) -> Branch:
     """Получить филиал по ID или вернуть 404."""
     branch = await get_branch_by_id(db, branch_id, include_deleted)
     if not branch:
@@ -291,9 +257,7 @@ async def get_branches(
     sort_order: str | None = None,
 ) -> list[Branch]:
     """Получить список филиалов."""
-    return await laboratory_repo.get_branches(
-        db, laboratory_id, department_id, search, sort_by, sort_order
-    )
+    return await laboratory_repo.get_branches(db, laboratory_id, department_id, search, sort_by, sort_order)
 
 
 async def create_branch(db: AsyncSession, branch_data: BranchCreate) -> Branch:
@@ -307,9 +271,7 @@ async def create_branch(db: AsyncSession, branch_data: BranchCreate) -> Branch:
         if not department:
             raise NotFoundError("Подразделение не найдено")
         if department.laboratory_id != branch_data.laboratory_id:
-            raise ValidationError(
-                "Подразделение должно принадлежать выбранной лаборатории"
-            )
+            raise ValidationError("Подразделение должно принадлежать выбранной лаборатории")
 
     branch = Branch(
         name=branch_data.name.strip(),
@@ -320,9 +282,7 @@ async def create_branch(db: AsyncSession, branch_data: BranchCreate) -> Branch:
     return await laboratory_repo.add_branch(db, branch)
 
 
-async def update_branch(
-    db: AsyncSession, branch_id: int, branch_data: BranchUpdate
-) -> Branch:
+async def update_branch(db: AsyncSession, branch_id: int, branch_data: BranchUpdate) -> Branch:
     """Обновить филиал."""
     branch = await get_branch_by_id(db, branch_id)
     if not branch:
@@ -340,9 +300,7 @@ async def update_branch(
 
 async def delete_branch(db: AsyncSession, branch_id: int) -> None:
     """Удалить филиал (мягкое удаление)."""
-    branch = await laboratory_repo.get_branch_with_sampling_locations_for_delete(
-        db, branch_id
-    )
+    branch = await laboratory_repo.get_branch_with_sampling_locations_for_delete(db, branch_id)
 
     if not branch:
         raise NotFoundError("Филиал не найден")
@@ -359,18 +317,14 @@ async def get_sampling_location_by_id(
     db: AsyncSession, sampling_location_id: int, include_deleted: bool = False
 ) -> SamplingLocation | None:
     """Получить место отбора пробы по ID."""
-    return await laboratory_repo.get_sampling_location_by_id(
-        db, sampling_location_id, include_deleted
-    )
+    return await laboratory_repo.get_sampling_location_by_id(db, sampling_location_id, include_deleted)
 
 
 async def require_sampling_location_by_id(
     db: AsyncSession, sampling_location_id: int, include_deleted: bool = False
 ) -> SamplingLocation:
     """Получить место отбора пробы по ID или вернуть 404."""
-    sampling_location = await get_sampling_location_by_id(
-        db, sampling_location_id, include_deleted
-    )
+    sampling_location = await get_sampling_location_by_id(db, sampling_location_id, include_deleted)
     if not sampling_location:
         raise NotFoundError("Место отбора проб не найдено")
     return sampling_location
@@ -384,9 +338,7 @@ async def get_sampling_locations(
     sort_order: str | None = None,
 ) -> list[SamplingLocation]:
     """Получить список мест отбора проб."""
-    return await laboratory_repo.get_sampling_locations(
-        db, branch_id, search, sort_by, sort_order
-    )
+    return await laboratory_repo.get_sampling_locations(db, branch_id, search, sort_by, sort_order)
 
 
 async def create_sampling_location(
@@ -400,9 +352,7 @@ async def create_sampling_location(
     if await laboratory_repo.exists_sampling_location_by_name_and_branch(
         db, sampling_location_data.branch_id, sampling_location_data.name
     ):
-        raise ConflictError(
-            "Место отбора пробы с таким названием уже существует для данного филиала"
-        )
+        raise ConflictError("Место отбора пробы с таким названием уже существует для данного филиала")
 
     sampling_location = SamplingLocation(
         branch_id=sampling_location_data.branch_id,
@@ -428,9 +378,7 @@ async def update_sampling_location(
             sampling_location_data.name,
             exclude_id=sampling_location_id,
         ):
-            raise ConflictError(
-                "Место отбора пробы с таким названием уже существует для данного филиала"
-            )
+            raise ConflictError("Место отбора пробы с таким названием уже существует для данного филиала")
         sampling_location.name = sampling_location_data.name.strip()
 
     await flush_entity(db)
@@ -447,16 +395,12 @@ async def delete_sampling_location(db: AsyncSession, sampling_location_id: int) 
     await flush_entity(db)
 
 
-async def get_well_mode_by_id(
-    db: AsyncSession, well_mode_id: int, include_deleted: bool = False
-) -> WellMode | None:
+async def get_well_mode_by_id(db: AsyncSession, well_mode_id: int, include_deleted: bool = False) -> WellMode | None:
     """Получить режим скважины по ID."""
     return await laboratory_repo.get_well_mode_by_id(db, well_mode_id, include_deleted)
 
 
-async def require_well_mode_by_id(
-    db: AsyncSession, well_mode_id: int, include_deleted: bool = False
-) -> WellMode:
+async def require_well_mode_by_id(db: AsyncSession, well_mode_id: int, include_deleted: bool = False) -> WellMode:
     """Получить режим скважины по ID или вернуть 404."""
     well_mode = await get_well_mode_by_id(db, well_mode_id, include_deleted)
     if not well_mode:
@@ -472,25 +416,17 @@ async def get_well_modes(
     sort_order: str | None = None,
 ) -> list[WellMode]:
     """Получить список режимов скважин."""
-    return await laboratory_repo.get_well_modes(
-        db, branch_id, search, sort_by, sort_order
-    )
+    return await laboratory_repo.get_well_modes(db, branch_id, search, sort_by, sort_order)
 
 
-async def create_well_mode(
-    db: AsyncSession, well_mode_data: WellModeCreate
-) -> WellMode:
+async def create_well_mode(db: AsyncSession, well_mode_data: WellModeCreate) -> WellMode:
     """Создать режим скважины."""
     branch = await get_branch_by_id(db, well_mode_data.branch_id)
     if not branch:
         raise NotFoundError("Филиал не найден")
 
-    if await laboratory_repo.exists_well_mode_by_name_and_branch(
-        db, well_mode_data.branch_id, well_mode_data.name
-    ):
-        raise ConflictError(
-            "Режим скважины с таким названием уже существует для данного филиала"
-        )
+    if await laboratory_repo.exists_well_mode_by_name_and_branch(db, well_mode_data.branch_id, well_mode_data.name):
+        raise ConflictError("Режим скважины с таким названием уже существует для данного филиала")
 
     well_mode = WellMode(
         branch_id=well_mode_data.branch_id,
@@ -516,9 +452,7 @@ async def update_well_mode(
             well_mode_data.name,
             exclude_id=well_mode_id,
         ):
-            raise ConflictError(
-                "Режим скважины с таким названием уже существует для данного филиала"
-            )
+            raise ConflictError("Режим скважины с таким названием уже существует для данного филиала")
         well_mode.name = well_mode_data.name.strip()
 
     await flush_entity(db)
@@ -546,13 +480,9 @@ def build_sampling_location_response(
     return SamplingLocationResponse(**loc_dict)
 
 
-async def get_sampling_location_response_data(
-    db: AsyncSession, sampling_location_id: int
-) -> SamplingLocationResponse:
+async def get_sampling_location_response_data(db: AsyncSession, sampling_location_id: int) -> SamplingLocationResponse:
     """Получить место отбора с данными для ответа API."""
-    sampling_location = await laboratory_repo.get_sampling_location_by_id(
-        db, sampling_location_id
-    )
+    sampling_location = await laboratory_repo.get_sampling_location_by_id(db, sampling_location_id)
     if not sampling_location:
         raise NotFoundError("Место отбора проб не найдено")
     return build_sampling_location_response(sampling_location)
@@ -566,9 +496,7 @@ def build_well_mode_response(well_mode: WellMode) -> WellModeResponse:
     return WellModeResponse(**mode_dict)
 
 
-async def get_well_mode_response_data(
-    db: AsyncSession, well_mode_id: int
-) -> WellModeResponse:
+async def get_well_mode_response_data(db: AsyncSession, well_mode_id: int) -> WellModeResponse:
     """Получить режим скважины с данными для ответа API."""
     well_mode = await laboratory_repo.get_well_mode_by_id(db, well_mode_id)
     if not well_mode:

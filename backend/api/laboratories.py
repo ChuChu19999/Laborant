@@ -1,6 +1,5 @@
 from __future__ import annotations
 from fastapi import APIRouter, Query
-from core.auth_decorators import IsAuthenticated
 from core.deps import DbSession, UserPermissions, require_admin
 from schemas.laboratory import (
     LaboratoryCreate,
@@ -9,10 +8,13 @@ from schemas.laboratory import (
 )
 from schemas.pagination import PaginatedResponse
 from services.access_control import enforce_lab_management_access
-from services.laboratory import create_laboratory as create_laboratory_service
-from services.laboratory import delete_laboratory as delete_laboratory_service
-from services.laboratory import get_laboratories_response_data, require_laboratory_by_id
-from services.laboratory import update_laboratory as update_laboratory_service
+from services.laboratory import (
+    create_laboratory as create_laboratory_service,
+    delete_laboratory as delete_laboratory_service,
+    get_laboratories_response_data,
+    require_laboratory_by_id,
+    update_laboratory as update_laboratory_service,
+)
 
 router = APIRouter()
 

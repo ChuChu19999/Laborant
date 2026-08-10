@@ -46,9 +46,7 @@ async def get_laboratories(
     sort_order: str | None = None,
 ) -> tuple[list[Laboratory], int]:
     """Получить список лабораторий."""
-    query = filter_not_deleted(select(Laboratory), Laboratory.deleted_at).options(
-        selectinload(Laboratory.departments)
-    )
+    query = filter_not_deleted(select(Laboratory), Laboratory.deleted_at).options(selectinload(Laboratory.departments))
 
     if search:
         query = query.where(
@@ -63,9 +61,7 @@ async def get_laboratories(
         "full_name": Laboratory.full_name,
         "created_at": Laboratory.created_at,
     }
-    order_by = build_order_by(
-        sort_by, sort_order, sort_mapping, Laboratory.name, default_order="asc"
-    )
+    order_by = build_order_by(sort_by, sort_order, sort_mapping, Laboratory.name, default_order="asc")
     query = query.order_by(order_by)
 
     count_query = filter_not_deleted(
@@ -117,11 +113,7 @@ async def get_laboratory_with_departments_for_delete(
     laboratory_id: int,
 ) -> Laboratory | None:
     """Получить лабораторию с подразделениями для удаления."""
-    query = (
-        select(Laboratory)
-        .where(Laboratory.id == laboratory_id)
-        .options(selectinload(Laboratory.departments))
-    )
+    query = select(Laboratory).where(Laboratory.id == laboratory_id).options(selectinload(Laboratory.departments))
     return await execute_scalar_one_or_none(db, query)
 
 
@@ -129,11 +121,7 @@ async def get_department_by_id(
     db: AsyncSession, department_id: int, include_deleted: bool = False
 ) -> Department | None:
     """Получить подразделение по ID."""
-    query = (
-        select(Department)
-        .where(Department.id == department_id)
-        .options(selectinload(Department.laboratory))
-    )
+    query = select(Department).where(Department.id == department_id).options(selectinload(Department.laboratory))
     if not include_deleted:
         query = filter_not_deleted(query, Department.deleted_at)
     return await execute_scalar_one_or_none(db, query)
@@ -149,9 +137,7 @@ async def get_departments(
     sort_order: str | None = None,
 ) -> tuple[list[Department], int]:
     """Получить список подразделений."""
-    query = filter_not_deleted(select(Department), Department.deleted_at).options(
-        selectinload(Department.laboratory)
-    )
+    query = filter_not_deleted(select(Department), Department.deleted_at).options(selectinload(Department.laboratory))
 
     if laboratory_id:
         query = query.where(Department.laboratory_id == laboratory_id)
@@ -166,9 +152,7 @@ async def get_departments(
         "name": Department.name,
         "created_at": Department.created_at,
     }
-    order_by = build_order_by(
-        sort_by, sort_order, sort_mapping, Department.name, default_order="asc"
-    )
+    order_by = build_order_by(sort_by, sort_order, sort_mapping, Department.name, default_order="asc")
     query = query.order_by(order_by)
 
     count_query = filter_not_deleted(
@@ -219,9 +203,7 @@ async def add_department(db: AsyncSession, department: Department) -> Department
     return department
 
 
-async def get_branch_by_id(
-    db: AsyncSession, branch_id: int, include_deleted: bool = False
-) -> Branch | None:
+async def get_branch_by_id(db: AsyncSession, branch_id: int, include_deleted: bool = False) -> Branch | None:
     """Получить филиал по ID."""
     query = (
         select(Branch)
@@ -286,11 +268,7 @@ async def get_branch_with_sampling_locations_for_delete(
     branch_id: int,
 ) -> Branch | None:
     """Получить филиал с местами отбора для удаления."""
-    query = (
-        select(Branch)
-        .where(Branch.id == branch_id)
-        .options(selectinload(Branch.sampling_locations))
-    )
+    query = select(Branch).where(Branch.id == branch_id).options(selectinload(Branch.sampling_locations))
     return await execute_scalar_one_or_none(db, query)
 
 
@@ -316,9 +294,9 @@ async def get_sampling_locations(
     sort_order: str | None = None,
 ) -> list[SamplingLocation]:
     """Получить список мест отбора проб."""
-    query = filter_not_deleted(
-        select(SamplingLocation), SamplingLocation.deleted_at
-    ).options(selectinload(SamplingLocation.branch))
+    query = filter_not_deleted(select(SamplingLocation), SamplingLocation.deleted_at).options(
+        selectinload(SamplingLocation.branch)
+    )
 
     if branch_id:
         query = query.where(SamplingLocation.branch_id == branch_id)
@@ -333,9 +311,7 @@ async def get_sampling_locations(
         "name": SamplingLocation.name,
         "created_at": SamplingLocation.created_at,
     }
-    order_by = build_order_by(
-        sort_by, sort_order, sort_mapping, SamplingLocation.created_at
-    )
+    order_by = build_order_by(sort_by, sort_order, sort_mapping, SamplingLocation.created_at)
     query = query.order_by(order_by)
 
     locations = await execute_scalars_all(db, query)
@@ -370,23 +346,15 @@ async def exists_sampling_location_by_name_and_branch(
     return existing is not None
 
 
-async def add_sampling_location(
-    db: AsyncSession, sampling_location: SamplingLocation
-) -> SamplingLocation:
+async def add_sampling_location(db: AsyncSession, sampling_location: SamplingLocation) -> SamplingLocation:
     """Добавить место отбора пробы в сессию."""
     await add_and_flush(db, sampling_location)
     return sampling_location
 
 
-async def get_well_mode_by_id(
-    db: AsyncSession, well_mode_id: int, include_deleted: bool = False
-) -> WellMode | None:
+async def get_well_mode_by_id(db: AsyncSession, well_mode_id: int, include_deleted: bool = False) -> WellMode | None:
     """Получить режим скважины по ID."""
-    query = (
-        select(WellMode)
-        .where(WellMode.id == well_mode_id)
-        .options(selectinload(WellMode.branch))
-    )
+    query = select(WellMode).where(WellMode.id == well_mode_id).options(selectinload(WellMode.branch))
     if not include_deleted:
         query = filter_not_deleted(query, WellMode.deleted_at)
     return await execute_scalar_one_or_none(db, query)
@@ -400,9 +368,7 @@ async def get_well_modes(
     sort_order: str | None = None,
 ) -> list[WellMode]:
     """Получить список режимов скважин."""
-    query = filter_not_deleted(select(WellMode), WellMode.deleted_at).options(
-        selectinload(WellMode.branch)
-    )
+    query = filter_not_deleted(select(WellMode), WellMode.deleted_at).options(selectinload(WellMode.branch))
 
     if branch_id:
         query = query.where(WellMode.branch_id == branch_id)

@@ -1,6 +1,5 @@
 from __future__ import annotations
 from fastapi import APIRouter, Query
-from core.auth_decorators import IsAuthenticated
 from core.deps import DbSession, UserPermissions
 from schemas.laboratory import (
     SamplingLocationCreate,
@@ -10,20 +9,12 @@ from schemas.laboratory import (
 from services.access_control import enforce_crud_access
 from services.laboratory import (
     build_sampling_location_response,
-)
-from services.laboratory import (
     create_sampling_location as create_sampling_location_service,
-)
-from services.laboratory import (
     delete_sampling_location as delete_sampling_location_service,
-)
-from services.laboratory import (
     get_sampling_location_response_data,
     get_sampling_locations,
     require_branch_by_id,
     require_sampling_location_by_id,
-)
-from services.laboratory import (
     update_sampling_location as update_sampling_location_service,
 )
 
@@ -34,10 +25,7 @@ router = APIRouter()
     "/laboratories/sampling-locations/",
     response_model=list[SamplingLocationResponse],
     summary="Получение списка мест отбора проб",
-    description=(
-        "Возвращает список мест отбора проб. "
-        "Поддерживает фильтрацию по филиалам, поиск и сортировку."
-    ),
+    description=("Возвращает список мест отбора проб. Поддерживает фильтрацию по филиалам, поиск и сортировку."),
     responses={200: {"description": "Список мест отбора проб успешно получен"}},
 )
 # @IsAuthenticated
@@ -86,9 +74,7 @@ async def create_sampling_location(
         branch.laboratory_id,
         branch.department_id,
     )
-    sampling_location = await create_sampling_location_service(
-        db, sampling_location_data
-    )
+    sampling_location = await create_sampling_location_service(db, sampling_location_data)
     return await get_sampling_location_response_data(db, sampling_location.id)
 
 
@@ -139,9 +125,7 @@ async def update_sampling_location(
         branch.laboratory_id,
         branch.department_id,
     )
-    await update_sampling_location_service(
-        db, sampling_location_id, sampling_location_data
-    )
+    await update_sampling_location_service(db, sampling_location_id, sampling_location_data)
     return await get_sampling_location_response_data(db, sampling_location_id)
 
 

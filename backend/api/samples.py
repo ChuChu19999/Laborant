@@ -1,7 +1,6 @@
 from __future__ import annotations
 from typing import get_args
 from fastapi import APIRouter, Depends, Query
-from core.auth_decorators import IsAuthenticated
 from core.deps import DbSession, SampleListFilters, UserPermissions
 from core.exceptions import ValidationError
 from core.responses import build_attachment_response
@@ -60,9 +59,7 @@ async def list_samples(
     filters: SampleListFilters = Depends(),
 ):
     """Возвращает список проб с пагинацией или без."""
-    enforce_nav_access(
-        effective, "samples", filters.laboratory_id, filters.department_id
-    )
+    enforce_nav_access(effective, "samples", filters.laboratory_id, filters.department_id)
     samples, total, total_pages = await get_samples(
         db,
         laboratory_id=filters.laboratory_id,
@@ -102,8 +99,7 @@ async def list_samples(
     "/samples/export/",
     summary="Формирование файла экспорта таблицы поступления проб",
     description=(
-        "Формирует xlsx-файл со всеми пробами по текущим фильтрам и сортировке, "
-        "включая расчеты и методы исследований."
+        "Формирует xlsx-файл со всеми пробами по текущим фильтрам и сортировке, включая расчеты и методы исследований."
     ),
     responses={
         200: {"description": "Файл Excel успешно сформирован"},
@@ -117,9 +113,7 @@ async def export_samples(
     filters: SampleListFilters = Depends(),
 ):
     """Формирует xlsx-файл таблицы поступления проб по текущим фильтрам и сортировке."""
-    enforce_nav_access(
-        effective, "samples", filters.laboratory_id, filters.department_id
-    )
+    enforce_nav_access(effective, "samples", filters.laboratory_id, filters.department_id)
     excel_bytes, total = await build_samples_export_excel(
         db,
         laboratory_id=filters.laboratory_id,
@@ -172,9 +166,7 @@ async def create_sample_endpoint(
     effective: UserPermissions,
 ):
     """Добавляет новую пробу на основе переданных данных."""
-    enforce_nav_access(
-        effective, "samples", sample_data.laboratory_id, sample_data.department_id
-    )
+    enforce_nav_access(effective, "samples", sample_data.laboratory_id, sample_data.department_id)
     sample = await create_sample(db, sample_data)
     return await get_sample_response_data(db, sample.id)
 
@@ -220,9 +212,7 @@ async def update_sample_endpoint(
 ):
     """Обновляет существующую пробу."""
     sample = await require_sample_by_id(db, sample_id)
-    enforce_samples_mutation(
-        effective, "update", sample.laboratory_id, sample.department_id
-    )
+    enforce_samples_mutation(effective, "update", sample.laboratory_id, sample.department_id)
     await update_sample(db, sample_id, sample_data)
     return await get_sample_response_data(db, sample_id)
 
@@ -245,9 +235,7 @@ async def delete_sample_endpoint(
 ):
     """Выполняет мягкое удаление пробы."""
     sample = await require_sample_by_id(db, sample_id)
-    enforce_samples_mutation(
-        effective, "delete", sample.laboratory_id, sample.department_id
-    )
+    enforce_samples_mutation(effective, "delete", sample.laboratory_id, sample.department_id)
     await delete_sample(db, sample_id)
 
 
@@ -276,8 +264,6 @@ async def get_registration_numbers(
     if not method_id:
         return {"samples": []}
 
-    samples = await get_registration_number_samples(
-        db, method_id, laboratory_id, department_id, search
-    )
+    samples = await get_registration_number_samples(db, method_id, laboratory_id, department_id, search)
 
     return {"samples": [build_sample_response(sample) for sample in samples]}

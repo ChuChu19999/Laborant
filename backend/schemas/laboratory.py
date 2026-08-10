@@ -35,9 +35,7 @@ class LaboratoryUpdate(BaseModel):
 
 class DepartmentBase(BaseModel):
     name: DepartmentName = Field(..., description="Название подразделения")
-    laboratory_location: DepartmentLocation = Field(
-        ..., description="Место осуществления лабораторной деятельности"
-    )
+    laboratory_location: DepartmentLocation = Field(..., description="Место осуществления лабораторной деятельности")
 
 
 class DepartmentCreate(DepartmentBase):

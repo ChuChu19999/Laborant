@@ -1,6 +1,5 @@
 from __future__ import annotations
 from fastapi import APIRouter, Depends
-from core.auth_decorators import IsAuthenticated
 from core.deps import DbSession, ProtocolListFilters, UserPermissions
 from core.responses import build_attachment_response
 from schemas.pagination import PaginatedResponse
@@ -196,15 +195,12 @@ async def delete_protocol_endpoint(
     "/protocols/{protocol_id}/generate-excel/",
     summary="Генерация Excel файла протокола",
     description=(
-        "Генерирует Excel-файл протокола на основе данных протокола и шаблона "
-        "и возвращает его для скачивания."
+        "Генерирует Excel-файл протокола на основе данных протокола и шаблона и возвращает его для скачивания."
     ),
     responses={
         200: {
             "description": "Excel файл успешно сгенерирован",
-            "content": {
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
-            },
+            "content": {"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}},
         },
         404: {"description": "Протокол не найден"},
     },

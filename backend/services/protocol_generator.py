@@ -1,17 +1,17 @@
 from __future__ import annotations
 import base64
-import re
 from contextvars import ContextVar
 from copy import copy
 from dataclasses import dataclass
 from io import BytesIO
+import re
 from typing import Any
 import openpyxl
-import orjson
-import pendulum
 from openpyxl.styles import Border
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.header_footer import _HeaderFooterPart
+import orjson
+import pendulum
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -61,9 +61,7 @@ from utils.protocol_generator_utils import (
 from utils.sample_formatting import format_well_display
 
 # Аббревиатура для текущего формирования Excel (без протягивания по всем функциям).
-_protocol_abbreviation_ctx: ContextVar[str] = ContextVar(
-    "protocol_abbreviation", default=""
-)
+_protocol_abbreviation_ctx: ContextVar[str] = ContextVar("protocol_abbreviation", default="")
 
 TABLE1_END_MARKERS = {
     "{end_table1}",
@@ -144,15 +142,13 @@ async def process_cell_markers(
 
             start = end + 1
 
-        processed_result = process_selection_conditions_row(
-            samples, result, selection_conditions_templates
-        )
+        processed_result = process_selection_conditions_row(samples, result, selection_conditions_templates)
         if processed_result is None:
             return "HIDE_ROW"
         return processed_result
 
     except Exception as e:
-        logger.error(f"Ошибка при обработке меток в ячейке: {str(e)}")
+        logger.error(f"Ошибка при обработке меток в ячейке: {e!s}")
         return cell_value
 
 
@@ -180,11 +176,7 @@ async def get_marker_value_title(
             return ""
 
         elif marker == "subd":
-            branches = [
-                sample.branch.name
-                for sample in samples
-                if sample.branch and sample.branch.name
-            ]
+            branches = [sample.branch.name for sample in samples if sample.branch and sample.branch.name]
             return join_unique_values(branches)
 
         elif marker == "tel":
@@ -215,11 +207,7 @@ async def get_marker_value_title(
             return join_unique_values(locations)
 
         elif marker == "mode":
-            modes = [
-                sample.mode.strip()
-                for sample in samples
-                if sample.mode and sample.mode.strip()
-            ]
+            modes = [sample.mode.strip() for sample in samples if sample.mode and sample.mode.strip()]
             return join_unique_values(modes)
 
         elif marker == "sampling_date":
@@ -273,11 +261,7 @@ async def get_marker_value_title(
             return protocol.sampling_act_number or ""
 
         elif marker == "registration_number":
-            numbers = [
-                sample.registration_number
-                for sample in samples
-                if sample.registration_number
-            ]
+            numbers = [sample.registration_number for sample in samples if sample.registration_number]
             return join_unique_values(numbers)
 
         elif marker == "workplace_issued":
@@ -289,9 +273,7 @@ async def get_marker_value_title(
                     target_date = pendulum.parse(target_date)
                 elif hasattr(target_date, "date"):
                     target_date = target_date.date()
-                position, _ = await get_employee_position_and_name(
-                    protocol.issued, target_date
-                )
+                position, _ = await get_employee_position_and_name(protocol.issued, target_date)
                 return position
             return ""
 
@@ -302,9 +284,7 @@ async def get_marker_value_title(
                     target_date = pendulum.parse(target_date)
                 elif hasattr(target_date, "date"):
                     target_date = target_date.date()
-                _, formatted_name = await get_employee_position_and_name(
-                    protocol.issued, target_date
-                )
+                _, formatted_name = await get_employee_position_and_name(protocol.issued, target_date)
                 return formatted_name
             return ""
 
@@ -317,9 +297,7 @@ async def get_marker_value_title(
                     target_date = pendulum.parse(target_date)
                 elif hasattr(target_date, "date"):
                     target_date = target_date.date()
-                position, _ = await get_employee_position_and_name(
-                    protocol.approved, target_date
-                )
+                position, _ = await get_employee_position_and_name(protocol.approved, target_date)
                 return position
             return ""
 
@@ -330,15 +308,13 @@ async def get_marker_value_title(
                     target_date = pendulum.parse(target_date)
                 elif hasattr(target_date, "date"):
                     target_date = target_date.date()
-                _, formatted_name = await get_employee_position_and_name(
-                    protocol.approved, target_date
-                )
+                _, formatted_name = await get_employee_position_and_name(protocol.approved, target_date)
                 return formatted_name
             return ""
 
         return ""
     except Exception as e:
-        logger.error(f"Ошибка при получении значения для метки {marker}: {str(e)}")
+        logger.error(f"Ошибка при получении значения для метки {marker}: {e!s}")
         return ""
 
 
@@ -384,10 +360,7 @@ def process_selection_conditions_row(
         # {"Давление": "4.33", "Температура": "-6", ...}
         # где ключ - это название переменной, значение - это значение
         # Единицы измерения берутся из шаблонов SelectionConditions
-        if (
-            isinstance(sample_conditions, dict)
-            and "conditions" not in sample_conditions
-        ):
+        if isinstance(sample_conditions, dict) and "conditions" not in sample_conditions:
             for variable, value in sample_conditions.items():
                 if variable and value and str(value).strip() != "":
                     formatted_value = str(value).replace(".", ",")
@@ -451,9 +424,7 @@ def process_selection_conditions_row(
         value_aliases = {"val", "value"}
         unit_aliases = {"unit", "units", "measure"}
 
-        tags_for_index = re.findall(
-            r"\{sel_cond_([^}]+)_" + str(current_index) + r"\}", result
-        )
+        tags_for_index = re.findall(r"\{sel_cond_([^}]+)_" + str(current_index) + r"\}", result)
         for tag_key in set(tags_for_index):
             if tag_key in name_aliases:
                 result = result.replace(
@@ -501,11 +472,7 @@ async def process_header(
     found_start = False
 
     for current_row in range(1, template_sheet.max_row + 1):
-        row = list(
-            template_sheet.iter_rows(
-                min_row=current_row, max_row=current_row, values_only=True
-            )
-        )[0]
+        row = list(template_sheet.iter_rows(min_row=current_row, max_row=current_row, values_only=True))[0]
 
         if not found_start:
             if any(cell and str(cell).strip() == "{{start_header}}" for cell in row):
@@ -523,8 +490,7 @@ async def process_header(
                     min_col=merged_range.min_col,
                     min_row=current_row_new,
                     max_col=merged_range.max_col,
-                    max_row=current_row_new
-                    + (merged_range.max_row - merged_range.min_row),
+                    max_row=current_row_new + (merged_range.max_row - merged_range.min_row),
                 )
                 merged_cells_map.add(new_range)
 
@@ -571,11 +537,7 @@ async def process_header_and_conditions(
     template_last_row, _ = get_template_content_bounds(template_sheet)
 
     for current_row in range(start_row, template_last_row + 1):
-        row = list(
-            template_sheet.iter_rows(
-                min_row=current_row, max_row=current_row, values_only=True
-            )
-        )[0]
+        row = list(template_sheet.iter_rows(min_row=current_row, max_row=current_row, values_only=True))[0]
 
         if any(cell and str(cell).strip() == "{start_table1}" for cell in row):
             return current_row
@@ -613,8 +575,7 @@ async def process_header_and_conditions(
                     min_col=merged_range.min_col,
                     min_row=current_row_new,
                     max_col=merged_range.max_col,
-                    max_row=current_row_new
-                    + (merged_range.max_row - merged_range.min_row),
+                    max_row=current_row_new + (merged_range.max_row - merged_range.min_row),
                 )
                 merged_cells_map.add(new_range)
 
@@ -630,9 +591,7 @@ async def process_header_and_conditions(
     return current_row
 
 
-async def process_footer_test_protocol_number(
-    protocol: Protocol, samples: list[Sample], text
-) -> _HeaderFooterPart:
+async def process_footer_test_protocol_number(protocol: Protocol, samples: list[Sample], text) -> _HeaderFooterPart:
     """Подставляет номер протокола и аббревиатуру в тексте колонтитула."""
     orig_text = text
     if hasattr(text, "text"):
@@ -685,9 +644,7 @@ async def process_footer(
     template_last_row, template_last_col = get_template_content_bounds(template_sheet)
 
     for row_num in range(footer_start + 1, template_last_row + 1):
-        row = list(
-            template_sheet.iter_rows(min_row=row_num, max_row=row_num, values_only=True)
-        )[0]
+        row = list(template_sheet.iter_rows(min_row=row_num, max_row=row_num, values_only=True))[0]
         if any(cell and str(cell).strip() in TABLE_END_MARKERS for cell in row):
             continue
 
@@ -748,9 +705,7 @@ async def process_between_tables(
 
     next_table_start = None
     for row_num in range(table_end + 1, template_last_row + 1):
-        row = list(
-            template_sheet.iter_rows(min_row=row_num, max_row=row_num, values_only=True)
-        )[0]
+        row = list(template_sheet.iter_rows(min_row=row_num, max_row=row_num, values_only=True))[0]
         if any(cell and str(cell).strip() in TABLE_START_MARKERS for cell in row):
             next_table_start = row_num
             break
@@ -772,19 +727,11 @@ async def process_between_tables(
                 unique_executors.add(calc.executor)
 
     for executor_hsnils in unique_executors:
-        position, formatted_name = await get_employee_position_and_name(
-            executor_hsnils, target_date
-        )
+        position, formatted_name = await get_employee_position_and_name(executor_hsnils, target_date)
         if formatted_name:
-            logger.info(
-                f"Из HR API получили: ФИО={formatted_name}, должность={position or ''}"
-            )
+            logger.info(f"Из HR API получили: ФИО={formatted_name}, должность={position or ''}")
             position_lower = position.lower() if position else ""
-            executor_info = (
-                f"{position_lower} {formatted_name}".strip()
-                if position_lower
-                else formatted_name
-            )
+            executor_info = f"{position_lower} {formatted_name}".strip() if position_lower else formatted_name
             executors_cache.add(executor_info)
 
     executors = sorted(executors_cache) if executors_cache else []
@@ -793,9 +740,7 @@ async def process_between_tables(
     executor_column = None
 
     for row_num in range(table_end + 1, next_table_start):
-        row = list(
-            template_sheet.iter_rows(min_row=row_num, max_row=row_num, values_only=True)
-        )[0]
+        row = list(template_sheet.iter_rows(min_row=row_num, max_row=row_num, values_only=True))[0]
 
         if any(cell and str(cell).strip() in TABLE_END_MARKERS for cell in row):
             continue
@@ -810,16 +755,12 @@ async def process_between_tables(
             break
 
     for row_num in range(table_end + 1, next_table_start):
-        row = list(
-            template_sheet.iter_rows(min_row=row_num, max_row=row_num, values_only=True)
-        )[0]
+        row = list(template_sheet.iter_rows(min_row=row_num, max_row=row_num, values_only=True))[0]
 
         if any(cell and str(cell).strip() in TABLE_END_MARKERS for cell in row):
             continue
 
-        copy_row_formatting(
-            template_sheet, current_sheet, row_num, current_row, merged_cells_map
-        )
+        copy_row_formatting(template_sheet, current_sheet, row_num, current_row, merged_cells_map)
 
         if row_num == row_with_executor and executors and executor_column:
             row_max_col = _scan_row_max_col(template_sheet, row_num)
@@ -915,9 +856,7 @@ def _find_calculation_for_if_line(
             continue
         if required_group:
             group_names = _method_group_names(method)
-            if not any(
-                group_name_matches(required_group, name) for name in group_names
-            ):
+            if not any(group_name_matches(required_group, name) for name in group_names):
                 continue
         return calc
     return None
@@ -966,22 +905,16 @@ def _fill_method_row_placeholders(
             continue
 
         if "{id_method}" in value:
-            value = value.replace(
-                "{id_method}", method_id if method_id is not None else ""
-            )
+            value = value.replace("{id_method}", method_id if method_id is not None else "")
         if calc is not None:
             if "{name_method}" in value:
                 value = value.replace("{name_method}", calc.research_method.name or "")
             if "{group_name}" in value:
-                value = value.replace(
-                    "{group_name}", _primary_group_name(calc.research_method)
-                )
+                value = value.replace("{group_name}", _primary_group_name(calc.research_method))
             if "{unit}" in value:
                 value = value.replace("{unit}", calc.unit or "-")
             if "{result}" in value:
-                value = value.replace(
-                    "{result}", format_protocol_calculation_result(calc)
-                )
+                value = value.replace("{result}", format_protocol_calculation_result(calc))
             if "{measurement_error}" in value:
                 value = value.replace(
                     "{measurement_error}",
@@ -990,9 +923,7 @@ def _fill_method_row_placeholders(
             if "{measurement_method}" in value:
                 measurement_method = calc.research_method.measurement_method or "-"
                 value = value.replace("{measurement_method}", measurement_method)
-                adjust_cell_height_if_needed(
-                    current_sheet, row_num, col, measurement_method
-                )
+                adjust_cell_height_if_needed(current_sheet, row_num, col, measurement_method)
         else:
             for marker in (
                 "{result}",
@@ -1021,13 +952,9 @@ def _hide_template_row(
         target_row,
         merged_cells_map,
     )
-    _fill_method_row_placeholders(
-        current_sheet, target_row, method_id=None, calc=None, clear_all=True
-    )
+    _fill_method_row_placeholders(current_sheet, target_row, method_id=None, calc=None, clear_all=True)
     if target_row not in current_sheet.row_dimensions:
-        current_sheet.row_dimensions[target_row] = (
-            openpyxl.worksheet.dimensions.RowDimension(current_sheet, target_row)
-        )
+        current_sheet.row_dimensions[target_row] = openpyxl.worksheet.dimensions.RowDimension(current_sheet, target_row)
     current_sheet.row_dimensions[target_row].hidden = True
     return target_row + 1
 
@@ -1052,9 +979,7 @@ def _fill_fractional_placeholders(
             continue
         value = strip_if_line_marker(str(cell.value))
         if "{id_method}" in value:
-            value = value.replace(
-                "{id_method}", method_id if method_id is not None else ""
-            )
+            value = value.replace("{id_method}", method_id if method_id is not None else "")
         value = value.replace("{fractional_data}", data_name)
         value = value.replace("{fractional_unit}", unit)
         value = value.replace("{fractional_result}", result)
@@ -1067,9 +992,7 @@ def _fill_fractional_placeholders(
             value = value.replace("{unit}", unit)
         if "{fractional_measurement_method}" in value:
             value = value.replace("{fractional_measurement_method}", measurement_method)
-            adjust_cell_height_if_needed(
-                current_sheet, row_num, col, measurement_method
-            )
+            adjust_cell_height_if_needed(current_sheet, row_num, col, measurement_method)
         for marker in (
             "{result}",
             "{measurement_error}",
@@ -1099,11 +1022,7 @@ def _iter_fractional_oil_rows(calc: Calculation) -> list[tuple[str, str, str, st
             for card_data in fractional_data.values():
                 if isinstance(card_data, dict):
                     for field, value in card_data.items():
-                        if (
-                            field not in combined_data
-                            or combined_data[field] is None
-                            or combined_data[field] == ""
-                        ):
+                        if field not in combined_data or combined_data[field] is None or combined_data[field] == "":
                             combined_data[field] = value
             result_data = combined_data
 
@@ -1114,9 +1033,7 @@ def _iter_fractional_oil_rows(calc: Calculation) -> list[tuple[str, str, str, st
                 normalized_data[normalized_key] = value
             result_data = normalized_data
     except (orjson.JSONDecodeError, TypeError) as e:
-        logger.error(
-            f"Не удалось распарсить результат для фракционного состава нефти: {str(e)}"
-        )
+        logger.error(f"Не удалось распарсить результат для фракционного состава нефти: {e!s}")
         return []
 
     if not isinstance(result_data, dict):
@@ -1177,9 +1094,7 @@ def _iter_fractional_condensate_rows(
         else:
             result_data = calc.result
     except (orjson.JSONDecodeError, TypeError) as e:
-        logger.error(
-            f"Не удалось распарсить результат для фракционного состава конденсата: {str(e)}"
-        )
+        logger.error(f"Не удалось распарсить результат для фракционного состава конденсата: {e!s}")
         return []
 
     if not isinstance(result_data, dict):
@@ -1231,10 +1146,7 @@ def _iter_fractional_condensate_rows(
         raw_s = str(raw).replace(".", ",")
         try:
             num = float(str(raw).replace(",", "."))
-            if (
-                field in ("Температура н.к.", "Температура к.к.")
-                or "отгона при температуре" in field
-            ) and num > 360:
+            if (field in ("Температура н.к.", "Температура к.к.") or "отгона при температуре" in field) and num > 360:
                 result_text = "выше 360"
             else:
                 result_text = raw_s
@@ -1492,9 +1404,7 @@ def _collect_valid_calculations(samples: list[Sample]) -> list[Calculation]:
         method_sort_order = method.sort_order if method.sort_order is not None else 0
         if method.groups and len(method.groups) > 0:
             group = method.groups[0]
-            group_sort_order = (
-                group.sort_order if group.sort_order is not None else method_sort_order
-            )
+            group_sort_order = group.sort_order if group.sort_order is not None else method_sort_order
             return (group_sort_order, method_sort_order, method_name)
         return (method_sort_order, 0, method_name)
 
@@ -1519,9 +1429,7 @@ def _condensate_kk_measurement_error(field_value) -> str:
 
 
 # План колонок таблицы 1 (сохраняется до финального copy_column_dimensions).
-_table1_column_plan_ctx: ContextVar["Table1ColumnPlan" | None] = ContextVar(
-    "table1_column_plan", default=None
-)
+_table1_column_plan_ctx: ContextVar["Table1ColumnPlan" | None] = ContextVar("table1_column_plan", default=None)
 
 
 @dataclass
@@ -1582,11 +1490,7 @@ def get_marker_value_sync(
             return ""
 
         if marker == "subd":
-            branches = [
-                sample.branch.name
-                for sample in samples
-                if sample.branch and sample.branch.name
-            ]
+            branches = [sample.branch.name for sample in samples if sample.branch and sample.branch.name]
             return join_unique_values(branches)
 
         if marker == "tel":
@@ -1617,11 +1521,7 @@ def get_marker_value_sync(
             return join_unique_values(locations)
 
         if marker == "mode":
-            modes = [
-                sample.mode.strip()
-                for sample in samples
-                if sample.mode and sample.mode.strip()
-            ]
+            modes = [sample.mode.strip() for sample in samples if sample.mode and sample.mode.strip()]
             return join_unique_values(modes)
 
         if marker == "sampling_date":
@@ -1675,11 +1575,7 @@ def get_marker_value_sync(
             return protocol.sampling_act_number or ""
 
         if marker == "registration_number":
-            numbers = [
-                sample.registration_number
-                for sample in samples
-                if sample.registration_number
-            ]
+            numbers = [sample.registration_number for sample in samples if sample.registration_number]
             return join_unique_values(numbers)
 
         # Без async HR: только сохранённые должности, имена пустые.
@@ -1697,41 +1593,30 @@ def get_marker_value_sync(
 
         return ""
     except Exception as e:
-        logger.error(f"Ошибка при синхронной подстановке метки {marker}: {str(e)}")
+        logger.error(f"Ошибка при синхронной подстановке метки {marker}: {e!s}")
         return ""
 
 
 def _get_merged_col_bounds(sheet, row: int, col: int) -> tuple[int, int]:
     """Горизонтальные границы объединения, содержащего ячейку."""
     for merged_range in sheet.merged_cells.ranges:
-        if (
-            merged_range.min_row <= row <= merged_range.max_row
-            and merged_range.min_col <= col <= merged_range.max_col
-        ):
+        if merged_range.min_row <= row <= merged_range.max_row and merged_range.min_col <= col <= merged_range.max_col:
             return merged_range.min_col, merged_range.max_col
     return col, col
 
 
-def _find_table1_bounds(
-    template_sheet, table_start: int
-) -> tuple[int | None, int | None]:
+def _find_table1_bounds(template_sheet, table_start: int) -> tuple[int | None, int | None]:
     """Возвращает строки {start_table1} и {end_table1}."""
     template_last_row, _ = get_template_content_bounds(template_sheet)
     table_data_start = None
     table_data_end = None
     for row_num in range(table_start, template_last_row + 1):
-        row = list(
-            template_sheet.iter_rows(min_row=row_num, max_row=row_num, values_only=True)
-        )[0]
+        row = list(template_sheet.iter_rows(min_row=row_num, max_row=row_num, values_only=True))[0]
         cell_values = [str(cell).strip() for cell in row if cell]
-        if table_data_start is None and any(
-            value == "{start_table1}" for value in cell_values
-        ):
+        if table_data_start is None and any(value == "{start_table1}" for value in cell_values):
             table_data_start = row_num
             continue
-        if table_data_start is not None and any(
-            value in TABLE1_END_MARKERS for value in cell_values
-        ):
+        if table_data_start is not None and any(value in TABLE1_END_MARKERS for value in cell_values):
             table_data_end = row_num
             break
     if table_data_start is not None and table_data_end is None:
@@ -1838,11 +1723,7 @@ def _row_is_wide_method_banner(
     """
     if not plan.blocks:
         return False
-    pack_start = (
-        plan.start_width_col
-        if plan.start_width_col is not None
-        else plan.blocks[0].target_min
-    )
+    pack_start = plan.start_width_col if plan.start_width_col is not None else plan.blocks[0].target_min
     first_span = plan.blocks[0].source_max - plan.blocks[0].source_min + 1
     for merged_range in template_sheet.merged_cells.ranges:
         if merged_range.min_row != row_num:
@@ -1938,11 +1819,7 @@ def _build_table1_column_plan(
 
     laid_out: list[LaidOutBlock] = []
 
-    if (
-        start_width_col is not None
-        and end_width_col is not None
-        and end_width_col > start_width_col
-    ):
+    if start_width_col is not None and end_width_col is not None and end_width_col > start_width_col:
         groups = _partition_columns_by_equal_width(
             template_sheet,
             start_width_col,
@@ -2032,9 +1909,7 @@ async def _load_applicable_nd_norms(
         return []
 
     test_objects = {
-        sample.test_object.strip().lower()
-        for sample in samples
-        if sample.test_object and sample.test_object.strip()
+        sample.test_object.strip().lower() for sample in samples if sample.test_object and sample.test_object.strip()
     }
     if not test_objects:
         return []
@@ -2044,10 +1919,7 @@ async def _load_applicable_nd_norms(
         NdNorm.laboratory_id == protocol.laboratory_id,
     ]
     if protocol.department_id:
-        conditions.append(
-            (NdNorm.department_id == protocol.department_id)
-            | (NdNorm.department_id.is_(None))
-        )
+        conditions.append((NdNorm.department_id == protocol.department_id) | (NdNorm.department_id.is_(None)))
 
     result = await db.execute(select(NdNorm).where(*conditions).order_by(NdNorm.name))
     applicable: list[tuple[NdNorm, dict[int, str]]] = []
@@ -2125,9 +1997,7 @@ def _merge_overlaps_cols(merged_range, col_min: int, col_max: int) -> bool:
     return not (merged_range.max_col < col_min or merged_range.min_col > col_max)
 
 
-def _method_zone_vertical_span(
-    template_sheet, template_row: int, plan: Table1ColumnPlan
-) -> int:
+def _method_zone_vertical_span(template_sheet, template_row: int, plan: Table1ColumnPlan) -> int:
     """
     Максимальный vertical span merge, начинающихся на строке в столбцах
     активных блоков методов.
@@ -2183,9 +2053,7 @@ def _row_is_method_zone_vertical_merge_continuation(
     return found_slave
 
 
-def _source_block_vertical_span(
-    template_sheet, template_row: int, source_min: int, source_max: int
-) -> int:
+def _source_block_vertical_span(template_sheet, template_row: int, source_min: int, source_max: int) -> int:
     """Vertical span merge шаблона, пересекающего исходные столбцы блока."""
     span = 1
     for merged_range in template_sheet.merged_cells.ranges:
@@ -2244,23 +2112,15 @@ def _sample_template_merge_edge_sides(
         "bottom": None,
     }
     for row in range(min_row, max_row + 1):
-        left = _border_side_or_none(
-            template_sheet.cell(row=row, column=min_col).border, "left"
-        )
-        right = _border_side_or_none(
-            template_sheet.cell(row=row, column=max_col).border, "right"
-        )
+        left = _border_side_or_none(template_sheet.cell(row=row, column=min_col).border, "left")
+        right = _border_side_or_none(template_sheet.cell(row=row, column=max_col).border, "right")
         if edges["left"] is None and left is not None:
             edges["left"] = left
         if edges["right"] is None and right is not None:
             edges["right"] = right
     for col in range(min_col, max_col + 1):
-        top = _border_side_or_none(
-            template_sheet.cell(row=min_row, column=col).border, "top"
-        )
-        bottom = _border_side_or_none(
-            template_sheet.cell(row=max_row, column=col).border, "bottom"
-        )
+        top = _border_side_or_none(template_sheet.cell(row=min_row, column=col).border, "top")
+        bottom = _border_side_or_none(template_sheet.cell(row=max_row, column=col).border, "bottom")
         if edges["top"] is None and top is not None:
             edges["top"] = top
         if edges["bottom"] is None and bottom is not None:
@@ -2367,9 +2227,7 @@ def _apply_merged_range_perimeter_borders(
     )
 
 
-def _left_merge_anchor(
-    template_sheet, row_num: int, col_num: int
-) -> tuple[int, int, int, int] | None:
+def _left_merge_anchor(template_sheet, row_num: int, col_num: int) -> tuple[int, int, int, int] | None:
     """
     Если ячейка в merge — (min_row, min_col, max_row, max_col).
     Иначе None.
@@ -2407,11 +2265,7 @@ def _resolve_column_cell_value_sync(
         return ""
 
     method_calc = sample_calc if sample_calc is not None else calc
-    method_id = (
-        method_calc.research_method.id
-        if method_calc and method_calc.research_method
-        else None
-    )
+    method_id = method_calc.research_method.id if method_calc and method_calc.research_method else None
 
     if "{norma}" in value:
         value = value.replace("{norma}", norm_name or "")
@@ -2495,9 +2349,7 @@ def _resolve_column_cell_value_sync(
             start = end + 1
 
     if samples_for_markers:
-        processed = process_selection_conditions_row(
-            samples_for_markers, value, selection_conditions_templates
-        )
+        processed = process_selection_conditions_row(samples_for_markers, value, selection_conditions_templates)
         if processed is None:
             return ""
         return processed
@@ -2505,9 +2357,7 @@ def _resolve_column_cell_value_sync(
     return value
 
 
-def _copy_row_height_only(
-    template_sheet, current_sheet, template_row: int, target_row: int
-) -> None:
+def _copy_row_height_only(template_sheet, current_sheet, template_row: int, target_row: int) -> None:
     """Копирует только высоту/hidden строки без подмены RowDimension."""
     copy_row_dimension(template_sheet, current_sheet, template_row, target_row)
 
@@ -2541,11 +2391,7 @@ def _write_column_table_row(
         else (plan.blocks[0].target_min if plan.blocks else plan.left_end + 1)
     )
     # Шапка и зона методов заканчиваются у end_width (last_zone_target_col).
-    last_method_col = (
-        plan.last_zone_target_col
-        if plan.last_zone_target_col >= pack_start
-        else plan.last_target_col
-    )
+    last_method_col = plan.last_zone_target_col if plan.last_zone_target_col >= pack_start else plan.last_target_col
 
     for merged_range in template_sheet.merged_cells.ranges:
         if merged_range.min_row != template_row:
@@ -2554,10 +2400,7 @@ def _write_column_table_row(
         # Левые столбцы: горизонтальные и вертикальные merge.
         if merged_range.max_col <= plan.left_end:
             # Пропускаем только настоящие 1x1.
-            if (
-                merged_range.min_row == merged_range.max_row
-                and merged_range.min_col == merged_range.max_col
-            ):
+            if merged_range.min_row == merged_range.max_row and merged_range.min_col == merged_range.max_col:
                 continue
             merge_row_span = _merge_row_span(merged_range)
             _apply_merged_range_perimeter_borders(
@@ -2668,14 +2511,10 @@ def _write_column_table_row(
         return
 
     for block in plan.blocks:
-        sample_method_calc = (
-            sample_calcs.get(block.calc.research_method.id) if sample else None
-        )
+        sample_method_calc = sample_calcs.get(block.calc.research_method.id) if sample else None
         source_span = block.source_max - block.source_min + 1
         target_span = block.target_max - block.target_min + 1
-        block_row_span = _source_block_vertical_span(
-            template_sheet, template_row, block.source_min, block.source_max
-        )
+        block_row_span = _source_block_vertical_span(template_sheet, template_row, block.source_min, block.source_max)
 
         # Ширина блока в столбцах совпала — копируем блок (в т.ч. со сдвигом).
         if source_span == target_span:
@@ -2693,9 +2532,7 @@ def _write_column_table_row(
             for offset in range(source_span):
                 col = block.target_min + offset
                 cell = current_sheet.cell(row=target_row, column=col)
-                template_value = template_sheet.cell(
-                    row=template_row, column=block.source_min + offset
-                ).value
+                template_value = template_sheet.cell(row=template_row, column=block.source_min + offset).value
                 if not cell.value or not isinstance(cell.value, str):
                     if (
                         offset == 0
@@ -2726,8 +2563,7 @@ def _write_column_table_row(
                     resolved = block.calc.research_method.name or ""
                 cell.value = resolved or None
                 if template_value and (
-                    "{measurement_method}" in str(template_value)
-                    or "{nd_code}" in str(template_value)
+                    "{measurement_method}" in str(template_value) or "{nd_code}" in str(template_value)
                 ):
                     height_text = (
                         (block.calc.research_method.nd_code or "")
@@ -2827,10 +2663,7 @@ def _write_column_table_row(
         if (
             main_template_value
             and isinstance(main_template_value, str)
-            and (
-                "{measurement_method}" in main_template_value
-                or "{nd_code}" in main_template_value
-            )
+            and ("{measurement_method}" in main_template_value or "{nd_code}" in main_template_value)
         ):
             height_text = (
                 (block.calc.research_method.nd_code or "")
@@ -2884,11 +2717,7 @@ async def process_methods_table_columns(
     _table1_column_plan_ctx.set(plan)
     apply_table1_column_widths(template_sheet, current_sheet, plan)
 
-    method_ids = {
-        block.calc.research_method.id
-        for block in plan.blocks
-        if block.calc.research_method
-    }
+    method_ids = {block.calc.research_method.id for block in plan.blocks if block.calc.research_method}
     nd_norms = await _load_applicable_nd_norms(db, protocol, samples, method_ids)
 
     for template_row in range(table_data_start + 1, table_data_end):
@@ -3206,9 +3035,7 @@ def process_equipment_table(
             unique_equipment.append(equipment)
 
     # Сортируем список оборудования по наименованию и версии
-    equipment_list = sorted(
-        unique_equipment, key=lambda x: (x.name or "", x.version or "")
-    )
+    equipment_list = sorted(unique_equipment, key=lambda x: (x.name or "", x.version or ""))
 
     if not equipment_list:
         return current_sheet
@@ -3218,9 +3045,7 @@ def process_equipment_table(
     template_row_num = None
 
     for row_num in range(table_start, template_last_row + 1):
-        row = list(
-            template_sheet.iter_rows(min_row=row_num, max_row=row_num, values_only=True)
-        )[0]
+        row = list(template_sheet.iter_rows(min_row=row_num, max_row=row_num, values_only=True))[0]
         if any(cell and str(cell).strip() == "{start_table2}" for cell in row):
             start_marker_row = row_num
             template_row_num = row_num + 1
@@ -3256,32 +3081,22 @@ def process_equipment_table(
             elif "{name_equipment}" in value:
                 equipment_name = equipment.name or ""
                 cell.value = value.replace("{name_equipment}", equipment_name)
-                adjust_cell_height_if_needed(
-                    current_sheet, current_row, col, equipment_name
-                )
+                adjust_cell_height_if_needed(current_sheet, current_row, col, equipment_name)
             elif "{serial_num}" in value:
-                cell.value = value.replace(
-                    "{serial_num}", equipment.serial_number or ""
-                )
+                cell.value = value.replace("{serial_num}", equipment.serial_number or "")
             elif "{ver_info}" in value:
                 verification_info = equipment.verification_info or ""
                 cell.value = value.replace("{ver_info}", verification_info)
-                adjust_cell_height_if_needed(
-                    current_sheet, current_row, col, verification_info
-                )
+                adjust_cell_height_if_needed(current_sheet, current_row, col, verification_info)
             elif "{ver_date}" in value:
                 if equipment.verification_date:
-                    formatted_date = pendulum.instance(
-                        equipment.verification_date
-                    ).format("DD.MM.YYYY")
+                    formatted_date = pendulum.instance(equipment.verification_date).format("DD.MM.YYYY")
                     cell.value = value.replace("{ver_date}", formatted_date)
                 else:
                     cell.value = value.replace("{ver_date}", "")
             elif "{ver_end_date}" in value:
                 if equipment.verification_end_date:
-                    formatted_date = pendulum.instance(
-                        equipment.verification_end_date
-                    ).format("DD.MM.YYYY")
+                    formatted_date = pendulum.instance(equipment.verification_end_date).format("DD.MM.YYYY")
                     cell.value = value.replace("{ver_end_date}", formatted_date)
                 else:
                     cell.value = value.replace("{ver_end_date}", "")
@@ -3312,11 +3127,7 @@ def process_nd_table(
         if sample.test_object:
             test_objects.append(sample.test_object)
 
-    valid_calculations = [
-        calc
-        for calc in calculations
-        if check_method_name(calc.research_method.name, test_objects)
-    ]
+    valid_calculations = [calc for calc in calculations if check_method_name(calc.research_method.name, test_objects)]
 
     def get_sort_key(calc):
         method = calc.research_method
@@ -3324,9 +3135,7 @@ def process_nd_table(
         method_sort_order = method.sort_order if method.sort_order is not None else 0
         if method.groups and len(method.groups) > 0:
             group = method.groups[0]
-            group_sort_order = (
-                group.sort_order if group.sort_order is not None else method_sort_order
-            )
+            group_sort_order = group.sort_order if group.sort_order is not None else method_sort_order
             return (group_sort_order, method_sort_order, method_name)
         return (method_sort_order, 0, method_name)
 
@@ -3350,9 +3159,7 @@ def process_nd_table(
     template_row_num = None
 
     for row_num in range(table_start, template_last_row + 1):
-        row = list(
-            template_sheet.iter_rows(min_row=row_num, max_row=row_num, values_only=True)
-        )[0]
+        row = list(template_sheet.iter_rows(min_row=row_num, max_row=row_num, values_only=True))[0]
         if any(cell and str(cell).strip() == "{start_table3}" for cell in row):
             start_marker_row = row_num
             template_row_num = row_num + 1
@@ -3397,9 +3204,7 @@ def process_nd_table(
     return current_sheet
 
 
-async def generate_protocol_excel(
-    db: AsyncSession, protocol_id: int
-) -> tuple[bytes, str]:
+async def generate_protocol_excel(db: AsyncSession, protocol_id: int) -> tuple[bytes, str]:
     """Генерирует Excel файл протокола. Возвращает содержимое и имя файла."""
     try:
         _table1_column_plan_ctx.set(None)
@@ -3446,9 +3251,7 @@ async def generate_protocol_excel(
         # Загружаем шаблоны условий отбора для лаборатории/подразделения
         selection_conditions_templates = []
         if protocol.laboratory_id or protocol.department_id:
-            selection_conditions_query = select(SelectionConditions).where(
-                SelectionConditions.deleted_at.is_(None)
-            )
+            selection_conditions_query = select(SelectionConditions).where(SelectionConditions.deleted_at.is_(None))
             if protocol.laboratory_id:
                 selection_conditions_query = selection_conditions_query.where(
                     SelectionConditions.laboratory_id == protocol.laboratory_id
@@ -3458,13 +3261,9 @@ async def generate_protocol_excel(
                     SelectionConditions.department_id == protocol.department_id
                 )
             selection_conditions_result = await db.execute(selection_conditions_query)
-            selection_conditions_list = list(
-                selection_conditions_result.scalars().all()
-            )
+            selection_conditions_list = list(selection_conditions_result.scalars().all())
             if selection_conditions_list:
-                selection_conditions_templates = [
-                    {"conditions": sc.conditions} for sc in selection_conditions_list
-                ]
+                selection_conditions_templates = [{"conditions": sc.conditions} for sc in selection_conditions_list]
 
         # Собираем список используемого оборудования для всех расчетов по пробам
         equipment_ids = _collect_equipment_ids_from_samples(samples)
@@ -3492,16 +3291,12 @@ async def generate_protocol_excel(
                 with open(file_data, "rb") as f:
                     template_bytes = BytesIO(f.read())
             except Exception:
-                template_bytes = BytesIO(
-                    file_data.encode() if isinstance(file_data, str) else file_data
-                )
+                template_bytes = BytesIO(file_data.encode() if isinstance(file_data, str) else file_data)
 
         template_workbook = openpyxl.load_workbook(template_bytes)
         template_sheet = template_workbook.active
         sampling_location_name_only = template_contains_marker(template_sheet, "{mode}")
-        template_last_row, template_last_col = get_template_content_bounds(
-            template_sheet
-        )
+        template_last_row, template_last_col = get_template_content_bounds(template_sheet)
         # Убираем «хвост» пустых стилизованных ячеек шаблона (до EM) —
         # иначе max_column раздувает весь протокол.
         purge_sheet_cells_beyond(template_sheet, template_last_row, template_last_col)
@@ -3584,11 +3379,7 @@ async def generate_protocol_excel(
 
         table1_end = None
         for row_num in range(table_start, template_last_row + 1):
-            row = list(
-                template_sheet.iter_rows(
-                    min_row=row_num, max_row=row_num, values_only=True
-                )
-            )[0]
+            row = list(template_sheet.iter_rows(min_row=row_num, max_row=row_num, values_only=True))[0]
             if any(cell and str(cell).strip() in TABLE1_END_MARKERS for cell in row):
                 table1_end = row_num
                 break
@@ -3619,11 +3410,7 @@ async def generate_protocol_excel(
 
             table2_end = None
             for row_num in range(table1_end + 1, template_last_row + 1):
-                row = list(
-                    template_sheet.iter_rows(
-                        min_row=row_num, max_row=row_num, values_only=True
-                    )
-                )[0]
+                row = list(template_sheet.iter_rows(min_row=row_num, max_row=row_num, values_only=True))[0]
                 if any(cell and str(cell).strip() == "{end_table2}" for cell in row):
                     table2_end = row_num
                     break
@@ -3654,14 +3441,8 @@ async def generate_protocol_excel(
 
                 table3_end = None
                 for row_num in range(table2_end + 1, template_last_row + 1):
-                    row = list(
-                        template_sheet.iter_rows(
-                            min_row=row_num, max_row=row_num, values_only=True
-                        )
-                    )[0]
-                    if any(
-                        cell and str(cell).strip() == "{end_table3}" for cell in row
-                    ):
+                    row = list(template_sheet.iter_rows(min_row=row_num, max_row=row_num, values_only=True))[0]
+                    if any(cell and str(cell).strip() == "{end_table3}" for cell in row):
                         table3_end = row_num
                         break
 
@@ -3701,9 +3482,7 @@ async def generate_protocol_excel(
         # Если номер протокола отсутствует, используем ID протокола
         if not protocol_number:
             protocol_number = str(protocol_id)
-            logger.warning(
-                f"Номер протокола отсутствует для протокола {protocol_id}, используется ID"
-            )
+            logger.warning(f"Номер протокола отсутствует для протокола {protocol_id}, используется ID")
 
         clean_protocol_number = re.sub(r'[<>:"/\\|?*\x00-\x1F]', "_", protocol_number)
         clean_protocol_number = clean_protocol_number.replace(" ", "_")
@@ -3713,5 +3492,5 @@ async def generate_protocol_excel(
     except (NotFoundError, ValidationError):
         raise
     except Exception as e:
-        logger.error(f"Ошибка при генерации протокола: {str(e)}")
-        raise ValidationError(f"Ошибка при генерации протокола: {str(e)}") from e
+        logger.error(f"Ошибка при генерации протокола: {e!s}")
+        raise ValidationError(f"Ошибка при генерации протокола: {e!s}") from e

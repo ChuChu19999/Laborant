@@ -16,9 +16,7 @@ from models.sample import Sample
 _PROTOCOL_DATE_MISSING_EPOCH = 253402214400
 
 
-def protocol_number_parts_combined_expr(
-    test_protocol_number_column, test_protocol_date_column
-):
+def protocol_number_parts_combined_expr(test_protocol_number_column, test_protocol_date_column):
     """
     Полная дата протокола (поле даты), затем числовая часть номера до первого «/».
     День и месяц учитываются через UNIX-epoch даты; без даты — в конце при asc.
@@ -36,9 +34,7 @@ def protocol_number_parts_combined_expr(
         cast(
             func.nullif(
                 func.regexp_replace(
-                    func.split_part(
-                        func.coalesce(test_protocol_number_column, ""), "/", 1
-                    ),
+                    func.split_part(func.coalesce(test_protocol_number_column, ""), "/", 1),
                     "[^0-9]",
                     "",
                     "g",
@@ -73,9 +69,7 @@ def registration_number_sort_columns():
                 Sample.registration_number.op("~")(r"-[0-9]{2}$"),
                 2000
                 + cast(
-                    func.regexp_replace(
-                        Sample.registration_number, r"^.*-([0-9]{2})$", r"\1"
-                    ),
+                    func.regexp_replace(Sample.registration_number, r"^.*-([0-9]{2})$", r"\1"),
                     Integer,
                 ),
             ),
@@ -97,10 +91,7 @@ def protocols_sort_scalar_subquery():
     )
     protocol_table = Protocol.__table__.fullname
     sample_table = Sample.__table__.fullname
-    sample_in_protocol_json = text(
-        f"cast({protocol_table}.samples as jsonb) @> "
-        f"jsonb_build_array({sample_table}.id)"
-    )
+    sample_in_protocol_json = text(f"cast({protocol_table}.samples as jsonb) @> jsonb_build_array({sample_table}.id)")
     return (
         select(func.min(combined))
         .select_from(Protocol)

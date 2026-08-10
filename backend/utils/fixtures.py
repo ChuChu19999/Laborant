@@ -76,7 +76,7 @@ def get_fixture_data(fixture_path: str) -> dict[str, Any] | None:
         with open(fixture_file, "rb") as f:
             return orjson.loads(f.read())
     except Exception as e:
-        logger.error(f"Ошибка при чтении фикстуры {fixture_path}: {str(e)}")
+        logger.error(f"Ошибка при чтении фикстуры {fixture_path}: {e!s}")
         return None
 
 
@@ -121,14 +121,10 @@ def list_fixture_files(fixture_path: str) -> list[str]:
         if not fixture_dir.exists() or not fixture_dir.is_dir():
             return []
 
-        json_files = [
-            f.name for f in fixture_dir.iterdir() if f.is_file() and f.suffix == ".json"
-        ]
+        json_files = [f.name for f in fixture_dir.iterdir() if f.is_file() and f.suffix == ".json"]
         return sorted(json_files)
     except Exception as e:
-        logger.error(
-            f"Ошибка при получении списка файлов фикстуры {fixture_path}: {str(e)}"
-        )
+        logger.error(f"Ошибка при получении списка файлов фикстуры {fixture_path}: {e!s}")
         return []
 
 
@@ -144,14 +140,11 @@ def _normalize_name(name: str) -> str:
     return name_mapping.get(name_lower, name_lower.replace(" ", "_"))
 
 
-def _matches_department_name(
-    fixture_type: str, department_name_normalized: str
-) -> bool:
+def _matches_department_name(fixture_type: str, department_name_normalized: str) -> bool:
     """Проверка соответствия типа фикстуры нормализованному названию подразделения."""
     fixture_type_normalized = _normalize_name(fixture_type)
     return (
-        department_name_normalized == fixture_type_normalized
-        or fixture_type_normalized in department_name_normalized
+        department_name_normalized == fixture_type_normalized or fixture_type_normalized in department_name_normalized
     )
 
 

@@ -31,9 +31,7 @@ async def build_saved_methods_tree(db: AsyncSession) -> dict[str, Any]:
             laboratory_name = "Без привязки к лаборатории"
         else:
             lab_obj = lab_methods[0].laboratory
-            laboratory_name = (
-                (lab_obj.full_name or lab_obj.name) if lab_obj else str(lab_id)
-            )
+            laboratory_name = (lab_obj.full_name or lab_obj.name) if lab_obj else str(lab_id)
 
         by_dept_id: dict[int | None, list[ResearchMethod]] = defaultdict(list)
         for method in lab_methods:

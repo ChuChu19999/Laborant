@@ -1,6 +1,5 @@
 from __future__ import annotations
 from fastapi import APIRouter, Query
-from core.auth_decorators import IsAuthenticated
 from core.deps import DbSession, UserPermissions, require_admin
 from schemas.laboratory import (
     DepartmentCreate,
@@ -9,11 +8,14 @@ from schemas.laboratory import (
 )
 from schemas.pagination import PaginatedResponse
 from services.access_control import enforce_lab_management_access
-from services.laboratory import build_department_response
-from services.laboratory import create_department as create_department_service
-from services.laboratory import delete_department as delete_department_service
-from services.laboratory import get_departments, require_department_by_id
-from services.laboratory import update_department as update_department_service
+from services.laboratory import (
+    build_department_response,
+    create_department as create_department_service,
+    delete_department as delete_department_service,
+    get_departments,
+    require_department_by_id,
+    update_department as update_department_service,
+)
 
 router = APIRouter()
 

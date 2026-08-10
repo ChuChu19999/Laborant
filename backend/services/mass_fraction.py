@@ -3,8 +3,7 @@ from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.exceptions import NotFoundError
 from models.mass_fraction import MassFractionOilRefractionTable
-from repositories import mass_fraction as mass_fraction_repo
-from repositories import research as research_repo
+from repositories import mass_fraction as mass_fraction_repo, research as research_repo
 from repositories.base import flush_entity
 from schemas.mass_fraction import (
     MassFractionOilRefractionTableBulkUpdate,
@@ -19,9 +18,7 @@ def build_mass_fraction_table_response(
     table: MassFractionOilRefractionTable,
 ) -> MassFractionOilRefractionTableResponse:
     """Собрать ответ по точке градуировочного графика с названием метода."""
-    table_dict = MassFractionOilRefractionTableResponse.model_validate(
-        table
-    ).model_dump()
+    table_dict = MassFractionOilRefractionTableResponse.model_validate(table).model_dump()
     if table.research_method:
         table_dict["research_method_name"] = table.research_method.name
     return MassFractionOilRefractionTableResponse(**table_dict)
@@ -31,18 +28,14 @@ async def get_mass_fraction_oil_refraction_table_by_id(
     db: AsyncSession, table_id: int, include_deleted: bool = False
 ) -> MassFractionOilRefractionTable | None:
     """Получить точку градуировочного графика по ID."""
-    return await mass_fraction_repo.get_mass_fraction_oil_refraction_table_by_id(
-        db, table_id, include_deleted
-    )
+    return await mass_fraction_repo.get_mass_fraction_oil_refraction_table_by_id(db, table_id, include_deleted)
 
 
 async def require_mass_fraction_oil_refraction_table_by_id(
     db: AsyncSession, table_id: int, include_deleted: bool = False
 ) -> MassFractionOilRefractionTable:
     """Получить точку градуировочного графика по ID или вернуть 404."""
-    table = await get_mass_fraction_oil_refraction_table_by_id(
-        db, table_id, include_deleted
-    )
+    table = await get_mass_fraction_oil_refraction_table_by_id(db, table_id, include_deleted)
     if not table:
         raise NotFoundError("Точка градуировочного графика не найдена")
     return table
@@ -102,9 +95,7 @@ async def create_mass_fraction_oil_refraction_table(
     db: AsyncSession, table_data: MassFractionOilRefractionTableCreate
 ) -> MassFractionOilRefractionTable:
     """Создать точку градуировочного графика."""
-    if not await research_repo.get_research_method_by_id(
-        db, table_data.research_method_id
-    ):
+    if not await research_repo.get_research_method_by_id(db, table_data.research_method_id):
         raise NotFoundError("Метод исследования не найден")
 
     table = MassFractionOilRefractionTable(
@@ -129,9 +120,7 @@ async def update_mass_fraction_oil_refraction_table(
     return table
 
 
-async def delete_mass_fraction_oil_refraction_table(
-    db: AsyncSession, table_id: int
-) -> None:
+async def delete_mass_fraction_oil_refraction_table(db: AsyncSession, table_id: int) -> None:
     """Удалить точку градуировочного графика (мягкое удаление)."""
     table = await require_mass_fraction_oil_refraction_table_by_id(db, table_id)
     table.soft_delete()
@@ -148,9 +137,7 @@ async def bulk_update_mass_fraction_oil_refraction_tables(
     if not await research_repo.get_research_method_by_id(db, research_method_id):
         raise NotFoundError("Метод исследования не найден")
 
-    active_tables, _, _ = await get_mass_fraction_oil_refraction_tables(
-        db, research_method_id=research_method_id
-    )
+    active_tables, _, _ = await get_mass_fraction_oil_refraction_tables(db, research_method_id=research_method_id)
     active_tables = [table for table in active_tables if not table.deleted_at]
 
     existing_entries_map = {}

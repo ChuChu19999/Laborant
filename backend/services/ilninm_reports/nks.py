@@ -168,9 +168,7 @@ def _calc_in_group(calc: Calculation, group_name: str) -> bool:
         name = str(getattr(group, "name", "") or "")
         if _group_name_matches(name, group_name):
             return True
-        if group_name == GROUP_DENSITY_20 and name.startswith(
-            "Плотность при температуре"
-        ):
+        if group_name == GROUP_DENSITY_20 and name.startswith("Плотность при температуре"):
             return True
     return False
 
@@ -298,9 +296,7 @@ def _format_nks_q(calc: Calculation) -> str:
     if raw is None or str(raw).strip() in ("", "-"):
         return REPORT_EMPTY_CELL_VALUE
     text = str(raw).strip()
-    display = format_calculation_result_for_display(
-        raw, METHOD_MASS_FRACTION_OIL, calc.input_data
-    )
+    display = format_calculation_result_for_display(raw, METHOD_MASS_FRACTION_OIL, calc.input_data)
     if display != text:
         return _report_display(display.replace(".", ","))
     num = _try_parse_number(text)
@@ -318,9 +314,7 @@ def _is_q_zero(q_display: str) -> bool:
 
 def _density_result(calc: Calculation) -> str:
     method_name = (calc.research_method.name or "") if calc.research_method else ""
-    display = format_calculation_result_for_display(
-        calc.result, method_name, calc.input_data
-    )
+    display = format_calculation_result_for_display(calc.result, method_name, calc.input_data)
     if display != str(calc.result if calc.result is not None else ""):
         return _format_nks_numeric(display, cap_temperature=False)
     return _format_nks_numeric(calc.result, cap_temperature=False)
@@ -437,19 +431,13 @@ async def get_nks_report_rows(
     if not samples:
         return []
 
-    calcs_by_sample = await get_calculations_by_sample(
-        db, [sample.id for sample in samples]
-    )
+    calcs_by_sample = await get_calculations_by_sample(db, [sample.id for sample in samples])
     rows: list[NksReportRow] = []
     for index, sample in enumerate(samples, start=1):
         calcs = calcs_by_sample.get(sample.id, [])
         values = _build_row_values(calcs)
-        values[NKS_COL_PRESSURE] = _format_selection_condition(
-            _selection_condition_raw(sample, "Давление")
-        )
-        values[NKS_COL_TEMPERATURE] = _format_selection_condition(
-            _selection_condition_raw(sample, "Температура")
-        )
+        values[NKS_COL_PRESSURE] = _format_selection_condition(_selection_condition_raw(sample, "Давление"))
+        values[NKS_COL_TEMPERATURE] = _format_selection_condition(_selection_condition_raw(sample, "Температура"))
         well = (sample.well or "").strip()
         rows.append(
             NksReportRow(

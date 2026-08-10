@@ -17,18 +17,12 @@ def _optional_protocol_abbreviation(value: Any) -> str | None:
     return text
 
 
-OptionalProtocolAbbreviation = Annotated[
-    str | None, BeforeValidator(_optional_protocol_abbreviation)
-]
+OptionalProtocolAbbreviation = Annotated[str | None, BeforeValidator(_optional_protocol_abbreviation)]
 
 
 class TestObjectBase(BaseModel):
-    name: Annotated[NonEmptyStr, Field(max_length=255)] = Field(
-        ..., description="Наименование объекта испытаний"
-    )
-    tag: Annotated[NonEmptyStr, Field(max_length=50)] = Field(
-        ..., description="Тег для методов исследования"
-    )
+    name: Annotated[NonEmptyStr, Field(max_length=255)] = Field(..., description="Наименование объекта испытаний")
+    tag: Annotated[NonEmptyStr, Field(max_length=50)] = Field(..., description="Тег для методов исследования")
     protocol_abbreviation: OptionalProtocolAbbreviation = Field(
         default=None,
         description="Аббревиатура для номера протокола",

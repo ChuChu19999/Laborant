@@ -72,9 +72,7 @@ def calculate_fractional_composition(input_data: dict[str, Any]) -> dict[str, An
             fractional_data = input_data["_fractional_data"]
             card_1_data = fractional_data.get("card1", {})
             card_2_data = fractional_data.get("card2", {})
-            logger.info(
-                "Используем специальную структуру данных для фракционного состава"
-            )
+            logger.info("Используем специальную структуру данных для фракционного состава")
         else:
             # Старая логика для обратной совместимости
             card_1_data = {}
@@ -260,30 +258,24 @@ def calculate_fractional_composition(input_data: dict[str, Any]) -> dict[str, An
                 corrected_temps_2[field_name] = temp_value
 
         average_temps = {}
-        for field_name in corrected_temps_1.keys():
+        for field_name in corrected_temps_1:
             val1 = corrected_temps_1.get(field_name, 0)
             val2 = corrected_temps_2.get(field_name, 0)
 
             if _is_nonempty_numeric(val1) and _is_nonempty_numeric(val2):
                 try:
-                    avg_val = (
-                        parse_decimal_value(val1) + parse_decimal_value(val2)
-                    ) / 2
+                    avg_val = (parse_decimal_value(val1) + parse_decimal_value(val2)) / 2
                     average_temps[field_name] = round_half_up_to_int(avg_val)
                 except (ValueError, TypeError):
                     average_temps[field_name] = val1
             elif _is_nonempty_numeric(val1):
                 try:
-                    average_temps[field_name] = round_half_up_to_int(
-                        parse_decimal_value(val1)
-                    )
+                    average_temps[field_name] = round_half_up_to_int(parse_decimal_value(val1))
                 except (ValueError, TypeError):
                     average_temps[field_name] = val1
             elif _is_nonempty_numeric(val2):
                 try:
-                    average_temps[field_name] = round_half_up_to_int(
-                        parse_decimal_value(val2)
-                    )
+                    average_temps[field_name] = round_half_up_to_int(parse_decimal_value(val2))
                 except (ValueError, TypeError):
                     average_temps[field_name] = val2
 
@@ -295,9 +287,7 @@ def calculate_fractional_composition(input_data: dict[str, Any]) -> dict[str, An
                 val1 = parse_decimal_value(volume_distillate1)
                 if _is_nonempty_numeric(volume_distillate2):
                     val2 = parse_decimal_value(volume_distillate2)
-                    average_volume_distillate = round_condensate_distillate_volume(
-                        (val1 + val2) / 2
-                    )
+                    average_volume_distillate = round_condensate_distillate_volume((val1 + val2) / 2)
                 else:
                     average_volume_distillate = round_condensate_distillate_volume(val1)
             except (ValueError, TypeError):
@@ -319,9 +309,7 @@ def calculate_fractional_composition(input_data: dict[str, Any]) -> dict[str, An
             try:
                 distillate_val = parse_decimal_value(average_volume_distillate)
                 residue_val = parse_decimal_value(average_volume_residue)
-                volume_losses = round_to_one_decimal(
-                    Decimal("100") - distillate_val - residue_val
-                )
+                volume_losses = round_to_one_decimal(Decimal("100") - distillate_val - residue_val)
             except (ValueError, TypeError):
                 pass
 
@@ -331,37 +319,24 @@ def calculate_fractional_composition(input_data: dict[str, Any]) -> dict[str, An
         for field_name, value in average_temps.items():
             if _is_nonempty_numeric(value):
                 if any(
-                    temp_keyword in field_name.lower()
-                    for temp_keyword in ["температура", "отгона при температуре"]
+                    temp_keyword in field_name.lower() for temp_keyword in ["температура", "отгона при температуре"]
                 ):
                     try:
                         int_value = int(parse_decimal_value(value))
-                        normalized_key = field_name.replace(
-                            "Температура н,к.", "Температура н.к."
-                        )
+                        normalized_key = field_name.replace("Температура н,к.", "Температура н.к.")
                         intermediate_results[normalized_key] = str(int_value)
                     except (ValueError, TypeError):
-                        normalized_key = field_name.replace(
-                            "Температура н,к.", "Температура н.к."
-                        )
+                        normalized_key = field_name.replace("Температура н,к.", "Температура н.к.")
                         intermediate_results[normalized_key] = str(value)
 
         if average_volume_distillate is not None:
-            intermediate_results["Объемная доля отгона"] = _format_one_decimal_str(
-                average_volume_distillate
-            )
+            intermediate_results["Объемная доля отгона"] = _format_one_decimal_str(average_volume_distillate)
         if average_volume_residue is not None:
-            intermediate_results["Объемная доля остатка"] = _format_one_decimal_str(
-                average_volume_residue
-            )
+            intermediate_results["Объемная доля остатка"] = _format_one_decimal_str(average_volume_residue)
         if volume_losses is not None:
-            intermediate_results["Объемная доля потерь"] = _format_one_decimal_str(
-                volume_losses
-            )
+            intermediate_results["Объемная доля потерь"] = _format_one_decimal_str(volume_losses)
 
-        result_json = orjson.dumps(
-            intermediate_results, option=orjson.OPT_NON_STR_KEYS
-        ).decode("utf-8")
+        result_json = orjson.dumps(intermediate_results, option=orjson.OPT_NON_STR_KEYS).decode("utf-8")
 
         return {
             "convergence": "satisfactory",
@@ -374,8 +349,8 @@ def calculate_fractional_composition(input_data: dict[str, Any]) -> dict[str, An
         }
 
     except Exception as e:
-        logger.error(f"Ошибка при расчете фракционного состава: {str(e)}")
-        raise ValueError(f"Ошибка при расчете фракционного состава: {str(e)}")
+        logger.error(f"Ошибка при расчете фракционного состава: {e!s}")
+        raise ValueError(f"Ошибка при расчете фракционного состава: {e!s}")
 
 
 def calculate_fractional_composition_oil(input_data: dict[str, Any]) -> dict[str, Any]:
@@ -509,30 +484,24 @@ def calculate_fractional_composition_oil(input_data: dict[str, Any]) -> dict[str
         ]
 
         average_temps = {}
-        for field_name in corrected_temps_1.keys():
+        for field_name in corrected_temps_1:
             val1 = corrected_temps_1.get(field_name, 0)
             val2 = corrected_temps_2.get(field_name, 0)
 
             if _is_nonempty_numeric(val1) and _is_nonempty_numeric(val2):
                 try:
-                    avg_val = (
-                        parse_decimal_value(val1) + parse_decimal_value(val2)
-                    ) / 2
+                    avg_val = (parse_decimal_value(val1) + parse_decimal_value(val2)) / 2
                     average_temps[field_name] = round_half_up_to_int(avg_val)
                 except (ValueError, TypeError):
                     average_temps[field_name] = val1
             elif _is_nonempty_numeric(val1):
                 try:
-                    average_temps[field_name] = round_half_up_to_int(
-                        parse_decimal_value(val1)
-                    )
+                    average_temps[field_name] = round_half_up_to_int(parse_decimal_value(val1))
                 except (ValueError, TypeError):
                     average_temps[field_name] = val1
             elif _is_nonempty_numeric(val2):
                 try:
-                    average_temps[field_name] = round_half_up_to_int(
-                        parse_decimal_value(val2)
-                    )
+                    average_temps[field_name] = round_half_up_to_int(parse_decimal_value(val2))
                 except (ValueError, TypeError):
                     average_temps[field_name] = val2
 
@@ -542,24 +511,18 @@ def calculate_fractional_composition_oil(input_data: dict[str, Any]) -> dict[str
 
             if _is_nonempty_numeric(val1) and _is_nonempty_numeric(val2):
                 try:
-                    avg_val = (
-                        parse_decimal_value(val1) + parse_decimal_value(val2)
-                    ) / 2
+                    avg_val = (parse_decimal_value(val1) + parse_decimal_value(val2)) / 2
                     average_outputs[field_name] = round_to_half(avg_val)
                 except (ValueError, TypeError):
                     average_outputs[field_name] = val1
             elif _is_nonempty_numeric(val1):
                 try:
-                    average_outputs[field_name] = round_to_half(
-                        parse_decimal_value(val1)
-                    )
+                    average_outputs[field_name] = round_to_half(parse_decimal_value(val1))
                 except (ValueError, TypeError):
                     average_outputs[field_name] = val1
             elif _is_nonempty_numeric(val2):
                 try:
-                    average_outputs[field_name] = round_to_half(
-                        parse_decimal_value(val2)
-                    )
+                    average_outputs[field_name] = round_to_half(parse_decimal_value(val2))
                 except (ValueError, TypeError):
                     average_outputs[field_name] = val2
 
@@ -570,25 +533,17 @@ def calculate_fractional_composition_oil(input_data: dict[str, Any]) -> dict[str
             if _is_nonempty_numeric(value):
                 try:
                     int_value = int(parse_decimal_value(value))
-                    normalized_key = field_name.replace(
-                        "Температура н,к.", "Температура н.к."
-                    )
+                    normalized_key = field_name.replace("Температура н,к.", "Температура н.к.")
                     intermediate_results[normalized_key] = str(int_value)
                 except (ValueError, TypeError):
-                    normalized_key = field_name.replace(
-                        "Температура н,к.", "Температура н.к."
-                    )
+                    normalized_key = field_name.replace("Температура н,к.", "Температура н.к.")
                     intermediate_results[normalized_key] = str(value)
 
         for field_name, value in average_outputs.items():
             if _is_nonempty_numeric(value):
-                intermediate_results[f"Выход фракций до {field_name}"] = (
-                    _format_one_decimal_str(value)
-                )
+                intermediate_results[f"Выход фракций до {field_name}"] = _format_one_decimal_str(value)
 
-        result_json = orjson.dumps(
-            intermediate_results, option=orjson.OPT_NON_STR_KEYS
-        ).decode("utf-8")
+        result_json = orjson.dumps(intermediate_results, option=orjson.OPT_NON_STR_KEYS).decode("utf-8")
 
         return {
             "convergence": "satisfactory",
@@ -601,5 +556,5 @@ def calculate_fractional_composition_oil(input_data: dict[str, Any]) -> dict[str
         }
 
     except Exception as e:
-        logger.error(f"Ошибка при расчете фракционного состава нефти: {str(e)}")
-        raise ValueError(f"Ошибка при расчете фракционного состава нефти: {str(e)}")
+        logger.error(f"Ошибка при расчете фракционного состава нефти: {e!s}")
+        raise ValueError(f"Ошибка при расчете фракционного состава нефти: {e!s}")

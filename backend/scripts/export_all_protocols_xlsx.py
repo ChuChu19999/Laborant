@@ -18,31 +18,31 @@
 
 import argparse
 import asyncio
-import re
-import sys
 from collections import defaultdict
 from copy import copy
 from io import BytesIO
 from pathlib import Path
+import re
+import sys
 from typing import Any
-import pendulum
 from fastapi import HTTPException
 from loguru import logger
 from openpyxl import Workbook, load_workbook
+import pendulum
 from sqlalchemy import select
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BACKEND_DIR))
 
-import services.employees as employees_module  # noqa: E402
-import services.protocol_generator as protocol_generator_module  # noqa: E402
 from core.config import settings  # noqa: E402
 from core.database import AsyncSessionLocal  # noqa: E402
 from core.http_clients import get_hr_client  # noqa: E402
 from models.calculation import Calculation  # noqa: E402
 from models.protocol import Protocol  # noqa: E402
 from models.research import ResearchMethod  # noqa: E402
+import services.employees as employees_module  # noqa: E402
 from services.employees import get_employees_by_hsnils  # noqa: E402
+import services.protocol_generator as protocol_generator_module  # noqa: E402
 from services.protocol_generator import generate_protocol_excel  # noqa: E402
 from utils.date import ensure_datetime, parse_datetime_string  # noqa: E402
 
@@ -64,17 +64,11 @@ def resolve_protocol_target_date(protocol: Protocol):
     return target_date
 
 
-async def _cached_get_employees_by_hsnils(
-    hsnils_list: list[str], include_photo: bool = False
-) -> dict[str, dict]:
+async def _cached_get_employees_by_hsnils(hsnils_list: list[str], include_photo: bool = False) -> dict[str, dict]:
     """Вернуть сотрудников из предзагруженного кэша без повторных запросов к HR."""
     del include_photo
     unique_hsnils = [h for h in dict.fromkeys(hsnils_list) if h]
-    return {
-        h: _employees_by_hsnils_store[h]
-        for h in unique_hsnils
-        if h in _employees_by_hsnils_store
-    }
+    return {h: _employees_by_hsnils_store[h] for h in unique_hsnils if h in _employees_by_hsnils_store}
 
 
 def install_hr_employees_cache() -> None:
@@ -96,9 +90,7 @@ def restore_hr_employees_cache() -> None:
     _hr_cache_installed = False
 
 
-def _merge_employee_records(
-    result: dict[str, dict[str, Any]], employee: dict[str, Any]
-) -> None:
+def _merge_employee_records(result: dict[str, dict[str, Any]], employee: dict[str, Any]) -> None:
     """Выбрать актуальную запись сотрудника при дубликатах hashMd5."""
     hash_md5 = employee.get("hashMd5")
     if not hash_md5:
@@ -134,9 +126,7 @@ async def fetch_employees_by_hashes_post(
     }
 
     client = await get_hr_client()
-    response = await client.post(
-        url, headers={"Content-Type": "application/json"}, json=payload
-    )
+    response = await client.post(url, headers={"Content-Type": "application/json"}, json=payload)
 
     if response.status_code == 404:
         return {}
@@ -162,17 +152,13 @@ def format_employee_name(full_name: str) -> str:
     if len(name_parts) >= 3:
         surname = name_parts[0]
         first_name = name_parts[1][0] + "." if name_parts[1] else ""
-        middle_name = (
-            name_parts[2][0] + "." if len(name_parts) > 2 and name_parts[2] else ""
-        )
+        middle_name = name_parts[2][0] + "." if len(name_parts) > 2 and name_parts[2] else ""
         return f"{first_name}{middle_name} {surname}"
 
     return full_name
 
 
-def resolve_position_and_name(
-    employee_data: dict[str, Any], target_date
-) -> tuple[str, str]:
+def resolve_position_and_name(employee_data: dict[str, Any], target_date) -> tuple[str, str]:
     """Определить должность и имя по данным из POST-батча."""
     full_name = employee_data.get("fullName", "")
     formatted_name = format_employee_name(full_name)
@@ -200,11 +186,7 @@ def resolve_position_and_name(
 
         try:
             begin_datetime = ensure_datetime(parse_datetime_string(begin_date_str))
-            end_datetime = (
-                ensure_datetime(parse_datetime_string(end_date_str))
-                if end_date_str
-                else None
-            )
+            end_datetime = ensure_datetime(parse_datetime_string(end_date_str)) if end_date_str else None
 
             if not begin_datetime:
                 continue
@@ -220,9 +202,7 @@ def resolve_position_and_name(
                     best_appointment = appointment
                     target_position = position_name
                 else:
-                    best_begin_datetime = ensure_datetime(
-                        parse_datetime_string(best_appointment.get("beginDate", ""))
-                    )
+                    best_begin_datetime = ensure_datetime(parse_datetime_string(best_appointment.get("beginDate", "")))
                     if best_begin_datetime and begin_datetime > best_begin_datetime:
                         best_appointment = appointment
                         target_position = position_name
@@ -289,10 +269,7 @@ async def prefetch_hr_for_protocols(db, protocols: list[Protocol]) -> None:
         logger.info("HR: сотрудники в протоколах не найдены")
         return
 
-    logger.info(
-        f"HR: POST-батч для {len(all_hashes)} сотрудников, "
-        f"{len(position_keys)} пар (hash, дата)"
-    )
+    logger.info(f"HR: POST-батч для {len(all_hashes)} сотрудников, {len(position_keys)} пар (hash, дата)")
 
     hash_list = list(all_hashes)
     for offset in range(0, len(hash_list), HR_BATCH_SIZE):
@@ -314,9 +291,7 @@ def copy_worksheet(source_ws, target_wb, sheet_title: str):
 
     for row in source_ws.iter_rows():
         for cell in row:
-            target_cell = target_ws.cell(
-                row=cell.row, column=cell.column, value=cell.value
-            )
+            target_cell = target_ws.cell(row=cell.row, column=cell.column, value=cell.value)
             if cell.has_style:
                 target_cell.font = copy(cell.font)
                 target_cell.border = copy(cell.border)
@@ -378,9 +353,7 @@ def build_sheet_title(protocol: Protocol, used_titles: set[str]) -> str:
     return title
 
 
-async def filter_protocols_with_deleted_methods(
-    db, protocols: list[Protocol]
-) -> list[Protocol]:
+async def filter_protocols_with_deleted_methods(db, protocols: list[Protocol]) -> list[Protocol]:
     """Оставить протоколы, у которых есть расчёт с удалённым методом исследования."""
     if not protocols:
         return []
@@ -409,15 +382,9 @@ async def filter_protocols_with_deleted_methods(
 
     protocol_ids_with_deleted_method: set[int] = set()
     for sample_id in samples_with_deleted_method:
-        protocol_ids_with_deleted_method.update(
-            sample_to_protocol_ids.get(sample_id, [])
-        )
+        protocol_ids_with_deleted_method.update(sample_to_protocol_ids.get(sample_id, []))
 
-    return [
-        protocol
-        for protocol in protocols
-        if protocol.id in protocol_ids_with_deleted_method
-    ]
+    return [protocol for protocol in protocols if protocol.id in protocol_ids_with_deleted_method]
 
 
 async def export_all_protocols(
@@ -428,11 +395,7 @@ async def export_all_protocols(
 ) -> None:
     """Сгенерировать все неудалённые протоколы в один файл."""
     async with AsyncSessionLocal() as db:
-        query = (
-            select(Protocol)
-            .where(Protocol.deleted_at.is_(None))
-            .order_by(Protocol.id.asc())
-        )
+        query = select(Protocol).where(Protocol.deleted_at.is_(None)).order_by(Protocol.id.asc())
         if laboratory_id is not None:
             query = query.where(Protocol.laboratory_id == laboratory_id)
         if department_id is not None:
@@ -444,16 +407,11 @@ async def export_all_protocols(
         if only_with_deleted_methods:
             total_before = len(protocols)
             protocols = await filter_protocols_with_deleted_methods(db, protocols)
-            logger.info(
-                f"Фильтр --only-with-deleted-methods: "
-                f"{len(protocols)} из {total_before} протоколов"
-            )
+            logger.info(f"Фильтр --only-with-deleted-methods: {len(protocols)} из {total_before} протоколов")
 
         if not protocols:
             if only_with_deleted_methods:
-                logger.warning(
-                    "Не найдено протоколов с удалёнными методами исследования"
-                )
+                logger.warning("Не найдено протоколов с удалёнными методами исследования")
             else:
                 logger.warning("Не найдено неудалённых протоколов")
             return
@@ -492,22 +450,14 @@ async def export_all_protocols(
                     copy_worksheet(source_ws, target_wb, sheet_title)
                     source_wb.close()
                     success_count += 1
-                    logger.info(
-                        f"OK протокол {protocol.id} ({protocol_label}) -> лист «{sheet_title}»"
-                    )
+                    logger.info(f"OK протокол {protocol.id} ({protocol_label}) -> лист «{sheet_title}»")
                 except HTTPException as exc:
-                    detail = (
-                        exc.detail if isinstance(exc.detail, str) else str(exc.detail)
-                    )
+                    detail = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
                     skipped.append((protocol.id, detail))
-                    logger.warning(
-                        f"Пропуск протокола {protocol.id} ({protocol_label}): {detail}"
-                    )
+                    logger.warning(f"Пропуск протокола {protocol.id} ({protocol_label}): {detail}")
                 except Exception as exc:
                     skipped.append((protocol.id, str(exc)))
-                    logger.exception(
-                        f"Ошибка протокола {protocol.id} ({protocol_label}): {exc}"
-                    )
+                    logger.exception(f"Ошибка протокола {protocol.id} ({protocol_label}): {exc}")
 
             if success_count == 0:
                 logger.error("Ни один протокол не сформирован, файл не создан")
@@ -531,9 +481,7 @@ async def export_all_protocols(
 
 def parse_args() -> argparse.Namespace:
     """Разбор аргументов командной строки."""
-    parser = argparse.ArgumentParser(
-        description="Экспорт всех неудалённых протоколов в один .xlsx (лист на протокол)."
-    )
+    parser = argparse.ArgumentParser(description="Экспорт всех неудалённых протоколов в один .xlsx (лист на протокол).")
     parser.add_argument(
         "-o",
         "--output",

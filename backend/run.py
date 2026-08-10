@@ -20,9 +20,7 @@ def colorize_log_line(line: str) -> str:
         return f"{Fore.YELLOW}{line}{Style.RESET_ALL}"
 
     # Парсинг access log формата: [time] addr - "method path protocol" status dt_ms
-    access_log_pattern = (
-        r'\[([^\]]+)\] ([^\s]+) - "(\w+) ([^"]+) ([^"]+)" (\d+) ([\d.]+)ms'
-    )
+    access_log_pattern = r'\[([^\]]+)\] ([^\s]+) - "(\w+) ([^"]+) ([^"]+)" (\d+) ([\d.]+)ms'
     match = re.match(access_log_pattern, line.strip())
 
     if match:
@@ -92,9 +90,7 @@ def run_uvicorn_with_colors():
             colored_line = colorize_log_line(line.rstrip())
             print(colored_line, flush=True)
     except KeyboardInterrupt:
-        print(
-            f"{Fore.YELLOW}Получен сигнал завершения, ожидание корректного завершения uvicorn...{Style.RESET_ALL}"
-        )
+        print(f"{Fore.YELLOW}Получен сигнал завершения, ожидание корректного завершения uvicorn...{Style.RESET_ALL}")
         process.terminate()
         try:
             process.wait(timeout=5)

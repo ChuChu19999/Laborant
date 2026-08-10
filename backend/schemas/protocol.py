@@ -8,31 +8,15 @@ SamplingActNumber = Annotated[NonEmptyStr, Field(max_length=50)]
 
 
 class ProtocolBase(BaseModel):
-    test_protocol_number: str | None = Field(
-        None, max_length=100, description="Номер протокола испытаний"
-    )
-    test_protocol_date: date | None = Field(
-        None, description="Дата протокола испытаний"
-    )
-    is_accredited: bool = Field(
-        default=False, description="Признак аккредитации протокола"
-    )
+    test_protocol_number: str | None = Field(None, max_length=100, description="Номер протокола испытаний")
+    test_protocol_date: date | None = Field(None, description="Дата протокола испытаний")
+    is_accredited: bool = Field(default=False, description="Признак аккредитации протокола")
     sampling_act_number: SamplingActNumber = Field(..., description="Номер акта отбора")
-    issued: str | None = Field(
-        None, max_length=150, description="hsnils лица, оформившего протокол"
-    )
-    approved: str | None = Field(
-        None, max_length=150, description="hsnils лица, утвердившего протокол"
-    )
-    issued_position: str | None = Field(
-        None, max_length=100, description="Должность оформившего"
-    )
-    approved_position: str | None = Field(
-        None, max_length=100, description="Должность утвердившего"
-    )
-    samples: list[int] | None = Field(
-        None, description="Массив ID проб, привязанных к протоколу"
-    )
+    issued: str | None = Field(None, max_length=150, description="hsnils лица, оформившего протокол")
+    approved: str | None = Field(None, max_length=150, description="hsnils лица, утвердившего протокол")
+    issued_position: str | None = Field(None, max_length=100, description="Должность оформившего")
+    approved_position: str | None = Field(None, max_length=100, description="Должность утвердившего")
+    samples: list[int] | None = Field(None, description="Массив ID проб, привязанных к протоколу")
 
 
 class ProtocolCreate(ProtocolBase):

@@ -1,6 +1,5 @@
 from __future__ import annotations
 from fastapi import APIRouter, Depends
-from core.auth_decorators import IsAuthenticated
 from core.deps import DbSession, EquipmentListFilters, UserPermissions
 from schemas.equipment import EquipmentCreate, EquipmentResponse, EquipmentUpdate
 from schemas.pagination import PaginatedResponse
@@ -9,9 +8,7 @@ from services.equipment import (
     build_equipment_response,
     create_equipment,
     delete_equipment,
-)
-from services.equipment import get_equipment as get_equipment_list
-from services.equipment import (
+    get_equipment as get_equipment_list,
     require_equipment_by_id,
     update_equipment,
 )

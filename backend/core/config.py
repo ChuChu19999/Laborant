@@ -36,11 +36,7 @@ class Settings(BaseSettings):
         """Список разрешенных origins для CORS."""
         if not self.CORS_ALLOWED_ORIGINS or self.CORS_ALLOWED_ORIGINS.strip() == "":
             return []
-        return [
-            origin.strip()
-            for origin in self.CORS_ALLOWED_ORIGINS.split(" ")
-            if origin.strip()
-        ]
+        return [origin.strip() for origin in self.CORS_ALLOWED_ORIGINS.split(" ") if origin.strip()]
 
     @property
     def cors_allow_methods_list(self) -> list[str]:
@@ -49,11 +45,7 @@ class Settings(BaseSettings):
             return ["*"]
         if not self.CORS_ALLOW_METHODS or self.CORS_ALLOW_METHODS.strip() == "":
             return []
-        return [
-            method.strip()
-            for method in self.CORS_ALLOW_METHODS.split(" ")
-            if method.strip()
-        ]
+        return [method.strip() for method in self.CORS_ALLOW_METHODS.split(" ") if method.strip()]
 
     @property
     def cors_allow_headers_list(self) -> list[str]:
@@ -62,11 +54,7 @@ class Settings(BaseSettings):
             return ["*"]
         if not self.CORS_ALLOW_HEADERS or self.CORS_ALLOW_HEADERS.strip() == "":
             return []
-        return [
-            header.strip()
-            for header in self.CORS_ALLOW_HEADERS.split(" ")
-            if header.strip()
-        ]
+        return [header.strip() for header in self.CORS_ALLOW_HEADERS.split(" ") if header.strip()]
 
     class Config:
         env_file = str(env_path)

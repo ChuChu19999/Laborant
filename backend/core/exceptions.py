@@ -60,14 +60,10 @@ class ServiceUnavailableError(BusinessLogicError):
         super().__init__(message, status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
 
 
-async def validation_exception_handler(
-    request: Request, exc: RequestValidationError
-) -> ORJSONResponse:
+async def validation_exception_handler(request: Request, exc: RequestValidationError) -> ORJSONResponse:
     """Обработчик ошибок валидации с логированием."""
     logger.error(f"Ошибка валидации для {request.url.path}: {exc.errors()}")
-    logger.error(
-        f"Тело запроса: {await request.body() if hasattr(request, 'body') else 'N/A'}"
-    )
+    logger.error(f"Тело запроса: {await request.body() if hasattr(request, 'body') else 'N/A'}")
     return ORJSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={
@@ -77,9 +73,7 @@ async def validation_exception_handler(
     )
 
 
-async def business_logic_exception_handler(
-    request: Request, exc: BusinessLogicError
-) -> ORJSONResponse:
+async def business_logic_exception_handler(request: Request, exc: BusinessLogicError) -> ORJSONResponse:
     """Обработчик ошибок бизнес-логики."""
     logger.warning(f"Ошибка бизнес-логики для {request.url.path}: {exc.message}")
     return ORJSONResponse(

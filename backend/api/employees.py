@@ -1,6 +1,5 @@
 from __future__ import annotations
 from fastapi import APIRouter, Body, Query
-from core.auth_decorators import IsAuthenticated
 from core.exceptions import ValidationError
 from schemas.employees import EmployeesByHsnilsRequest
 from services.employees import (
@@ -83,11 +82,7 @@ async def search_employees(
                 }
             },
         },
-        400: {
-            "description": (
-                "Поисковый запрос короче 3 символов или не указано наименование лаборатории"
-            )
-        },
+        400: {"description": ("Поисковый запрос короче 3 символов или не указано наименование лаборатории")},
         503: {"description": "Ошибка при обращении к HR API"},
     },
 )
@@ -116,17 +111,14 @@ async def search_employees_by_laboratory(
     if not laboratory_name:
         raise ValidationError("Не указано наименование лаборатории")
 
-    return await search_employees_by_fio_and_laboratory(
-        search_fio, laboratory_name, include_photo=include_photo
-    )
+    return await search_employees_by_fio_and_laboratory(search_fio, laboratory_name, include_photo=include_photo)
 
 
 @router.get(
     "/{hsnils}/",
     summary="Получение информации о сотруднике",
     description=(
-        "Возвращает полную информацию о сотруднике по hsnils из HR API. "
-        "Может включать фотографию сотрудника."
+        "Возвращает полную информацию о сотруднике по hsnils из HR API. Может включать фотографию сотрудника."
     ),
     responses={
         200: {
@@ -200,6 +192,4 @@ async def get_employees_by_hsnils_endpoint(
     if not request.hsnils:
         return {}
 
-    return await get_employees_by_hsnils(
-        request.hsnils, include_photo=request.includePhoto
-    )
+    return await get_employees_by_hsnils(request.hsnils, include_photo=request.includePhoto)

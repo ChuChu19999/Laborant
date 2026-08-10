@@ -1,6 +1,5 @@
 from __future__ import annotations
 from fastapi import APIRouter, Query
-from core.auth_decorators import IsAuthenticated
 from core.deps import DbSession, UserPermissions
 from schemas.mass_fraction import (
     MassFractionOilRefractionTableBulkUpdate,
@@ -84,9 +83,7 @@ async def list_mass_fraction_oil_refraction_tables(
     description="Добавляет новую точку градуировочного графика (пара C–n).",
     responses={
         201: {"description": "Точка градуировочного графика успешно добавлена"},
-        400: {
-            "description": "Некорректные данные для добавления точки градуировочного графика"
-        },
+        400: {"description": "Некорректные данные для добавления точки градуировочного графика"},
     },
 )
 # @IsAuthenticated
@@ -174,8 +171,7 @@ async def delete_mass_fraction_oil_refraction_table_endpoint(
     status_code=200,
     summary="Массовое обновление градуировочного графика",
     description=(
-        "Выполняет массовое обновление градуировочного графика. "
-        "Помечает старые точки как неактивные и создаёт новые."
+        "Выполняет массовое обновление градуировочного графика. Помечает старые точки как неактивные и создаёт новые."
     ),
     responses={
         200: {"description": "Градуировочный график успешно обновлен"},

@@ -10,9 +10,7 @@ ReportTypeField = Annotated[str, AfterValidator(_validate_report_type)]
 
 
 class ReportTemplateBase(BaseModel):
-    report_type: Annotated[ReportTypeField, Field(max_length=255)] = Field(
-        ..., description="Тип отчёта"
-    )
+    report_type: Annotated[ReportTypeField, Field(max_length=255)] = Field(..., description="Тип отчёта")
     file_name: str = Field(..., max_length=255, description="Оригинальное имя файла")
 
 
@@ -54,12 +52,8 @@ class GenerateSampleCountReportRequest(BaseModel):
         None,
         description="ID шаблона; если не указан — последний для типа «Количество проб»",
     )
-    date_from: date = Field(
-        ..., description="Начало периода по дате получения пробы (YYYY-MM-DD)"
-    )
-    date_to: date = Field(
-        ..., description="Конец периода по дате получения пробы (YYYY-MM-DD)"
-    )
+    date_from: date = Field(..., description="Начало периода по дате получения пробы (YYYY-MM-DD)")
+    date_to: date = Field(..., description="Конец периода по дате получения пробы (YYYY-MM-DD)")
 
 
 class GeneratePhysicochemicalReportRequest(BaseModel):
@@ -72,17 +66,10 @@ class GeneratePhysicochemicalReportRequest(BaseModel):
     )
     template_id: int | None = Field(
         None,
-        description=(
-            "ID шаблона; если не указан — последний для типа "
-            "«Физико-химическая характеристика»"
-        ),
+        description=("ID шаблона; если не указан — последний для типа «Физико-химическая характеристика»"),
     )
-    date_from: date = Field(
-        ..., description="Начало периода по дате отбора пробы (YYYY-MM-DD)"
-    )
-    date_to: date = Field(
-        ..., description="Конец периода по дате отбора пробы (YYYY-MM-DD)"
-    )
+    date_from: date = Field(..., description="Начало периода по дате отбора пробы (YYYY-MM-DD)")
+    date_to: date = Field(..., description="Конец периода по дате отбора пробы (YYYY-MM-DD)")
     sampling_location: str = Field(
         ...,
         description="Место отбора: «ЦДГГКН №1», «ЦДГГКН №2» или имя цеха в справочнике",
@@ -101,12 +88,8 @@ class GenerateKgsReportRequest(BaseModel):
         None,
         description="ID шаблона; если не указан — последний для типа «Результаты КГС»",
     )
-    date_from: date = Field(
-        ..., description="Начало периода по дате отбора пробы (YYYY-MM-DD)"
-    )
-    date_to: date = Field(
-        ..., description="Конец периода по дате отбора пробы (YYYY-MM-DD)"
-    )
+    date_from: date = Field(..., description="Начало периода по дате отбора пробы (YYYY-MM-DD)")
+    date_to: date = Field(..., description="Конец периода по дате отбора пробы (YYYY-MM-DD)")
 
 
 class GenerateNksReportRequest(BaseModel):
@@ -121,11 +104,7 @@ class GenerateNksReportRequest(BaseModel):
         None,
         description="ID шаблона; если не указан — последний для типа «Результаты НКС»",
     )
-    date_from: date = Field(
-        ..., description="Начало периода по дате отбора пробы (YYYY-MM-DD)"
-    )
-    date_to: date = Field(
-        ..., description="Конец периода по дате отбора пробы (YYYY-MM-DD)"
-    )
+    date_from: date = Field(..., description="Начало периода по дате отбора пробы (YYYY-MM-DD)")
+    date_to: date = Field(..., description="Конец периода по дате отбора пробы (YYYY-MM-DD)")
     report_month: int = Field(..., ge=1, le=12, description="Месяц отчёта")
     report_year: int = Field(..., ge=1900, le=2100, description="Год отчёта")

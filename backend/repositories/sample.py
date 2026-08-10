@@ -23,9 +23,7 @@ from utils.sample_sort import (
 from utils.sorting import build_order_by
 
 
-async def get_sample_by_id(
-    db: AsyncSession, sample_id: int, include_deleted: bool = False
-) -> Sample | None:
+async def get_sample_by_id(db: AsyncSession, sample_id: int, include_deleted: bool = False) -> Sample | None:
     """Получить пробу по ID."""
     query = (
         select(Sample)
@@ -115,9 +113,7 @@ async def get_samples(
     elif test_object:
         conditions.append(Sample.test_object == test_object)
 
-    needs_sampling_location_join = (
-        search_sampling_location or sort_by == "sampling_location"
-    )
+    needs_sampling_location_join = search_sampling_location or sort_by == "sampling_location"
     if needs_sampling_location_join:
         query = query.join(
             SamplingLocation,
@@ -138,16 +134,10 @@ async def get_samples(
             " ",
             func.coalesce(Sample.mode, ""),
         )
-        conditions.append(
-            func.lower(sampling_location_text).ilike(f"%{sampling_location_search}%")
-        )
+        conditions.append(func.lower(sampling_location_text).ilike(f"%{sampling_location_search}%"))
 
-    add_date_range_filter(
-        conditions, sampling_date_from, sampling_date_to, Sample.sampling_date
-    )
-    add_date_range_filter(
-        conditions, receiving_date_from, receiving_date_to, Sample.receiving_date
-    )
+    add_date_range_filter(conditions, sampling_date_from, sampling_date_to, Sample.sampling_date)
+    add_date_range_filter(conditions, receiving_date_from, receiving_date_to, Sample.receiving_date)
     add_date_range_filter(conditions, created_at_from, created_at_to, Sample.created_at)
 
     if conditions:
@@ -193,9 +183,7 @@ async def get_samples(
         order_by = build_order_by(sort_by, sort_order, sort_mapping, Sample.created_at)
         query = query.order_by(order_by)
 
-    count_query = filter_not_deleted(
-        select(func.count()).select_from(Sample), Sample.deleted_at
-    )
+    count_query = filter_not_deleted(select(func.count()).select_from(Sample), Sample.deleted_at)
     count_conditions = _build_sample_count_conditions(
         laboratory_id=laboratory_id,
         department_id=department_id,
@@ -294,19 +282,11 @@ def _build_sample_count_conditions(
             " ",
             func.coalesce(Sample.mode, ""),
         )
-        count_conditions.append(
-            func.lower(sampling_location_text).ilike(f"%{sampling_location_search}%")
-        )
+        count_conditions.append(func.lower(sampling_location_text).ilike(f"%{sampling_location_search}%"))
 
-    add_date_range_filter(
-        count_conditions, sampling_date_from, sampling_date_to, Sample.sampling_date
-    )
-    add_date_range_filter(
-        count_conditions, receiving_date_from, receiving_date_to, Sample.receiving_date
-    )
-    add_date_range_filter(
-        count_conditions, created_at_from, created_at_to, Sample.created_at
-    )
+    add_date_range_filter(count_conditions, sampling_date_from, sampling_date_to, Sample.sampling_date)
+    add_date_range_filter(count_conditions, receiving_date_from, receiving_date_to, Sample.receiving_date)
+    add_date_range_filter(count_conditions, created_at_from, created_at_to, Sample.created_at)
     return count_conditions
 
 
@@ -395,9 +375,7 @@ async def get_samples_by_receiving_date_range(
         Sample.deleted_at,
     )
     conditions: list = []
-    add_date_range_filter(
-        conditions, receiving_date_from, receiving_date_to, Sample.receiving_date
-    )
+    add_date_range_filter(conditions, receiving_date_from, receiving_date_to, Sample.receiving_date)
     if department_id is not None:
         conditions.append(Sample.department_id == department_id)
     if conditions:
@@ -423,9 +401,7 @@ async def get_samples_by_sampling_date_range(
         Sample.deleted_at,
     )
     conditions: list = []
-    add_date_range_filter(
-        conditions, sampling_date_from, sampling_date_to, Sample.sampling_date
-    )
+    add_date_range_filter(conditions, sampling_date_from, sampling_date_to, Sample.sampling_date)
     if department_id is not None:
         conditions.append(Sample.department_id == department_id)
     if conditions:
@@ -457,9 +433,7 @@ async def get_oil_samples_by_sampling_location_name(
     )
     query = filter_not_deleted(query, SamplingLocation.deleted_at)
     conditions: list = []
-    add_date_range_filter(
-        conditions, sampling_date_from, sampling_date_to, Sample.sampling_date
-    )
+    add_date_range_filter(conditions, sampling_date_from, sampling_date_to, Sample.sampling_date)
     if department_id is not None:
         conditions.append(Sample.department_id == department_id)
     if conditions:
@@ -491,9 +465,7 @@ async def get_kgs_candidate_samples(
     )
     query = filter_not_deleted(query, SamplingLocation.deleted_at)
     conditions: list = []
-    add_date_range_filter(
-        conditions, sampling_date_from, sampling_date_to, Sample.sampling_date
-    )
+    add_date_range_filter(conditions, sampling_date_from, sampling_date_to, Sample.sampling_date)
     if department_id is not None:
         conditions.append(Sample.department_id == department_id)
     if conditions:

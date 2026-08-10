@@ -83,9 +83,7 @@ async def get_roles_by_names(
     if not names:
         return []
     unique_names = list(dict.fromkeys(names))
-    query = filter_not_deleted(select(Role), Role.deleted_at).where(
-        Role.name.in_(unique_names)
-    )
+    query = filter_not_deleted(select(Role), Role.deleted_at).where(Role.name.in_(unique_names))
     return await execute_scalars_all(db, query)
 
 

@@ -20,12 +20,8 @@ class Laboratory(BaseModel):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
-    name: Mapped[str] = mapped_column(
-        String(100), nullable=False, comment="Аббревиатура"
-    )
-    full_name: Mapped[str] = mapped_column(
-        String(255), nullable=False, comment="Полное название"
-    )
+    name: Mapped[str] = mapped_column(String(100), nullable=False, comment="Аббревиатура")
+    full_name: Mapped[str] = mapped_column(String(255), nullable=False, comment="Полное название")
     laboratory_location: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
@@ -36,23 +32,13 @@ class Laboratory(BaseModel):
     branches: Mapped[list["Branch"]] = relationship(back_populates="laboratory")
     samples: Mapped[list["Sample"]] = relationship(back_populates="laboratory")
     protocols: Mapped[list["Protocol"]] = relationship(back_populates="laboratory")
-    calculations: Mapped[list["Calculation"]] = relationship(
-        back_populates="laboratory"
-    )
+    calculations: Mapped[list["Calculation"]] = relationship(back_populates="laboratory")
     equipment: Mapped[list["Equipment"]] = relationship(back_populates="laboratory")
     nd_norms: Mapped[list["NdNorm"]] = relationship(back_populates="laboratory")
-    selection_conditions: Mapped[list["SelectionConditions"]] = relationship(
-        back_populates="laboratory"
-    )
-    protocol_templates: Mapped[list["ProtocolTemplate"]] = relationship(
-        back_populates="laboratory"
-    )
-    report_templates: Mapped[list["ReportTemplate"]] = relationship(
-        back_populates="laboratory"
-    )
-    research_methods: Mapped[list["ResearchMethod"]] = relationship(
-        back_populates="laboratory"
-    )
+    selection_conditions: Mapped[list["SelectionConditions"]] = relationship(back_populates="laboratory")
+    protocol_templates: Mapped[list["ProtocolTemplate"]] = relationship(back_populates="laboratory")
+    report_templates: Mapped[list["ReportTemplate"]] = relationship(back_populates="laboratory")
+    research_methods: Mapped[list["ResearchMethod"]] = relationship(back_populates="laboratory")
 
     __table_args__ = (
         Index(
@@ -78,9 +64,7 @@ class Department(BaseModel):
         ForeignKey(f"{get_database_schema()}.laboratories.id", ondelete="CASCADE"),
         nullable=False,
     )
-    name: Mapped[str] = mapped_column(
-        String(100), nullable=False, comment="Название подразделения"
-    )
+    name: Mapped[str] = mapped_column(String(100), nullable=False, comment="Название подразделения")
     laboratory_location: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
@@ -91,23 +75,13 @@ class Department(BaseModel):
     branches: Mapped[list["Branch"]] = relationship(back_populates="department")
     samples: Mapped[list["Sample"]] = relationship(back_populates="department")
     protocols: Mapped[list["Protocol"]] = relationship(back_populates="department")
-    calculations: Mapped[list["Calculation"]] = relationship(
-        back_populates="department"
-    )
+    calculations: Mapped[list["Calculation"]] = relationship(back_populates="department")
     equipment: Mapped[list["Equipment"]] = relationship(back_populates="department")
     nd_norms: Mapped[list["NdNorm"]] = relationship(back_populates="department")
-    selection_conditions: Mapped[list["SelectionConditions"]] = relationship(
-        back_populates="department"
-    )
-    protocol_templates: Mapped[list["ProtocolTemplate"]] = relationship(
-        back_populates="department"
-    )
-    report_templates: Mapped[list["ReportTemplate"]] = relationship(
-        back_populates="department"
-    )
-    research_methods: Mapped[list["ResearchMethod"]] = relationship(
-        back_populates="department"
-    )
+    selection_conditions: Mapped[list["SelectionConditions"]] = relationship(back_populates="department")
+    protocol_templates: Mapped[list["ProtocolTemplate"]] = relationship(back_populates="department")
+    report_templates: Mapped[list["ReportTemplate"]] = relationship(back_populates="department")
+    research_methods: Mapped[list["ResearchMethod"]] = relationship(back_populates="department")
 
     __table_args__ = (
         Index(
@@ -129,12 +103,8 @@ class Branch(BaseModel):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
-    name: Mapped[str] = mapped_column(
-        String(255), nullable=False, comment="Название филиала"
-    )
-    phone: Mapped[str | None] = mapped_column(
-        String(20), nullable=True, comment="Номер телефона филиала"
-    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False, comment="Название филиала")
+    phone: Mapped[str | None] = mapped_column(String(20), nullable=True, comment="Номер телефона филиала")
     laboratory_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey(f"{get_database_schema()}.laboratories.id", ondelete="CASCADE"),
@@ -148,12 +118,8 @@ class Branch(BaseModel):
 
     laboratory: Mapped["Laboratory"] = relationship(back_populates="branches")
     department: Mapped["Department | None"] = relationship(back_populates="branches")
-    sampling_locations: Mapped[list["SamplingLocation"]] = relationship(
-        "SamplingLocation", back_populates="branch"
-    )
-    well_modes: Mapped[list["WellMode"]] = relationship(
-        "WellMode", back_populates="branch"
-    )
+    sampling_locations: Mapped[list["SamplingLocation"]] = relationship("SamplingLocation", back_populates="branch")
+    well_modes: Mapped[list["WellMode"]] = relationship("WellMode", back_populates="branch")
     samples: Mapped[list["Sample"]] = relationship(back_populates="branch")
 
     __table_args__ = (
@@ -177,9 +143,7 @@ class SamplingLocation(BaseModel):
         ForeignKey(f"{get_database_schema()}.branches.id", ondelete="CASCADE"),
         nullable=False,
     )
-    name: Mapped[str] = mapped_column(
-        String(255), nullable=False, comment="Название места отбора пробы"
-    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False, comment="Название места отбора пробы")
 
     branch: Mapped["Branch"] = relationship(back_populates="sampling_locations")
     samples: Mapped[list["Sample"]] = relationship(back_populates="sampling_location")
@@ -209,9 +173,7 @@ class WellMode(BaseModel):
         ForeignKey(f"{get_database_schema()}.branches.id", ondelete="CASCADE"),
         nullable=False,
     )
-    name: Mapped[str] = mapped_column(
-        String(255), nullable=False, comment="Название режима скважины"
-    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False, comment="Название режима скважины")
 
     branch: Mapped["Branch"] = relationship(back_populates="well_modes")
 
@@ -227,6 +189,4 @@ class WellMode(BaseModel):
     )
 
     def __repr__(self):
-        return (
-            f"<WellMode(id={self.id}, name='{self.name}', branch_id={self.branch_id})>"
-        )
+        return f"<WellMode(id={self.id}, name='{self.name}', branch_id={self.branch_id})>"

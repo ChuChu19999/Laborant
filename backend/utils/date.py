@@ -37,5 +37,5 @@ def parse_datetime_string(date_str: str) -> pendulum.DateTime | None:
     try:
         return _parse_pendulum(date_str, naive=False)
     except Exception as e:
-        logger.warning(f"Не удалось распарсить дату: {date_str}, ошибка: {str(e)}")
+        logger.warning(f"Не удалось распарсить дату: {date_str}, ошибка: {e!s}")
         return None

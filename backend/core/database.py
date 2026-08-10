@@ -13,9 +13,7 @@ engine = create_async_engine(
     connect_args={"server_settings": {"search_path": get_database_schema()}},
 )
 
-AsyncSessionLocal = async_sessionmaker(
-    engine, class_=AsyncSession, expire_on_commit=False
-)
+AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 Base = declarative_base()
 

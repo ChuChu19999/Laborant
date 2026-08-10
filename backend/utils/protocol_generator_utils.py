@@ -1,7 +1,7 @@
 import base64
-import re
 from copy import copy
 from io import BytesIO
+import re
 import openpyxl
 from openpyxl.styles import Font
 from openpyxl.utils import column_index_from_string, get_column_letter
@@ -108,9 +108,7 @@ def strip_width_markers(cell_text: str) -> str:
     """Убирает {{start_width}} / {{end_width}} из текста ячейки."""
     if not cell_text or not isinstance(cell_text, str):
         return cell_text
-    return (
-        cell_text.replace(START_WIDTH_MARKER, "").replace(END_WIDTH_MARKER, "").strip()
-    )
+    return cell_text.replace(START_WIDTH_MARKER, "").replace(END_WIDTH_MARKER, "").strip()
 
 
 def strip_table1_structural_markers(cell_text: str) -> str:
@@ -134,9 +132,7 @@ def group_name_matches(required: str, actual: str) -> bool:
         return False
     if required_norm == actual_norm:
         return True
-    return required_norm.startswith(actual_norm) or actual_norm.startswith(
-        required_norm
-    )
+    return required_norm.startswith(actual_norm) or actual_norm.startswith(required_norm)
 
 
 def format_measurement_error_value(error_value: str | None) -> str:
@@ -222,9 +218,7 @@ def format_protocol_calculation_result(calc) -> str:
     in_mf_oil = method_name == MASS_FRACTION_OIL_DISPLAY_NAME
     if not in_mf_oil:
         for g in getattr(rm, "groups", None) or []:
-            if (
-                getattr(g, "name", None) or ""
-            ).strip() == MASS_FRACTION_OIL_DISPLAY_NAME:
+            if (getattr(g, "name", None) or "").strip() == MASS_FRACTION_OIL_DISPLAY_NAME:
                 in_mf_oil = True
                 break
     if not in_mf_oil:
@@ -293,13 +287,11 @@ def copy_row_with_styles(
                 copy_cell_style(source_cell, target_cell)
 
             except Exception as cell_error:
-                logger.error(
-                    f"Ошибка при копировании ячейки [{source_row}, {col}]: {str(cell_error)}"
-                )
+                logger.error(f"Ошибка при копировании ячейки [{source_row}, {col}]: {cell_error!s}")
                 continue
 
     except Exception as e:
-        logger.error(f"Ошибка при копировании строки {source_row}: {str(e)}")
+        logger.error(f"Ошибка при копировании строки {source_row}: {e!s}")
         raise
 
 
@@ -402,9 +394,7 @@ def decode_protocol_template_file(file_data: str | bytes) -> bytes:
             return file_data.encode()
 
 
-def copy_row_formatting(
-    source_sheet, target_sheet, source_row, target_row, merged_cells_map=None
-):
+def copy_row_formatting(source_sheet, target_sheet, source_row, target_row, merged_cells_map=None):
     """Копирует все форматирование строки: стили, размеры и объединенные ячейки."""
     copy_row_dimension(source_sheet, target_sheet, source_row, target_row)
 
@@ -518,11 +508,7 @@ def find_protocol_end_row(sheet) -> int | None:
     for row_num in range(1, sheet.max_row + 1):
         for col_num in range(1, max_col + 1):
             cell_value = sheet.cell(row=row_num, column=col_num).value
-            if (
-                cell_value
-                and isinstance(cell_value, str)
-                and phrase in cell_value.lower()
-            ):
+            if cell_value and isinstance(cell_value, str) and phrase in cell_value.lower():
                 return row_num
     return None
 
@@ -679,9 +665,7 @@ def copy_column_dimensions_range(
             continue
         target_sheet.column_dimensions[tgt_letter].width = width
         if src_letter in source_sheet.column_dimensions:
-            target_sheet.column_dimensions[tgt_letter].hidden = (
-                source_sheet.column_dimensions[src_letter].hidden
-            )
+            target_sheet.column_dimensions[tgt_letter].hidden = source_sheet.column_dimensions[src_letter].hidden
 
 
 def copy_column_dimensions(
@@ -709,7 +693,7 @@ def copy_column_dimensions(
             target_sheet.column_dimensions[key].width = value.width
             target_sheet.column_dimensions[key].hidden = value.hidden
     except Exception as e:
-        logger.error(f"Ошибка при копировании размеров столбцов: {str(e)}")
+        logger.error(f"Ошибка при копировании размеров столбцов: {e!s}")
 
 
 def copy_sheet_page_settings(source_sheet, target_sheet) -> None:
@@ -804,7 +788,7 @@ def get_cell_width(sheet, row, col):
             return 64
 
     except Exception as e:
-        logger.error(f"Ошибка при получении ширины ячейки [{row}, {col}]: {str(e)}")
+        logger.error(f"Ошибка при получении ширины ячейки [{row}, {col}]: {e!s}")
         return 64  # Возвращаем стандартную ширину в случае ошибки
 
 
@@ -848,7 +832,7 @@ def calculate_text_height(text, cell_width_pixels, font_size_pixels=FONT_SIZE_PI
         return text_height
 
     except Exception as e:
-        logger.error(f"Ошибка при расчете высоты текста: {str(e)}")
+        logger.error(f"Ошибка при расчете высоты текста: {e!s}")
         return LINE_HEIGHT_PIXELS
 
 
@@ -883,16 +867,14 @@ def adjust_cell_height_if_needed(sheet, row, col, text, min_height_pixels=35):
 
             # Устанавливаем высоту строки
             if row not in sheet.row_dimensions:
-                sheet.row_dimensions[row] = openpyxl.worksheet.dimensions.RowDimension(
-                    sheet, row
-                )
+                sheet.row_dimensions[row] = openpyxl.worksheet.dimensions.RowDimension(sheet, row)
             sheet.row_dimensions[row].height = new_height_points
             return True
 
         return False
 
     except Exception as e:
-        logger.error(f"Ошибка при настройке высоты ячейки [{row}, {col}]: {str(e)}")
+        logger.error(f"Ошибка при настройке высоты ячейки [{row}, {col}]: {e!s}")
         return False
 
 
@@ -902,9 +884,7 @@ def check_method_name(method_name, test_objects):
     test_objects_lower = [obj.lower() for obj in test_objects]
 
     # Если в методе есть "нефть", но в объектах испытаний нет нефти
-    if "нефть" in method_lower and not any(
-        "нефть" in obj for obj in test_objects_lower
-    ):
+    if "нефть" in method_lower and not any("нефть" in obj for obj in test_objects_lower):
         return False
 
     # Если в методе есть "конденсат", проверяем наличие конденсата в объектах испытаний

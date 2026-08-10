@@ -13,11 +13,7 @@ def map_hr_employee_to_app(employee: dict[str, Any]) -> dict[str, Any]:
 
 
 def map_hr_employees_list(employees: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return [
-        map_hr_employee_to_app(employee)
-        for employee in employees
-        if isinstance(employee, dict)
-    ]
+    return [map_hr_employee_to_app(employee) for employee in employees if isinstance(employee, dict)]
 
 
 def map_hr_employees_by_key(

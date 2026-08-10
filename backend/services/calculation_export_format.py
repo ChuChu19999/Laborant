@@ -82,13 +82,9 @@ def _format_fractional_result_text(result: str, method_name: str) -> str:
             if isinstance(value, (int, float)):
                 val_str = str(value)
                 if is_oil:
-                    formatted_value = _round_value_for_oil_fractional(
-                        val_str, corrected_key
-                    )
+                    formatted_value = _round_value_for_oil_fractional(val_str, corrected_key)
                 elif is_condensate:
-                    formatted_value = _round_value_for_condensate_fractional(
-                        val_str, corrected_key
-                    )
+                    formatted_value = _round_value_for_condensate_fractional(val_str, corrected_key)
                 else:
                     formatted_value = val_str.replace(".", ",")
             else:
@@ -97,13 +93,9 @@ def _format_fractional_result_text(result: str, method_name: str) -> str:
                 try:
                     float(normalized)
                     if is_oil:
-                        formatted_value = _round_value_for_oil_fractional(
-                            str_value, corrected_key
-                        )
+                        formatted_value = _round_value_for_oil_fractional(str_value, corrected_key)
                     elif is_condensate:
-                        formatted_value = _round_value_for_condensate_fractional(
-                            str_value, corrected_key
-                        )
+                        formatted_value = _round_value_for_condensate_fractional(str_value, corrected_key)
                     else:
                         formatted_value = re.sub(r"(-?\d+)\.(\d+)", r"\1,\2", str_value)
                 except ValueError:
@@ -131,9 +123,7 @@ def _format_fractional_error_text(
 
         if is_condensate or is_oil:
             try:
-                parsed_result = (
-                    orjson.loads(result) if isinstance(result, str) else result
-                )
+                parsed_result = orjson.loads(result) if isinstance(result, str) else result
                 if isinstance(parsed_result, dict):
                     error_map: dict[str, str] = {}
 
@@ -151,11 +141,7 @@ def _format_fractional_error_text(
                             elif corrected_key == "Объемная доля остатка":
                                 error_map[corrected_key] = "±0,3"
                             elif corrected_key == "Температура к.к.":
-                                error_map[corrected_key] = (
-                                    _get_condensate_kk_measurement_error(
-                                        parsed_result[key]
-                                    )
-                                )
+                                error_map[corrected_key] = _get_condensate_kk_measurement_error(parsed_result[key])
                             else:
                                 error_map[corrected_key] = "-"
                     elif is_oil:
@@ -249,9 +235,7 @@ def _format_fractional_lines(
     method_name: str,
 ) -> str:
     result_lines = _format_fractional_result_text(calc.result, method_name).split("\n")
-    error_lines = _format_fractional_error_text(
-        calc.measurement_error, method_name, calc.result
-    ).split("\n")
+    error_lines = _format_fractional_error_text(calc.measurement_error, method_name, calc.result).split("\n")
     unit_lines = _format_fractional_unit_text(calc, method).split("\n")
 
     max_lines = max(len(result_lines), len(error_lines), len(unit_lines))
@@ -278,9 +262,7 @@ def format_calculation_value_block(calc: SampleExportCalculation) -> str:
 
     chloride_display = get_chloride_salts_result_display(calc.input_data)
     if chloride_display:
-        error = _format_fractional_error_text(
-            calc.measurement_error, method_name, calc.result
-        )
+        error = _format_fractional_error_text(calc.measurement_error, method_name, calc.result)
         unit = calc.unit or (method.unit if method else None) or "-"
         return _join_result_error_unit(chloride_display, error, unit)
 
@@ -292,9 +274,7 @@ def format_calculation_value_block(calc: SampleExportCalculation) -> str:
         result = _format_fractional_result_text(calc.result, method_name)
 
     result = _format_number_with_minus(result)
-    error = _format_fractional_error_text(
-        calc.measurement_error, method_name, calc.result
-    )
+    error = _format_fractional_error_text(calc.measurement_error, method_name, calc.result)
     unit = calc.unit or (method.unit if method else None) or "-"
 
     return _join_result_error_unit(result, error, unit)

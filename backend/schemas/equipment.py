@@ -19,37 +19,21 @@ EquipmentSerialNumber = Annotated[NonEmptyStr, Field(max_length=100)]
 
 class EquipmentBase(BaseModel):
     type: EquipmentTypeField = Field(..., description="Тип прибора или оборудования")
-    name: EquipmentName = Field(
-        ..., description="Наименование прибора или оборудования"
-    )
-    serial_number: EquipmentSerialNumber = Field(
-        ..., description="Заводской номер прибора или оборудования"
-    )
-    verification_info: str = Field(
-        ..., max_length=255, description="Сведения о результатах поверки"
-    )
+    name: EquipmentName = Field(..., description="Наименование прибора или оборудования")
+    serial_number: EquipmentSerialNumber = Field(..., description="Заводской номер прибора или оборудования")
+    verification_info: str = Field(..., max_length=255, description="Сведения о результатах поверки")
     verification_date: date = Field(..., description="Дата поверки")
-    verification_end_date: date = Field(
-        ..., description="Дата окончания срока действия поверки"
-    )
+    verification_end_date: date = Field(..., description="Дата окончания срока действия поверки")
     version: str = Field(..., max_length=8, description="Версия прибора (например, v1)")
 
 
 class EquipmentCreate(BaseModel):
     type: EquipmentTypeField = Field(..., description="Тип прибора или оборудования")
-    name: EquipmentName = Field(
-        ..., description="Наименование прибора или оборудования"
-    )
-    serial_number: EquipmentSerialNumber = Field(
-        ..., description="Заводской номер прибора или оборудования"
-    )
-    verification_info: str = Field(
-        ..., max_length=255, description="Сведения о результатах поверки"
-    )
+    name: EquipmentName = Field(..., description="Наименование прибора или оборудования")
+    serial_number: EquipmentSerialNumber = Field(..., description="Заводской номер прибора или оборудования")
+    verification_info: str = Field(..., max_length=255, description="Сведения о результатах поверки")
     verification_date: date = Field(..., description="Дата поверки")
-    verification_end_date: date = Field(
-        ..., description="Дата окончания срока действия поверки"
-    )
+    verification_end_date: date = Field(..., description="Дата окончания срока действия поверки")
     laboratory_id: int = Field(..., description="ID лаборатории")
     department_id: int | None = Field(None, description="ID подразделения")
     method_data_default: MethodDataDefault = Field(
@@ -77,9 +61,7 @@ class EquipmentUpdate(BaseModel):
             return None
         for item in value:
             if item <= 0:
-                raise ValueError(
-                    "Каждый ID метода должен быть положительным целым числом"
-                )
+                raise ValueError("Каждый ID метода должен быть положительным целым числом")
         return value
 
 

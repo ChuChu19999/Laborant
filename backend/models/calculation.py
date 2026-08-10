@@ -23,9 +23,7 @@ class Calculation(BaseModel):
     equipment_data: Mapped[list[Any] | None] = mapped_column(
         JSON, nullable=True, default=list, comment="Список ID приборов"
     )
-    result: Mapped[str] = mapped_column(
-        Text, nullable=False, comment="Итоговый результат расчета"
-    )
+    result: Mapped[str] = mapped_column(Text, nullable=False, comment="Итоговый результат расчета")
     executor: Mapped[str] = mapped_column(
         String(150), nullable=False, comment="hsnils исполнителя, производившего расчет"
     )
@@ -34,9 +32,7 @@ class Calculation(BaseModel):
         nullable=True,
         comment="Погрешность измерения результата в формате ±число",
     )
-    unit: Mapped[str | None] = mapped_column(
-        String(20), nullable=True, comment="Единица измерения результата"
-    )
+    unit: Mapped[str | None] = mapped_column(String(20), nullable=True, comment="Единица измерения результата")
     laboratory_activity_date: Mapped[date] = mapped_column(
         Date, nullable=False, comment="Дата проведения лабораторного исследования"
     )
@@ -63,12 +59,8 @@ class Calculation(BaseModel):
 
     sample: Mapped["Sample"] = relationship(back_populates="calculations")
     laboratory: Mapped["Laboratory"] = relationship(back_populates="calculations")
-    department: Mapped["Department | None"] = relationship(
-        back_populates="calculations"
-    )
-    research_method: Mapped["ResearchMethod"] = relationship(
-        back_populates="calculations"
-    )
+    department: Mapped["Department | None"] = relationship(back_populates="calculations")
+    research_method: Mapped["ResearchMethod"] = relationship(back_populates="calculations")
 
     __table_args__ = (
         Index(

@@ -24,18 +24,12 @@ class MassFractionOilRefractionTable(BaseModel):
         nullable=False,
         comment="Массовая доля нефти (C) в процентах",
     )
-    n_value: Mapped[str] = mapped_column(
-        String(10), nullable=False, comment="Показатель преломления (n)"
-    )
+    n_value: Mapped[str] = mapped_column(String(10), nullable=False, comment="Показатель преломления (n)")
 
-    research_method: Mapped["ResearchMethod"] = relationship(
-        back_populates="refraction_tables"
-    )
+    research_method: Mapped["ResearchMethod"] = relationship(back_populates="refraction_tables")
 
     __table_args__ = (
-        Index(
-            "idx_refraction_table_research_method_c", "research_method_id", "c_value"
-        ),
+        Index("idx_refraction_table_research_method_c", "research_method_id", "c_value"),
         {"schema": get_database_schema()},
     )
 

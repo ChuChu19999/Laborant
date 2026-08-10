@@ -32,9 +32,7 @@ async def custom_swagger_ui_html(request: Request):
     if not SWAGGER_UI_AVAILABLE:
         return ORJSONResponse(
             status_code=503,
-            content={
-                "detail": "Swagger UI недоступен: swagger-ui-bundle не установлен"
-            },
+            content={"detail": "Swagger UI недоступен: swagger-ui-bundle не установлен"},
         )
 
     app = request.app
@@ -77,20 +75,14 @@ def setup_swagger_ui(app: FastAPI) -> None:
                 js_files = list(path.glob("*.js"))
                 css_files = list(path.glob("*.css"))
                 if js_files or css_files:
-                    logger.debug(
-                        f"В {path} найдено JS файлов: {len(js_files)}, CSS файлов: {len(css_files)}"
-                    )
+                    logger.debug(f"В {path} найдено JS файлов: {len(js_files)}, CSS файлов: {len(css_files)}")
                     if js_files:
-                        logger.debug(
-                            f"Найдены JS файлы: {[f.name for f in js_files[:5]]}"
-                        )
+                        logger.debug(f"Найдены JS файлы: {[f.name for f in js_files[:5]]}")
 
                 js_file_recursive = list(path.rglob("swagger-ui-bundle.js"))
                 if js_file_recursive:
                     static_path = js_file_recursive[0].parent
-                    logger.info(
-                        f"Найден swagger-ui-bundle.js рекурсивно в: {js_file_recursive[0]}"
-                    )
+                    logger.info(f"Найден swagger-ui-bundle.js рекурсивно в: {js_file_recursive[0]}")
                     break
 
         if static_path and static_path.exists():
@@ -101,16 +93,12 @@ def setup_swagger_ui(app: FastAPI) -> None:
             )
             logger.info(f"Swagger UI статика смонтирована из: {static_path}")
         else:
-            logger.warning(
-                f"Путь к Swagger UI статике не найден. Проверенные пути: {possible_paths}"
-            )
+            logger.warning(f"Путь к Swagger UI статике не найден. Проверенные пути: {possible_paths}")
             logger.warning(
                 f"Содержимое пакета swagger_ui_bundle: {list(swagger_ui_bundle_path.iterdir()) if swagger_ui_bundle_path.exists() else 'не найден'}"
             )
     except Exception as e:
-        logger.warning(
-            f"Ошибка при монтировании Swagger UI статики: {e}", exc_info=True
-        )
+        logger.warning(f"Ошибка при монтировании Swagger UI статики: {e}", exc_info=True)
 
     app.add_api_route(
         "/api/docs",

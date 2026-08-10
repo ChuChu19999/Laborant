@@ -62,14 +62,10 @@ async def calculate_mass_fraction_from_refraction(
     try:
         n_value = parse_decimal_value(n_value)
 
-        table_entries = await mass_fraction_repo.get_mass_fraction_refraction_entries(
-            db, research_method_id
-        )
+        table_entries = await mass_fraction_repo.get_mass_fraction_refraction_entries(db, research_method_id)
 
         if not table_entries:
-            logger.warning(
-                f"Не найдено активных точек градуировочного графика для метода {research_method_id}"
-            )
+            logger.warning(f"Не найдено активных точек градуировочного графика для метода {research_method_id}")
             return MassFractionFromRefractionOutcome(Decimal("0"), "0", False)
 
         n_at_c_zero: list[Decimal] = []
@@ -97,9 +93,7 @@ async def calculate_mass_fraction_from_refraction(
 
             if original_n_val in n_value_counts:
                 n_value_counts[original_n_val] += 1
-                n_val = original_n_val + (
-                    (n_value_counts[original_n_val] - 1) * _MF_OIL_N_DUPLICATE_OFFSET
-                )
+                n_val = original_n_val + ((n_value_counts[original_n_val] - 1) * _MF_OIL_N_DUPLICATE_OFFSET)
             else:
                 n_value_counts[original_n_val] = 1
 
@@ -126,17 +120,13 @@ async def calculate_mass_fraction_from_refraction(
                     c_result = c1 + (c2 - c1) * (n_value - n1) / (n2 - n1)
 
                 rounded = round_decimal_half_up(c_result, 1)
-                return MassFractionFromRefractionOutcome(
-                    rounded, _mf_oil_display_from_decimal(rounded), False
-                )
+                return MassFractionFromRefractionOutcome(rounded, _mf_oil_display_from_decimal(rounded), False)
 
         rounded = round_decimal_half_up(points[-1][0], 1)
-        return MassFractionFromRefractionOutcome(
-            rounded, _mf_oil_display_from_decimal(rounded), False
-        )
+        return MassFractionFromRefractionOutcome(rounded, _mf_oil_display_from_decimal(rounded), False)
 
     except Exception as e:
-        logger.error(f"Ошибка при расчете массовой доли нефти: {str(e)}")
+        logger.error(f"Ошибка при расчете массовой доли нефти: {e!s}")
         return MassFractionFromRefractionOutcome(Decimal("0"), "0", False)
 
 
@@ -163,9 +153,7 @@ async def prepare_mass_fraction_oil_input(
 
         if n1_value and (n1_value != "0" and str(n1_value).strip()):
             c1_key = "C₁" if "C₁" in input_data else "C1"
-            c1_out = await calculate_mass_fraction_from_refraction(
-                db, n1_value, method_id
-            )
+            c1_out = await calculate_mass_fraction_from_refraction(db, n1_value, method_id)
             input_data[c1_key] = c1_out.stored_display
             if c1_out.below_detection_limit:
                 mf_oil_display_labels[c1_key] = "менее 0,1"
@@ -176,9 +164,7 @@ async def prepare_mass_fraction_oil_input(
 
         if n2_value and (n2_value != "0" and str(n2_value).strip()):
             c2_key = "C₂" if "C₂" in input_data else "C2"
-            c2_out = await calculate_mass_fraction_from_refraction(
-                db, n2_value, method_id
-            )
+            c2_out = await calculate_mass_fraction_from_refraction(db, n2_value, method_id)
             input_data[c2_key] = c2_out.stored_display
             if c2_out.below_detection_limit:
                 mf_oil_display_labels[c2_key] = "менее 0,1"
@@ -190,8 +176,8 @@ async def prepare_mass_fraction_oil_input(
         if mf_oil_display_labels:
             input_data[MF_OIL_DISPLAY_LABELS_KEY] = mf_oil_display_labels
     except Exception as e:
-        logger.error(f"Ошибка при расчете C1/C2 для массовой доли нефти: {str(e)}")
-        raise ValueError(f"Ошибка при расчете массовой доли нефти: {str(e)}") from e
+        logger.error(f"Ошибка при расчете C1/C2 для массовой доли нефти: {e!s}")
+        raise ValueError(f"Ошибка при расчете массовой доли нефти: {e!s}") from e
 
 
 def _c1_c2_both_zero(variables: dict[str, Any]) -> bool:

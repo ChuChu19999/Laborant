@@ -4,11 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.logger import logger
 from services.chloride_salts import (
     apply_custom_early_result as apply_chloride_custom_early_result,
-)
-from services.chloride_salts import (
     enrich_early_response as enrich_chloride_early_response,
-)
-from services.chloride_salts import (
     is_chloride_salts_input_key,
     is_chloride_salts_method,
     prepare_chloride_salts_input,
@@ -22,11 +18,7 @@ from services.mass_fraction_oil import (
     is_mass_fraction_oil_method,
     log_skip_repeatability_div_by_sum,
     prepare_mass_fraction_oil_input,
-)
-from services.mass_fraction_oil import (
     resolve_custom_early_result_text as resolve_mf_oil_custom_early_result_text,
-)
-from services.mass_fraction_oil import (
     should_skip_repeatability_div_by_sum,
 )
 from utils.calculation_engine import (
@@ -43,9 +35,7 @@ def _variables_from_input_data(input_data: dict[str, Any]) -> dict[str, Any]:
     return {
         k: v
         for k, v in input_data.items()
-        if k != "Цвет"
-        and not is_mass_fraction_oil_input_key(k)
-        and not is_chloride_salts_input_key(k)
+        if k != "Цвет" and not is_mass_fraction_oil_input_key(k) and not is_chloride_salts_input_key(k)
     }
 
 
@@ -64,11 +54,7 @@ def _convergence_formulas(research_method: dict[str, Any]) -> list[dict[str, Any
 def _intermediate_field_by_name(
     research_method: dict[str, Any],
 ) -> dict[str, dict[str, Any]]:
-    return {
-        str(field["name"]): field
-        for field in _intermediate_fields(research_method)
-        if field.get("name")
-    }
+    return {str(field["name"]): field for field in _intermediate_fields(research_method) if field.get("name")}
 
 
 def _field_uses_custom_rounding(field: dict[str, Any] | None) -> bool:
@@ -184,32 +170,17 @@ def _build_variables_rounded_chain(
             continue
         field_name = field["name"]
         try:
-            intermediate_value = _evaluate_intermediate_field(
-                field, variables_rounded, intermediate_fields_by_name
-            )
-            repeat_rounding = _resolve_intermediate_rounding(
-                field, research_method, result_decimal_places
-            )
-            if repeat_rounding is not None and isinstance(
-                intermediate_value, (int, float, Decimal)
-            ):
-                rounded_value = _apply_intermediate_rounding(
-                    intermediate_value, repeat_rounding
-                )
+            intermediate_value = _evaluate_intermediate_field(field, variables_rounded, intermediate_fields_by_name)
+            repeat_rounding = _resolve_intermediate_rounding(field, research_method, result_decimal_places)
+            if repeat_rounding is not None and isinstance(intermediate_value, (int, float, Decimal)):
+                rounded_value = _apply_intermediate_rounding(intermediate_value, repeat_rounding)
                 variables_rounded[field_name] = rounded_value
-                logger.info(
-                    f"Промежуточный результат {field_name}: "
-                    f"{intermediate_value} -> {rounded_value}"
-                )
+                logger.info(f"Промежуточный результат {field_name}: {intermediate_value} -> {rounded_value}")
             else:
                 variables_rounded[field_name] = intermediate_value
         except Exception as e:
-            logger.error(
-                f"Ошибка при пересчёте промежуточного результата {field_name}: {str(e)}"
-            )
-            raise ValueError(
-                f"Ошибка при пересчёте промежуточного результата: {str(e)}"
-            )
+            logger.error(f"Ошибка при пересчёте промежуточного результата {field_name}: {e!s}")
+            raise ValueError(f"Ошибка при пересчёте промежуточного результата: {e!s}")
     return variables_rounded
 
 
@@ -255,9 +226,7 @@ def _format_intermediate_value_reference(
         text = str(unrounded_value)
         return {"value": text, "reference": text}
 
-    rounding = _resolve_intermediate_rounding(
-        field, research_method, result_decimal_places
-    )
+    rounding = _resolve_intermediate_rounding(field, research_method, result_decimal_places)
     if rounding is None:
         text = str(unrounded_value)
         return {"value": text, "reference": text}
@@ -297,14 +266,8 @@ def _round_value(
             value = parse_decimal_value(value)
 
         if rounding_type == "threshold_table":
-            if (
-                not threshold_table_values
-                or not isinstance(threshold_table_values, dict)
-                or not variables
-            ):
-                logger.error(
-                    "Отсутствуют необходимые параметры для табличного округления"
-                )
+            if not threshold_table_values or not isinstance(threshold_table_values, dict) or not variables:
+                logger.error("Отсутствуют необходимые параметры для табличного округления")
                 return value
 
             target_variable = threshold_table_values.get("target_variable")
@@ -322,26 +285,22 @@ def _round_value(
                 higher_value = parse_decimal_value(variables.get(higher_variable, "0"))
                 lower_value = parse_decimal_value(variables.get(lower_variable, "0"))
 
-                logger.info(f"Значения для сравнения:")
+                logger.info("Значения для сравнения:")
                 logger.info(f"{target_variable}: {target_value}")
                 logger.info(f"{formula}: {formula_value}")
                 logger.info(f"{higher_variable}: {higher_value}")
                 logger.info(f"{lower_variable}: {lower_value}")
 
             except (ValueError, TypeError) as e:
-                logger.error(f"Ошибка преобразования значений: {str(e)}")
+                logger.error(f"Ошибка преобразования значений: {e!s}")
                 return value
 
             if formula_value < target_value:
-                logger.info(
-                    f"formula_value ({formula_value}) < target_value ({target_value})"
-                )
+                logger.info(f"formula_value ({formula_value}) < target_value ({target_value})")
                 logger.info(f"Выбрано верхнее значение: {higher_value}")
                 return higher_value
             else:
-                logger.info(
-                    f"formula_value ({formula_value}) >= target_value ({target_value})"
-                )
+                logger.info(f"formula_value ({formula_value}) >= target_value ({target_value})")
                 logger.info(f"Выбрано нижнее значение: {lower_value}")
                 return lower_value
 
@@ -361,7 +320,7 @@ def _round_value(
         return value
 
     except (ValueError, TypeError) as e:
-        logger.error(f"Ошибка в round_value: {str(e)}")
+        logger.error(f"Ошибка в round_value: {e!s}")
         return value
 
 
@@ -375,9 +334,7 @@ async def calculate_result(
         logger.info("Начало расчета")
 
         if not input_data or not research_method:
-            raise ValueError(
-                "Необходимо предоставить входные данные и метод исследования"
-            )
+            raise ValueError("Необходимо предоставить входные данные и метод исследования")
 
         # Заменяем пустые значения на '0'
         processed_input_data = {}
@@ -414,9 +371,7 @@ async def calculate_result(
 
         # Проверяем тип округления
         if research_method["rounding_type"] not in ["decimal", "significant"]:
-            raise ValueError(
-                f"Неверный тип округления: {research_method['rounding_type']}"
-            )
+            raise ValueError(f"Неверный тип округления: {research_method['rounding_type']}")
 
         # Сначала вычисляем промежуточные результаты (неокругленные)
         logger.info("Начало вычисления промежуточных результатов")
@@ -429,49 +384,30 @@ async def calculate_result(
 
         for field in _intermediate_fields(research_method):
             # Пропускаем поля с пустыми именами или формулами
-            if (
-                not field.get("name", "").strip()
-                or not field.get("formula", "").strip()
-            ):
+            if not field.get("name", "").strip() or not field.get("formula", "").strip():
                 logger.info(f"Пропущено пустое промежуточное поле: {field}")
                 continue
 
             try:
-                logger.info(
-                    f"Вычисление промежуточного результата: {field['name']}, формула: {field['formula']}"
-                )
+                logger.info(f"Вычисление промежуточного результата: {field['name']}, формула: {field['formula']}")
 
-                intermediate_value = _evaluate_intermediate_field(
-                    field, variables, intermediate_fields_by_name
-                )
+                intermediate_value = _evaluate_intermediate_field(field, variables, intermediate_fields_by_name)
 
-                logger.info(
-                    f"Промежуточный результат {field['name']} = {intermediate_value}"
-                )
+                logger.info(f"Промежуточный результат {field['name']} = {intermediate_value}")
                 # Сохраняем неокругленное значение (для отображения value и справки)
                 intermediate_results_unrounded[field["name"]] = intermediate_value
                 # Добавляем результат в словарь только если show_calculation = true
                 if field.get("show_calculation", True):
                     intermediate_results[field["name"]] = str(intermediate_value)
                 # В переменные для последующих формул подставляем округленное значение
-                chain_rounding = _resolve_intermediate_rounding(
-                    field, research_method, None
-                )
-                if chain_rounding is not None and isinstance(
-                    intermediate_value, (int, float, Decimal)
-                ):
-                    variables[field["name"]] = _apply_intermediate_rounding(
-                        intermediate_value, chain_rounding
-                    )
+                chain_rounding = _resolve_intermediate_rounding(field, research_method, None)
+                if chain_rounding is not None and isinstance(intermediate_value, (int, float, Decimal)):
+                    variables[field["name"]] = _apply_intermediate_rounding(intermediate_value, chain_rounding)
                 else:
                     variables[field["name"]] = intermediate_value
             except Exception as e:
-                logger.error(
-                    f"Ошибка при вычислении промежуточного результата {field['name']}: {str(e)}"
-                )
-                raise ValueError(
-                    f"Ошибка при вычислении промежуточного результата: {str(e)}"
-                )
+                logger.error(f"Ошибка при вычислении промежуточного результата {field['name']}: {e!s}")
+                raise ValueError(f"Ошибка при вычислении промежуточного результата: {e!s}")
 
         # Сначала вычисляем неокругленный основной результат для определения количества знаков
         result_unrounded_for_rounding = None
@@ -481,53 +417,31 @@ async def calculate_result(
                 logger.info(
                     f"Предварительное вычисление результата для определения количества знаков: {research_method['formula']}"
                 )
-                result_unrounded_for_rounding = evaluate_formula(
-                    research_method["formula"], variables
-                )
+                result_unrounded_for_rounding = evaluate_formula(research_method["formula"], variables)
                 # Округляем для определения количества знаков
                 result_temp = round_result(
                     result_unrounded_for_rounding,
                     research_method["rounding_type"],
                     research_method["rounding_decimal"],
                 )
-                result_decimal_places = (
-                    len(str(result_temp).split(".")[-1])
-                    if "." in str(result_temp)
-                    else 0
-                )
-                logger.info(
-                    f"Количество знаков после запятой в результате: {result_decimal_places}"
-                )
+                result_decimal_places = len(str(result_temp).split(".")[-1]) if "." in str(result_temp) else 0
+                logger.info(f"Количество знаков после запятой в результате: {result_decimal_places}")
             except Exception as e:
-                logger.warning(
-                    f"Не удалось определить количество знаков: {str(e)}, используем настройки метода"
-                )
+                logger.warning(f"Не удалось определить количество знаков: {e!s}, используем настройки метода")
                 result_decimal_places = research_method["rounding_decimal"]
         elif research_method["rounding_type"] == "significant":
             try:
-                logger.info(
-                    f"Предварительное вычисление результата (significant): {research_method['formula']}"
-                )
-                result_unrounded_for_rounding = evaluate_formula(
-                    research_method["formula"], variables
-                )
+                logger.info(f"Предварительное вычисление результата (significant): {research_method['formula']}")
+                result_unrounded_for_rounding = evaluate_formula(research_method["formula"], variables)
                 result_temp = round_result(
                     result_unrounded_for_rounding,
                     research_method["rounding_type"],
                     research_method["rounding_decimal"],
                 )
-                result_decimal_places = (
-                    len(str(result_temp).split(".")[-1])
-                    if "." in str(result_temp)
-                    else 0
-                )
-                logger.info(
-                    f"Количество знаков после запятой в результате (significant): {result_decimal_places}"
-                )
+                result_decimal_places = len(str(result_temp).split(".")[-1]) if "." in str(result_temp) else 0
+                logger.info(f"Количество знаков после запятой в результате (significant): {result_decimal_places}")
             except Exception as e:
-                logger.warning(
-                    f"Не удалось определить количество знаков (significant): {str(e)}"
-                )
+                logger.warning(f"Не удалось определить количество знаков (significant): {e!s}")
                 result_decimal_places = research_method.get("rounding_decimal", 3)
 
         # Пересчитываем цепочку с округлёнными предшественниками для проверки повторяемости
@@ -547,29 +461,21 @@ async def calculate_result(
             if not formula or not convergence_value:
                 continue
             try:
-                if should_skip_repeatability_div_by_sum(
-                    research_method, variables_rounded, condition
-                ):
+                if should_skip_repeatability_div_by_sum(research_method, variables_rounded, condition):
                     if convergence_value == "satisfactory":
                         satisfied_conditions.append("satisfactory")
                         log_skip_repeatability_div_by_sum()
                     continue
                 logger.info(f"Проверка условия: {formula}")
-                condition_result = evaluate_formula(
-                    formula, variables_rounded, is_condition=True
-                )
-                logger.info(
-                    f"Результат проверки условия: {condition_result} (тип: {convergence_value}"
-                )
+                condition_result = evaluate_formula(formula, variables_rounded, is_condition=True)
+                logger.info(f"Результат проверки условия: {condition_result} (тип: {convergence_value}")
 
                 if condition_result:
                     satisfied_conditions.append(convergence_value)
-                    logger.info(
-                        f"Условие {formula} выполнено, тип: {convergence_value}"
-                    )
+                    logger.info(f"Условие {formula} выполнено, тип: {convergence_value}")
             except Exception as e:
-                logger.error(f"Ошибка при проверке условия повторяемости: {str(e)}")
-                raise ValueError(f"Ошибка при проверке условия повторяемости: {str(e)}")
+                logger.error(f"Ошибка при проверке условия повторяемости: {e!s}")
+                raise ValueError(f"Ошибка при проверке условия повторяемости: {e!s}")
 
         logger.info(f"Все выполненные условия: {satisfied_conditions}")
 
@@ -580,21 +486,17 @@ async def calculate_result(
         # Проверяем наличие кастомного значения
         for condition in _convergence_formulas(research_method):
             formula = str(condition.get("formula") or "").strip()
-            if condition.get("convergence_value") == "custom" and condition.get(
-                "custom_value"
-            ):
+            if condition.get("convergence_value") == "custom" and condition.get("custom_value"):
                 if not formula:
                     continue
                 try:
-                    condition_result = evaluate_formula(
-                        formula, variables_rounded, is_condition=True
-                    )
+                    condition_result = evaluate_formula(formula, variables_rounded, is_condition=True)
                     if condition_result:
                         convergence_result = "custom"
                         custom_value = condition["custom_value"]
                         break
                 except Exception as e:
-                    logger.error(f"Ошибка при проверке кастомного условия: {str(e)}")
+                    logger.error(f"Ошибка при проверке кастомного условия: {e!s}")
                     continue
 
         # Если кастомное условие не сработало, проверяем остальные условия
@@ -614,9 +516,7 @@ async def calculate_result(
             if convergence_value != convergence_result or not formula:
                 continue
             try:
-                if should_skip_repeatability_div_by_sum(
-                    research_method, variables_rounded, condition
-                ):
+                if should_skip_repeatability_div_by_sum(research_method, variables_rounded, condition):
                     conditions_info.append(
                         {
                             "formula": formula,
@@ -626,28 +526,22 @@ async def calculate_result(
                         }
                     )
                     continue
-                condition_result = evaluate_formula(
-                    formula, variables_rounded, is_condition=True
-                )
+                condition_result = evaluate_formula(formula, variables_rounded, is_condition=True)
                 conditions_info.append(
                     {
                         "formula": formula,
                         "satisfied": condition_result,
                         "convergence_value": convergence_value,
-                        "calculation_steps": calculate_convergence_steps(
-                            formula, variables_rounded
-                        ),
+                        "calculation_steps": calculate_convergence_steps(formula, variables_rounded),
                     }
                 )
             except Exception as e:
-                logger.error(f"Ошибка при проверке условия повторяемости: {str(e)}")
-                raise ValueError(f"Ошибка при проверке условия повторяемости: {str(e)}")
+                logger.error(f"Ошибка при проверке условия повторяемости: {e!s}")
+                raise ValueError(f"Ошибка при проверке условия повторяемости: {e!s}")
 
         # Если повторяемость отсутствие, неудовлетворительная, следы или задано кастомное значение, возвращаем результат без расчета
         if convergence_result in ["absence", "traces", "unsatisfactory", "custom"]:
-            logger.info(
-                f"Повторяемость отсутствие, неудовлетворительная, следы: {convergence_result}"
-            )
+            logger.info(f"Повторяемость отсутствие, неудовлетворительная, следы: {convergence_result}")
 
             # Определяем текст результата в зависимости от типа повторяемости
             result_text = None
@@ -681,8 +575,7 @@ async def calculate_result(
                 )
                 intermediate_results_rounded[field_name] = formatted
                 logger.info(
-                    f"Промежуточный результат {field_name}: {formatted['value']} "
-                    f"(справка: {formatted['reference']})"
+                    f"Промежуточный результат {field_name}: {formatted['value']} (справка: {formatted['reference']})"
                 )
 
             chloride_result_text = apply_chloride_custom_early_result(
@@ -717,9 +610,7 @@ async def calculate_result(
 
             enrich_chloride_early_response(response_data_early, input_data)
 
-            if is_mass_fraction_oil_method(research_method) or is_chloride_salts_method(
-                research_method
-            ):
+            if is_mass_fraction_oil_method(research_method) or is_chloride_salts_method(research_method):
                 response_data_early["updated_input_data"] = input_data
 
             return response_data_early
@@ -745,21 +636,14 @@ async def calculate_result(
                 )
                 intermediate_results_rounded[field_name] = formatted
                 logger.info(
-                    f"Промежуточный результат {field_name}: {formatted['value']} "
-                    f"(справка: {formatted['reference']})"
+                    f"Промежуточный результат {field_name}: {formatted['value']} (справка: {formatted['reference']})"
                 )
 
             # Вычисляем основной результат с округленными промежуточными значениями
             try:
-                logger.info(
-                    "Вычисление основного результата с округленными промежуточными значениями"
-                )
-                result_unrounded_rounded = evaluate_formula(
-                    research_method["formula"], variables_rounded
-                )
-                logger.info(
-                    f"Неокругленный результат с округленными промежуточными: {result_unrounded_rounded}"
-                )
+                logger.info("Вычисление основного результата с округленными промежуточными значениями")
+                result_unrounded_rounded = evaluate_formula(research_method["formula"], variables_rounded)
+                logger.info(f"Неокругленный результат с округленными промежуточными: {result_unrounded_rounded}")
 
                 # Округляем пересчитанный результат
                 result = round_result(
@@ -772,15 +656,13 @@ async def calculate_result(
                 # Справочное значение результата с +1 знаком
                 if result_decimal_places is not None:
                     result_decimal = parse_decimal_value(result_unrounded_rounded)
-                    result_reference = round_decimal_half_up(
-                        result_decimal, result_decimal_places + 1
-                    )
+                    result_reference = round_decimal_half_up(result_decimal, result_decimal_places + 1)
                     logger.info(f"Справочное значение результата: {result_reference}")
                 else:
                     result_reference = None
             except Exception as e:
-                logger.error(f"Ошибка при вычислении основного результата: {str(e)}")
-                raise ValueError(f"Ошибка при вычислении результата: {str(e)}")
+                logger.error(f"Ошибка при вычислении основного результата: {e!s}")
+                raise ValueError(f"Ошибка при вычислении результата: {e!s}")
 
             # Обновляем промежуточные результаты в ответе
             intermediate_results = _filter_intermediate_results_for_display(
@@ -800,23 +682,19 @@ async def calculate_result(
                     measurement_error = parse_decimal_value(error_config["value"])
                 elif error_type == "formula":
                     variables["result"] = result
-                    measurement_error = evaluate_formula(
-                        error_config["value"], variables
-                    )
+                    measurement_error = evaluate_formula(error_config["value"], variables)
                 else:
                     logger.warning("Неподдерживаемый тип погрешности")
                     measurement_error = Decimal("0")
 
                 # Округляем погрешность до того же количества знаков после запятой, что и результат
                 if measurement_error is not None:
-                    measurement_error = round_decimal_half_up(
-                        measurement_error, result_decimal_places
-                    )
+                    measurement_error = round_decimal_half_up(measurement_error, result_decimal_places)
                     logger.info(f"Погрешность после округления: {measurement_error}")
 
             except Exception as e:
-                logger.error(f"Ошибка при вычислении погрешности: {str(e)}")
-                raise ValueError(f"Ошибка при вычислении погрешности: {str(e)}")
+                logger.error(f"Ошибка при вычислении погрешности: {e!s}")
+                raise ValueError(f"Ошибка при вычислении погрешности: {e!s}")
 
         # Формируем структуру ответа с основными и справочными значениями
         result_reference_value = None
@@ -828,9 +706,7 @@ async def calculate_result(
             "intermediate_results": intermediate_results,
             "result": str(result) if result is not None else None,
             "result_reference": result_reference_value,
-            "measurement_error": (
-                str(measurement_error) if measurement_error is not None else None
-            ),
+            "measurement_error": (str(measurement_error) if measurement_error is not None else None),
             "unit": research_method["unit"],
             "conditions_info": conditions_info,
         }
@@ -844,5 +720,5 @@ async def calculate_result(
         return response_data
 
     except Exception as e:
-        logger.error(f"Необработанная ошибка при расчете: {str(e)}", exc_info=True)
+        logger.error(f"Необработанная ошибка при расчете: {e!s}", exc_info=True)
         raise

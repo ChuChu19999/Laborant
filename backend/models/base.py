@@ -13,18 +13,14 @@ class BaseModel(Base):
     __abstract__ = True
     __table_args__ = {"schema": get_database_schema()}
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         onupdate=func.now(),
         nullable=False,
     )
-    deleted_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_by_hash: Mapped[str | None] = mapped_column(String(32), nullable=True)
     updated_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -60,11 +56,7 @@ def receive_before_update(_mapper, _connection, target):
     if current_user and hasattr(target, "updated_by"):
         full_name, hsnils = current_user
         # Обновляем updated_by только если запись не удаляется
-        if hasattr(target, "deleted_at") and target.deleted_at is None:
-            target.updated_by = full_name
-            if hasattr(target, "updated_by_hash"):
-                target.updated_by_hash = hsnils
-        elif not hasattr(target, "deleted_at"):
+        if (hasattr(target, "deleted_at") and target.deleted_at is None) or not hasattr(target, "deleted_at"):
             target.updated_by = full_name
             if hasattr(target, "updated_by_hash"):
                 target.updated_by_hash = hsnils

@@ -42,28 +42,19 @@ def _apply_report_font(cell: Cell) -> None:
     cell.font = Font(name=REPORT_FONT_NAME, size=NKS_REPORT_FONT_SIZE, color="FF000000")
 
 
-def _merged_cell_anchor(
-    ws: openpyxl.worksheet.worksheet.Worksheet, row: int, col: int
-) -> tuple[int, int]:
+def _merged_cell_anchor(ws: openpyxl.worksheet.worksheet.Worksheet, row: int, col: int) -> tuple[int, int]:
     for merged in ws.merged_cells.ranges:
-        if (
-            merged.min_row <= row <= merged.max_row
-            and merged.min_col <= col <= merged.max_col
-        ):
+        if merged.min_row <= row <= merged.max_row and merged.min_col <= col <= merged.max_col:
             return merged.min_row, merged.min_col
     return row, col
 
 
-def _writable_cell(
-    ws: openpyxl.worksheet.worksheet.Worksheet, row: int, col: int
-) -> Cell:
+def _writable_cell(ws: openpyxl.worksheet.worksheet.Worksheet, row: int, col: int) -> Cell:
     anchor_row, anchor_col = _merged_cell_anchor(ws, row, col)
     return ws.cell(row=anchor_row, column=anchor_col)
 
 
-def _template_data_row_height(
-    ws: openpyxl.worksheet.worksheet.Worksheet, template_row: int
-) -> float | None:
+def _template_data_row_height(ws: openpyxl.worksheet.worksheet.Worksheet, template_row: int) -> float | None:
     row_dim = ws.row_dimensions.get(template_row)
     if row_dim and row_dim.height is not None:
         return row_dim.height
@@ -123,9 +114,7 @@ def _write_data_row(
     _writable_cell(ws, output_row, 2).value = well
     _writable_cell(ws, output_row, 3).value = sampling_date
     for col in range(4, NKS_MAX_COLUMN + 1):
-        _writable_cell(ws, output_row, col).value = values_by_column.get(
-            col, REPORT_EMPTY_CELL_VALUE
-        )
+        _writable_cell(ws, output_row, col).value = values_by_column.get(col, REPORT_EMPTY_CELL_VALUE)
 
     for col in range(1, NKS_MAX_COLUMN + 1):
         _apply_report_font(_writable_cell(ws, output_row, col))

@@ -150,9 +150,7 @@ def normalize_permissions(raw: dict[str, Any] | None) -> dict[str, Any]:
         fields = samples.get("visible_fields")
         if isinstance(fields, list):
             base["samples"]["visible_fields"] = [
-                field
-                for field in fields
-                if isinstance(field, str) and field in SAMPLE_OPTIONAL_FIELDS
+                field for field in fields if isinstance(field, str) and field in SAMPLE_OPTIONAL_FIELDS
             ]
         if "update" in samples:
             base["samples"]["update"] = bool(samples["update"])
@@ -192,36 +190,22 @@ def merge_permissions(items: list[dict[str, Any]]) -> dict[str, Any]:
     for item in items[1:]:
         other = normalize_permissions(item)
         for key in NAVIGATION_KEYS:
-            result["navigation"][key] = (
-                result["navigation"][key] or other["navigation"][key]
-            )
+            result["navigation"][key] = result["navigation"][key] or other["navigation"][key]
         result["laboratory_management"]["access"] = (
-            result["laboratory_management"]["access"]
-            or other["laboratory_management"]["access"]
+            result["laboratory_management"]["access"] or other["laboratory_management"]["access"]
         )
-        result["samples"]["update"] = (
-            result["samples"]["update"] or other["samples"]["update"]
-        )
-        result["samples"]["delete"] = (
-            result["samples"]["delete"] or other["samples"]["delete"]
-        )
+        result["samples"]["update"] = result["samples"]["update"] or other["samples"]["update"]
+        result["samples"]["delete"] = result["samples"]["delete"] or other["samples"]["delete"]
         result["samples"]["visible_fields"] = sorted(
-            set(result["samples"]["visible_fields"])
-            | set(other["samples"]["visible_fields"])
+            set(result["samples"]["visible_fields"]) | set(other["samples"]["visible_fields"])
         )
         for resource in CRUD_RESOURCES:
             for action in ("read", "create", "update", "delete"):
-                result[resource][action] = (
-                    result[resource][action] or other[resource][action]
-                )
+                result[resource][action] = result[resource][action] or other[resource][action]
         for action in ("execute", "create", "update", "delete", "show_equipment"):
-            result["calculations"][action] = (
-                result["calculations"][action] or other["calculations"][action]
-            )
+            result["calculations"][action] = result["calculations"][action] or other["calculations"][action]
         # При расхождении терминологии приоритет у well_mode.
-        if result["sampling_terminology"] != other[
-            "sampling_terminology"
-        ] and "well_mode" in (
+        if result["sampling_terminology"] != other["sampling_terminology"] and "well_mode" in (
             result["sampling_terminology"],
             other["sampling_terminology"],
         ):

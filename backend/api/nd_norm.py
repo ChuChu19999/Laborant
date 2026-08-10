@@ -1,6 +1,5 @@
 from __future__ import annotations
 from fastapi import APIRouter, Depends
-from core.auth_decorators import IsAuthenticated
 from core.deps import DbSession, NdNormListFilters, UserPermissions
 from schemas.nd_norm import NdNormCreate, NdNormResponse, NdNormUpdate
 from schemas.pagination import PaginatedResponse

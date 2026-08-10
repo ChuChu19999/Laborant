@@ -66,9 +66,7 @@ class CalculationsPermissions(BaseModel):
 
 class RolePermissions(BaseModel):
     navigation: NavigationPermissions = Field(default_factory=NavigationPermissions)
-    laboratory_management: LaboratoryManagementPermissions = Field(
-        default_factory=LaboratoryManagementPermissions
-    )
+    laboratory_management: LaboratoryManagementPermissions = Field(default_factory=LaboratoryManagementPermissions)
     samples: SamplesPermissions = Field(default_factory=SamplesPermissions)
     protocols: CrudPermissions = Field(default_factory=CrudPermissions)
     equipment: CrudPermissions = Field(default_factory=CrudPermissions)
@@ -76,9 +74,7 @@ class RolePermissions(BaseModel):
     nd_norms: CrudPermissions = Field(default_factory=CrudPermissions)
     refraction_tables: CrudPermissions = Field(default_factory=CrudPermissions)
     test_objects: CrudPermissions = Field(default_factory=CrudPermissions)
-    calculations: CalculationsPermissions = Field(
-        default_factory=CalculationsPermissions
-    )
+    calculations: CalculationsPermissions = Field(default_factory=CalculationsPermissions)
     sampling_terminology: SamplingTerminologyValue = "well_mode"
 
     @classmethod
@@ -144,9 +140,7 @@ def scopes_to_storage(
 
 
 class RoleBase(BaseModel):
-    name: Annotated[NonEmptyStr, Field(max_length=255)] = Field(
-        ..., description="Наименование роли"
-    )
+    name: Annotated[NonEmptyStr, Field(max_length=255)] = Field(..., description="Наименование роли")
     role_type: RoleTypeField = Field(..., description="Тип роли: laborant, engineer")
     scopes: list[RoleScopeBindingInput] = Field(
         default_factory=list,
@@ -200,12 +194,12 @@ class UserPermissionsResponse(BaseModel):
 __all__ = [
     "RoleBase",
     "RoleCreate",
-    "RoleUpdate",
-    "RoleResponse",
-    "RoleTypeField",
     "RolePermissions",
+    "RoleResponse",
     "RoleScopeBinding",
     "RoleScopeBindingInput",
+    "RoleTypeField",
+    "RoleUpdate",
     "UserPermissionsResponse",
     "permissions_to_dict",
     "scopes_to_storage",

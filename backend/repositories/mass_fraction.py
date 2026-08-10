@@ -42,9 +42,7 @@ async def get_mass_fraction_oil_refraction_tables(
     ).options(selectinload(MassFractionOilRefractionTable.research_method))
 
     if research_method_id:
-        query = query.where(
-            MassFractionOilRefractionTable.research_method_id == research_method_id
-        )
+        query = query.where(MassFractionOilRefractionTable.research_method_id == research_method_id)
 
     if sort_by == "c_value":
         c_value_numeric = cast(MassFractionOilRefractionTable.c_value, Float)
@@ -70,9 +68,7 @@ async def get_mass_fraction_oil_refraction_tables(
         MassFractionOilRefractionTable.deleted_at,
     )
     if research_method_id:
-        count_query = count_query.where(
-            MassFractionOilRefractionTable.research_method_id == research_method_id
-        )
+        count_query = count_query.where(MassFractionOilRefractionTable.research_method_id == research_method_id)
 
     total = await get_total_count(db, count_query)
 
@@ -98,9 +94,7 @@ async def get_mass_fraction_refraction_entries(
     result = await db.execute(
         filter_not_deleted(
             select(MassFractionOilRefractionTable)
-            .where(
-                MassFractionOilRefractionTable.research_method_id == research_method_id
-            )
+            .where(MassFractionOilRefractionTable.research_method_id == research_method_id)
             .order_by(cast(MassFractionOilRefractionTable.c_value, Float)),
             MassFractionOilRefractionTable.deleted_at,
         )

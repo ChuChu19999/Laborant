@@ -3,9 +3,9 @@ from copy import copy
 from io import BytesIO
 from typing import Any
 import openpyxl
-import pendulum
 from openpyxl.cell.cell import Cell
 from openpyxl.styles import Alignment, Border, Font, Side
+import pendulum
 from sqlalchemy.ext.asyncio import AsyncSession
 from services.ilninm_reports.constants import (
     ROW_TITLE_KALIBROVOCHNAYA_NEFT_UGPU,
@@ -56,17 +56,12 @@ def _split_column_c_lines(value: str) -> list[str]:
 
 def _row_height_for_category(category_key: str, lines_in_category: int) -> float:
     """30 pt для однострочных «Товарная нефть НГДУ» и «Калибровочная нефть УГПУ», иначе 15 pt."""
-    if (
-        lines_in_category == 1
-        and category_key.lower() in _ROW_TITLES_TALL_WHEN_SINGLE_LINE
-    ):
+    if lines_in_category == 1 and category_key.lower() in _ROW_TITLES_TALL_WHEN_SINGLE_LINE:
         return ROW_HEIGHT_COLUMN_C_SINGLE_LINE_TALL
     return ROW_HEIGHT_COLUMN_C_LINES
 
 
-def _set_fixed_row_height(
-    ws: openpyxl.worksheet.worksheet.Worksheet, row: int, height: float
-) -> None:
+def _set_fixed_row_height(ws: openpyxl.worksheet.worksheet.Worksheet, row: int, height: float) -> None:
     """Фиксированная высота строки для вывода текста в C."""
     ws.row_dimensions[row].height = height
 
@@ -126,14 +121,9 @@ def _apply_multiline_category_borders(
         )
 
 
-def _merged_cell_anchor(
-    ws: openpyxl.worksheet.worksheet.Worksheet, row: int, col: int
-) -> tuple[int, int]:
+def _merged_cell_anchor(ws: openpyxl.worksheet.worksheet.Worksheet, row: int, col: int) -> tuple[int, int]:
     for merged in ws.merged_cells.ranges:
-        if (
-            merged.min_row <= row <= merged.max_row
-            and merged.min_col <= col <= merged.max_col
-        ):
+        if merged.min_row <= row <= merged.max_row and merged.min_col <= col <= merged.max_col:
             return merged.min_row, merged.min_col
     return row, col
 
@@ -238,9 +228,7 @@ def _copy_template_header_rows(
             tgt = new_ws.cell(row=row, column=col)
             copy_cell_style(src, tgt)
             if row == anchor_row and col == anchor_col and src.value is not None:
-                tgt.value = _replace_text_placeholders(
-                    str(src.value), period_text, total_samples
-                )
+                tgt.value = _replace_text_placeholders(str(src.value), period_text, total_samples)
         if template_ws.row_dimensions[row].height is not None:
             new_ws.row_dimensions[row].height = template_ws.row_dimensions[row].height
     _copy_worksheet_merged_ranges(
@@ -258,10 +246,7 @@ def _get_cell_b_value(ws: openpyxl.worksheet.worksheet.Worksheet, row: int) -> A
     if cell.value is not None:
         return cell.value
     for merged in ws.merged_cells.ranges:
-        if (
-            merged.min_col <= 2 <= merged.max_col
-            and merged.min_row <= row <= merged.max_row
-        ):
+        if merged.min_col <= 2 <= merged.max_col and merged.min_row <= row <= merged.max_row:
             return ws.cell(row=merged.min_row, column=2).value
     return None
 
@@ -342,9 +327,7 @@ async def build_sample_count_excel(
     template_ws = template_wb.active
     data_rows = _find_template_data_rows(template_ws)
     if not data_rows:
-        empty_txt = (
-            "Диагностика не сформирована: в шаблоне не найдены строки категорий.\n"
-        )
+        empty_txt = "Диагностика не сформирована: в шаблоне не найдены строки категорий.\n"
         return template_bytes.getvalue(), empty_txt.encode("utf-8")
 
     report_data = await get_sample_count_report_data(
@@ -372,9 +355,7 @@ async def build_sample_count_excel(
         new_ws.title = template_ws.title
 
     _replace_sample_count_header_placeholders(template_ws, period_text, total_samples)
-    current_row = _copy_template_header_rows(
-        template_ws, new_ws, period_text, total_samples
-    )
+    current_row = _copy_template_header_rows(template_ws, new_ws, period_text, total_samples)
     template_table_top_row = data_rows[0][0]
 
     for branch_block in by_branch:
@@ -385,16 +366,12 @@ async def build_sample_count_excel(
         block_start_row = current_row
         for template_row_idx, cell_b_value in data_rows:
             key = _normalize_cell_a_for_match(cell_b_value)
-            if key and not is_sample_count_row_visible_for_branch(
-                key, branch_name, ROW_TITLE_TO_BRANCH
-            ):
+            if key and not is_sample_count_row_visible_for_branch(key, branch_name, ROW_TITLE_TO_BRANCH):
                 continue
             value_c = match_row_title_to_value(cell_b_value, row_values)
             column_c_lines = _split_column_c_lines(value_c if value_c else "—")
             category_start_row = current_row
-            category_row_height = _row_height_for_category(
-                key or "", len(column_c_lines)
-            )
+            category_row_height = _row_height_for_category(key or "", len(column_c_lines))
 
             for line_idx, line_text in enumerate(column_c_lines):
                 out_row = current_row
@@ -413,9 +390,7 @@ async def build_sample_count_excel(
                     _apply_report_font(new_ws.cell(row=out_row, column=col))
                 _set_fixed_row_height(new_ws, out_row, category_row_height)
 
-                new_ws.cell(row=out_row, column=1).value = (
-                    branch_name if out_row == block_start_row else None
-                )
+                new_ws.cell(row=out_row, column=1).value = branch_name if out_row == block_start_row else None
                 if line_idx == 0:
                     new_ws.cell(row=out_row, column=2).value = cell_b_value
 
@@ -433,9 +408,7 @@ async def build_sample_count_excel(
                 current_row += 1
 
             category_end_row = current_row - 1
-            _apply_multiline_category_borders(
-                new_ws, category_start_row, category_end_row
-            )
+            _apply_multiline_category_borders(new_ws, category_start_row, category_end_row)
             if category_end_row > category_start_row:
                 new_ws.merge_cells(
                     start_row=category_start_row,

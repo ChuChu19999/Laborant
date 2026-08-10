@@ -48,21 +48,14 @@ def _apply_report_font(cell: Cell) -> None:
     cell.font = Font(name=REPORT_FONT_NAME, size=REPORT_FONT_SIZE, color="FF000000")
 
 
-def _merged_cell_anchor(
-    ws: openpyxl.worksheet.worksheet.Worksheet, row: int, col: int
-) -> tuple[int, int]:
+def _merged_cell_anchor(ws: openpyxl.worksheet.worksheet.Worksheet, row: int, col: int) -> tuple[int, int]:
     for merged in ws.merged_cells.ranges:
-        if (
-            merged.min_row <= row <= merged.max_row
-            and merged.min_col <= col <= merged.max_col
-        ):
+        if merged.min_row <= row <= merged.max_row and merged.min_col <= col <= merged.max_col:
             return merged.min_row, merged.min_col
     return row, col
 
 
-def _writable_cell(
-    ws: openpyxl.worksheet.worksheet.Worksheet, row: int, col: int
-) -> Cell:
+def _writable_cell(ws: openpyxl.worksheet.worksheet.Worksheet, row: int, col: int) -> Cell:
     """Ячейка, в которую можно записать значение (верхняя левая при объединении)."""
     anchor_row, anchor_col = _merged_cell_anchor(ws, row, col)
     return ws.cell(row=anchor_row, column=anchor_col)
@@ -111,9 +104,7 @@ def _write_data_row(
     _writable_cell(ws, output_row, 2).value = location_display
     _writable_cell(ws, output_row, 3).value = sampling_date
     for spec in KGS_METHOD_COLUMNS:
-        _writable_cell(ws, output_row, spec.column).value = values_by_column.get(
-            spec.column, REPORT_EMPTY_CELL_VALUE
-        )
+        _writable_cell(ws, output_row, spec.column).value = values_by_column.get(spec.column, REPORT_EMPTY_CELL_VALUE)
 
     for col in range(1, max_col + 1):
         _apply_report_font(_writable_cell(ws, output_row, col))
@@ -138,9 +129,7 @@ def _write_average_row(
     _writable_cell(ws, output_row, 2).value = KGS_AVERAGE_ROW_LABEL
     _writable_cell(ws, output_row, 3).value = None
     for spec in KGS_METHOD_COLUMNS:
-        _writable_cell(ws, output_row, spec.column).value = values_by_column.get(
-            spec.column, REPORT_EMPTY_CELL_VALUE
-        )
+        _writable_cell(ws, output_row, spec.column).value = values_by_column.get(spec.column, REPORT_EMPTY_CELL_VALUE)
 
     for col in range(1, max_col + 1):
         _apply_report_font(_writable_cell(ws, output_row, col))

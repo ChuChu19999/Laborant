@@ -40,9 +40,7 @@ async def get_selection_conditions(
     sort_order: str | None = None,
 ) -> tuple[list[SelectionConditions], int]:
     """Получить список условий отбора."""
-    query = filter_not_deleted(
-        select(SelectionConditions), SelectionConditions.deleted_at
-    ).options(
+    query = filter_not_deleted(select(SelectionConditions), SelectionConditions.deleted_at).options(
         selectinload(SelectionConditions.laboratory),
         selectinload(SelectionConditions.department),
     )
@@ -58,9 +56,7 @@ async def get_selection_conditions(
     sort_mapping = {
         "created_at": SelectionConditions.created_at,
     }
-    order_by = build_order_by(
-        sort_by, sort_order, sort_mapping, SelectionConditions.created_at
-    )
+    order_by = build_order_by(sort_by, sort_order, sort_mapping, SelectionConditions.created_at)
     query = query.order_by(order_by)
 
     count_query = filter_not_deleted(
@@ -84,9 +80,7 @@ async def get_selection_conditions(
     return selection_conditions, total
 
 
-async def add_selection_conditions(
-    db: AsyncSession, selection_conditions: SelectionConditions
-) -> SelectionConditions:
+async def add_selection_conditions(db: AsyncSession, selection_conditions: SelectionConditions) -> SelectionConditions:
     """Добавить условия отбора в сессию."""
     await add_and_flush(db, selection_conditions)
     return selection_conditions

@@ -1,11 +1,11 @@
-import re
 from datetime import date, datetime
 from io import BytesIO
+import re
 from typing import Any
-import pendulum
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, Side
 from openpyxl.utils import get_column_letter
+import pendulum
 from sqlalchemy.ext.asyncio import AsyncSession
 from schemas.sample_export import SampleExportItem
 from services.calculation_export_format import format_sample_calculations_column
@@ -133,9 +133,7 @@ def build_samples_export_workbook(
     worksheet = workbook.active
     worksheet.title = "Поступления проб"
 
-    rows = [EXPORT_HEADERS] + [
-        _build_sample_row(sample, employees_map) for sample in items
-    ]
+    rows = [EXPORT_HEADERS] + [_build_sample_row(sample, employees_map) for sample in items]
 
     for row_index, row_values in enumerate(rows, start=1):
         for col_index, value in enumerate(row_values, start=1):
@@ -201,9 +199,7 @@ async def build_samples_export_excel(
     employees_map: dict[str, dict[str, Any]] = {}
     if hsnils_list:
         try:
-            employees_map = await get_employees_by_hsnils(
-                hsnils_list, include_photo=False
-            )
+            employees_map = await get_employees_by_hsnils(hsnils_list, include_photo=False)
         except Exception:
             employees_map = {}
 

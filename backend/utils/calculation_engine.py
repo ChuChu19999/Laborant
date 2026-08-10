@@ -1,6 +1,6 @@
 from __future__ import annotations
-import re
 from decimal import ROUND_HALF_UP, Decimal
+import re
 from typing import Any
 from core.logger import logger
 
@@ -55,9 +55,7 @@ def round_significant_half_up(value: Any, significant_figures: int) -> Decimal:
     """Округление до N значащих цифр, 0.5 вверх."""
     sf = int(significant_figures)
     if sf <= 0:
-        raise ValueError(
-            f"число значащих цифр должно быть положительным: {significant_figures}"
-        )
+        raise ValueError(f"число значащих цифр должно быть положительным: {significant_figures}")
     d = parse_decimal_value(value)
     if d.is_zero():
         return Decimal("0")
@@ -74,7 +72,7 @@ def _round_to_multiple(number, multiple):
         quotient = (d / m).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
         return quotient * m
     except Exception as e:
-        raise ValueError(f"Ошибка при округлении до кратного: {str(e)}")
+        raise ValueError(f"Ошибка при округлении до кратного: {e!s}")
 
 
 def round_result(result, rounding_type, rounding_decimal):
@@ -127,9 +125,7 @@ def _replace_subscript_digits(text):
     return result
 
 
-_FORMULA_NUMBER_RE = re.compile(
-    r"(?<![\w.])(-?\d+\.\d+|-?\d+\.|-?\.\d+|-?\d+)(?![\w.])"
-)
+_FORMULA_NUMBER_RE = re.compile(r"(?<![\w.])(-?\d+\.\d+|-?\d+\.|-?\.\d+|-?\d+)(?![\w.])")
 
 
 def _normalize_formula_text(formula: str) -> str:
@@ -159,18 +155,12 @@ def _formula_safe_dict(decimal_vars: dict[str, Decimal]) -> dict[str, Any]:
     }
 
 
-def _eval_prepared_formula(
-    prepared_formula: str, decimal_vars: dict[str, Decimal]
-) -> Decimal:
+def _eval_prepared_formula(prepared_formula: str, decimal_vars: dict[str, Decimal]) -> Decimal:
     safe_dict = _formula_safe_dict(decimal_vars)
-    return _eval_numeric_result(
-        eval(prepared_formula, {"__builtins__": None}, safe_dict)
-    )
+    return _eval_numeric_result(eval(prepared_formula, {"__builtins__": None}, safe_dict))
 
 
-def evaluate_formula(
-    formula, variables, is_condition=False, range_calculation=None, rounding_params=None
-):
+def evaluate_formula(formula, variables, is_condition=False, range_calculation=None, rounding_params=None):
     """Вычисляет результат формулы."""
     try:
         formula = _normalize_formula_text(formula)
@@ -184,9 +174,7 @@ def evaluate_formula(
                     new_name = _replace_subscript_digits(name)
                     decimal_vars[new_name] = _formula_variable_value(value)
                 except Exception as e:
-                    raise ValueError(
-                        f"Ошибка преобразования значения {name} = {value} в число: {str(e)}"
-                    )
+                    raise ValueError(f"Ошибка преобразования значения {name} = {value} в число: {e!s}")
 
             safe_dict = _formula_safe_dict(decimal_vars)
 
@@ -202,12 +190,8 @@ def evaluate_formula(
                     all_and_conditions_met = True
 
                     for and_condition in and_conditions:
-                        and_condition = and_condition.strip().strip(
-                            "()"
-                        )  # Убираем скобки
-                        condition_result = evaluate_formula(
-                            and_condition, variables, is_condition=True
-                        )
+                        and_condition = and_condition.strip().strip("()")  # Убираем скобки
+                        condition_result = evaluate_formula(and_condition, variables, is_condition=True)
                         if not condition_result:
                             all_and_conditions_met = False
                             break
@@ -219,9 +203,7 @@ def evaluate_formula(
                 if any_or_condition_met:
                     range_formula = _normalize_formula_text(range_item["formula"])
                     prepared = _decimalize_formula_literals(range_formula)
-                    return _eval_numeric_result(
-                        eval(prepared, {"__builtins__": None}, safe_dict)
-                    )
+                    return _eval_numeric_result(eval(prepared, {"__builtins__": None}, safe_dict))
 
             # Если ни одно условие не выполнилось, возвращаем 0
             return Decimal("0")
@@ -239,9 +221,7 @@ def evaluate_formula(
                 new_name = _replace_subscript_digits(name)
                 decimal_vars[new_name] = _formula_variable_value(value)
             except Exception as e:
-                raise ValueError(
-                    f"Ошибка преобразования значения {name} = {value} в число: {str(e)}"
-                )
+                raise ValueError(f"Ошибка преобразования значения {name} = {value} в число: {e!s}")
 
         safe_dict = _formula_safe_dict(decimal_vars)
 
@@ -256,9 +236,7 @@ def evaluate_formula(
 
                     for and_condition in and_conditions:
                         and_condition = and_condition.strip().strip("()")
-                        condition_result = evaluate_formula(
-                            and_condition, variables, is_condition=True
-                        )
+                        condition_result = evaluate_formula(and_condition, variables, is_condition=True)
                         if not condition_result:
                             all_and_conditions_met = False
                             break
@@ -271,9 +249,7 @@ def evaluate_formula(
                 and_conditions = formula.split(" and ")
                 for and_condition in and_conditions:
                     and_condition = and_condition.strip().strip("()")
-                    condition_result = evaluate_formula(
-                        and_condition, variables, is_condition=True
-                    )
+                    condition_result = evaluate_formula(and_condition, variables, is_condition=True)
                     if not condition_result:
                         return False
                 return True
@@ -307,14 +283,10 @@ def evaluate_formula(
                             return left_result < right_result
                         return left_result == right_result
 
-                raise ValueError(
-                    f"Неподдерживаемый оператор сравнения в формуле: {formula}"
-                )
+                raise ValueError(f"Неподдерживаемый оператор сравнения в формуле: {formula}")
         else:
             prepared = _decimalize_formula_literals(formula)
-            result = _eval_numeric_result(
-                eval(prepared, {"__builtins__": None}, safe_dict)
-            )
+            result = _eval_numeric_result(eval(prepared, {"__builtins__": None}, safe_dict))
 
             # Применяем округление, если заданы параметры
             if rounding_params:
@@ -349,7 +321,7 @@ def evaluate_formula(
             return result
 
     except Exception as e:
-        raise ValueError(f"Ошибка при вычислении формулы '{formula}': {str(e)}")
+        raise ValueError(f"Ошибка при вычислении формулы '{formula}': {e!s}")
 
 
 def _format_step_decimal(value: Decimal) -> str:
@@ -390,9 +362,7 @@ def calculate_convergence_steps(formula, variables):
                     if and_steps:
                         steps.append({"type": "and", "conditions": and_steps})
                 else:
-                    step = _calculate_single_condition(
-                        or_condition.strip().strip("()"), safe_dict
-                    )
+                    step = _calculate_single_condition(or_condition.strip().strip("()"), safe_dict)
                     if step:
                         steps.append({"type": "single", "condition": step})
             return {"type": "or", "steps": steps}
@@ -400,9 +370,7 @@ def calculate_convergence_steps(formula, variables):
             and_conditions = step1.split(" and ")
             steps = []
             for and_condition in and_conditions:
-                step = _calculate_single_condition(
-                    and_condition.strip().strip("()"), safe_dict
-                )
+                step = _calculate_single_condition(and_condition.strip().strip("()"), safe_dict)
                 if step:
                     steps.append(step)
             return {"type": "and", "steps": steps}
@@ -414,7 +382,7 @@ def calculate_convergence_steps(formula, variables):
 
         return None
     except Exception as e:
-        logger.error(f"Ошибка при вычислении шагов повторяемости: {str(e)}")
+        logger.error(f"Ошибка при вычислении шагов повторяемости: {e!s}")
         return None
 
 
@@ -426,12 +394,8 @@ def _calculate_single_condition(condition, safe_dict):
             try:
                 left_prepared = _decimalize_formula_literals(left.strip())
                 right_prepared = _decimalize_formula_literals(right.strip())
-                left_result = _eval_numeric_result(
-                    eval(left_prepared, {"__builtins__": None}, safe_dict)
-                )
-                right_result = _eval_numeric_result(
-                    eval(right_prepared, {"__builtins__": None}, safe_dict)
-                )
+                left_result = _eval_numeric_result(eval(left_prepared, {"__builtins__": None}, safe_dict))
+                right_result = _eval_numeric_result(eval(right_prepared, {"__builtins__": None}, safe_dict))
 
                 left_str = _format_step_decimal(left_result)
                 right_str = _format_step_decimal(right_result)
@@ -441,7 +405,7 @@ def _calculate_single_condition(condition, safe_dict):
                     "evaluated": f"{left_str}{operator}{right_str}",
                 }
             except Exception as e:
-                logger.error(f"Ошибка при вычислении условия {condition}: {str(e)}")
+                logger.error(f"Ошибка при вычислении условия {condition}: {e!s}")
                 return None
     return None
 
@@ -451,17 +415,11 @@ def get_pressure_correction_coefficient(patm):
     try:
         patm_value = parse_decimal_value(patm)
 
-        if (patm_value < 750 and patm_value >= 740) or (
-            patm_value > 770 and patm_value <= 780
-        ):
+        if (patm_value < 750 and patm_value >= 740) or (patm_value > 770 and patm_value <= 780):
             return 1
-        if (patm_value < 740 and patm_value >= 730) or (
-            patm_value > 780 and patm_value <= 790
-        ):
+        if (patm_value < 740 and patm_value >= 730) or (patm_value > 780 and patm_value <= 790):
             return 2
-        if (patm_value < 730 and patm_value >= 720) or (
-            patm_value > 790 and patm_value <= 800
-        ):
+        if (patm_value < 730 and patm_value >= 720) or (patm_value > 790 and patm_value <= 800):
             return 3
         return 0
     except (ValueError, TypeError):

@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Annotated
-import pendulum
 from fastapi import Depends, Query
+import pendulum
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.database import get_db
 from core.exceptions import ForbiddenError
@@ -126,15 +126,9 @@ class SampleListFilters:
         self.test_objects = test_objects
         self.sort_by = sort_by
         self.sort_order = sort_order
-        self.sampling_date_from, self.sampling_date_to = parse_date_range(
-            sampling_date_from, sampling_date_to
-        )
-        self.receiving_date_from, self.receiving_date_to = parse_date_range(
-            receiving_date_from, receiving_date_to
-        )
-        self.created_at_from, self.created_at_to = parse_date_range(
-            created_at_from, created_at_to
-        )
+        self.sampling_date_from, self.sampling_date_to = parse_date_range(sampling_date_from, sampling_date_to)
+        self.receiving_date_from, self.receiving_date_to = parse_date_range(receiving_date_from, receiving_date_to)
+        self.created_at_from, self.created_at_to = parse_date_range(created_at_from, created_at_to)
 
 
 class NdNormListFilters:
@@ -163,9 +157,7 @@ class NdNormListFilters:
         self.test_objects = test_objects
         self.sort_by = sort_by
         self.sort_order = sort_order
-        self.created_at_from, self.created_at_to = parse_date_range(
-            created_at_from, created_at_to
-        )
+        self.created_at_from, self.created_at_to = parse_date_range(created_at_from, created_at_to)
 
 
 class ProtocolListFilters:
@@ -205,9 +197,7 @@ class ProtocolListFilters:
         self.test_protocol_date_from, self.test_protocol_date_to = parse_date_range(
             test_protocol_date_from, test_protocol_date_to
         )
-        self.created_at_from, self.created_at_to = parse_date_range(
-            created_at_from, created_at_to
-        )
+        self.created_at_from, self.created_at_to = parse_date_range(created_at_from, created_at_to)
 
 
 class EquipmentListFilters:
@@ -243,12 +233,10 @@ class EquipmentListFilters:
         self.verification_date_from, self.verification_date_to = parse_date_range(
             verification_date_from, verification_date_to
         )
-        self.verification_end_date_from, self.verification_end_date_to = (
-            parse_date_range(verification_end_date_from, verification_end_date_to)
+        self.verification_end_date_from, self.verification_end_date_to = parse_date_range(
+            verification_end_date_from, verification_end_date_to
         )
-        self.created_at_from, self.created_at_to = parse_date_range(
-            created_at_from, created_at_to
-        )
+        self.created_at_from, self.created_at_to = parse_date_range(created_at_from, created_at_to)
 
     @property
     def equipment_types_list(self) -> list[str] | None:

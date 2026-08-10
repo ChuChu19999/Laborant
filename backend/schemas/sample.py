@@ -17,25 +17,17 @@ class SampleBase(BaseModel):
         ..., description="Регистрационный номер пробы"
     )
     sample_type: SAMPLE_TYPE_CHOICES | None = Field(None, description="Тип пробы")
-    test_object: Annotated[NonEmptyStr, Field(max_length=255)] = Field(
-        ..., description="Объект испытаний"
-    )
+    test_object: Annotated[NonEmptyStr, Field(max_length=255)] = Field(..., description="Объект испытаний")
     sampling_date: date | None = Field(None, description="Дата отбора пробы")
-    receiving_date: date | None = Field(
-        None, description="Дата получения пробы в лабораторию"
-    )
+    receiving_date: date | None = Field(None, description="Дата получения пробы в лабораторию")
     branch_id: int | None = Field(None, description="ID филиала")
     sampling_location_id: int | None = Field(None, description="ID места отбора пробы")
     well: str | None = Field(None, max_length=255, description="Название скважины")
     mode: str | None = Field(None, max_length=255, description="Режим работы скважины")
     indicators_count: int = Field(..., ge=0, description="Количество показателей")
     phone: str | None = Field(None, max_length=50, description="Номер телефона филиала")
-    selection_conditions: dict[str, Any] | None = Field(
-        None, description="JSON с условиями отбора и их значениями"
-    )
-    added_by: str | None = Field(
-        None, max_length=150, description="hsnils лица, добавившего пробу"
-    )
+    selection_conditions: dict[str, Any] | None = Field(None, description="JSON с условиями отбора и их значениями")
+    added_by: str | None = Field(None, max_length=150, description="hsnils лица, добавившего пробу")
 
 
 class SampleCreate(SampleBase):
@@ -53,9 +45,7 @@ class SampleUpdate(BaseModel):
     sampling_location_id: int | None = None
     well: str | None = Field(None, max_length=255)
     mode: str | None = Field(None, max_length=255)
-    indicators_count: int | None = Field(
-        None, ge=0, description="Количество показателей"
-    )
+    indicators_count: int | None = Field(None, ge=0, description="Количество показателей")
     phone: str | None = Field(None, max_length=50)
     selection_conditions: dict[str, Any] | None = None
     added_by: str | None = Field(None, max_length=150)
@@ -73,9 +63,7 @@ class SampleResponse(SampleBase):
     department_name: str | None = None
     branch_name: str | None = None
     sampling_location_name: str | None = None
-    protocols: list[dict[str, Any]] | None = Field(
-        None, description="Список протоколов, к которым привязана проба"
-    )
+    protocols: list[dict[str, Any]] | None = Field(None, description="Список протоколов, к которым привязана проба")
     created_at: datetime
     updated_at: datetime
     deleted_at: datetime | None = None
@@ -88,16 +76,12 @@ def validate_selection_conditions(
         if not all(key in condition for key in ["variable", "unit"]):
             raise ValueError("Каждое условие должно содержать поля 'variable' и 'unit'")
         if len(condition.keys()) > 2:
-            raise ValueError(
-                "Каждое условие должно содержать только поля 'variable' и 'unit'"
-            )
+            raise ValueError("Каждое условие должно содержать только поля 'variable' и 'unit'")
     return value
 
 
 class SelectionConditionsBase(BaseModel):
-    conditions: list[dict[str, str]] = Field(
-        ..., description="JSON с условиями отбора и их единицами измерения"
-    )
+    conditions: list[dict[str, str]] = Field(..., description="JSON с условиями отбора и их единицами измерения")
 
     @field_validator("conditions")
     @classmethod
@@ -117,9 +101,7 @@ class SelectionConditionsUpdate(BaseModel):
 
     @field_validator("conditions")
     @classmethod
-    def validate_conditions(
-        cls, value: list[dict[str, str]] | None
-    ) -> list[dict[str, str]] | None:
+    def validate_conditions(cls, value: list[dict[str, str]] | None) -> list[dict[str, str]] | None:
         if value is None:
             return value
         return validate_selection_conditions(value)

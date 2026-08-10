@@ -50,7 +50,4 @@ class NdNorm(BaseModel):
     )
 
     def __repr__(self):
-        return (
-            f"<NdNorm(id={self.id}, name='{self.name}', "
-            f"laboratory_id={self.laboratory_id})>"
-        )
+        return f"<NdNorm(id={self.id}, name='{self.name}', laboratory_id={self.laboratory_id})>"

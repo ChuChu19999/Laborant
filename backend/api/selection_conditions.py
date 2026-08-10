@@ -1,6 +1,5 @@
 from __future__ import annotations
 from fastapi import APIRouter, Depends
-from core.auth_decorators import IsAuthenticated
 from core.deps import DbSession, ScopeSortPaginationParams, UserPermissions
 from schemas.pagination import PaginatedResponse
 from schemas.sample import (
@@ -43,9 +42,7 @@ async def list_selection_conditions(
     params: ScopeSortPaginationParams = Depends(),
 ):
     """Возвращает список условий отбора с пагинацией или без."""
-    enforce_selection_conditions_read(
-        effective, params.laboratory_id, params.department_id
-    )
+    enforce_selection_conditions_read(effective, params.laboratory_id, params.department_id)
     conditions, total, total_pages = await get_selection_conditions(
         db,
         laboratory_id=params.laboratory_id,
@@ -85,9 +82,7 @@ async def create_selection_conditions_endpoint(
     effective: UserPermissions,
 ):
     """Добавляет новые условия отбора на основе переданных данных."""
-    enforce_lab_management_access(
-        effective, conditions_data.laboratory_id, conditions_data.department_id
-    )
+    enforce_lab_management_access(effective, conditions_data.laboratory_id, conditions_data.department_id)
     conditions = await create_selection_conditions(db, conditions_data)
     return await get_selection_conditions_response_data(db, conditions.id)
 
@@ -136,7 +131,5 @@ async def delete_selection_conditions_endpoint(
 ):
     """Выполняет мягкое удаление условий отбора."""
     conditions = await require_selection_conditions_by_id(db, conditions_id)
-    enforce_lab_management_access(
-        effective, conditions.laboratory_id, conditions.department_id
-    )
+    enforce_lab_management_access(effective, conditions.laboratory_id, conditions.department_id)
     await delete_selection_conditions(db, conditions_id)

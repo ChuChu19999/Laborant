@@ -1,7 +1,7 @@
 from __future__ import annotations
 from urllib.parse import quote
-import orjson
 from fastapi.responses import Response
+import orjson
 from starlette.responses import JSONResponse as StarletteJSONResponse
 
 

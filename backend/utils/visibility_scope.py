@@ -13,12 +13,8 @@ def normalize_visibility_scope(
     department_ids = scope.get("department_ids") or []
 
     return {
-        "laboratory_ids": [
-            int(item) for item in laboratory_ids if isinstance(item, int) and item > 0
-        ],
-        "department_ids": [
-            int(item) for item in department_ids if isinstance(item, int) and item > 0
-        ],
+        "laboratory_ids": [int(item) for item in laboratory_ids if isinstance(item, int) and item > 0],
+        "department_ids": [int(item) for item in department_ids if isinstance(item, int) and item > 0],
     }
 
 

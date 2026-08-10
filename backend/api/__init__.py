@@ -36,9 +36,7 @@ api_router.include_router(laboratories.router, tags=("laboratories",))
 api_router.include_router(departments.router, tags=("departments",))
 api_router.include_router(branches.router, tags=("branches",))
 api_router.include_router(research_methods.router, tags=("research_methods",))
-api_router.include_router(
-    research_method_groups.router, tags=("research_method_groups",)
-)
+api_router.include_router(research_method_groups.router, tags=("research_method_groups",))
 api_router.include_router(samples.router, tags=("samples",))
 api_router.include_router(selection_conditions.router, tags=("selection_conditions",))
 api_router.include_router(mass_fraction_oil.router, tags=("mass_fraction_oil",))
@@ -79,10 +77,7 @@ async def root(request: Request):
 @api_router.get(
     "/health/",
     summary="Проверка работоспособности приложения",
-    description=(
-        "Возвращает статус работоспособности приложения. "
-        "Используется для мониторинга и health checks."
-    ),
+    description=("Возвращает статус работоспособности приложения. Используется для мониторинга и health checks."),
     responses={
         200: {
             "description": "Приложение работает",

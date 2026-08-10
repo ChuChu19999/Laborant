@@ -27,13 +27,9 @@ class ReportTemplate(BaseModel):
         nullable=False,
         comment="Тип отчета",
     )
-    version: Mapped[str] = mapped_column(
-        String(8), nullable=False, comment="Версия шаблона (например, v1)"
-    )
+    version: Mapped[str] = mapped_column(String(8), nullable=False, comment="Версия шаблона (например, v1)")
     file: Mapped[str] = mapped_column(String, nullable=False, comment="Файл (base64)")
-    file_name: Mapped[str] = mapped_column(
-        String(255), nullable=False, comment="Имя файла"
-    )
+    file_name: Mapped[str] = mapped_column(String(255), nullable=False, comment="Имя файла")
     laboratory_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey(f"{get_database_schema()}.laboratories.id", ondelete="CASCADE"),
@@ -46,9 +42,7 @@ class ReportTemplate(BaseModel):
     )
 
     laboratory: Mapped["Laboratory"] = relationship(back_populates="report_templates")
-    department: Mapped["Department | None"] = relationship(
-        back_populates="report_templates"
-    )
+    department: Mapped["Department | None"] = relationship(back_populates="report_templates")
 
     __table_args__ = (
         Index("idx_report_template_type", "report_type"),

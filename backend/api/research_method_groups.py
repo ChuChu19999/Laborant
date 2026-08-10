@@ -1,6 +1,5 @@
 from __future__ import annotations
 from fastapi import APIRouter, Query
-from core.auth_decorators import IsAuthenticated
 from core.deps import DbSession, UserPermissions
 from schemas.pagination import PaginatedResponse
 from schemas.research import (
@@ -33,9 +32,7 @@ router = APIRouter()
         "Если page и page_size не указаны, возвращает все записи. "
         "Поддерживает поиск и сортировку."
     ),
-    responses={
-        200: {"description": "Список групп методов исследования успешно получен"}
-    },
+    responses={200: {"description": "Список групп методов исследования успешно получен"}},
 )
 # @IsAuthenticated
 async def list_research_method_groups(
@@ -74,9 +71,7 @@ async def list_research_method_groups(
     description="Добавляет новую группу методов исследования на основе переданных данных.",
     responses={
         201: {"description": "Группа методов исследования успешно добавлена"},
-        400: {
-            "description": "Некорректные данные для добавления группы методов исследования"
-        },
+        400: {"description": "Некорректные данные для добавления группы методов исследования"},
     },
 )
 # @IsAuthenticated
@@ -113,9 +108,7 @@ async def get_research_method_group(
 ):
     """Возвращает информацию о группе методов исследования по ее идентификатору."""
     enforce_lab_management_access(effective)
-    group = await require_research_method_group_by_id(
-        db, group_id, include_deleted=include_deleted
-    )
+    group = await require_research_method_group_by_id(db, group_id, include_deleted=include_deleted)
     return build_research_method_group_response(group)
 
 

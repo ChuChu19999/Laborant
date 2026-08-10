@@ -1,7 +1,7 @@
 from __future__ import annotations
+from collections.abc import Callable
 import functools
 import inspect
-from typing import Callable
 from fastapi import Depends
 from core.security import get_current_user
 from utils.current_user import set_current_user

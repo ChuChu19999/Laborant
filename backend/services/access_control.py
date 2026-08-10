@@ -17,9 +17,7 @@ def enforce_nav_access(
     department_id: int | None = None,
 ) -> dict[str, list[int]]:
     """Проверка доступа к разделу навигации и области видимости."""
-    require_permission_in_effective(
-        effective, "navigation", nav_key, laboratory_id, department_id
-    )
+    require_permission_in_effective(effective, "navigation", nav_key, laboratory_id, department_id)
     require_scope_access(effective, laboratory_id, department_id)
     return get_scope_filter_dict(effective)
 
@@ -32,9 +30,7 @@ def enforce_crud_access(
     department_id: int | None = None,
 ) -> dict[str, list[int]]:
     """Проверка CRUD-права и области видимости."""
-    require_permission_in_effective(
-        effective, resource, action, laboratory_id, department_id
-    )
+    require_permission_in_effective(effective, resource, action, laboratory_id, department_id)
     require_scope_access(effective, laboratory_id, department_id)
     return get_scope_filter_dict(effective)
 
@@ -45,9 +41,7 @@ def enforce_lab_management_access(
     department_id: int | None = None,
 ) -> dict[str, list[int]]:
     """Проверка доступа к управлению лабораториями / методам / fixtures."""
-    require_permission_in_effective(
-        effective, "laboratory_management", "access", laboratory_id, department_id
-    )
+    require_permission_in_effective(effective, "laboratory_management", "access", laboratory_id, department_id)
     require_scope_access(effective, laboratory_id, department_id)
     return get_scope_filter_dict(effective)
 
@@ -59,12 +53,8 @@ def enforce_samples_mutation(
     department_id: int | None = None,
 ) -> None:
     """Проверка прав на изменение/удаление проб."""
-    require_permission_in_effective(
-        effective, "navigation", "samples", laboratory_id, department_id
-    )
-    require_permission_in_effective(
-        effective, "samples", action, laboratory_id, department_id
-    )
+    require_permission_in_effective(effective, "navigation", "samples", laboratory_id, department_id)
+    require_permission_in_effective(effective, "samples", action, laboratory_id, department_id)
     require_scope_access(effective, laboratory_id, department_id)
 
 
@@ -129,10 +119,10 @@ def enforce_selection_conditions_read(
 
 
 __all__ = [
-    "enforce_nav_access",
     "enforce_crud_access",
     "enforce_lab_management_access",
-    "enforce_samples_mutation",
+    "enforce_nav_access",
     "enforce_research_methods_read",
+    "enforce_samples_mutation",
     "enforce_selection_conditions_read",
 ]

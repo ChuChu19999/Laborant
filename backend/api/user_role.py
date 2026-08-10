@@ -1,6 +1,5 @@
 from __future__ import annotations
 from fastapi import APIRouter, Depends
-from core.auth_decorators import IsAuthenticated
 from core.deps import DbSession
 from core.security import get_current_user
 from schemas.role import UserPermissionsResponse

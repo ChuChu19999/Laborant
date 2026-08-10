@@ -45,15 +45,10 @@ def _apply_report_font(cell: Cell) -> None:
     cell.font = Font(name=REPORT_FONT_NAME, size=REPORT_FONT_SIZE, color="FF000000")
 
 
-def _merged_cell_anchor(
-    ws: openpyxl.worksheet.worksheet.Worksheet, row: int, col: int
-) -> tuple[int, int]:
+def _merged_cell_anchor(ws: openpyxl.worksheet.worksheet.Worksheet, row: int, col: int) -> tuple[int, int]:
     """Возвращает верхнюю левую ячейку объединённого диапазона."""
     for merged in ws.merged_cells.ranges:
-        if (
-            merged.min_row <= row <= merged.max_row
-            and merged.min_col <= col <= merged.max_col
-        ):
+        if merged.min_row <= row <= merged.max_row and merged.min_col <= col <= merged.max_col:
             return merged.min_row, merged.min_col
     return row, col
 
@@ -147,8 +142,8 @@ async def build_physicochemical_excel(
         ws.cell(row=output_row, column=2).value = row_data.well
         ws.cell(row=output_row, column=3).value = row_data.sampling_date
         for spec in METHOD_COLUMNS:
-            ws.cell(row=output_row, column=spec.column).value = (
-                row_data.values_by_column.get(spec.column, REPORT_EMPTY_CELL_VALUE)
+            ws.cell(row=output_row, column=spec.column).value = row_data.values_by_column.get(
+                spec.column, REPORT_EMPTY_CELL_VALUE
             )
 
         for col in range(1, max_col + 1):

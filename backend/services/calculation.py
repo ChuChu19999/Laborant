@@ -4,9 +4,7 @@ from core.exceptions import ConflictError, NotFoundError, ValidationError
 from core.logger import logger
 from models.calculation import Calculation
 from models.equipment import Equipment
-from repositories import calculation as calculation_repo
-from repositories import research as research_repo
-from repositories import sample as sample_repo
+from repositories import calculation as calculation_repo, research as research_repo, sample as sample_repo
 from repositories.base import flush_entity
 from schemas.calculation import (
     CalculateRequest,
@@ -34,9 +32,7 @@ async def get_calculation_by_id(
     db: AsyncSession, calculation_id: int, include_deleted: bool = False
 ) -> Calculation | None:
     """Получить расчет по ID."""
-    return await calculation_repo.get_calculation_by_id(
-        db, calculation_id, include_deleted
-    )
+    return await calculation_repo.get_calculation_by_id(db, calculation_id, include_deleted)
 
 
 async def require_calculation_by_id(
@@ -99,20 +95,14 @@ async def get_calculations(
     return calculations, total, total_pages
 
 
-async def create_calculation(
-    db: AsyncSession, calculation_data: CalculationCreate
-) -> Calculation:
+async def create_calculation(db: AsyncSession, calculation_data: CalculationCreate) -> Calculation:
     """Создать расчет."""
     if not await sample_repo.get_sample_by_id(db, calculation_data.sample_id):
         raise NotFoundError("Проба не найдена")
 
-    await validate_lab_and_department(
-        db, calculation_data.laboratory_id, calculation_data.department_id
-    )
+    await validate_lab_and_department(db, calculation_data.laboratory_id, calculation_data.department_id)
 
-    if not await research_repo.get_research_method_by_id(
-        db, calculation_data.research_method_id
-    ):
+    if not await research_repo.get_research_method_by_id(db, calculation_data.research_method_id):
         raise NotFoundError("Метод исследования не найден")
 
     if await calculation_repo.exists_calculation_by_sample_and_method(
@@ -120,9 +110,7 @@ async def create_calculation(
         calculation_data.sample_id,
         calculation_data.research_method_id,
     ):
-        raise ConflictError(
-            "Расчет для данной пробы и метода исследования уже существует"
-        )
+        raise ConflictError("Расчет для данной пробы и метода исследования уже существует")
 
     calculation = Calculation(
         input_data=calculation_data.input_data,
@@ -140,9 +128,7 @@ async def create_calculation(
     return await calculation_repo.add_calculation(db, calculation)
 
 
-async def update_calculation(
-    db: AsyncSession, calculation_id: int, calculation_data: CalculationUpdate
-) -> Calculation:
+async def update_calculation(db: AsyncSession, calculation_id: int, calculation_data: CalculationUpdate) -> Calculation:
     """Обновить расчет."""
     calculation = await get_calculation_by_id(db, calculation_id)
     if not calculation:
@@ -152,33 +138,22 @@ async def update_calculation(
 
     if "sample_id" in update_data or "research_method_id" in update_data:
         sample_id = update_data.get("sample_id", calculation.sample_id)
-        method_id = update_data.get(
-            "research_method_id", calculation.research_method_id
-        )
+        method_id = update_data.get("research_method_id", calculation.research_method_id)
 
         if await calculation_repo.exists_calculation_by_sample_and_method(
             db, sample_id, method_id, exclude_id=calculation_id
         ):
-            raise ConflictError(
-                "Расчет для данной пробы и метода исследования уже существует"
-            )
+            raise ConflictError("Расчет для данной пробы и метода исследования уже существует")
 
     for key, value in update_data.items():
         setattr(calculation, key, value)
 
-    if (
-        calculation_data.laboratory_id is not None
-        or calculation_data.department_id is not None
-    ):
+    if calculation_data.laboratory_id is not None or calculation_data.department_id is not None:
         lab_id = (
-            calculation_data.laboratory_id
-            if calculation_data.laboratory_id is not None
-            else calculation.laboratory_id
+            calculation_data.laboratory_id if calculation_data.laboratory_id is not None else calculation.laboratory_id
         )
         dept_id = (
-            calculation_data.department_id
-            if calculation_data.department_id is not None
-            else calculation.department_id
+            calculation_data.department_id if calculation_data.department_id is not None else calculation.department_id
         )
 
         await validate_lab_and_department(db, lab_id, dept_id)
@@ -197,9 +172,7 @@ async def delete_calculation(db: AsyncSession, calculation_id: int) -> None:
     await flush_entity(db)
 
 
-async def get_calculation_response_data(
-    db: AsyncSession, calculation_id: int
-) -> CalculationResponse:
+async def get_calculation_response_data(db: AsyncSession, calculation_id: int) -> CalculationResponse:
     """Получить расчёт с данными для ответа API."""
     calculation = await calculation_repo.get_calculation_by_id(db, calculation_id)
     if not calculation:
@@ -264,9 +237,7 @@ async def _build_calculation_response(
     equipment_map: dict[int, Equipment] | None = None,
 ) -> CalculationResponse:
     """Собрать ответ API по расчёту с загруженными связями."""
-    calc_dict = CalculationResponse.model_validate(
-        _calculation_to_flat_response_dict(calculation)
-    ).model_dump()
+    calc_dict = CalculationResponse.model_validate(_calculation_to_flat_response_dict(calculation)).model_dump()
 
     if calculation.equipment_data:
         equipment_list = []
@@ -277,9 +248,7 @@ async def _build_calculation_response(
                 else await get_equipment_by_id(db, eq_id, include_deleted=True)
             )
             if equipment:
-                equipment_list.append(
-                    EquipmentBrief.model_validate(equipment).model_dump()
-                )
+                equipment_list.append(EquipmentBrief.model_validate(equipment).model_dump())
         calc_dict["equipment"] = equipment_list
 
     if calculation.sample:
@@ -317,9 +286,7 @@ async def get_calculations_response_data(
     equipment_ids = _collect_equipment_ids_from_calculations(calculations)
     equipment_map = await get_equipment_by_ids(db, equipment_ids, include_deleted=True)
     return [
-        await _build_calculation_response_with_equipment_map(
-            db, calculation, equipment_map
-        )
+        await _build_calculation_response_with_equipment_map(db, calculation, equipment_map)
         for calculation in calculations
     ]
 
@@ -327,9 +294,7 @@ async def get_calculations_response_data(
 async def execute_calculation(db: AsyncSession, request: CalculateRequest) -> dict:
     """Выполнить расчёт по методу исследования и входным данным."""
     try:
-        research_method_obj = await get_research_method_by_id(
-            db, request.research_method_id, include_deleted=True
-        )
+        research_method_obj = await get_research_method_by_id(db, request.research_method_id, include_deleted=True)
         if not research_method_obj:
             raise NotFoundError("Метод исследования не найден")
 
@@ -343,14 +308,10 @@ async def execute_calculation(db: AsyncSession, request: CalculateRequest) -> di
             "rounding_decimal": research_method_obj.rounding_decimal,
             "intermediate_data": research_method_obj.intermediate_data,
             "convergence_conditions": research_method_obj.convergence_conditions,
-            "groups": [
-                {"id": group.id, "name": group.name}
-                for group in (research_method_obj.groups or [])
-            ],
+            "groups": [{"id": group.id, "name": group.name} for group in (research_method_obj.groups or [])],
             "group_name": (
                 research_method_obj.groups[0].name
-                if getattr(research_method_obj, "groups", None)
-                and len(research_method_obj.groups) > 0
+                if getattr(research_method_obj, "groups", None) and len(research_method_obj.groups) > 0
                 else ""
             ),
         }
@@ -365,8 +326,8 @@ async def execute_calculation(db: AsyncSession, request: CalculateRequest) -> di
     except ValueError as exc:
         raise ValidationError(str(exc)) from exc
     except Exception as exc:
-        logger.error(f"Ошибка при расчете: {str(exc)}", exc_info=True)
-        raise ValidationError(f"Ошибка при расчете: {str(exc)}") from exc
+        logger.error(f"Ошибка при расчете: {exc!s}", exc_info=True)
+        raise ValidationError(f"Ошибка при расчете: {exc!s}") from exc
 
 
 async def get_calculation_methodology_choice(
@@ -378,9 +339,7 @@ async def get_calculation_methodology_choice(
     if not calculation:
         raise NotFoundError("Расчет не найден")
 
-    stored_method = await get_research_method_by_id(
-        db, calculation.research_method_id, include_deleted=True
-    )
+    stored_method = await get_research_method_by_id(db, calculation.research_method_id, include_deleted=True)
     if not stored_method:
         raise NotFoundError("Метод исследования не найден")
 
@@ -415,9 +374,7 @@ async def get_calculation_methodology_choice(
 
     if stored_group_name is not None:
         grouped_methods = [
-            method
-            for method in active_methods
-            if any(group.name == stored_group_name for group in method.groups)
+            method for method in active_methods if any(group.name == stored_group_name for group in method.groups)
         ]
         if grouped_methods:
             active_methods = grouped_methods
@@ -472,32 +429,20 @@ async def _validate_research_method_version_change(
     department_id: int | None,
 ) -> None:
     """Разрешить смену метода только при переходе на актуальную версию той же методики."""
-    old_method = await get_research_method_by_id(
-        db, old_method_id, include_deleted=True
-    )
-    new_method = await get_research_method_by_id(
-        db, new_method_id, include_deleted=False
-    )
+    old_method = await get_research_method_by_id(db, old_method_id, include_deleted=True)
+    new_method = await get_research_method_by_id(db, new_method_id, include_deleted=False)
     if not old_method:
         raise NotFoundError("Исходный метод исследования не найден")
     if not new_method:
         raise NotFoundError("Новый метод исследования не найден")
     if old_method.name != new_method.name:
-        raise ValidationError(
-            "Новая методика должна иметь то же наименование, что и в сохранённом расчёте"
-        )
+        raise ValidationError("Новая методика должна иметь то же наименование, что и в сохранённом расчёте")
     if old_method.laboratory_id != new_method.laboratory_id:
         raise ValidationError("Новая методика должна относиться к той же лаборатории")
-    old_department = (
-        old_method.department_id if old_method.department_id is not None else None
-    )
-    new_department = (
-        new_method.department_id if new_method.department_id is not None else None
-    )
+    old_department = old_method.department_id if old_method.department_id is not None else None
+    new_department = new_method.department_id if new_method.department_id is not None else None
     if old_department != new_department:
-        raise ValidationError(
-            "Новая методика должна относиться к тому же подразделению"
-        )
+        raise ValidationError("Новая методика должна относиться к тому же подразделению")
     if old_method.deleted_at is None:
         raise ValidationError("При замене расчёта нельзя менять метод исследования")
 
@@ -516,9 +461,7 @@ async def _validate_research_method_version_change(
         group_name=stored_group_name,
     )
     if not active_method or active_method.id != new_method.id:
-        raise ValidationError(
-            "Новая методика должна быть актуальной версией в справочнике"
-        )
+        raise ValidationError("Новая методика должна быть актуальной версией в справочнике")
 
 
 async def replace_calculation(
@@ -545,11 +488,7 @@ async def replace_calculation(
         raise ValidationError("При замене расчёта нельзя менять лабораторию")
 
     old_department = old.department_id if old.department_id is not None else None
-    new_department = (
-        calculation_data.department_id
-        if calculation_data.department_id is not None
-        else None
-    )
+    new_department = calculation_data.department_id if calculation_data.department_id is not None else None
     if old_department != new_department:
         raise ValidationError("При замене расчёта нельзя менять подразделение")
 

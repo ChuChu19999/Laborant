@@ -1,6 +1,6 @@
 from __future__ import annotations
-import re
 from enum import Enum
+import re
 from typing import Annotated, Any
 from pydantic import AfterValidator, BeforeValidator, Field
 
@@ -51,9 +51,7 @@ def make_enum_validator(enum_class: type[Enum], field_label: str):
 
     def validator(value: str) -> str:
         if value not in valid_types:
-            raise ValueError(
-                f"{field_label} должен быть одним из: {', '.join(valid_types)}"
-            )
+            raise ValueError(f"{field_label} должен быть одним из: {', '.join(valid_types)}")
         return value
 
     return validator
@@ -75,9 +73,7 @@ def validate_optional_oil_mass_fraction_c_value(value: Any) -> Any:
     return validate_oil_mass_fraction_c_value(str(value))
 
 
-OilMassFractionCValue = Annotated[
-    str, AfterValidator(validate_oil_mass_fraction_c_value)
-]
+OilMassFractionCValue = Annotated[str, AfterValidator(validate_oil_mass_fraction_c_value)]
 OptionalOilMassFractionCValue = Annotated[
     str | None,
     BeforeValidator(validate_optional_oil_mass_fraction_c_value),
@@ -101,9 +97,7 @@ def validate_optional_oil_mass_fraction_n_value(value: Any) -> Any:
     return validate_oil_mass_fraction_n_value(str(value))
 
 
-OilMassFractionNValue = Annotated[
-    str, AfterValidator(validate_oil_mass_fraction_n_value)
-]
+OilMassFractionNValue = Annotated[str, AfterValidator(validate_oil_mass_fraction_n_value)]
 OptionalOilMassFractionNValue = Annotated[
     str | None,
     BeforeValidator(validate_optional_oil_mass_fraction_n_value),
@@ -115,9 +109,7 @@ def validate_executor_hsnils(value: str) -> str:
         raise ValueError("Необходимо указать hsnils исполнителя")
     normalized = value.strip().lower()
     if not re.fullmatch(r"[0-9a-f]{32}", normalized):
-        raise ValueError(
-            "Некорректный формат hsnils исполнителя (ожидается 32-символьная hex-строка)"
-        )
+        raise ValueError("Некорректный формат hsnils исполнителя (ожидается 32-символьная hex-строка)")
     return normalized
 
 

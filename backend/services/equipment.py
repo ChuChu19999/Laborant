@@ -3,8 +3,7 @@ import pendulum
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.exceptions import NotFoundError
 from models.equipment import Equipment
-from repositories import equipment as equipment_repo
-from repositories import research as research_repo
+from repositories import equipment as equipment_repo, research as research_repo
 from repositories.base import flush_entity
 from schemas.equipment import EquipmentCreate, EquipmentResponse, EquipmentUpdate
 from services.visibility import validate_lab_and_department
@@ -12,16 +11,12 @@ from utils.pagination import calculate_total_pages
 from utils.versioning import next_version_string
 
 
-async def get_equipment_by_id(
-    db: AsyncSession, equipment_id: int, include_deleted: bool = False
-) -> Equipment | None:
+async def get_equipment_by_id(db: AsyncSession, equipment_id: int, include_deleted: bool = False) -> Equipment | None:
     """Получить оборудование по ID."""
     return await equipment_repo.get_equipment_by_id(db, equipment_id, include_deleted)
 
 
-async def require_equipment_by_id(
-    db: AsyncSession, equipment_id: int, include_deleted: bool = False
-) -> Equipment:
+async def require_equipment_by_id(db: AsyncSession, equipment_id: int, include_deleted: bool = False) -> Equipment:
     """Получить оборудование по ID или вернуть 404."""
     equipment = await get_equipment_by_id(db, equipment_id, include_deleted)
     if not equipment:
@@ -92,13 +87,9 @@ def build_equipment_response(equipment: Equipment) -> EquipmentResponse:
     return EquipmentResponse(**eq_dict)
 
 
-async def create_equipment(
-    db: AsyncSession, equipment_data: EquipmentCreate
-) -> Equipment:
+async def create_equipment(db: AsyncSession, equipment_data: EquipmentCreate) -> Equipment:
     """Создать оборудование."""
-    await validate_lab_and_department(
-        db, equipment_data.laboratory_id, equipment_data.department_id
-    )
+    await validate_lab_and_department(db, equipment_data.laboratory_id, equipment_data.department_id)
 
     latest_equipment = await equipment_repo.get_latest_equipment_version(
         db,
@@ -146,9 +137,7 @@ async def create_equipment(
     return equipment
 
 
-async def update_equipment(
-    db: AsyncSession, equipment_id: int, equipment_data: EquipmentUpdate
-) -> Equipment:
+async def update_equipment(db: AsyncSession, equipment_id: int, equipment_data: EquipmentUpdate) -> Equipment:
     """Обновить оборудование. Старая запись помечается как удаленная, создается новая с новой версией."""
     old_equipment = await get_equipment_by_id(db, equipment_id)
     if not old_equipment:
@@ -159,34 +148,15 @@ async def update_equipment(
     new_name = update_data.get("name", old_equipment.name)
     new_type = update_data.get("type", old_equipment.type)
     new_serial_number = update_data.get("serial_number", old_equipment.serial_number)
-    new_verification_info = update_data.get(
-        "verification_info", old_equipment.verification_info
-    )
-    new_verification_date = update_data.get(
-        "verification_date", old_equipment.verification_date
-    )
-    new_verification_end_date = update_data.get(
-        "verification_end_date", old_equipment.verification_end_date
-    )
-    new_method_data_default = update_data.get(
-        "method_data_default", old_equipment.method_data_default
-    )
+    new_verification_info = update_data.get("verification_info", old_equipment.verification_info)
+    new_verification_date = update_data.get("verification_date", old_equipment.verification_date)
+    new_verification_end_date = update_data.get("verification_end_date", old_equipment.verification_end_date)
+    new_method_data_default = update_data.get("method_data_default", old_equipment.method_data_default)
 
-    lab_id = (
-        equipment_data.laboratory_id
-        if equipment_data.laboratory_id is not None
-        else old_equipment.laboratory_id
-    )
-    dept_id = (
-        equipment_data.department_id
-        if equipment_data.department_id is not None
-        else old_equipment.department_id
-    )
+    lab_id = equipment_data.laboratory_id if equipment_data.laboratory_id is not None else old_equipment.laboratory_id
+    dept_id = equipment_data.department_id if equipment_data.department_id is not None else old_equipment.department_id
 
-    if (
-        equipment_data.laboratory_id is not None
-        or equipment_data.department_id is not None
-    ):
+    if equipment_data.laboratory_id is not None or equipment_data.department_id is not None:
         await validate_lab_and_department(db, lab_id, dept_id)
 
     next_version = next_version_string(old_equipment.version)
@@ -209,9 +179,7 @@ async def update_equipment(
     )
     new_equipment = await equipment_repo.add_equipment(db, new_equipment)
 
-    await _update_research_methods_with_new_equipment_version(
-        db, old_equipment_id, new_equipment.id, lab_id, dept_id
-    )
+    await _update_research_methods_with_new_equipment_version(db, old_equipment_id, new_equipment.id, lab_id, dept_id)
 
     equipment = await equipment_repo.get_equipment_by_id(db, new_equipment.id)
     if not equipment:
@@ -227,9 +195,7 @@ async def _update_research_methods_with_new_equipment_version(
     department_id: int | None,
 ) -> None:
     """Обновить методы исследования, привязанные к старой версии прибора."""
-    methods = await research_repo.get_research_methods_for_equipment_update(
-        db, laboratory_id, department_id
-    )
+    methods = await research_repo.get_research_methods_for_equipment_update(db, laboratory_id, department_id)
 
     has_updates = False
     for method in methods:
@@ -241,10 +207,7 @@ async def _update_research_methods_with_new_equipment_version(
             continue
 
         if old_equipment_id in equipment_ids:
-            equipment_ids = [
-                new_equipment_id if eq_id == old_equipment_id else eq_id
-                for eq_id in equipment_ids
-            ]
+            equipment_ids = [new_equipment_id if eq_id == old_equipment_id else eq_id for eq_id in equipment_ids]
             method.equipment_data_default = equipment_ids
             has_updates = True
 
@@ -252,9 +215,7 @@ async def _update_research_methods_with_new_equipment_version(
         await flush_entity(db)
 
 
-async def _remove_equipment_from_research_methods(
-    db: AsyncSession, equipment_id: int
-) -> None:
+async def _remove_equipment_from_research_methods(db: AsyncSession, equipment_id: int) -> None:
     """Удалить прибор из equipment_data_default во всех методах исследования."""
     methods = await research_repo.get_all_research_methods_for_equipment_removal(db)
 

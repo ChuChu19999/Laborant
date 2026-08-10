@@ -1,6 +1,6 @@
 from __future__ import annotations
-import zipfile
 from io import BytesIO
+import zipfile
 import pendulum
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.exceptions import NotFoundError, ValidationError
@@ -101,13 +101,9 @@ async def get_report_templates(
     return templates, total, total_pages
 
 
-async def create_report_template(
-    db: AsyncSession, template_data: ReportTemplateCreate
-) -> ReportTemplate:
+async def create_report_template(db: AsyncSession, template_data: ReportTemplateCreate) -> ReportTemplate:
     """Создать шаблон отчёта."""
-    await validate_lab_and_department(
-        db, template_data.laboratory_id, template_data.department_id
-    )
+    await validate_lab_and_department(db, template_data.laboratory_id, template_data.department_id)
 
     latest_template = await report_repo.get_latest_report_template_for_type(
         db,
@@ -146,7 +142,7 @@ async def update_report_template(
 
     update_data = template_data.model_dump(exclude_unset=True)
 
-    if "file" in update_data and update_data["file"]:
+    if update_data.get("file"):
         template.soft_delete()
         await flush_entity(db)
 
@@ -198,9 +194,7 @@ def build_report_template_response(template: ReportTemplate) -> ReportTemplateRe
     return ReportTemplateResponse(**template_dict)
 
 
-async def get_report_template_response_data(
-    db: AsyncSession, template_id: int
-) -> ReportTemplateResponse:
+async def get_report_template_response_data(db: AsyncSession, template_id: int) -> ReportTemplateResponse:
     """Получить шаблон отчёта с данными для ответа API."""
     template = await report_repo.get_report_template_by_id(db, template_id)
     if not template:
@@ -212,9 +206,7 @@ def parse_report_period_bounds(date_from, date_to):
     """Преобразует date из схемы в границы периода для отчётов."""
     try:
         return (
-            pendulum.datetime(date_from.year, date_from.month, date_from.day).start_of(
-                "day"
-            ),
+            pendulum.datetime(date_from.year, date_from.month, date_from.day).start_of("day"),
             pendulum.datetime(date_to.year, date_to.month, date_to.day).end_of("day"),
         )
     except Exception as exc:
@@ -233,10 +225,7 @@ async def resolve_ilninm_report_template(
     """Проверить лабораторию ИЛНиНМ и вернуть активный шаблон отчёта."""
     lab = await require_laboratory_by_id(db, laboratory_id)
     if lab.name != LABORATORY_NAME_ILNINM:
-        raise ValidationError(
-            f"Отчёт «{report_type_label}» доступен только "
-            f"для лаборатории «{LABORATORY_NAME_ILNINM}»"
-        )
+        raise ValidationError(f"Отчёт «{report_type_label}» доступен только для лаборатории «{LABORATORY_NAME_ILNINM}»")
 
     if template_id:
         template = await get_report_template_by_id(db, template_id)
@@ -315,8 +304,7 @@ async def generate_physicochemical_report_file(
         report_type_label="Физико-химическая характеристика",
         template_not_found_msg=(
             "Не найден шаблон отчёта «Физико-химическая характеристика» "
-            "для данной лаборатории"
-            + (" и подразделения" if body.department_id is not None else "")
+            "для данной лаборатории" + (" и подразделения" if body.department_id is not None else "")
         ),
     )
 
@@ -338,16 +326,11 @@ async def generate_physicochemical_report_file(
     )
 
     location_slug = body.sampling_location.replace(" ", "_")
-    filename = (
-        f"Физико_химическая_характеристика_{location_slug}_"
-        f"{body.date_from}_{body.date_to}.xlsx"
-    )
+    filename = f"Физико_химическая_характеристика_{location_slug}_{body.date_from}_{body.date_to}.xlsx"
     return excel_bytes, filename, _EXCEL_MEDIA_TYPE
 
 
-async def generate_kgs_report_file(
-    db: AsyncSession, body: GenerateKgsReportRequest
-) -> tuple[bytes, str, str]:
+async def generate_kgs_report_file(db: AsyncSession, body: GenerateKgsReportRequest) -> tuple[bytes, str, str]:
     """Сформировать Excel-файл отчёта «Результаты КГС»."""
     template = await resolve_ilninm_report_template(
         db,
@@ -377,9 +360,7 @@ async def generate_kgs_report_file(
     return excel_bytes, filename, _EXCEL_MEDIA_TYPE
 
 
-async def generate_nks_report_file(
-    db: AsyncSession, body: GenerateNksReportRequest
-) -> tuple[bytes, str, str]:
+async def generate_nks_report_file(db: AsyncSession, body: GenerateNksReportRequest) -> tuple[bytes, str, str]:
     """Сформировать Excel-файл отчёта «Результаты НКС»."""
     template = await resolve_ilninm_report_template(
         db,

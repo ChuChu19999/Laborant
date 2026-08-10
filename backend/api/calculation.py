@@ -1,6 +1,5 @@
 from __future__ import annotations
 from fastapi import APIRouter, Depends, Query
-from core.auth_decorators import IsAuthenticated
 from core.deps import DbSession, ScopeSortPaginationParams, UserPermissions
 from core.exceptions import ForbiddenError, ValidationError
 from schemas.calculation import (
@@ -66,13 +65,9 @@ async def list_calculations(
     sample_ids_list = None
     if sample_ids:
         try:
-            sample_ids_list = [
-                int(id.strip()) for id in sample_ids.split(",") if id.strip()
-            ]
+            sample_ids_list = [int(id.strip()) for id in sample_ids.split(",") if id.strip()]
         except ValueError as exc:
-            raise ValidationError(
-                "Некорректный формат sample_ids: ожидаются целые числа через запятую"
-            ) from exc
+            raise ValidationError("Некорректный формат sample_ids: ожидаются целые числа через запятую") from exc
 
     calculations, total, total_pages = await get_calculations(
         db,
@@ -120,9 +115,7 @@ async def get_calculations_by_sample_endpoint(
     """Возвращает все расчеты для указанной пробы без пагинации."""
     sample = await require_sample_by_id(db, sample_id)
     try:
-        enforce_nav_access(
-            effective, "samples", sample.laboratory_id, sample.department_id
-        )
+        enforce_nav_access(effective, "samples", sample.laboratory_id, sample.department_id)
     except ForbiddenError:
         enforce_crud_access(
             effective,
@@ -147,8 +140,7 @@ async def get_calculations_by_sample_endpoint(
     status_code=201,
     summary="Добавление нового расчета",
     description=(
-        "Добавляет новый расчет на основе переданных данных. "
-        "Расчет привязывается к пробе и методу исследования."
+        "Добавляет новый расчет на основе переданных данных. Расчет привязывается к пробе и методу исследования."
     ),
     responses={
         201: {"description": "Расчет успешно добавлен"},
@@ -178,8 +170,7 @@ async def create_calculation_endpoint(
     response_model=MethodologyChoiceResponse,
     summary="Проверка версии методики при редактировании расчета",
     description=(
-        "Возвращает статус изменения методики с момента сохранения расчета "
-        "и идентификаторы старой и актуальной версий."
+        "Возвращает статус изменения методики с момента сохранения расчета и идентификаторы старой и актуальной версий."
     ),
     responses={
         200: {"description": "Статус методики успешно получен"},

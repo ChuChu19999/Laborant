@@ -19,9 +19,7 @@ from utils.protocol_generator_utils import (
 from utils.versioning import next_version_string
 
 
-async def get_template_file(
-    template: ProtocolTemplate, section: str | None = None
-) -> bytes:
+async def get_template_file(template: ProtocolTemplate, section: str | None = None) -> bytes:
     """Получить файл шаблона в виде байтов (с обрезкой раздутого used range)."""
     del section  # секция пока не режет файл — отдаём весь лист после sanitize
     raw = decode_protocol_template_file(template.file)
@@ -46,9 +44,7 @@ def _find_header_marker_rows(worksheet) -> tuple[int | None, int | None]:
     return start_header_row, end_header_row
 
 
-async def get_excel_styles(
-    db: AsyncSession, template_id: int, section: str
-) -> dict[str, Any]:
+async def get_excel_styles(db: AsyncSession, template_id: int, section: str) -> dict[str, Any]:
     """Получить стили для ячеек в файле."""
     del section
     template = await get_protocol_template_by_id(db, template_id)
@@ -121,9 +117,7 @@ async def save_excel_section(
         current_template.laboratory_id,
         current_template.department_id,
     )
-    next_version = next_version_string(
-        latest_template.version if latest_template else None
-    )
+    next_version = next_version_string(latest_template.version if latest_template else None)
 
     # Помечаем текущий шаблон как удаленный
     current_template.soft_delete()
@@ -163,13 +157,8 @@ async def save_excel_section(
                             min_col = merge_range.min_col
                             max_col = merge_range.max_col
 
-                            if (
-                                min_row <= row_idx <= max_row
-                                and min_col <= col_idx <= max_col
-                            ):
-                                source_cell = worksheet.cell(
-                                    row=min_row, column=min_col
-                                )
+                            if min_row <= row_idx <= max_row and min_col <= col_idx <= max_col:
+                                source_cell = worksheet.cell(row=min_row, column=min_col)
                                 # Создаем новый диапазон объединения со сдвигом
                                 worksheet.merge_cells(
                                     start_row=min_row + shift,

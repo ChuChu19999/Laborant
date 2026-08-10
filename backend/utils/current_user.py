@@ -1,8 +1,6 @@
 from contextvars import ContextVar
 
-current_user_context: ContextVar[tuple[str, str] | None] = ContextVar(
-    "current_user", default=None
-)
+current_user_context: ContextVar[tuple[str, str] | None] = ContextVar("current_user", default=None)
 
 
 def set_current_user(full_name: str, hsnils: str) -> None:

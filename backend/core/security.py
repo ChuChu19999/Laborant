@@ -1,8 +1,8 @@
 import time
-import jwt
-import requests
 from fastapi import HTTPException, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+import jwt
+import requests
 from starlette.concurrency import run_in_threadpool
 from core.config import settings
 from core.logger import logger
@@ -28,16 +28,10 @@ async def get_public_key() -> str:
         return _public_key_cache
 
     try:
-        verify_cert = (
-            settings.CERT_PATH
-            if settings.CERT_PATH and settings.CERT_PATH != ""
-            else True
-        )
+        verify_cert = settings.CERT_PATH if settings.CERT_PATH and settings.CERT_PATH != "" else True
 
         response = await run_in_threadpool(
-            lambda: requests.get(
-                settings.KEYCLOAK_PUBLIC_KEY_URL, verify=verify_cert, timeout=30.0
-            )
+            lambda: requests.get(settings.KEYCLOAK_PUBLIC_KEY_URL, verify=verify_cert, timeout=30.0)
         )
 
         if response.status_code != 200:
@@ -62,9 +56,7 @@ async def get_public_key() -> str:
 
     except requests.exceptions.RequestException as e:
         logger.error(f"Request failed: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Request failed"
-        )
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Request failed")
 
 
 async def verify_token(

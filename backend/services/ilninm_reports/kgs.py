@@ -5,10 +5,10 @@
 Группировка по нормализованному месту отбора, внутри группы — по дате отбора.
 """
 
-import re
 from dataclasses import dataclass
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
+import re
 import pendulum
 from sqlalchemy.ext.asyncio import AsyncSession
 from models.calculation import Calculation
@@ -180,9 +180,7 @@ def _kgs_calculation_cell_value(calc: Calculation, spec: MethodColumnSpec) -> st
     return _calculation_display_value(calc, spec)
 
 
-def _find_value_for_column(
-    calculations: list[Calculation], spec: MethodColumnSpec
-) -> str:
+def _find_value_for_column(calculations: list[Calculation], spec: MethodColumnSpec) -> str:
     for calc in calculations:
         if _calculation_matches_spec(calc, spec):
             return _format_kgs_cell_display(_kgs_calculation_cell_value(calc, spec))
@@ -251,11 +249,7 @@ async def get_kgs_report_groups(
 
     grouped: dict[str, list[tuple[str, Sample]]] = {}
     for sample in samples:
-        raw = (
-            (sample.sampling_location.name or "").strip()
-            if sample.sampling_location
-            else ""
-        )
+        raw = (sample.sampling_location.name or "").strip() if sample.sampling_location else ""
         key, display = resolve_kgs_sampling_location_key_and_display(raw)
         if not key:
             continue
@@ -276,9 +270,7 @@ async def get_kgs_report_groups(
             )
         )
         data_rows: list[KgsReportDataRow] = []
-        column_values: dict[int, list[str]] = {
-            spec.column: [] for spec in KGS_METHOD_COLUMNS
-        }
+        column_values: dict[int, list[str]] = {spec.column: [] for spec in KGS_METHOD_COLUMNS}
 
         for _, sample in items:
             calcs = calcs_by_sample.get(sample.id, [])
@@ -295,9 +287,7 @@ async def get_kgs_report_groups(
                 )
             )
 
-        average_values = {
-            col: _average_column_values(column_values[col]) for col in column_values
-        }
+        average_values = {col: _average_column_values(column_values[col]) for col in column_values}
         groups.append(
             KgsReportLocationGroup(
                 location_display=location_display,

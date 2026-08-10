@@ -14,8 +14,7 @@ import pendulum
 from sqlalchemy.ext.asyncio import AsyncSession
 from models.calculation import Calculation
 from models.sample import Sample
-from repositories import calculation as calculation_repo
-from repositories import sample as sample_repo
+from repositories import calculation as calculation_repo, sample as sample_repo
 from services.ilninm_reports.constants import (
     FRACTIONAL_RESULT_FIELD_100,
     FRACTIONAL_RESULT_FIELD_150,
@@ -68,9 +67,7 @@ class MethodColumnSpec:
 
 
 METHOD_COLUMNS: tuple[MethodColumnSpec, ...] = (
-    MethodColumnSpec(
-        4, METHOD_DENSITY_OIL, GROUP_DENSITY, group_prefix="Плотность при температуре"
-    ),
+    MethodColumnSpec(4, METHOD_DENSITY_OIL, GROUP_DENSITY, group_prefix="Плотность при температуре"),
     MethodColumnSpec(5, METHOD_MOLECULAR_OIL, GROUP_MOLECULAR_MASS),
     MethodColumnSpec(6, METHOD_VISCOSITY_20, GROUP_KINEMATIC_VISCOSITY),
     MethodColumnSpec(7, METHOD_VISCOSITY_50, GROUP_KINEMATIC_VISCOSITY),
@@ -130,9 +127,7 @@ def resolve_sampling_location_display(sampling_location: str) -> str:
     return DB_NAME_TO_DISPLAY_CDGGKN.get(db_name, db_name)
 
 
-def format_report_period(
-    date_from: pendulum.DateTime, date_to: pendulum.DateTime
-) -> str:
+def format_report_period(date_from: pendulum.DateTime, date_to: pendulum.DateTime) -> str:
     """Период для метки {period} в шапке отчёта."""
     return f"{date_from.format('DD.MM.YYYY')} - {date_to.format('DD.MM.YYYY')}"
 
@@ -224,14 +219,10 @@ def _calculation_display_value(calc: Calculation, spec: MethodColumnSpec) -> str
             data = combined
         normalized: dict[str, Any] = {}
         for key, val in data.items():
-            normalized[key.replace("Температура н,к.", FRACTIONAL_RESULT_FIELD_NK)] = (
-                val
-            )
+            normalized[key.replace("Температура н,к.", FRACTIONAL_RESULT_FIELD_NK)] = val
         return _fractional_field_value(normalized, spec.fractional_field)
     method_name = (calc.research_method.name or "") if calc.research_method else ""
-    display = format_calculation_result_for_display(
-        calc.result, method_name, calc.input_data
-    )
+    display = format_calculation_result_for_display(calc.result, method_name, calc.input_data)
     if display != str(calc.result if calc.result is not None else ""):
         return _report_display(display)
     return _report_display(format_decimal_ru(calc.result))
@@ -247,9 +238,7 @@ def _calculation_matches_spec(calc: Calculation, spec: MethodColumnSpec) -> bool
         return True
     groups = method.groups or []
     if not groups:
-        if spec.fractional_field and _method_name_matches(
-            method.name or "", METHOD_FRACTIONAL_OIL
-        ):
+        if spec.fractional_field and _method_name_matches(method.name or "", METHOD_FRACTIONAL_OIL):
             return True
         return False
     for group in groups:
@@ -274,11 +263,7 @@ async def _get_samples_for_report(
         sampling_date_to,
         department_id,
     )
-    samples = [
-        sample
-        for sample in samples
-        if _is_oil_test_object(sample) and _has_well(sample)
-    ]
+    samples = [sample for sample in samples if _is_oil_test_object(sample) and _has_well(sample)]
     samples.sort(
         key=lambda sample: (
             sample.sampling_date is None,
@@ -289,15 +274,11 @@ async def _get_samples_for_report(
     return samples
 
 
-async def get_calculations_by_sample(
-    db: AsyncSession, sample_ids: list[int]
-) -> dict[int, list[Calculation]]:
+async def get_calculations_by_sample(db: AsyncSession, sample_ids: list[int]) -> dict[int, list[Calculation]]:
     return await calculation_repo.get_calculations_grouped_by_sample_ids(db, sample_ids)
 
 
-def _find_value_for_column(
-    calculations: list[Calculation], spec: MethodColumnSpec
-) -> str:
+def _find_value_for_column(calculations: list[Calculation], spec: MethodColumnSpec) -> str:
     for calc in calculations:
         if _calculation_matches_spec(calc, spec):
             return _calculation_display_value(calc, spec)

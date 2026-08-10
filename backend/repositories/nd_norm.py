@@ -90,9 +90,7 @@ async def get_nd_norms(
         count_conditions.append(NdNorm.test_object.in_(test_objects))
     elif test_object:
         count_conditions.append(NdNorm.test_object == test_object)
-    add_date_range_filter(
-        count_conditions, created_at_from, created_at_to, NdNorm.created_at
-    )
+    add_date_range_filter(count_conditions, created_at_from, created_at_to, NdNorm.created_at)
     if count_conditions:
         count_query = count_query.where(*count_conditions)
 

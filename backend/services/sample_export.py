@@ -1,5 +1,5 @@
-import re
 from collections import defaultdict
+import re
 from typing import Any
 import pendulum
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,9 +33,7 @@ def _research_method_export_info(method: ResearchMethod) -> ResearchMethodExport
     )
 
 
-async def _load_research_methods_map(
-    db: AsyncSession, method_ids: list[int]
-) -> dict[int, ResearchMethod]:
+async def _load_research_methods_map(db: AsyncSession, method_ids: list[int]) -> dict[int, ResearchMethod]:
     if not method_ids:
         return {}
 
@@ -60,9 +58,7 @@ def _method_display_name(method: ResearchMethod) -> str:
     return base_name
 
 
-def _calculation_sort_key(
-    calc: SampleExportCalculation, methods_map: dict[int, ResearchMethod]
-) -> tuple[int, str]:
+def _calculation_sort_key(calc: SampleExportCalculation, methods_map: dict[int, ResearchMethod]) -> tuple[int, str]:
     method = methods_map.get(calc.research_method_id)
     if not method:
         return (10**9, "")
@@ -143,9 +139,7 @@ async def get_samples_export_data(
         )
 
     for sample_id in calcs_by_sample:
-        calcs_by_sample[sample_id].sort(
-            key=lambda item: _calculation_sort_key(item, methods_map)
-        )
+        calcs_by_sample[sample_id].sort(key=lambda item: _calculation_sort_key(item, methods_map))
 
     protocols_by_sample = await get_protocols_by_sample_ids(db, sample_ids)
 

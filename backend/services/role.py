@@ -60,15 +60,9 @@ async def build_roles_list_response(
     items: list[Role],
 ) -> list[RoleResponse]:
     """Собрать ответы списка ролей с пакетной подгрузкой названий lab/dept."""
-    normalized: list[tuple[Role, list[dict]]] = [
-        (item, normalize_role_scopes(item.scopes)) for item in items
-    ]
-    laboratory_ids, department_ids = collect_role_scope_ids(
-        [scopes for _, scopes in normalized]
-    )
-    lab_names, dept_names = await load_lab_dept_name_maps(
-        db, laboratory_ids, department_ids
-    )
+    normalized: list[tuple[Role, list[dict]]] = [(item, normalize_role_scopes(item.scopes)) for item in items]
+    laboratory_ids, department_ids = collect_role_scope_ids([scopes for _, scopes in normalized])
+    lab_names, dept_names = await load_lab_dept_name_maps(db, laboratory_ids, department_ids)
     return [
         _build_role_response_from_labeled(
             item,
@@ -204,11 +198,11 @@ async def delete_role(db: AsyncSession, role_id: int) -> None:
 __all__ = [
     "build_role_response",
     "build_roles_list_response",
+    "create_role",
+    "delete_role",
     "get_role_by_id",
-    "require_role_by_id",
     "get_role_response",
     "get_roles_list",
-    "create_role",
+    "require_role_by_id",
     "update_role",
-    "delete_role",
 ]

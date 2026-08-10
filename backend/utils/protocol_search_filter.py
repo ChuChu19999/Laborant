@@ -17,8 +17,7 @@ def _suffix_from_test_object_sql():
             .where(
                 TestObject.deleted_at.is_(None),
                 Sample.test_object.is_not(None),
-                func.lower(TestObject.name)
-                == func.lower(func.trim(Sample.test_object)),
+                func.lower(TestObject.name) == func.lower(func.trim(Sample.test_object)),
                 TestObject.protocol_abbreviation.is_not(None),
                 func.trim(TestObject.protocol_abbreviation) != literal(""),
             )
@@ -35,8 +34,7 @@ def _protocol_display_sql():
     suffix_sql = _suffix_from_test_object_sql()
     num_blank = or_(
         Protocol.test_protocol_number.is_(None),
-        func.trim(func.coalesce(Protocol.test_protocol_number, literal("")))
-        == literal(""),
+        func.trim(func.coalesce(Protocol.test_protocol_number, literal(""))) == literal(""),
     )
     date_str = func.to_char(Protocol.test_protocol_date, "DD.MM.YYYY")
     not_accredited = or_(
@@ -103,10 +101,7 @@ def sample_has_protocol_display_ilike(search_fragment: str):
     display_sql = _protocol_display_sql()
     protocol_table = Protocol.__table__.fullname
     sample_table = Sample.__table__.fullname
-    protocol_links_sample = text(
-        f"cast({protocol_table}.samples as jsonb) @> "
-        f"jsonb_build_array({sample_table}.id)"
-    )
+    protocol_links_sample = text(f"cast({protocol_table}.samples as jsonb) @> jsonb_build_array({sample_table}.id)")
 
     return exists(
         select(literal(1))
@@ -132,10 +127,7 @@ def protocol_list_row_matches_display_ilike(search_fragment: str):
     display_sql = _protocol_display_sql()
     protocol_table = Protocol.__table__.fullname
     sample_table = Sample.__table__.fullname
-    sample_linked_to_protocol = text(
-        f"cast({protocol_table}.samples as jsonb) @> "
-        f"jsonb_build_array({sample_table}.id)"
-    )
+    sample_linked_to_protocol = text(f"cast({protocol_table}.samples as jsonb) @> jsonb_build_array({sample_table}.id)")
     return exists(
         select(literal(1))
         .select_from(Sample)

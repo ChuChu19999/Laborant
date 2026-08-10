@@ -1,6 +1,5 @@
 from __future__ import annotations
 from fastapi import APIRouter, Query
-from core.auth_decorators import IsAuthenticated
 from core.deps import DbSession, UserPermissions
 from services.access_control import enforce_lab_management_access
 from services.fixtures import (
@@ -67,18 +66,12 @@ async def get_saved_methods_tree(
 # @IsAuthenticated
 async def get_fixtures(
     effective: UserPermissions,
-    laboratory_name: str | None = Query(
-        None, description="Название лаборатории (например, ИЛНиНМ)"
-    ),
-    department_name: str | None = Query(
-        None, description="Название подразделения (например, 26 съезда КПСС)"
-    ),
+    laboratory_name: str | None = Query(None, description="Название лаборатории (например, ИЛНиНМ)"),
+    department_name: str | None = Query(None, description="Название подразделения (например, 26 съезда КПСС)"),
 ):
     """Возвращает список доступных фикстур методов исследования."""
     enforce_lab_management_access(effective)
-    fixtures = list_available_fixtures(
-        laboratory_name=laboratory_name, department_name=department_name
-    )
+    fixtures = list_available_fixtures(laboratory_name=laboratory_name, department_name=department_name)
     return {"fixtures": fixtures}
 
 
@@ -106,8 +99,7 @@ async def list_fixture_files_endpoint(
     "/fixtures/{fixture_path:path}",
     summary="Получение данных фикстуры",
     description=(
-        "Возвращает данные фикстуры по указанному пути. "
-        "Путь указывается в формате, например: 'ilninm/26th/01.json'."
+        "Возвращает данные фикстуры по указанному пути. Путь указывается в формате, например: 'ilninm/26th/01.json'."
     ),
     responses={
         200: {"description": "Данные фикстуры успешно получены"},

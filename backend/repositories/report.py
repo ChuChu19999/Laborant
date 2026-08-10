@@ -19,9 +19,7 @@ _REPORT_TEMPLATE_VERSION_NUM = text(
 
 def _order_report_templates_by_version_desc(query):
     """Сортировка версий v1, v2, …, v10 по числу, а не как строк."""
-    return query.order_by(
-        desc(_REPORT_TEMPLATE_VERSION_NUM), ReportTemplate.created_at.desc()
-    )
+    return query.order_by(desc(_REPORT_TEMPLATE_VERSION_NUM), ReportTemplate.created_at.desc())
 
 
 async def get_report_template_by_id(
@@ -106,9 +104,7 @@ async def get_report_templates(
     if not sort_by or sort_by == "version":
         query = _order_report_templates_by_version_desc(query)
     else:
-        order_by = build_order_by(
-            sort_by, sort_order, sort_mapping, ReportTemplate.created_at
-        )
+        order_by = build_order_by(sort_by, sort_order, sort_mapping, ReportTemplate.created_at)
         query = query.order_by(order_by)
 
     count_query = select(func.count()).select_from(ReportTemplate)
@@ -151,9 +147,7 @@ async def get_latest_report_template_for_type(
     return await execute_scalar_one_or_none(db, query)
 
 
-async def add_report_template(
-    db: AsyncSession, template: ReportTemplate
-) -> ReportTemplate:
+async def add_report_template(db: AsyncSession, template: ReportTemplate) -> ReportTemplate:
     """Добавить шаблон отчёта в сессию."""
     await add_and_flush(db, template)
     return template

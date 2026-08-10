@@ -34,9 +34,7 @@ def format_protocol_number(
         if isinstance(protocol_date, pendulum.Date):
             formatted_date = protocol_date.format("DD.MM.YYYY")
         elif isinstance(protocol_date, date):
-            pendulum_date = pendulum.date(
-                protocol_date.year, protocol_date.month, protocol_date.day
-            )
+            pendulum_date = pendulum.date(protocol_date.year, protocol_date.month, protocol_date.day)
             formatted_date = pendulum_date.format("DD.MM.YYYY")
         else:
             try:

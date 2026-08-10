@@ -16,18 +16,10 @@ class Sample(BaseModel):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
-    registration_number: Mapped[str] = mapped_column(
-        String(50), nullable=False, comment="Регистрационный номер пробы"
-    )
-    sample_type: Mapped[str | None] = mapped_column(
-        String(50), nullable=True, comment="Тип пробы"
-    )
-    test_object: Mapped[str] = mapped_column(
-        String(255), nullable=False, comment="Объект испытаний"
-    )
-    sampling_date: Mapped[date | None] = mapped_column(
-        Date, nullable=True, comment="Дата отбора пробы"
-    )
+    registration_number: Mapped[str] = mapped_column(String(50), nullable=False, comment="Регистрационный номер пробы")
+    sample_type: Mapped[str | None] = mapped_column(String(50), nullable=True, comment="Тип пробы")
+    test_object: Mapped[str] = mapped_column(String(255), nullable=False, comment="Объект испытаний")
+    sampling_date: Mapped[date | None] = mapped_column(Date, nullable=True, comment="Дата отбора пробы")
     receiving_date: Mapped[date | None] = mapped_column(
         Date, nullable=True, comment="Дата получения пробы в лабораторию"
     )
@@ -48,36 +40,22 @@ class Sample(BaseModel):
     )
     sampling_location_id: Mapped[int | None] = mapped_column(
         Integer,
-        ForeignKey(
-            f"{get_database_schema()}.sampling_locations.id", ondelete="SET NULL"
-        ),
+        ForeignKey(f"{get_database_schema()}.sampling_locations.id", ondelete="SET NULL"),
         nullable=True,
     )
-    well: Mapped[str | None] = mapped_column(
-        String(255), nullable=True, comment="Название скважины"
-    )
-    mode: Mapped[str | None] = mapped_column(
-        String(255), nullable=True, comment="Режим работы скважины"
-    )
-    indicators_count: Mapped[int] = mapped_column(
-        Integer, nullable=False, comment="Количество показателей"
-    )
-    phone: Mapped[str | None] = mapped_column(
-        String(50), nullable=True, comment="Номер телефона филиала"
-    )
+    well: Mapped[str | None] = mapped_column(String(255), nullable=True, comment="Название скважины")
+    mode: Mapped[str | None] = mapped_column(String(255), nullable=True, comment="Режим работы скважины")
+    indicators_count: Mapped[int] = mapped_column(Integer, nullable=False, comment="Количество показателей")
+    phone: Mapped[str | None] = mapped_column(String(50), nullable=True, comment="Номер телефона филиала")
     selection_conditions: Mapped[dict[str, Any] | None] = mapped_column(
         JSON, nullable=True, comment="JSON с условиями отбора и их значениями"
     )
-    added_by: Mapped[str | None] = mapped_column(
-        String(150), nullable=True, comment="hsnils лица, добавившего пробу"
-    )
+    added_by: Mapped[str | None] = mapped_column(String(150), nullable=True, comment="hsnils лица, добавившего пробу")
 
     laboratory: Mapped["Laboratory"] = relationship(back_populates="samples")
     department: Mapped["Department | None"] = relationship(back_populates="samples")
     branch: Mapped["Branch | None"] = relationship(back_populates="samples")
-    sampling_location: Mapped["SamplingLocation | None"] = relationship(
-        back_populates="samples"
-    )
+    sampling_location: Mapped["SamplingLocation | None"] = relationship(back_populates="samples")
     calculations: Mapped[list["Calculation"]] = relationship(back_populates="sample")
 
     __table_args__ = (
@@ -121,12 +99,8 @@ class SelectionConditions(BaseModel):
         nullable=True,
     )
 
-    laboratory: Mapped["Laboratory | None"] = relationship(
-        back_populates="selection_conditions"
-    )
-    department: Mapped["Department | None"] = relationship(
-        back_populates="selection_conditions"
-    )
+    laboratory: Mapped["Laboratory | None"] = relationship(back_populates="selection_conditions")
+    department: Mapped["Department | None"] = relationship(back_populates="selection_conditions")
 
     __table_args__ = (
         Index("idx_selection_conditions_laboratory", "laboratory_id"),

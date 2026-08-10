@@ -11,9 +11,7 @@ ResearchMethodGroupName = Annotated[NonEmptyStr, Field(max_length=255)]
 
 
 class ResearchMethodBase(BaseModel):
-    name: str = Field(
-        ..., max_length=255, description="Наименование метода исследования"
-    )
+    name: str = Field(..., max_length=255, description="Наименование метода исследования")
     sample_type: list[str] = Field(..., description="Типы исследуемых проб")
     formula: str = Field(..., max_length=255, description="Формула для расчета")
     measurement_error: dict[str, Any] = Field(..., description="Погрешность измерения")
@@ -22,37 +20,27 @@ class ResearchMethodBase(BaseModel):
     nd_code: str = Field(..., max_length=255, description="Шифр НД")
     nd_name: str = Field(..., max_length=255, description="Наименование НД")
     input_data: dict[str, Any] = Field(..., description="Структура входных данных")
-    intermediate_data: dict[str, Any] = Field(
-        ..., description="Структура промежуточных данных"
-    )
+    intermediate_data: dict[str, Any] = Field(..., description="Структура промежуточных данных")
     convergence_conditions: dict[str, Any] = Field(
-        default_factory=lambda: {
-            "formulas": [{"formula": "", "convergence_value": "satisfactory"}]
-        },
+        default_factory=lambda: {"formulas": [{"formula": "", "convergence_value": "satisfactory"}]},
         description="Условия повторяемости",
     )
     rounding_type: RoundingTypeField = Field(..., description="Тип округления")
     rounding_decimal: int = Field(..., ge=0, description="Количество знаков округления")
     is_group_member: bool = Field(default=False, description="Является частью группы")
-    equipment_data_default: list[int] | None = Field(
-        None, description="Приборы по умолчанию"
-    )
+    equipment_data_default: list[int] | None = Field(None, description="Приборы по умолчанию")
     sort_order: int | None = Field(None, description="Порядок сортировки")
     laboratory_id: int | None = Field(None, description="ID лаборатории")
     department_id: int | None = Field(None, description="ID подразделения")
 
     @field_validator("equipment_data_default")
     @classmethod
-    def validate_equipment_data_default(
-        cls, value: list[int] | None
-    ) -> list[int] | None:
+    def validate_equipment_data_default(cls, value: list[int] | None) -> list[int] | None:
         if value is None:
             return []
         for item in value:
             if item <= 0:
-                raise ValueError(
-                    "Каждый ID прибора должен быть положительным целым числом"
-                )
+                raise ValueError("Каждый ID прибора должен быть положительным целым числом")
         return value
 
     @field_validator("measurement_error")
@@ -78,21 +66,15 @@ class ResearchMethodBase(BaseModel):
     def validate_input_data(cls, value: dict[str, Any]) -> dict[str, Any]:
         required_keys = {"fields"}
         if not all(key in value for key in required_keys):
-            raise ValueError(
-                f"Входные данные должны содержать следующие ключи: {required_keys}"
-            )
+            raise ValueError(f"Входные данные должны содержать следующие ключи: {required_keys}")
         for field in value.get("fields", []):
             if not isinstance(field, dict):
                 raise ValueError("Каждое поле должно быть объектом")
             required_field_keys = {"name", "description", "card_index"}
             if not all(key in field for key in required_field_keys):
-                raise ValueError(
-                    f"Каждое поле должно содержать следующие ключи: {required_field_keys}"
-                )
+                raise ValueError(f"Каждое поле должно содержать следующие ключи: {required_field_keys}")
             if not isinstance(field["card_index"], int) or field["card_index"] < 1:
-                raise ValueError(
-                    "Поле card_index должно быть положительным целым числом"
-                )
+                raise ValueError("Поле card_index должно быть положительным целым числом")
             if "unit" in field and not isinstance(field["unit"], str):
                 raise ValueError("Поле unit должно быть строкой")
         return value
@@ -105,43 +87,27 @@ class ResearchMethodBase(BaseModel):
                 raise ValueError("Каждое поле должно быть объектом")
             required_field_keys = {"name", "formula", "description", "show_calculation"}
             if not all(key in field for key in required_field_keys):
-                raise ValueError(
-                    f"Каждое поле должно содержать следующие ключи: {required_field_keys}"
-                )
+                raise ValueError(f"Каждое поле должно содержать следующие ключи: {required_field_keys}")
             if "unit" in field and not isinstance(field["unit"], str):
                 raise ValueError("Поле unit должно быть строкой")
             if not isinstance(field["show_calculation"], bool):
-                raise ValueError(
-                    "Поле show_calculation должно быть логическим значением"
-                )
+                raise ValueError("Поле show_calculation должно быть логическим значением")
             use_result_rounding = field.get("use_result_rounding", True)
             if use_result_rounding is not False and use_result_rounding is not True:
-                raise ValueError(
-                    "Поле use_result_rounding должно быть логическим значением"
-                )
+                raise ValueError("Поле use_result_rounding должно быть логическим значением")
             if field.get("use_result_rounding") is False:
-                if field.get("use_multiple_rounding") or field.get(
-                    "use_threshold_table"
-                ):
-                    raise ValueError(
-                        "Своё округление нельзя задавать вместе с кратным или табличным"
-                    )
+                if field.get("use_multiple_rounding") or field.get("use_threshold_table"):
+                    raise ValueError("Своё округление нельзя задавать вместе с кратным или табличным")
                 rounding_type = field.get("rounding_type")
                 valid_types = [e.value for e in RoundingType]
                 if rounding_type not in valid_types:
                     raise ValueError(
-                        f"Неверный тип округления промежуточного поля. "
-                        f"Допустимые значения: {', '.join(valid_types)}"
+                        f"Неверный тип округления промежуточного поля. Допустимые значения: {', '.join(valid_types)}"
                     )
                 if "rounding_decimal" not in field:
                     raise ValueError("Для своего округления укажите rounding_decimal")
-                if (
-                    not isinstance(field["rounding_decimal"], int)
-                    or field["rounding_decimal"] < 0
-                ):
-                    raise ValueError(
-                        "rounding_decimal должно быть неотрицательным целым"
-                    )
+                if not isinstance(field["rounding_decimal"], int) or field["rounding_decimal"] < 0:
+                    raise ValueError("rounding_decimal должно быть неотрицательным целым")
         return value
 
     @field_validator("convergence_conditions", mode="before")
@@ -186,12 +152,10 @@ class ResearchMethodBase(BaseModel):
             if "formula" not in formula_data:
                 raise ValueError("Каждое условие должно содержать поле 'formula'")
             if "convergence_value" not in formula_data:
-                raise ValueError(
-                    "Каждое условие должно содержать поле 'convergence_value'"
-                )
-            if formula_data[
-                "convergence_value"
-            ] not in valid_convergence_values and not formula_data.get("custom_value"):
+                raise ValueError("Каждое условие должно содержать поле 'convergence_value'")
+            if formula_data["convergence_value"] not in valid_convergence_values and not formula_data.get(
+                "custom_value"
+            ):
                 raise ValueError(
                     f"Значение повторяемости должно быть одним из: {', '.join(valid_convergence_values)} или иметь custom_value"
                 )
@@ -224,16 +188,12 @@ class ResearchMethodUpdate(BaseModel):
 
     @field_validator("equipment_data_default")
     @classmethod
-    def validate_equipment_data_default(
-        cls, value: list[int] | None
-    ) -> list[int] | None:
+    def validate_equipment_data_default(cls, value: list[int] | None) -> list[int] | None:
         if value is None:
             return None
         for item in value:
             if item <= 0:
-                raise ValueError(
-                    "Каждый ID прибора должен быть положительным целым числом"
-                )
+                raise ValueError("Каждый ID прибора должен быть положительным целым числом")
         return value
 
     @field_validator("sample_type")
@@ -247,16 +207,12 @@ class ResearchMethodUpdate(BaseModel):
 
 
 class ResearchMethodGroupBase(BaseModel):
-    name: ResearchMethodGroupName = Field(
-        ..., description="Наименование группы методов исследования"
-    )
+    name: ResearchMethodGroupName = Field(..., description="Наименование группы методов исследования")
     sort_order: int | None = Field(None, description="Порядок сортировки группы")
 
 
 class ResearchMethodGroupCreate(ResearchMethodGroupBase):
-    method_ids: list[int] = Field(
-        ..., min_length=1, description="ID методов исследования"
-    )
+    method_ids: list[int] = Field(..., min_length=1, description="ID методов исследования")
 
     @field_validator("method_ids")
     @classmethod
@@ -330,9 +286,7 @@ class SortOrderBatchUpdateItem(BaseModel):
 
 
 class SortOrderBatchUpdate(BaseModel):
-    items: list[SortOrderBatchUpdateItem] = Field(
-        ..., min_length=1, description="Список элементов для обновления"
-    )
+    items: list[SortOrderBatchUpdateItem] = Field(..., min_length=1, description="Список элементов для обновления")
 
 
 class AvailableResearchMethodBrief(BaseModel):
@@ -342,13 +296,9 @@ class AvailableResearchMethodBrief(BaseModel):
     name: str = Field(..., description="Наименование метода исследования")
     sort_order: int = Field(..., description="Порядок сортировки")
     input_data: dict[str, Any] = Field(..., description="Структура входных данных")
-    intermediate_data: dict[str, Any] = Field(
-        ..., description="Структура промежуточных данных"
-    )
+    intermediate_data: dict[str, Any] = Field(..., description="Структура промежуточных данных")
     unit: str = Field(..., description="Единица измерения результата")
-    equipment_data_default: list[int] | None = Field(
-        None, description="Приборы по умолчанию"
-    )
+    equipment_data_default: list[int] | None = Field(None, description="Приборы по умолчанию")
 
 
 class AvailableResearchMethodEntry(BaseModel):
@@ -359,24 +309,16 @@ class AvailableResearchMethodEntry(BaseModel):
     sort_order: int = Field(..., description="Порядок сортировки")
     is_group: bool = Field(..., description="Является ли элемент группой методов")
     group_id: int | None = Field(None, description="ID группы методов")
-    methods: list[AvailableResearchMethodBrief] | None = Field(
-        None, description="Методы внутри группы"
-    )
-    input_data: dict[str, Any] | None = Field(
-        None, description="Структура входных данных для отдельного метода"
-    )
+    methods: list[AvailableResearchMethodBrief] | None = Field(None, description="Методы внутри группы")
+    input_data: dict[str, Any] | None = Field(None, description="Структура входных данных для отдельного метода")
     intermediate_data: dict[str, Any] | None = Field(
         None, description="Структура промежуточных данных для отдельного метода"
     )
     unit: str | None = Field(None, description="Единица измерения результата")
-    equipment_data_default: list[int] | None = Field(
-        None, description="Приборы по умолчанию"
-    )
+    equipment_data_default: list[int] | None = Field(None, description="Приборы по умолчанию")
 
 
 class AvailableResearchMethodsResponse(BaseModel):
     """Ответ со списком доступных методов исследования для селекта."""
 
-    methods: list[AvailableResearchMethodEntry] = Field(
-        ..., description="Доступные методы и группы методов"
-    )
+    methods: list[AvailableResearchMethodEntry] = Field(..., description="Доступные методы и группы методов")

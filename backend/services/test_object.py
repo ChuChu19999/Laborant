@@ -40,13 +40,9 @@ async def validate_research_method_sample_types(
 
     valid_tags = await get_test_object_tags(db)
     if not valid_tags:
-        raise ValidationError(
-            "Справочник объектов испытаний пуст. Сначала добавьте объекты испытаний."
-        )
+        raise ValidationError("Справочник объектов испытаний пуст. Сначала добавьте объекты испытаний.")
 
-    invalid = [
-        sample_type for sample_type in sample_types if sample_type not in valid_tags
-    ]
+    invalid = [sample_type for sample_type in sample_types if sample_type not in valid_tags]
     if invalid:
         raise ValidationError(
             "Недопустимый тип пробы: "
@@ -62,9 +58,7 @@ async def get_test_object_by_id(
     include_deleted: bool = False,
 ) -> TestObject | None:
     """Получить объект испытаний по ID."""
-    item = await test_object_repo.get_test_object_by_id(
-        db, test_object_id, include_deleted
-    )
+    item = await test_object_repo.get_test_object_by_id(db, test_object_id, include_deleted)
     if item:
         return _serialize_test_object(item)
     return None
@@ -96,9 +90,7 @@ async def get_test_objects_list(
     """Получить список объектов испытаний из справочника."""
     items = [
         _serialize_test_object(item)
-        for item in await test_object_repo.get_test_objects(
-            db, search, sort_by, sort_order
-        )
+        for item in await test_object_repo.get_test_objects(db, search, sort_by, sort_order)
     ]
 
     if for_select or laboratory_id or department_id:
@@ -181,9 +173,7 @@ def pick_first_protocol_abbreviation(
     return ""
 
 
-async def build_test_object_response(
-    db: AsyncSession, item: TestObject
-) -> TestObjectResponse:
+async def build_test_object_response(db: AsyncSession, item: TestObject) -> TestObjectResponse:
     """Собрать ответ API по объекту испытаний."""
     scope = normalize_visibility_scope(item.visibility_scope)
     item_id = item.id
@@ -203,14 +193,8 @@ async def build_test_object_response(
         visibility_scope=VisibilityScope(
             laboratory_ids=scope.get("laboratory_ids", []),
             department_ids=scope.get("department_ids", []),
-            laboratories=[
-                VisibilityScopeEntity(**entry)
-                for entry in labels.get("laboratories", [])
-            ],
-            departments=[
-                VisibilityScopeEntity(**entry)
-                for entry in labels.get("departments", [])
-            ],
+            laboratories=[VisibilityScopeEntity(**entry) for entry in labels.get("laboratories", [])],
+            departments=[VisibilityScopeEntity(**entry) for entry in labels.get("departments", [])],
         ),
         created_at=created_at,
         updated_at=updated_at,
@@ -279,12 +263,8 @@ async def update_test_object(
 
     if data.name is not None and data.name != item.name:
         if data.name.lower() != item.name.lower():
-            if await test_object_repo.exists_test_object_by_name(
-                db, data.name, exclude_id=test_object_id
-            ):
-                raise ConflictError(
-                    "Объект испытаний с таким наименованием уже существует"
-                )
+            if await test_object_repo.exists_test_object_by_name(db, data.name, exclude_id=test_object_id):
+                raise ConflictError("Объект испытаний с таким наименованием уже существует")
         item.name = data.name
 
     if data.tag is not None:

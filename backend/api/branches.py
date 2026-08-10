@@ -1,6 +1,5 @@
 from __future__ import annotations
 from fastapi import APIRouter, Query
-from core.auth_decorators import IsAuthenticated
 from core.deps import DbSession, UserPermissions
 from schemas.laboratory import (
     BranchCreate,
@@ -8,10 +7,13 @@ from schemas.laboratory import (
     BranchUpdate,
 )
 from services.access_control import enforce_lab_management_access
-from services.laboratory import create_branch as create_branch_service
-from services.laboratory import delete_branch as delete_branch_service
-from services.laboratory import get_branches, require_branch_by_id
-from services.laboratory import update_branch as update_branch_service
+from services.laboratory import (
+    create_branch as create_branch_service,
+    delete_branch as delete_branch_service,
+    get_branches,
+    require_branch_by_id,
+    update_branch as update_branch_service,
+)
 
 router = APIRouter()
 
@@ -21,8 +23,7 @@ router = APIRouter()
     response_model=list[BranchResponse],
     summary="Получение списка филиалов",
     description=(
-        "Возвращает список филиалов. "
-        "Поддерживает фильтрацию по лабораториям и подразделениям, поиск и сортировку."
+        "Возвращает список филиалов. Поддерживает фильтрацию по лабораториям и подразделениям, поиск и сортировку."
     ),
     responses={200: {"description": "Список филиалов успешно получен"}},
 )
@@ -66,9 +67,7 @@ async def create_branch(
     effective: UserPermissions,
 ):
     """Добавляет новый филиал на основе переданных данных."""
-    enforce_lab_management_access(
-        effective, branch_data.laboratory_id, branch_data.department_id
-    )
+    enforce_lab_management_access(effective, branch_data.laboratory_id, branch_data.department_id)
     branch = await create_branch_service(db, branch_data)
     return BranchResponse.model_validate(branch)
 

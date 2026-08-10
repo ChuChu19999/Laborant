@@ -1,0 +1,204 @@
+[project]
+name = "laborant-backend"
+version = "1.0.0"
+requires-python = ">=3.11"
+description = "Laborant FastAPI backend"
+
+# --- Ruff ---
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+extend-exclude = [
+  "alembic/versions",
+  "venv",
+  ".venv",
+  "migrations",
+]
+
+[tool.ruff.lint]
+select = [
+  "E",
+  "W",
+  "F",
+  "I",
+  "UP",
+  "B",
+  "SIM",
+  "TID",
+  "BLE",
+  "RUF",
+]
+ignore = [
+  "E501",
+  # Русские комментарии/докстринги: ложные срабатывания на кириллицу, похожую на латиницу.
+  "RUF001",
+  "RUF002",
+  "RUF003",
+  # FastAPI: Query(...), Depends(...) в значениях по умолчанию.
+  "B008",
+  # Кавычки в Mapped["Model"] / forward refs — SQLAlchemy.
+  "UP037",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "E402"]
+"alembic/env.py" = ["E402"]
+
+[tool.ruff.lint.isort]
+known-first-party = [
+  "api",
+  "core",
+  "models",
+  "repositories",
+  "schemas",
+  "services",
+  "utils",
+  "scripts",
+]
+combine-as-imports = true
+force-sort-within-sections = true
+# Без пустых строк между группами импортов (stdlib / third-party / local).
+no-lines-before = ["standard-library", "third-party", "first-party", "local-folder"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+docstring-code-format = true
+
+# --- basedpyright ---
+[tool.basedpyright]
+include = [
+  "api",
+  "core",
+  "models",
+  "repositories",
+  "schemas",
+  "services",
+  "utils",
+  "scripts",
+  "main.py",
+  "run.py",
+]
+exclude = [
+  "venv",
+  ".venv",
+  "alembic/versions",
+  "**/__pycache__",
+]
+pythonVersion = "3.11"
+venvPath = "."
+venv = "venv"
+typeCheckingMode = "standard"
+reportMissingImports = true
+reportMissingTypeStubs = false
+reportImportCycles = "warning"
+
+# --- import-linter ---
+[tool.importlinter]
+root_packages = [
+  "api",
+  "core",
+  "models",
+  "repositories",
+  "schemas",
+  "services",
+  "utils",
+]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Layers: api -> services -> repositories -> models"
+type = "layers"
+layers = [
+  "api",
+  "services",
+  "repositories",
+  "models",
+]
+
+[[tool.importlinter.contracts]]
+name = "api must not import repositories / models / utils"
+type = "forbidden"
+source_modules = ["api"]
+forbidden_modules = ["repositories", "models", "utils"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "services must not import HTTP boundary"
+type = "forbidden"
+source_modules = ["services"]
+forbidden_modules = [
+  "api",
+  "fastapi",
+  "core.deps",
+  "core.responses",
+  "httpx",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "repositories must not import upper layers or schemas"
+type = "forbidden"
+source_modules = ["repositories"]
+forbidden_modules = [
+  "api",
+  "services",
+  "schemas",
+  "fastapi",
+  "core.deps",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "schemas must not import services / repositories / api / core.deps"
+type = "forbidden"
+source_modules = ["schemas"]
+forbidden_modules = ["services", "repositories", "api", "core.deps"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "models must not import schemas or upper layers"
+type = "forbidden"
+source_modules = ["models"]
+forbidden_modules = ["schemas", "services", "repositories", "api"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "utils must not import services / api / repositories"
+type = "forbidden"
+source_modules = ["utils"]
+forbidden_modules = ["services", "api", "repositories"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "core must not import api / services / repositories / schemas (except deps)"
+type = "forbidden"
+source_modules = ["core"]
+forbidden_modules = ["api", "services", "repositories", "schemas"]
+allow_indirect_imports = true
+ignore_imports = [
+  "core.deps -> services.user_permissions",
+  "core.deps -> schemas.role",
+]
+
+[[tool.importlinter.contracts]]
+name = "repositories are independent of each other"
+type = "independence"
+modules = [
+  "repositories.calculation",
+  "repositories.equipment",
+  "repositories.laboratory",
+  "repositories.mass_fraction",
+  "repositories.nd_norm",
+  "repositories.protocol",
+  "repositories.report",
+  "repositories.research",
+  "repositories.role",
+  "repositories.sample",
+  "repositories.selection_conditions",
+  "repositories.test_object",
+]

@@ -1,7 +1,6 @@
 from __future__ import annotations
-import orjson
 from fastapi import APIRouter, Depends, Form, Query
-from core.auth_decorators import IsAuthenticated
+import orjson
 from core.deps import DbSession, ScopeSortPaginationParams, UserPermissions
 from core.exceptions import ValidationError
 from core.logger import logger
@@ -76,9 +75,7 @@ async def list_protocol_templates(
     "/protocol-templates/available/",
     response_model=list[ProtocolTemplateResponse],
     summary="Получение доступных шаблонов протоколов",
-    description=(
-        "Возвращает список доступных шаблонов протоколов для указанной лаборатории и подразделения."
-    ),
+    description=("Возвращает список доступных шаблонов протоколов для указанной лаборатории и подразделения."),
     responses={200: {"description": "Список доступных шаблонов успешно получен"}},
 )
 # @IsAuthenticated
@@ -120,9 +117,7 @@ async def create_protocol_template_endpoint(
     effective: UserPermissions,
 ):
     """Добавляет новый шаблон протокола на основе переданных данных."""
-    enforce_lab_management_access(
-        effective, template_data.laboratory_id, template_data.department_id
-    )
+    enforce_lab_management_access(effective, template_data.laboratory_id, template_data.department_id)
     template = await create_protocol_template(db, template_data)
     return await get_protocol_template_response_data(db, template.id)
 
@@ -146,9 +141,7 @@ async def get_protocol_template(
 ):
     """Возвращает информацию о шаблоне протокола по его идентификатору или файл при download=true."""
     template = await require_protocol_template_by_id(db, template_id)
-    enforce_lab_management_access(
-        effective, template.laboratory_id, template.department_id
-    )
+    enforce_lab_management_access(effective, template.laboratory_id, template.department_id)
     if download:
         file_data = await get_template_file(template, section)
         return build_attachment_response(
@@ -206,20 +199,16 @@ async def save_excel_endpoint(
 ):
     """Сохраняет изменения в указанной секции Excel-файла шаблона протокола."""
     template = await require_protocol_template_by_id(db, template_id)
-    enforce_lab_management_access(
-        effective, template.laboratory_id, template.department_id
-    )
+    enforce_lab_management_access(effective, template.laboratory_id, template.department_id)
     try:
         data_list = orjson.loads(data)
         styles_dict = orjson.loads(styles)
 
-        result = await save_excel_section(
-            db, template_id, data_list, styles_dict, section
-        )
+        result = await save_excel_section(db, template_id, data_list, styles_dict, section)
         return result
     except Exception as e:
-        logger.error(f"Ошибка при сохранении Excel файла: {str(e)}", exc_info=True)
-        raise ValidationError(f"Ошибка при сохранении: {str(e)}")
+        logger.error(f"Ошибка при сохранении Excel файла: {e!s}", exc_info=True)
+        raise ValidationError(f"Ошибка при сохранении: {e!s}")
 
 
 @router.get(
@@ -240,7 +229,5 @@ async def get_excel_styles_endpoint(
 ):
     """Возвращает стили ячеек в указанной секции Excel-файла шаблона протокола."""
     template = await require_protocol_template_by_id(db, template_id)
-    enforce_lab_management_access(
-        effective, template.laboratory_id, template.department_id
-    )
+    enforce_lab_management_access(effective, template.laboratory_id, template.department_id)
     return await get_excel_styles(db, template_id, section)

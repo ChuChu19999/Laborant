@@ -46,14 +46,11 @@ async def _validate_method_data(
         return
 
     method_ids = {item.method_id for item in method_data}
-    found_ids = await nd_norm_repo.get_valid_method_ids(
-        db, method_ids, laboratory_id, department_id
-    )
+    found_ids = await nd_norm_repo.get_valid_method_ids(db, method_ids, laboratory_id, department_id)
     missing_ids = method_ids - found_ids
     if missing_ids:
         raise ValidationError(
-            "Некорректные методы исследования: "
-            f"{', '.join(str(method_id) for method_id in sorted(missing_ids))}"
+            f"Некорректные методы исследования: {', '.join(str(method_id) for method_id in sorted(missing_ids))}"
         )
 
 
@@ -129,12 +126,8 @@ async def get_nd_norms(
 async def create_nd_norm(db: AsyncSession, data: NdNormCreate) -> NdNorm:
     """Создать норму НД."""
     await validate_lab_and_department(db, data.laboratory_id, data.department_id)
-    await _validate_test_object(
-        db, data.test_object, data.laboratory_id, data.department_id
-    )
-    await _validate_method_data(
-        db, data.method_data, data.laboratory_id, data.department_id
-    )
+    await _validate_test_object(db, data.test_object, data.laboratory_id, data.department_id)
+    await _validate_method_data(db, data.method_data, data.laboratory_id, data.department_id)
 
     nd_norm = NdNorm(
         name=data.name,
@@ -168,16 +161,12 @@ async def update_nd_norm(
         await validate_lab_and_department(db, laboratory_id, department_id)
 
     if "method_data" in update_data and update_data["method_data"] is not None:
-        method_items = [
-            NdNormMethodDataItem(**item) for item in update_data["method_data"]
-        ]
+        method_items = [NdNormMethodDataItem(**item) for item in update_data["method_data"]]
         await _validate_method_data(db, method_items, laboratory_id, department_id)
         nd_norm.method_data = _normalize_method_data(method_items)
 
     if "test_object" in update_data and update_data["test_object"] is not None:
-        await _validate_test_object(
-            db, update_data["test_object"], laboratory_id, department_id
-        )
+        await _validate_test_object(db, update_data["test_object"], laboratory_id, department_id)
         nd_norm.test_object = update_data["test_object"]
 
     if "name" in update_data and update_data["name"] is not None:

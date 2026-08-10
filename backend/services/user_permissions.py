@@ -98,18 +98,14 @@ async def resolve_user_permissions(
     if len(found_names) != len(set(token_roles)):
         return _denied_response()
 
-    merged_scopes = merge_role_scopes(
-        [normalize_role_scopes(role.scopes) for role in catalog_roles]
-    )
+    merged_scopes = merge_role_scopes([normalize_role_scopes(role.scopes) for role in catalog_roles])
     labeled_scopes = await enrich_role_scopes_labels(db, merged_scopes)
     visibility = scopes_to_visibility_scope(merged_scopes)
     labels = await enrich_visibility_scope_labels(db, visibility)
     role_types = sorted({role.role_type for role in catalog_roles})
 
     if merged_scopes:
-        merged_permissions = merge_permissions(
-            [entry["permissions"] for entry in merged_scopes]
-        )
+        merged_permissions = merge_permissions([entry["permissions"] for entry in merged_scopes])
     else:
         merged_permissions = normalize_permissions(None)
 
@@ -123,14 +119,8 @@ async def resolve_user_permissions(
         visibility_scope=VisibilityScope(
             laboratory_ids=visibility.get("laboratory_ids", []),
             department_ids=visibility.get("department_ids", []),
-            laboratories=[
-                VisibilityScopeEntity(**entry)
-                for entry in labels.get("laboratories", [])
-            ],
-            departments=[
-                VisibilityScopeEntity(**entry)
-                for entry in labels.get("departments", [])
-            ],
+            laboratories=[VisibilityScopeEntity(**entry) for entry in labels.get("laboratories", [])],
+            departments=[VisibilityScopeEntity(**entry) for entry in labels.get("departments", [])],
         ),
     )
 
@@ -173,9 +163,7 @@ def require_permission_in_effective(
     """Проверить право; admin всегда проходит. С контекстом — по привязке."""
     if user_permissions.is_admin:
         return
-    permissions = _effective_permissions_dict(
-        user_permissions, laboratory_id, department_id
-    )
+    permissions = _effective_permissions_dict(user_permissions, laboratory_id, department_id)
     if permissions is None or not has_permission(permissions, resource, action):
         raise ForbiddenError("Отказано в доступе")
 
@@ -213,11 +201,11 @@ def permissions_dict(user_permissions: UserPermissionsResponse) -> dict[str, Any
 
 
 __all__ = [
-    "resolve_user_permissions",
+    "get_scope_filter_dict",
     "get_user_permissions_or_raise",
+    "permissions_dict",
     "require_permission_in_effective",
     "require_scope_access",
-    "get_scope_filter_dict",
-    "permissions_dict",
+    "resolve_user_permissions",
     "scopes_dicts_from_bindings",
 ]

@@ -9,20 +9,14 @@ class CalculationBase(BaseModel):
     input_data: dict[str, Any] = Field(..., description="Входные данные для расчета")
     equipment_data: list[int] | None = Field(None, description="Список ID приборов")
     result: str = Field(..., description="Итоговый результат расчета")
-    executor: ExecutorHsnils = Field(
-        ..., description="hsnils исполнителя, производившего расчет"
-    )
+    executor: ExecutorHsnils = Field(..., description="hsnils исполнителя, производившего расчет")
     measurement_error: str | None = Field(
         None,
         max_length=20,
         description="Погрешность измерения результата в формате ±число",
     )
-    unit: str | None = Field(
-        None, max_length=20, description="Единица измерения результата"
-    )
-    laboratory_activity_date: date = Field(
-        ..., description="Дата проведения лабораторного исследования"
-    )
+    unit: str | None = Field(None, max_length=20, description="Единица измерения результата")
+    laboratory_activity_date: date = Field(..., description="Дата проведения лабораторного исследования")
 
 
 class CalculationCreate(CalculationBase):
@@ -90,15 +84,9 @@ class MethodologyChoiceResponse(BaseModel):
         description="Есть ли более новая актуальная версия методики",
     )
     method_name: str = Field(..., description="Наименование методики")
-    stored_method_id: int = Field(
-        ..., description="ID методики, зафиксированной в расчёте"
-    )
-    stored_method_deleted: bool = Field(
-        ..., description="Удалена ли методика из расчёта в справочнике"
-    )
-    current_method_id: int | None = Field(
-        None, description="ID актуальной методики с тем же именем"
-    )
+    stored_method_id: int = Field(..., description="ID методики, зафиксированной в расчёте")
+    stored_method_deleted: bool = Field(..., description="Удалена ли методика из расчёта в справочнике")
+    current_method_id: int | None = Field(None, description="ID актуальной методики с тем же именем")
     methodology_ambiguous: bool = Field(
         default=False,
         description="Несколько подходящих актуальных методик, нужен выбор пользователя",
@@ -107,12 +95,8 @@ class MethodologyChoiceResponse(BaseModel):
         default_factory=list,
         description="Список актуальных методик при неоднозначном совпадении",
     )
-    stored_method_group_id: int | None = Field(
-        None, description="ID группы методики на момент расчёта"
-    )
-    stored_method_group_name: str | None = Field(
-        None, description="Наименование группы методики на момент расчёта"
-    )
+    stored_method_group_id: int | None = Field(None, description="ID группы методики на момент расчёта")
+    stored_method_group_name: str | None = Field(None, description="Наименование группы методики на момент расчёта")
 
 
 class CalculateRequest(BaseModel):

@@ -15,9 +15,7 @@ from utils.pagination import apply_pagination, get_total_count
 from utils.sorting import build_order_by
 
 
-async def get_equipment_by_id(
-    db: AsyncSession, equipment_id: int, include_deleted: bool = False
-) -> Equipment | None:
+async def get_equipment_by_id(db: AsyncSession, equipment_id: int, include_deleted: bool = False) -> Equipment | None:
     """Получить оборудование по ID."""
     query = (
         select(Equipment)
@@ -100,9 +98,7 @@ async def get_equipment(
         verification_end_date_to,
         Equipment.verification_end_date,
     )
-    add_date_range_filter(
-        conditions, created_at_from, created_at_to, Equipment.created_at
-    )
+    add_date_range_filter(conditions, created_at_from, created_at_to, Equipment.created_at)
     if conditions:
         query = query.where(*conditions)
 
@@ -158,9 +154,7 @@ async def get_equipment(
         verification_end_date_to,
         Equipment.verification_end_date,
     )
-    add_date_range_filter(
-        count_conditions, created_at_from, created_at_to, Equipment.created_at
-    )
+    add_date_range_filter(count_conditions, created_at_from, created_at_to, Equipment.created_at)
     if count_conditions:
         count_query = count_query.where(*count_conditions)
 

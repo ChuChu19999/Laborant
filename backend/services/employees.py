@@ -1,8 +1,8 @@
 from __future__ import annotations
 from typing import Any
 from urllib.parse import quote
-import orjson
 from cachetools import TTLCache
+import orjson
 from core.exceptions import NotFoundError, ServiceUnavailableError
 from core.hr_client import hr_request_json
 from core.logger import logger
@@ -38,9 +38,7 @@ def _as_employee_list(payload: Any) -> list[dict[str, Any]]:
     return []
 
 
-async def search_employees_by_fio(
-    search_fio: str, include_photo: bool = True
-) -> list[dict[str, Any]]:
+async def search_employees_by_fio(search_fio: str, include_photo: bool = True) -> list[dict[str, Any]]:
     """Поиск сотрудников по ФИО через HR API."""
     if not search_fio or len(search_fio) < 3:
         return []
@@ -96,9 +94,7 @@ async def search_employees_by_fio_and_laboratory(
     return map_hr_employees_list(filtered_employees)
 
 
-async def get_employee_by_hsnils(
-    hsnils: str, include_photo: bool = True
-) -> dict[str, Any] | None:
+async def get_employee_by_hsnils(hsnils: str, include_photo: bool = True) -> dict[str, Any] | None:
     """Получение информации о сотруднике по hsnils через HR API."""
     if not hsnils:
         return None
@@ -121,9 +117,7 @@ async def get_employee_by_hsnils(
     raise NotFoundError("Сотрудник не найден")
 
 
-async def get_employees_by_hsnils(
-    hsnils_list: list[str], include_photo: bool = False
-) -> dict[str, dict[str, Any]]:
+async def get_employees_by_hsnils(hsnils_list: list[str], include_photo: bool = False) -> dict[str, dict[str, Any]]:
     """Получение информации о сотрудниках по списку hsnils через HR API (батч)."""
     if not hsnils_list:
         return {}
@@ -178,9 +172,7 @@ async def get_employee_position_and_name(hsnils: str, target_date) -> tuple[str,
     if cache_key in _position_cache:
         return _position_cache[cache_key]
 
-    logger.info(
-        f"Запрашиваем должность сотрудника по hsnils {hsnils} на дату {target_datetime}"
-    )
+    logger.info(f"Запрашиваем должность сотрудника по hsnils {hsnils} на дату {target_datetime}")
 
     try:
         status_code, employee_data = await hr_request_json(
@@ -207,9 +199,7 @@ async def get_employee_position_and_name(hsnils: str, target_date) -> tuple[str,
         if len(name_parts) >= 3:
             surname = name_parts[0]
             first_name = name_parts[1][0] + "." if name_parts[1] else ""
-            middle_name = (
-                name_parts[2][0] + "." if len(name_parts) > 2 and name_parts[2] else ""
-            )
+            middle_name = name_parts[2][0] + "." if len(name_parts) > 2 and name_parts[2] else ""
             formatted_name = f"{first_name}{middle_name} {surname}"
         else:
             formatted_name = full_name
@@ -233,11 +223,7 @@ async def get_employee_position_and_name(hsnils: str, target_date) -> tuple[str,
 
             try:
                 begin_datetime = ensure_datetime(parse_datetime_string(begin_date_str))
-                end_datetime = (
-                    ensure_datetime(parse_datetime_string(end_date_str))
-                    if end_date_str
-                    else None
-                )
+                end_datetime = ensure_datetime(parse_datetime_string(end_date_str)) if end_date_str else None
 
                 if not begin_datetime:
                     continue
@@ -264,9 +250,7 @@ async def get_employee_position_and_name(hsnils: str, target_date) -> tuple[str,
                             target_position = position_name
 
             except Exception as e:
-                logger.warning(
-                    f"Ошибка парсинга даты для hsnils={hsnils}: {e}, дата: {begin_date_str}"
-                )
+                logger.warning(f"Ошибка парсинга даты для hsnils={hsnils}: {e}, дата: {begin_date_str}")
                 continue
 
         result = (target_position, formatted_name)

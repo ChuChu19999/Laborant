@@ -14,9 +14,7 @@ from utils.sorting import build_order_by
 
 async def get_test_object_tags(db: AsyncSession) -> set[str]:
     """Получить теги из справочника объектов испытаний."""
-    result = await db.execute(
-        filter_not_deleted(select(TestObject.tag), TestObject.deleted_at).distinct()
-    )
+    result = await db.execute(filter_not_deleted(select(TestObject.tag), TestObject.deleted_at).distinct())
     return {row[0] for row in result.all() if row[0]}
 
 
@@ -87,15 +85,11 @@ async def get_protocol_abbreviations_by_names(
     names: list[str],
 ) -> dict[str, str]:
     """Аббревиатуры протокола по наименованиям."""
-    normalized = sorted(
-        {name.strip().lower() for name in names if name and str(name).strip()}
-    )
+    normalized = sorted({name.strip().lower() for name in names if name and str(name).strip()})
     if not normalized:
         return {}
 
-    query = filter_not_deleted(
-        select(TestObject.name, TestObject.protocol_abbreviation), TestObject.deleted_at
-    ).where(
+    query = filter_not_deleted(select(TestObject.name, TestObject.protocol_abbreviation), TestObject.deleted_at).where(
         func.lower(TestObject.name).in_(normalized),
         TestObject.protocol_abbreviation.is_not(None),
     )

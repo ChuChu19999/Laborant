@@ -1,6 +1,5 @@
 from __future__ import annotations
 from fastapi import APIRouter, Query
-from core.auth_decorators import IsAuthenticated
 from core.deps import DbSession, UserPermissions, require_admin
 from schemas.pagination import PaginatedResponse
 from schemas.test_object import (
@@ -68,10 +67,7 @@ async def list_test_objects(
     "/test-objects/select/",
     response_model=list[TestObjectSelectItem],
     summary="Получение объектов испытаний для селектов",
-    description=(
-        "Возвращает объекты испытаний с учетом области видимости. "
-        "Удаленные записи не включаются."
-    ),
+    description=("Возвращает объекты испытаний с учетом области видимости. Удаленные записи не включаются."),
     responses={200: {"description": "Список объектов испытаний успешно получен"}},
 )
 # @IsAuthenticated

@@ -1,6 +1,5 @@
 from __future__ import annotations
 from fastapi import APIRouter, Query
-from core.auth_decorators import IsAuthenticated
 from core.deps import DbSession, UserPermissions
 from schemas.laboratory import (
     WellModeCreate,
@@ -10,16 +9,14 @@ from schemas.laboratory import (
 from services.access_control import enforce_crud_access
 from services.laboratory import (
     build_well_mode_response,
-)
-from services.laboratory import create_well_mode as create_well_mode_service
-from services.laboratory import delete_well_mode as delete_well_mode_service
-from services.laboratory import (
+    create_well_mode as create_well_mode_service,
+    delete_well_mode as delete_well_mode_service,
     get_well_mode_response_data,
     get_well_modes,
     require_branch_by_id,
     require_well_mode_by_id,
+    update_well_mode as update_well_mode_service,
 )
-from services.laboratory import update_well_mode as update_well_mode_service
 
 router = APIRouter()
 
@@ -28,10 +25,7 @@ router = APIRouter()
     "/laboratories/well-modes/",
     response_model=list[WellModeResponse],
     summary="Получение списка режимов скважин",
-    description=(
-        "Возвращает список режимов скважин. "
-        "Поддерживает фильтрацию по филиалам, поиск и сортировку."
-    ),
+    description=("Возвращает список режимов скважин. Поддерживает фильтрацию по филиалам, поиск и сортировку."),
     responses={200: {"description": "Список режимов скважин успешно получен"}},
 )
 # @IsAuthenticated
