@@ -44,7 +44,7 @@
                 "name": "ν₁",
                 "unit": "%",
                 "formula": "C₁*t₁*1.0017",
-                "description": "Первый расчет содержания компонента",
+                "description": "Первый расчёт содержания компонента",
                 "show_calculation": true,
                 "range_calculation": null,
                 "use_multiple_rounding": false
@@ -53,7 +53,7 @@
                 "name": "ν₂",
                 "unit": "%",
                 "formula": "C₂*t₂*1.0017",
-                "description": "Второй расчет содержания компонента",
+                "description": "Второй расчёт содержания компонента",
                 "show_calculation": true,
                 "range_calculation": null,
                 "use_multiple_rounding": false

@@ -1,8 +1,8 @@
 from __future__ import annotations
 from datetime import date, datetime
 from typing import Annotated, Any, Literal
-from pydantic import BaseModel, ConfigDict, Field, field_validator
-from schemas.common import NonEmptyStr, OptionalNonEmptyStr
+from pydantic import BaseModel, ConfigDict, Field, computed_field
+from schemas.common import NonEmptyStr, OptionalExecutorHsnils, OptionalNonEmptyStr, related_entity_name
 
 SAMPLE_TYPE_CHOICES = Literal[
     "Исследования - ОИС",
@@ -12,7 +12,19 @@ SAMPLE_TYPE_CHOICES = Literal[
 ]
 
 
+class SampleProtocolSummary(BaseModel):
+    """Краткие сведения о протоколе, привязанном к пробе."""
+
+    id: int
+    test_protocol_number: str | None = None
+    test_protocol_date: date | None = None
+    is_accredited: bool = False
+    formatted_protocol_number: str | None = None
+
+
 class SampleBase(BaseModel):
+    """Общие поля пробы."""
+
     registration_number: Annotated[NonEmptyStr, Field(max_length=50)] = Field(
         ..., description="Регистрационный номер пробы"
     )
@@ -27,18 +39,22 @@ class SampleBase(BaseModel):
     indicators_count: int = Field(..., ge=0, description="Количество показателей")
     phone: str | None = Field(None, max_length=50, description="Номер телефона филиала")
     selection_conditions: dict[str, Any] | None = Field(None, description="JSON с условиями отбора и их значениями")
-    added_by: str | None = Field(None, max_length=150, description="hsnils лица, добавившего пробу")
+    added_by: OptionalExecutorHsnils = Field(None, description="hsnils лица, добавившего пробу")
 
 
 class SampleCreate(SampleBase):
+    """Запрос на создание пробы."""
+
     laboratory_id: int = Field(..., description="ID лаборатории")
     department_id: int | None = Field(None, description="ID подразделения")
 
 
 class SampleUpdate(BaseModel):
-    registration_number: Annotated[OptionalNonEmptyStr, Field(max_length=50)] = None
+    """Частичное обновление пробы."""
+
+    registration_number: OptionalNonEmptyStr = Field(None, max_length=50)
     sample_type: SAMPLE_TYPE_CHOICES | None = None
-    test_object: Annotated[OptionalNonEmptyStr, Field(max_length=255)] = None
+    test_object: OptionalNonEmptyStr = Field(None, max_length=255)
     sampling_date: date | None = None
     receiving_date: date | None = None
     branch_id: int | None = None
@@ -48,73 +64,52 @@ class SampleUpdate(BaseModel):
     indicators_count: int | None = Field(None, ge=0, description="Количество показателей")
     phone: str | None = Field(None, max_length=50)
     selection_conditions: dict[str, Any] | None = None
-    added_by: str | None = Field(None, max_length=150)
+    added_by: OptionalExecutorHsnils = None
     laboratory_id: int | None = None
     department_id: int | None = None
 
 
 class SampleResponse(SampleBase):
+    """Ответ API с данными пробы."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     laboratory_id: int
     department_id: int | None = None
-    laboratory_name: str | None = None
-    department_name: str | None = None
-    branch_name: str | None = None
-    sampling_location_name: str | None = None
-    protocols: list[dict[str, Any]] | None = Field(None, description="Список протоколов, к которым привязана проба")
+    laboratory: Any = Field(default=None, exclude=True)
+    department: Any = Field(default=None, exclude=True)
+    branch: Any = Field(default=None, exclude=True)
+    sampling_location: Any = Field(default=None, exclude=True)
+    protocols: list[SampleProtocolSummary] | None = Field(
+        None, description="Список протоколов, к которым привязана проба"
+    )
     created_at: datetime
     updated_at: datetime
     deleted_at: datetime | None = None
 
+    @computed_field
+    @property
+    def laboratory_name(self) -> str | None:
+        return related_entity_name(self.laboratory)
 
-def validate_selection_conditions(
-    value: list[dict[str, str]],
-) -> list[dict[str, str]]:
-    for condition in value:
-        if not all(key in condition for key in ["variable", "unit"]):
-            raise ValueError("Каждое условие должно содержать поля 'variable' и 'unit'")
-        if len(condition.keys()) > 2:
-            raise ValueError("Каждое условие должно содержать только поля 'variable' и 'unit'")
-    return value
+    @computed_field
+    @property
+    def department_name(self) -> str | None:
+        return related_entity_name(self.department)
 
+    @computed_field
+    @property
+    def branch_name(self) -> str | None:
+        return related_entity_name(self.branch)
 
-class SelectionConditionsBase(BaseModel):
-    conditions: list[dict[str, str]] = Field(..., description="JSON с условиями отбора и их единицами измерения")
-
-    @field_validator("conditions")
-    @classmethod
-    def validate_conditions(cls, value: list[dict[str, str]]) -> list[dict[str, str]]:
-        return validate_selection_conditions(value)
-
-
-class SelectionConditionsCreate(SelectionConditionsBase):
-    laboratory_id: int | None = Field(None, description="ID лаборатории")
-    department_id: int | None = Field(None, description="ID подразделения")
+    @computed_field
+    @property
+    def sampling_location_name(self) -> str | None:
+        return related_entity_name(self.sampling_location)
 
 
-class SelectionConditionsUpdate(BaseModel):
-    conditions: list[dict[str, str]] | None = None
-    laboratory_id: int | None = None
-    department_id: int | None = None
+class RegistrationNumbersResponse(BaseModel):
+    """Ответ API со списком проб по регистрационным номерам."""
 
-    @field_validator("conditions")
-    @classmethod
-    def validate_conditions(cls, value: list[dict[str, str]] | None) -> list[dict[str, str]] | None:
-        if value is None:
-            return value
-        return validate_selection_conditions(value)
-
-
-class SelectionConditionsResponse(SelectionConditionsBase):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    laboratory_id: int | None = None
-    department_id: int | None = None
-    laboratory_name: str | None = None
-    department_name: str | None = None
-    created_at: datetime
-    updated_at: datetime
-    deleted_at: datetime | None = None
+    samples: list[SampleResponse]

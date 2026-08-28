@@ -2,13 +2,13 @@ from __future__ import annotations
 from collections.abc import Callable
 import functools
 import inspect
+from typing import Any, cast
 from fastapi import Depends
 from core.security import get_current_user
-from utils.current_user import set_current_user
 
 
 def IsAuthenticated(func: Callable) -> Callable:
-    """Декоратор для защиты эндпоинтов авторизацией."""
+    """Защитить эндпоинт авторизацией через Depends(get_current_user)."""
     sig = inspect.signature(func)
     params = list(sig.parameters.values())
 
@@ -29,20 +29,9 @@ def IsAuthenticated(func: Callable) -> Callable:
 
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
-        decoded_token = None
-        if has_decoded_token and "decoded_token" in kwargs:
-            decoded_token = kwargs.get("decoded_token")
-        elif not has_decoded_token and "decoded_token" in kwargs:
-            decoded_token = kwargs.get("decoded_token")
+        if not has_decoded_token:
             kwargs.pop("decoded_token", None)
-
-        if decoded_token:
-            full_name = decoded_token.get("fullName") or ""
-            hsnils = decoded_token.get("hashSnils") or ""
-            if full_name and hsnils:
-                set_current_user(full_name, hsnils)
-
         return await func(*args, **kwargs)
 
-    wrapper.__signature__ = new_sig
+    cast(Any, wrapper).__signature__ = new_sig
     return wrapper

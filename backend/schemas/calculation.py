@@ -2,14 +2,17 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
-from schemas.common import ExecutorHsnils, OptionalExecutorHsnils
+from schemas.common import ExecutorHsnils, NonEmptyStr, OptionalExecutorHsnils, OptionalNonEmptyStr
+from schemas.sample import SampleResponse
 
 
 class CalculationBase(BaseModel):
-    input_data: dict[str, Any] = Field(..., description="Входные данные для расчета")
+    """Общие поля расчёта."""
+
+    input_data: dict[str, Any] = Field(..., description="Входные данные для расчёта")
     equipment_data: list[int] | None = Field(None, description="Список ID приборов")
-    result: str = Field(..., description="Итоговый результат расчета")
-    executor: ExecutorHsnils = Field(..., description="hsnils исполнителя, производившего расчет")
+    result: NonEmptyStr = Field(..., description="Итоговый результат расчёта")
+    executor: ExecutorHsnils = Field(..., description="hsnils исполнителя, производившего расчёт")
     measurement_error: str | None = Field(
         None,
         max_length=20,
@@ -20,6 +23,8 @@ class CalculationBase(BaseModel):
 
 
 class CalculationCreate(CalculationBase):
+    """Запрос на создание расчёта."""
+
     sample_id: int = Field(..., description="ID пробы")
     laboratory_id: int = Field(..., description="ID лаборатории")
     department_id: int | None = Field(None, description="ID подразделения")
@@ -27,9 +32,11 @@ class CalculationCreate(CalculationBase):
 
 
 class CalculationUpdate(BaseModel):
+    """Частичное обновление расчёта."""
+
     input_data: dict[str, Any] | None = None
     equipment_data: list[int] | None = None
-    result: str | None = None
+    result: OptionalNonEmptyStr = None
     executor: OptionalExecutorHsnils = None
     measurement_error: str | None = Field(None, max_length=20)
     unit: str | None = Field(None, max_length=20)
@@ -41,6 +48,8 @@ class CalculationUpdate(BaseModel):
 
 
 class EquipmentBrief(BaseModel):
+    """Краткие сведения о приборе в ответе расчёта."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -53,7 +62,19 @@ class EquipmentBrief(BaseModel):
     version: str
 
 
+class ResearchMethodBrief(BaseModel):
+    """Краткие сведения о методе исследования в ответе расчёта."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    unit: str | None = None
+
+
 class CalculationResponse(CalculationBase):
+    """Ответ API с данными расчёта."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -62,22 +83,22 @@ class CalculationResponse(CalculationBase):
     department_id: int | None = None
     research_method_id: int
     equipment: list[EquipmentBrief] | None = None
-    sample: dict[str, Any] | None = None
-    research_method: dict[str, Any] | None = None
+    sample: SampleResponse | None = None
+    research_method: ResearchMethodBrief | None = None
     created_at: datetime
     updated_at: datetime
     deleted_at: datetime | None = None
 
 
 class MethodologyChoiceCandidate(BaseModel):
-    """Кандидат актуальной методики при неоднозначном совпадении."""
+    """Вариант методики, когда актуальных методов несколько."""
 
     id: int = Field(..., description="ID методики")
     name: str = Field(..., description="Отображаемое наименование методики")
 
 
 class MethodologyChoiceResponse(BaseModel):
-    """Статус методики при редактировании сохранённого расчёта."""
+    """Статус методики расчёта: устарела, удалена или нужно выбрать другую."""
 
     methodology_changed: bool = Field(
         ...,
@@ -93,13 +114,49 @@ class MethodologyChoiceResponse(BaseModel):
     )
     candidate_methods: list[MethodologyChoiceCandidate] = Field(
         default_factory=list,
-        description="Список актуальных методик при неоднозначном совпадении",
+        description="Варианты актуальных методик, если подходит несколько",
     )
     stored_method_group_id: int | None = Field(None, description="ID группы методики на момент расчёта")
     stored_method_group_name: str | None = Field(None, description="Наименование группы методики на момент расчёта")
 
 
 class CalculateRequest(BaseModel):
-    input_data: dict[str, Any] = Field(..., description="Входные данные для расчета")
+    """Запрос на выполнение расчёта без сохранения."""
+
+    input_data: dict[str, Any] = Field(..., description="Входные данные для расчёта")
     research_method_id: int = Field(..., description="ID метода исследования")
     equipment_data: list[int] | None = Field(None, description="Список ID приборов")
+
+
+class IntermediateResultValue(BaseModel):
+    """Промежуточный результат: отображаемое и справочное значения."""
+
+    value: str
+    reference: str
+
+
+class CalculateResponse(BaseModel):
+    """Ответ выполнения расчёта без сохранения."""
+
+    result: str | None = Field(None, description="Итоговый результат")
+    result_reference: str | None = Field(None, description="Справочное значение результата")
+    result_display: str | None = Field(None, description="Отображаемое представление результата")
+    measurement_error: str | None = Field(None, description="Погрешность измерения")
+    unit: str | None = Field(None, description="Единица измерения")
+    convergence: str | None = Field(None, description="Статус сходимости/повторяемости")
+    intermediate_results: dict[str, str | IntermediateResultValue] | None = Field(
+        None,
+        description="Промежуточные результаты расчёта",
+    )
+    conditions_info: list[dict[str, Any]] | None = Field(
+        None,
+        description="Информация об условиях повторяемости",
+    )
+    is_fractional_composition: bool | None = Field(
+        None,
+        description="Признак расчёта фракционного состава",
+    )
+    updated_input_data: dict[str, Any] | None = Field(
+        None,
+        description="Обновлённые входные данные (для отдельных методик)",
+    )

@@ -1,0 +1,55 @@
+.nd-norms-page-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 80px 20px 20px 20px;
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.nd-norms-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.nd-norms-page-header-left {
+  display: flex;
+  align-items: center;
+}
+
+.nd-norms-page-header-right {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+
+.nd-norms-page-table {
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.nd-norms-page-laboratories,
+.nd-norms-page-departments {
+  padding: 84px 20px 20px 20px;
+}
+
+.nd-norms-page-laboratories-grid,
+.nd-norms-page-departments-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}

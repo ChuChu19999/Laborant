@@ -1,5 +1,5 @@
 from __future__ import annotations
-from sqlalchemy import desc, func, select, text
+from sqlalchemy import ColumnElement, Select, desc, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from models.report import ReportTemplate
@@ -8,6 +8,7 @@ from repositories.base import (
     execute_scalar_one_or_none,
     execute_scalars_all,
     filter_not_deleted,
+    filter_not_deleted_unless,
 )
 from utils.pagination import apply_pagination, get_total_count
 from utils.sorting import build_order_by
@@ -17,7 +18,21 @@ _REPORT_TEMPLATE_VERSION_NUM = text(
 )
 
 
-def _order_report_templates_by_version_desc(query):
+def _build_report_template_conditions(
+    *,
+    laboratory_id: int | None = None,
+    department_id: int | None = None,
+) -> list[ColumnElement[bool]]:
+    """Собрать условия фильтрации шаблонов отчётов."""
+    conditions: list[ColumnElement[bool]] = []
+    if laboratory_id:
+        conditions.append(ReportTemplate.laboratory_id == laboratory_id)
+    if department_id:
+        conditions.append(ReportTemplate.department_id == department_id)
+    return conditions
+
+
+def _order_report_templates_by_version_desc(query: Select[tuple[ReportTemplate]]) -> Select[tuple[ReportTemplate]]:
     """Сортировка версий v1, v2, …, v10 по числу, а не как строк."""
     return query.order_by(desc(_REPORT_TEMPLATE_VERSION_NUM), ReportTemplate.created_at.desc())
 
@@ -34,8 +49,7 @@ async def get_report_template_by_id(
             selectinload(ReportTemplate.department),
         )
     )
-    if not include_deleted:
-        query = filter_not_deleted(query, ReportTemplate.deleted_at)
+    query = filter_not_deleted_unless(query, ReportTemplate.deleted_at, include_deleted)
     return await execute_scalar_one_or_none(db, query)
 
 
@@ -46,7 +60,7 @@ async def get_latest_report_template(
     report_type: str,
     department_id: int | None = None,
 ) -> ReportTemplate | None:
-    """Последняя неудалённая версия шаблона для лаборатории и подразделения."""
+    """Получить последнюю неудалённую версию шаблона для лаборатории и подразделения."""
     query = filter_not_deleted(
         select(ReportTemplate).where(
             ReportTemplate.laboratory_id == laboratory_id,
@@ -84,14 +98,12 @@ async def get_report_templates(
         selectinload(ReportTemplate.department),
     )
 
-    if not include_deleted:
-        query = filter_not_deleted(query, ReportTemplate.deleted_at)
+    query = filter_not_deleted_unless(query, ReportTemplate.deleted_at, include_deleted)
 
-    conditions = []
-    if laboratory_id:
-        conditions.append(ReportTemplate.laboratory_id == laboratory_id)
-    if department_id:
-        conditions.append(ReportTemplate.department_id == department_id)
+    conditions = _build_report_template_conditions(
+        laboratory_id=laboratory_id,
+        department_id=department_id,
+    )
     if conditions:
         query = query.where(*conditions)
 
@@ -108,15 +120,9 @@ async def get_report_templates(
         query = query.order_by(order_by)
 
     count_query = select(func.count()).select_from(ReportTemplate)
-    if not include_deleted:
-        count_query = filter_not_deleted(count_query, ReportTemplate.deleted_at)
-    count_conditions = []
-    if laboratory_id:
-        count_conditions.append(ReportTemplate.laboratory_id == laboratory_id)
-    if department_id:
-        count_conditions.append(ReportTemplate.department_id == department_id)
-    if count_conditions:
-        count_query = count_query.where(*count_conditions)
+    count_query = filter_not_deleted_unless(count_query, ReportTemplate.deleted_at, include_deleted)
+    if conditions:
+        count_query = count_query.where(*conditions)
 
     total = await get_total_count(db, count_query)
 
@@ -127,27 +133,7 @@ async def get_report_templates(
     return templates, total
 
 
-async def get_latest_report_template_for_type(
-    db: AsyncSession,
-    report_type: str,
-    laboratory_id: int,
-    department_id: int | None,
-) -> ReportTemplate | None:
-    """Получить последнюю версию шаблона отчёта по типу."""
-    query = _order_report_templates_by_version_desc(
-        filter_not_deleted(
-            select(ReportTemplate).where(
-                ReportTemplate.report_type == report_type,
-                ReportTemplate.laboratory_id == laboratory_id,
-                ReportTemplate.department_id == department_id,
-            ),
-            ReportTemplate.deleted_at,
-        )
-    ).limit(1)
-    return await execute_scalar_one_or_none(db, query)
-
-
 async def add_report_template(db: AsyncSession, template: ReportTemplate) -> ReportTemplate:
-    """Добавить шаблон отчёта в сессию."""
+    """Добавить шаблон отчёта."""
     await add_and_flush(db, template)
     return template

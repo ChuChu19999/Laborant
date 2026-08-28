@@ -1,0 +1,32 @@
+.generate-report-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.generate-report-modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Фиксированная ширина дата-пикера, чтобы не скакал при смене дат */
+.generate-report-modal-picker {
+  width: 100%;
+  min-width: 280px;
+}
+
+.generate-report-modal-label {
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.88);
+}
+
+.generate-report-modal-hint {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.65);
+}
+
+.generate-report-modal-hint {
+  font-style: italic;
+}

@@ -1,10 +1,4 @@
-"""
-Данные для отчёта «Результаты КГС» (ИЛНиНМ).
-
-Пробы за период по дате отбора: тип «Паспортизация», объект «дегазированный конденсат».
-Группировка по нормализованному месту отбора, внутри группы — по дате отбора.
-"""
-
+from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
@@ -14,29 +8,26 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from models.calculation import Calculation
 from models.sample import Sample
 from repositories import sample as sample_repo
+from services.ilninm_reports.common import (
+    MethodColumnSpec,
+    calculation_display_value,
+    calculation_matches_spec,
+    format_report_period,
+    format_sampling_date,
+    get_calculations_grouped_by_sample_ids,
+    report_display,
+)
 from services.ilninm_reports.constants import (
     GROUP_DENSITY,
     GROUP_MOLECULAR_MASS,
+    KGS_ABSENCE_DISPLAY,
     KGS_SAMPLING_LOCATION_PREFIXES,
     METHOD_CHLORIDE_SALTS,
     METHOD_CONDENSATE,
     METHOD_MECHANICAL_IMPURITIES,
     METHOD_WATER_MASS_FRACTION,
     REPORT_EMPTY_CELL_VALUE,
-    SAMPLE_TYPE_PASPORTIZACIYA,
-    TEST_OBJECT_DEGASSED_CONDENSATE,
 )
-from services.ilninm_reports.physicochemical import (
-    MethodColumnSpec,
-    _calculation_display_value,
-    _calculation_matches_spec,
-    _format_sampling_date,
-    _report_display,
-    format_report_period,
-    get_calculations_by_sample,
-)
-
-KGS_ABSENCE_DISPLAY = "отсутствие"
 
 _KGS_LOCATION_PREFIX_RE = tuple(
     re.compile(rf"(?:^|[\s,;])({re.escape(p)})(?=[\s,;]|$)")
@@ -62,21 +53,15 @@ _TEXT_ZERO_FOR_AVERAGE = frozenset(
         "-",
         "отс",
         "отс.",
-        "отсутствие",
+        KGS_ABSENCE_DISPLAY,
         "след",
         "следы",
     }
 )
 
 
-def _is_kgs_sample(sample: Sample) -> bool:
-    if (sample.sample_type or "").strip() != SAMPLE_TYPE_PASPORTIZACIYA:
-        return False
-    obj = (sample.test_object or "").lower()
-    return TEST_OBJECT_DEGASSED_CONDENSATE in obj
-
-
 def _find_sampling_location_prefix(name: str) -> str | None:
+    """Найти известный префикс места отбора в названии."""
     for rx in _KGS_LOCATION_PREFIX_RE:
         match = rx.search(name)
         if match:
@@ -87,12 +72,7 @@ def _find_sampling_location_prefix(name: str) -> str | None:
 def resolve_kgs_sampling_location_key_and_display(
     raw_name: str,
 ) -> tuple[str, str]:
-    """
-    Ключ группы и подпись для столбца B.
-
-    «УКПГ-2В НСПК …» сводится к «УКПГ-2В НСПК»; прочие префиксы — к самому префиксу.
-    «ГП-1 ОУПДТ» — к «ОУПДТ».
-    """
+    """Вернуть ключ группировки и подпись места отбора для столбца B."""
     name = (raw_name or "").strip()
     if not name:
         return "", REPORT_EMPTY_CELL_VALUE
@@ -109,7 +89,7 @@ def resolve_kgs_sampling_location_key_and_display(
 
 
 def _format_kgs_one_decimal(value: float) -> str:
-    """Число в ячейке отчёта: один знак после запятой, у целых — «,0»."""
+    """Отформатировать число в ячейке отчёта: один знак после запятой, у целых — «,0»."""
     rounded = _round_math_one_decimal(value)
     if rounded < 0:
         return f"минус {abs(rounded):.1f}".replace(".", ",")
@@ -117,11 +97,12 @@ def _format_kgs_one_decimal(value: float) -> str:
 
 
 def _format_kgs_cell_display(value: str) -> str:
+    """Привести значение ячейки КГС к виду для отчёта."""
     if value == REPORT_EMPTY_CELL_VALUE:
         return value
     parsed = _parse_numeric_for_average(value)
     if parsed is not None:
-        return _report_display(_format_kgs_one_decimal(parsed))
+        return report_display(_format_kgs_one_decimal(parsed))
     text = value.strip().lower()
     if text in ("отс", "отс.") or "отсутств" in text:
         return KGS_ABSENCE_DISPLAY
@@ -129,6 +110,7 @@ def _format_kgs_cell_display(value: str) -> str:
 
 
 def _parse_numeric_for_average(value: str) -> float | None:
+    """Разобрать число из текста ячейки для расчёта среднего."""
     text = (value or "").strip().lower()
     if text in _TEXT_ZERO_FOR_AVERAGE:
         return None
@@ -147,17 +129,12 @@ def _parse_numeric_for_average(value: str) -> float | None:
 
 
 def _round_math_one_decimal(value: float) -> float:
-    """Округление до одного знака после запятой (математическое, 0,5 вверх)."""
+    """Округлить до одного знака после запятой (математическое, 0,5 вверх)."""
     return float(Decimal(str(value)).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP))
 
 
 def _average_column_values(values: list[str]) -> str:
-    """
-    Среднее по столбцу группы.
-
-    В расчёте только числовые результаты; пустые, «-», отсутствие, следы не участвуют.
-    Если чисел нет — «отсутствие».
-    """
+    """Посчитать среднее по столбцу; при отсутствии чисел вернуть «отсутствие»."""
     numbers: list[float] = []
     for value in values:
         parsed = _parse_numeric_for_average(value)
@@ -170,19 +147,17 @@ def _average_column_values(values: list[str]) -> str:
 
 
 def _kgs_calculation_cell_value(calc: Calculation, spec: MethodColumnSpec) -> str:
-    """
-    В отчёте КГС для хлористых солей — только число из result,
-    без подписей «менее 1,0» / «более 10,0» из input_data.
-    """
+    """Вернуть значение расчёта для ячейки КГС; для хлористых солей — только число."""
     if spec.method_name == METHOD_CHLORIDE_SALTS and spec.fractional_field is None:
         raw = (calc.result or "").strip()
         return raw if raw else REPORT_EMPTY_CELL_VALUE
-    return _calculation_display_value(calc, spec)
+    return calculation_display_value(calc, spec)
 
 
 def _find_value_for_column(calculations: list[Calculation], spec: MethodColumnSpec) -> str:
+    """Вернуть значение расчёта для столбца КГС или прочерк."""
     for calc in calculations:
-        if _calculation_matches_spec(calc, spec):
+        if calculation_matches_spec(calc, spec):
             return _format_kgs_cell_display(_kgs_calculation_cell_value(calc, spec))
     return REPORT_EMPTY_CELL_VALUE
 
@@ -194,14 +169,14 @@ async def _get_samples_for_kgs_report(
     sampling_date_from: pendulum.DateTime,
     sampling_date_to: pendulum.DateTime,
 ) -> list[Sample]:
-    samples = await sample_repo.get_kgs_candidate_samples(
+    """Загрузить кандидатов проб для отчёта КГС за период по дате отбора."""
+    return await sample_repo.get_kgs_candidate_samples(
         db,
         laboratory_id,
         sampling_date_from,
         sampling_date_to,
         department_id,
     )
-    return [sample for sample in samples if _is_kgs_sample(sample)]
 
 
 @dataclass
@@ -236,7 +211,7 @@ async def get_kgs_report_groups(
     sampling_date_from: pendulum.DateTime,
     sampling_date_to: pendulum.DateTime,
 ) -> list[KgsReportLocationGroup]:
-    """Собирает группы строк отчёта по местам отбора."""
+    """Собрать группы строк отчёта КГС по местам отбора за период."""
     samples = await _get_samples_for_kgs_report(
         db,
         laboratory_id,
@@ -256,7 +231,7 @@ async def get_kgs_report_groups(
         grouped.setdefault(key, []).append((display, sample))
 
     sample_ids = [sample.id for samples in grouped.values() for _, sample in samples]
-    calcs_by_sample = await get_calculations_by_sample(db, sample_ids)
+    calcs_by_sample = await get_calculations_grouped_by_sample_ids(db, sample_ids)
 
     groups: list[KgsReportLocationGroup] = []
     for key in sorted(grouped.keys(), key=lambda k: grouped[k][0][0]):
@@ -282,7 +257,7 @@ async def get_kgs_report_groups(
             data_rows.append(
                 KgsReportDataRow(
                     location_display=location_display,
-                    sampling_date=_format_sampling_date(sample.sampling_date),
+                    sampling_date=format_sampling_date(sample.sampling_date),
                     values_by_column=values,
                 )
             )

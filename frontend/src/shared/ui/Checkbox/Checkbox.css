@@ -1,0 +1,11 @@
+/*
+  Почему CSS, а не theme: вертикальное выравнивание подписи относительно квадрата
+  при кастомном шрифте в theme ConfigProvider не задаётся.
+*/
+.app-checkbox.ant-checkbox-wrapper {
+  align-items: center;
+}
+
+.app-checkbox.ant-checkbox-wrapper > span:not(.ant-checkbox) {
+  line-height: 1.25;
+}

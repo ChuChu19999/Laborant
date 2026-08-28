@@ -2,13 +2,14 @@ from __future__ import annotations
 from datetime import date
 from enum import Enum as PyEnum
 from typing import TYPE_CHECKING, Any
-from sqlalchemy import JSON, Date, ForeignKey, Index, Integer, String
+from sqlalchemy import JSON, CheckConstraint, Date, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from core.config import get_database_schema
 from models.base import BaseModel
 
 if TYPE_CHECKING:
-    from models.laboratory import Department, Laboratory
+    from models.department import Department
+    from models.laboratory import Laboratory
 
 
 class EquipmentType(PyEnum):
@@ -58,11 +59,17 @@ class Equipment(BaseModel):
     department: Mapped["Department | None"] = relationship(back_populates="equipment")
 
     __table_args__ = (
+        CheckConstraint(
+            "type IN ("
+            + ", ".join(f"'{member.value.replace(chr(39), chr(39) * 2)}'" for member in EquipmentType)
+            + ")",
+            name="ck_equipments_type",
+        ),
         Index("idx_equipment_type", "type"),
         Index("idx_equipment_name", "name"),
         Index("idx_equipment_verification_end_date", "verification_end_date"),
         {"schema": get_database_schema()},
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Equipment(id={self.id}, name='{self.name}', version='{self.version}', laboratory_id={self.laboratory_id})>"

@@ -9,7 +9,7 @@ import App from './App';
 if (!window.crypto || !window.crypto.subtle) {
   const webCrypto = new Crypto();
   if (!window.crypto) {
-    (window as Window & { crypto: Crypto }).crypto = webCrypto as unknown as Crypto;
+    (window as Window & { crypto: Crypto }).crypto = webCrypto;
   } else if (!window.crypto.subtle) {
     (window.crypto as Crypto & { subtle: SubtleCrypto }).subtle = webCrypto.subtle;
   }
@@ -26,4 +26,7 @@ if (!window.crypto.randomUUID) {
   };
 }
 
-createRoot(document.getElementById('root')!).render(<App />);
+const rootElement = document.getElementById('root');
+if (rootElement) {
+  createRoot(rootElement).render(<App />);
+}

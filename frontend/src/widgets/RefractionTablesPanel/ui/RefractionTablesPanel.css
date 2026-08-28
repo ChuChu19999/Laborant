@@ -1,0 +1,58 @@
+.refraction-tables-panel-laboratories,
+.refraction-tables-panel-departments,
+.refraction-tables-panel-content {
+  padding: 84px 20px 20px 20px;
+}
+
+.refraction-tables-panel-laboratories-grid,
+.refraction-tables-panel-departments-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.refraction-tables-panel-empty {
+  margin: 0;
+  color: #666;
+  font-size: 15px;
+}
+
+.refraction-tables-panel-methods {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.refraction-tables-panel-method-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 16px 18px;
+  border: none;
+  border-radius: 12px;
+  border-left: 6px solid #0079c2;
+  background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
+  box-shadow: 0 4px 12px rgba(0, 121, 194, 0.12);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.refraction-tables-panel-method-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
+}
+
+.refraction-tables-panel-method-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #004a77;
+}
+
+.refraction-tables-panel-method-nd {
+  font-size: 13px;
+  color: #666;
+}

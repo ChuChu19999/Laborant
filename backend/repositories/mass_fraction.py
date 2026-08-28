@@ -1,5 +1,5 @@
 from __future__ import annotations
-from sqlalchemy import Float, cast, func, select
+from sqlalchemy import ColumnElement, Float, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from models.mass_fraction import MassFractionOilRefractionTable
@@ -8,9 +8,21 @@ from repositories.base import (
     execute_scalar_one_or_none,
     execute_scalars_all,
     filter_not_deleted,
+    filter_not_deleted_unless,
 )
 from utils.pagination import apply_pagination, get_total_count
 from utils.sorting import build_order_by
+
+
+def _build_mass_fraction_conditions(
+    *,
+    research_method_id: int | None = None,
+) -> list[ColumnElement[bool]]:
+    """Собрать условия фильтрации точек градуировочного графика."""
+    conditions: list[ColumnElement[bool]] = []
+    if research_method_id:
+        conditions.append(MassFractionOilRefractionTable.research_method_id == research_method_id)
+    return conditions
 
 
 async def get_mass_fraction_oil_refraction_table_by_id(
@@ -22,8 +34,7 @@ async def get_mass_fraction_oil_refraction_table_by_id(
         .where(MassFractionOilRefractionTable.id == table_id)
         .options(selectinload(MassFractionOilRefractionTable.research_method))
     )
-    if not include_deleted:
-        query = filter_not_deleted(query, MassFractionOilRefractionTable.deleted_at)
+    query = filter_not_deleted_unless(query, MassFractionOilRefractionTable.deleted_at, include_deleted)
     return await execute_scalar_one_or_none(db, query)
 
 
@@ -41,8 +52,9 @@ async def get_mass_fraction_oil_refraction_tables(
         MassFractionOilRefractionTable.deleted_at,
     ).options(selectinload(MassFractionOilRefractionTable.research_method))
 
-    if research_method_id:
-        query = query.where(MassFractionOilRefractionTable.research_method_id == research_method_id)
+    conditions = _build_mass_fraction_conditions(research_method_id=research_method_id)
+    if conditions:
+        query = query.where(*conditions)
 
     if sort_by == "c_value":
         c_value_numeric = cast(MassFractionOilRefractionTable.c_value, Float)
@@ -67,8 +79,8 @@ async def get_mass_fraction_oil_refraction_tables(
         select(func.count()).select_from(MassFractionOilRefractionTable),
         MassFractionOilRefractionTable.deleted_at,
     )
-    if research_method_id:
-        count_query = count_query.where(MassFractionOilRefractionTable.research_method_id == research_method_id)
+    if conditions:
+        count_query = count_query.where(*conditions)
 
     total = await get_total_count(db, count_query)
 
@@ -82,7 +94,7 @@ async def get_mass_fraction_oil_refraction_tables(
 async def add_mass_fraction_oil_refraction_table(
     db: AsyncSession, table: MassFractionOilRefractionTable
 ) -> MassFractionOilRefractionTable:
-    """Добавить точку градуировочного графика в сессию."""
+    """Добавить точку градуировочного графика."""
     await add_and_flush(db, table)
     return table
 
@@ -91,12 +103,10 @@ async def get_mass_fraction_refraction_entries(
     db: AsyncSession, research_method_id: int
 ) -> list[MassFractionOilRefractionTable]:
     """Получить точки градуировочного графика для метода."""
-    result = await db.execute(
-        filter_not_deleted(
-            select(MassFractionOilRefractionTable)
-            .where(MassFractionOilRefractionTable.research_method_id == research_method_id)
-            .order_by(cast(MassFractionOilRefractionTable.c_value, Float)),
-            MassFractionOilRefractionTable.deleted_at,
-        )
+    query = filter_not_deleted(
+        select(MassFractionOilRefractionTable)
+        .where(MassFractionOilRefractionTable.research_method_id == research_method_id)
+        .order_by(cast(MassFractionOilRefractionTable.c_value, Float)),
+        MassFractionOilRefractionTable.deleted_at,
     )
-    return list(result.scalars().all())
+    return await execute_scalars_all(db, query)

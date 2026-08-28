@@ -7,7 +7,8 @@ from core.config import get_database_schema
 from models.base import BaseModel
 
 if TYPE_CHECKING:
-    from models.laboratory import Department, Laboratory
+    from models.department import Department
+    from models.laboratory import Laboratory
 
 
 class Protocol(BaseModel):
@@ -62,7 +63,7 @@ class Protocol(BaseModel):
         {"schema": get_database_schema()},
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Protocol(id={self.id}, test_protocol_number='{self.test_protocol_number}', laboratory_id={self.laboratory_id})>"
 
 
@@ -97,5 +98,5 @@ class ProtocolTemplate(BaseModel):
         {"schema": get_database_schema()},
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<ProtocolTemplate(id={self.id}, name='{self.name}', version='{self.version}')>"

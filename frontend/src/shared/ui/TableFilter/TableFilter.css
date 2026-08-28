@@ -1,0 +1,71 @@
+.table-filter-input,
+.table-filter-select,
+.table-filter-datepicker,
+.table-filter-cell .multi-select-column-filter {
+  width: 100%;
+  max-width: 100%;
+}
+
+.table-filter-select.ant-select-single .ant-select-selection-item,
+.table-filter-select.ant-select-single .ant-select-selection-placeholder {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.table-filter-select-dropdown,
+.multi-select-column-filter-dropdown.table-filter-select-dropdown {
+  font-family: 'HeliosCondC', sans-serif;
+}
+
+/*
+  Почему CSS, а не theme: у RangePicker ширина частей инпута в theme не задаётся.
+*/
+.table-filter-datepicker.ant-picker-range {
+  width: 100%;
+}
+
+.table-filter-datepicker.ant-picker-range .ant-picker-input {
+  flex: 1;
+}
+
+.table-filter-select-dropdown .ant-select-item {
+  height: auto;
+  min-height: 32px;
+}
+
+.table-filter-select-dropdown .ant-select-item-option-content,
+.table-filter-select-dropdown .select-option-row > span,
+.table-filter-select-dropdown .table-filter-select-option > span {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.35;
+}
+
+.table-filter-select-dropdown .select-option-row,
+.table-filter-select-dropdown .table-filter-select-option {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.table-filter-select-dropdown .select-option-row .ant-checkbox-wrapper,
+.table-filter-select-dropdown .table-filter-select-option .ant-checkbox-wrapper {
+  flex-shrink: 0;
+}
+
+.table-filter-select-dropdown .select-option-row > span,
+.table-filter-select-dropdown .table-filter-select-option > span {
+  flex: 1;
+  min-width: 0;
+}
+
+.table-filter-select-dropdown .ant-select-item-option-content {
+  flex: 1;
+  min-width: 0;
+}

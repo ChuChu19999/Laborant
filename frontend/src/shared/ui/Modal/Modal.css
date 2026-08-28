@@ -1,0 +1,270 @@
+.modal-wrapper {
+  position: fixed;
+  z-index: 1000;
+  top: 50%;
+  left: calc(50% + 100px);
+  transform: translate(-50%, -50%);
+  max-height: 90vh;
+  max-width: min(90vw, 1200px);
+  width: 80%;
+  display: flex;
+  flex-direction: column;
+  margin: 0 auto;
+  color: #000;
+  font-family: 'HeliosCondC';
+  background-color: #fcfcfc;
+  border: 1px solid #babfc7;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  overflow-x: hidden;
+  animation: modalFadeIn 0.2s ease-out;
+}
+
+.modal-wrapper.modal-width-450 {
+  width: 450px;
+}
+
+.modal-wrapper.modal-width-550 {
+  width: 550px;
+}
+
+.modal-wrapper.modal-width-1000 {
+  width: 1000px;
+}
+
+.modal-wrapper.modal-width-1800 {
+  width: 1800px;
+}
+
+.modal-wrapper.modal-opening {
+  animation: modalFadeIn 0.2s ease-out;
+}
+
+.modal-wrapper.modal-closing {
+  animation: modalFadeOut 0.2s ease-in;
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes modalFadeOut {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.95);
+  }
+}
+
+.modal-wrapper span {
+  font-family: 'HeliosCondC';
+}
+
+.modal-wrapper input {
+  font-family: 'HeliosCondC' !important;
+}
+
+.modal-wrapper .modal-header {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  flex-shrink: 0;
+  width: 100%;
+  height: 40px;
+  font-size: 14px;
+  background-color: #e4e6e8;
+  border-radius: 16px 16px 0px 0px;
+  border-bottom: #babfc7 1px solid;
+  margin-bottom: 0;
+}
+
+.modal-wrapper .modal-close {
+  position: absolute;
+  right: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition:
+    color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.modal-wrapper .modal-close:hover {
+  color: black;
+  transform: scale(1.1);
+}
+
+.modal-wrapper .modal-close:focus-visible {
+  outline: 2px solid #1890ff;
+  outline-offset: 2px;
+}
+
+.modal-wrapper .body {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+  max-height: calc(
+    90vh - 40px - 80px
+  ); /* 40px - header, 80px - примерная высота футера с кнопками */
+  min-height: 0;
+  flex: 1;
+}
+
+.modal-wrapper .body-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 20px 20px 10px;
+  margin-bottom: 0;
+  font-size: 14px;
+  color: #000;
+  font-family: 'HeliosCondC';
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1;
+  min-height: 0;
+}
+
+.modal-wrapper .body-content p,
+.modal-wrapper .body-content span,
+.modal-wrapper .body-content div {
+  font-family: 'HeliosCondC';
+}
+
+.modal-wrapper .body-info {
+  display: flex;
+  flex-direction: column;
+  font-size: 14px;
+}
+
+.modal-wrapper .body-info-title {
+  margin: 5px 0px 5px 0px;
+}
+
+.modal-wrapper .body-info-text {
+  margin: 0px 0px 15px 12px;
+}
+
+.modal-wrapper .body-info-range {
+  margin: 0px 0px 15px 0px;
+}
+
+.modal-wrapper .body-info-input {
+  margin: 0px 0px 10px 0px;
+}
+
+.modal-wrapper .body-buttons {
+  display: flex;
+  flex-direction: row;
+  justify-content: center !important;
+  align-items: center;
+  margin-top: auto;
+  margin-left: 0;
+  margin-right: 0;
+  margin-bottom: 0;
+  gap: 15px;
+  flex-shrink: 0;
+  padding: 10px 20px 20px;
+  border-top: 1px solid #e4e6e8;
+  width: 100%;
+  text-align: center;
+  box-sizing: border-box;
+  background-color: #fcfcfc;
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+}
+
+.modal-wrapper .body-buttons > * {
+  flex-shrink: 0;
+  margin: 0;
+}
+
+.modal-wrapper .body-buttons-main {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  align-items: center;
+}
+
+.modal-wrapper .body-buttons-extra {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  align-items: center;
+}
+
+.modal-wrapper .body-buttons .button-wrapper {
+  display: inline-block;
+  width: auto;
+  flex-shrink: 0;
+  margin: 0;
+}
+
+.modal-wrapper .body-buttons .button-wrapper > * {
+  margin: 0;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+}
+
+.modal-overlay.fade-in {
+  animation: fadeIn 0.2s ease-out;
+}
+
+.modal-overlay.fade-out {
+  animation: fadeOut 0.2s ease-in;
+}
+
+@media (max-width: 1024px) {
+  .modal-wrapper {
+    left: 50%;
+    width: 95%;
+  }
+}

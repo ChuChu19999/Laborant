@@ -1,24 +1,27 @@
-import type { StateCreator } from 'zustand';
+import type { StateCreator, StoreMutatorIdentifier } from 'zustand';
 
-/**
- * Middleware для логирования изменений стейта (для разработки)
- */
-export const logger =
-  <T>(config: StateCreator<T>): StateCreator<T> =>
-  (set, get, api) =>
-    config(
-      ((partial, replace) => {
-        if (import.meta.env.DEV) {
-          console.log('Zustand State Update:', { partial, replace });
-        }
-        if (replace === true) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          set(partial as any, true);
-        } else {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          set(partial as any);
-        }
-      }) as typeof set,
-      get,
-      api
-    );
+type Logger = <
+  T,
+  Mps extends [StoreMutatorIdentifier, unknown][] = [],
+  Mcs extends [StoreMutatorIdentifier, unknown][] = [],
+>(
+  config: StateCreator<T, Mps, Mcs>,
+  name?: string
+) => StateCreator<T, Mps, Mcs>;
+
+type LoggerImpl = <T>(config: StateCreator<T, [], []>, name?: string) => StateCreator<T, [], []>;
+
+/** Middleware для логирования изменений стейта в режиме разработки. */
+const loggerImpl: LoggerImpl = config => (set, get, api) =>
+  config(
+    (partial, replace) => {
+      if (import.meta.env.DEV) {
+        console.log('Zustand State Update:', { partial, replace });
+      }
+      (set as (value: unknown, shouldReplace?: boolean) => void)(partial, replace);
+    },
+    get,
+    api
+  );
+
+export const logger = loggerImpl as unknown as Logger;

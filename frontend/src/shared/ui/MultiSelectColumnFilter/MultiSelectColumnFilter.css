@@ -1,0 +1,104 @@
+.multi-select-column-filter-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.multi-select-column-filter-option .ant-checkbox-wrapper {
+  flex-shrink: 0;
+}
+
+.multi-select-column-filter-option-label {
+  flex: 1;
+  min-width: 0;
+  white-space: normal;
+  overflow: hidden;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.multi-select-column-filter-dropdown .ant-select-item-option {
+  min-height: 32px;
+  height: auto !important;
+}
+
+.multi-select-column-filter-dropdown .ant-select-item-option-content {
+  white-space: normal;
+  overflow: hidden;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.multi-select-column-filter-dropdown
+  .ant-select-item-option-content:has(.multi-select-column-filter-option) {
+  display: block;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+}
+
+.multi-select-column-filter-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 5px;
+  padding: 5px 5px 2px 5px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.multi-select-column-filter.ant-select {
+  vertical-align: top;
+}
+
+.multi-select-column-filter.ant-select-multiple .ant-select-selector {
+  align-items: center !important;
+  min-height: 32px;
+  max-height: 32px;
+  overflow: hidden;
+  padding-block: 0;
+}
+
+.multi-select-column-filter.ant-select-multiple.ant-select-show-arrow .ant-select-selector {
+  padding-inline-end: 24px;
+}
+
+.multi-select-column-filter.ant-select-multiple:has(.ant-select-selection-item)
+  .ant-select-selector {
+  align-items: flex-start !important;
+  max-height: 58px;
+  padding-block: 2px;
+}
+
+.multi-select-column-filter.ant-select-multiple:not(:has(.ant-select-selection-item))
+  .ant-select-selection-overflow {
+  flex-wrap: nowrap;
+}
+
+.multi-select-column-filter.ant-select-multiple .ant-select-selection-placeholder {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.multi-select-column-filter.ant-select-multiple .ant-select-selection-overflow {
+  flex-wrap: wrap;
+  row-gap: 2px;
+  max-height: 52px;
+  overflow: hidden;
+  align-content: flex-start;
+}
+
+.multi-select-column-filter.ant-select-multiple .ant-select-selection-overflow-item {
+  align-self: flex-start;
+}
+
+.multi-select-column-filter--open {
+  position: relative;
+  z-index: 30;
+}

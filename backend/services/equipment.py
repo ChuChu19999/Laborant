@@ -1,23 +1,22 @@
 from __future__ import annotations
 import pendulum
 from sqlalchemy.ext.asyncio import AsyncSession
-from core.exceptions import NotFoundError
+from core.exceptions import ConflictError, NotFoundError
 from models.equipment import Equipment
 from repositories import equipment as equipment_repo, research as research_repo
 from repositories.base import flush_entity
-from schemas.equipment import EquipmentCreate, EquipmentResponse, EquipmentUpdate
+from schemas.equipment import EquipmentCreate, EquipmentUpdate
 from services.visibility import validate_lab_and_department
-from utils.pagination import calculate_total_pages
 from utils.versioning import next_version_string
 
 
 async def get_equipment_by_id(db: AsyncSession, equipment_id: int, include_deleted: bool = False) -> Equipment | None:
-    """Получить оборудование по ID."""
+    """Получить оборудование по ID или None, если записи нет."""
     return await equipment_repo.get_equipment_by_id(db, equipment_id, include_deleted)
 
 
 async def require_equipment_by_id(db: AsyncSession, equipment_id: int, include_deleted: bool = False) -> Equipment:
-    """Получить оборудование по ID или вернуть 404."""
+    """Вернуть оборудование по ID; если записи нет — NotFoundError."""
     equipment = await get_equipment_by_id(db, equipment_id, include_deleted)
     if not equipment:
         raise NotFoundError("Оборудование не найдено")
@@ -29,7 +28,7 @@ async def get_equipment_by_ids(
     equipment_ids: list[int],
     include_deleted: bool = True,
 ) -> dict[int, Equipment]:
-    """Получить оборудование по списку ID."""
+    """Получить словарь оборудования по списку ID."""
     return await equipment_repo.get_equipment_by_ids(db, equipment_ids, include_deleted)
 
 
@@ -49,9 +48,9 @@ async def get_equipment(
     verification_end_date_to: pendulum.DateTime | None = None,
     created_at_from: pendulum.DateTime | None = None,
     created_at_to: pendulum.DateTime | None = None,
-) -> tuple[list[Equipment], int, int]:
-    """Получить список оборудования."""
-    equipment_list, total = await equipment_repo.get_equipment(
+) -> tuple[list[Equipment], int]:
+    """Получить список оборудования и число записей по фильтрам."""
+    return await equipment_repo.get_equipment(
         db,
         laboratory_id,
         department_id,
@@ -69,43 +68,19 @@ async def get_equipment(
         created_at_to,
     )
 
-    if page is not None and page_size is not None:
-        total_pages = calculate_total_pages(total, page_size)
-    else:
-        total_pages = 1 if total > 0 else 0
-
-    return equipment_list, total, total_pages
-
-
-def build_equipment_response(equipment: Equipment) -> EquipmentResponse:
-    """Собрать ответ API по оборудованию с наименованиями связей."""
-    eq_dict = EquipmentResponse.model_validate(equipment).model_dump()
-    if equipment.laboratory:
-        eq_dict["laboratory_name"] = equipment.laboratory.name
-    if equipment.department:
-        eq_dict["department_name"] = equipment.department.name
-    return EquipmentResponse(**eq_dict)
-
 
 async def create_equipment(db: AsyncSession, equipment_data: EquipmentCreate) -> Equipment:
-    """Создать оборудование."""
+    """Создать оборудование; при совпадении имени в лаборатории/подразделении — ConflictError."""
     await validate_lab_and_department(db, equipment_data.laboratory_id, equipment_data.department_id)
 
-    latest_equipment = await equipment_repo.get_latest_equipment_version(
+    existing = await equipment_repo.get_latest_equipment_version(
         db,
         equipment_data.name,
         equipment_data.laboratory_id,
         equipment_data.department_id,
     )
-
-    if latest_equipment:
-        try:
-            current_num = int(latest_equipment.version[1:])
-            next_version = f"v{current_num + 1}"
-        except (ValueError, IndexError):
-            next_version = "v1"
-    else:
-        next_version = "v1"
+    if existing:
+        raise ConflictError("Оборудование с таким наименованием уже существует")
 
     equipment = Equipment(
         type=equipment_data.type,
@@ -114,35 +89,21 @@ async def create_equipment(db: AsyncSession, equipment_data: EquipmentCreate) ->
         verification_info=equipment_data.verification_info,
         verification_date=equipment_data.verification_date,
         verification_end_date=equipment_data.verification_end_date,
-        version=next_version,
+        version=next_version_string(None),
         laboratory_id=equipment_data.laboratory_id,
         department_id=equipment_data.department_id,
         method_data_default=equipment_data.method_data_default or [],
     )
     equipment = await equipment_repo.add_equipment(db, equipment)
-
-    if latest_equipment:
-        old_equipment_id = latest_equipment.id
-        await _update_research_methods_with_new_equipment_version(
-            db,
-            old_equipment_id,
-            equipment.id,
-            equipment_data.laboratory_id,
-            equipment_data.department_id,
-        )
-
-    equipment = await equipment_repo.get_equipment_by_id(db, equipment.id)
-    if not equipment:
-        raise NotFoundError("Оборудование не найдено")
-    return equipment
+    return await require_equipment_by_id(db, equipment.id)
 
 
-async def update_equipment(db: AsyncSession, equipment_id: int, equipment_data: EquipmentUpdate) -> Equipment:
-    """Обновить оборудование. Старая запись помечается как удаленная, создается новая с новой версией."""
-    old_equipment = await get_equipment_by_id(db, equipment_id)
-    if not old_equipment:
-        raise NotFoundError("Оборудование не найдено")
-
+async def update_equipment(
+    db: AsyncSession,
+    old_equipment: Equipment,
+    equipment_data: EquipmentUpdate,
+) -> Equipment:
+    """Мягко удалить текущую запись и создать новую версию прибора с перешивкой методов."""
     update_data = equipment_data.model_dump(exclude_unset=True)
 
     new_name = update_data.get("name", old_equipment.name)
@@ -158,6 +119,15 @@ async def update_equipment(db: AsyncSession, equipment_id: int, equipment_data: 
 
     if equipment_data.laboratory_id is not None or equipment_data.department_id is not None:
         await validate_lab_and_department(db, lab_id, dept_id)
+
+    if (
+        new_name != old_equipment.name
+        or lab_id != old_equipment.laboratory_id
+        or dept_id != old_equipment.department_id
+    ):
+        conflict = await equipment_repo.get_latest_equipment_version(db, new_name, lab_id, dept_id)
+        if conflict and conflict.id != old_equipment.id:
+            raise ConflictError("Оборудование с таким наименованием уже существует")
 
     next_version = next_version_string(old_equipment.version)
 
@@ -179,70 +149,64 @@ async def update_equipment(db: AsyncSession, equipment_id: int, equipment_data: 
     )
     new_equipment = await equipment_repo.add_equipment(db, new_equipment)
 
-    await _update_research_methods_with_new_equipment_version(db, old_equipment_id, new_equipment.id, lab_id, dept_id)
+    await _replace_equipment_in_research_methods(db, old_equipment_id, new_equipment.id)
 
-    equipment = await equipment_repo.get_equipment_by_id(db, new_equipment.id)
-    if not equipment:
-        raise NotFoundError("Оборудование не найдено")
-    return equipment
+    return await require_equipment_by_id(db, new_equipment.id)
 
 
-async def _update_research_methods_with_new_equipment_version(
+async def _replace_equipment_in_research_methods(
     db: AsyncSession,
     old_equipment_id: int,
     new_equipment_id: int,
-    laboratory_id: int,
-    department_id: int | None,
 ) -> None:
-    """Обновить методы исследования, привязанные к старой версии прибора."""
-    methods = await research_repo.get_research_methods_for_equipment_update(db, laboratory_id, department_id)
+    """Подменить в equipment_data_default методов старый id прибора на новый."""
+    methods = await research_repo.get_research_methods_referencing_equipment(db, old_equipment_id)
+    if not methods:
+        return
 
-    has_updates = False
     for method in methods:
-        if not method.equipment_data_default:
-            continue
-
         equipment_ids = method.equipment_data_default
         if not isinstance(equipment_ids, list):
             continue
+        method.equipment_data_default = [
+            new_equipment_id if eq_id == old_equipment_id else eq_id for eq_id in equipment_ids
+        ]
 
-        if old_equipment_id in equipment_ids:
-            equipment_ids = [new_equipment_id if eq_id == old_equipment_id else eq_id for eq_id in equipment_ids]
-            method.equipment_data_default = equipment_ids
-            has_updates = True
-
-    if has_updates:
-        await flush_entity(db)
+    await flush_entity(db)
 
 
 async def _remove_equipment_from_research_methods(db: AsyncSession, equipment_id: int) -> None:
-    """Удалить прибор из equipment_data_default во всех методах исследования."""
-    methods = await research_repo.get_all_research_methods_for_equipment_removal(db)
+    """Убрать id прибора из equipment_data_default у всех ссылающихся методов."""
+    methods = await research_repo.get_research_methods_referencing_equipment(db, equipment_id)
+    if not methods:
+        return
 
-    has_updates = False
     for method in methods:
-        if not method.equipment_data_default:
-            continue
-
         equipment_ids = method.equipment_data_default
         if not isinstance(equipment_ids, list):
             continue
+        method.equipment_data_default = [eq_id for eq_id in equipment_ids if eq_id != equipment_id]
 
-        if equipment_id in equipment_ids:
-            equipment_ids = [eq_id for eq_id in equipment_ids if eq_id != equipment_id]
-            method.equipment_data_default = equipment_ids
-            has_updates = True
-
-    if has_updates:
-        await flush_entity(db)
+    await flush_entity(db)
 
 
-async def delete_equipment(db: AsyncSession, equipment_id: int) -> None:
-    """Удалить оборудование (мягкое удаление)."""
-    equipment = await get_equipment_by_id(db, equipment_id)
-    if not equipment:
-        raise NotFoundError("Оборудование не найдено")
-
-    await _remove_equipment_from_research_methods(db, equipment_id)
+async def delete_equipment(db: AsyncSession, equipment: Equipment) -> None:
+    """Мягко удалить оборудование и убрать его из привязок методов."""
+    await _remove_equipment_from_research_methods(db, equipment.id)
     equipment.soft_delete()
     await flush_entity(db)
+
+
+def resolve_equipment_update_scope(
+    existing: Equipment,
+    equipment_data: EquipmentUpdate,
+) -> tuple[int, int | None]:
+    """Определить область доступа после PATCH оборудования."""
+    fields_set = equipment_data.model_fields_set
+    laboratory_id = (
+        equipment_data.laboratory_id
+        if "laboratory_id" in fields_set and equipment_data.laboratory_id is not None
+        else existing.laboratory_id
+    )
+    department_id = equipment_data.department_id if "department_id" in fields_set else existing.department_id
+    return laboratory_id, department_id

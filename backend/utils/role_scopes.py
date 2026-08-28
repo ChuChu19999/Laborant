@@ -1,9 +1,11 @@
 from __future__ import annotations
 from typing import Any
+from schemas.visibility import ScopeIdFilter
 from utils.permissions_constants import merge_permissions, normalize_permissions
 
 
 def _scope_key(laboratory_id: int, department_id: int | None) -> tuple[int, int | None]:
+    """Собрать ключ области видимости для слияния scope роли."""
     return (laboratory_id, department_id)
 
 
@@ -51,7 +53,7 @@ def normalize_role_scopes(raw: list[Any] | None) -> list[dict[str, Any]]:
     )
 
 
-def scopes_to_visibility_scope(scopes: list[dict[str, Any]]) -> dict[str, list[int]]:
+def scopes_to_visibility_scope(scopes: list[dict[str, Any]]) -> ScopeIdFilter:
     """Собрать списки id лабораторий и подразделений из привязок."""
     laboratory_ids: set[int] = set()
     department_ids: set[int] = set()
@@ -94,11 +96,12 @@ def role_scope_matches(
     if department_id is not None:
         if any(entry.get("department_id") == department_id for entry in normalized):
             return True
-        if laboratory_id is not None and any(
-            entry["laboratory_id"] == laboratory_id and entry.get("department_id") is None for entry in normalized
-        ):
-            return True
-        return False
+        return bool(
+            laboratory_id is not None
+            and any(
+                entry["laboratory_id"] == laboratory_id and entry.get("department_id") is None for entry in normalized
+            )
+        )
 
     if laboratory_id is not None:
         return any(entry["laboratory_id"] == laboratory_id for entry in normalized)
@@ -143,3 +146,13 @@ def resolve_permissions_for_scope(
         return None
 
     return None
+
+
+__all__ = [
+    "merge_role_scopes",
+    "normalize_role_scope_entry",
+    "normalize_role_scopes",
+    "resolve_permissions_for_scope",
+    "role_scope_matches",
+    "scopes_to_visibility_scope",
+]

@@ -1,6 +1,6 @@
 from __future__ import annotations
 from datetime import datetime
-from typing import Annotated, Any, Literal
+from typing import Annotated
 from pydantic import (
     AfterValidator,
     BaseModel,
@@ -13,17 +13,17 @@ from schemas.common import NonEmptyStr, OptionalNonEmptyStr, make_enum_validator
 from schemas.visibility import VisibilityScope
 from utils.permissions_constants import (
     SAMPLE_OPTIONAL_FIELDS,
+    SamplingTerminology,
     default_role_permissions,
-    normalize_permissions,
 )
-from utils.role_scopes import normalize_role_scopes
 
 _validate_role_type = make_enum_validator(RoleType, "Тип роли")
 RoleTypeField = Annotated[str, AfterValidator(_validate_role_type)]
-SamplingTerminologyValue = Literal["well_mode", "sampling_point"]
 
 
 class NavigationPermissions(BaseModel):
+    """Права доступа к разделам навигации."""
+
     home: bool = True
     samples: bool = False
     protocols: bool = False
@@ -35,10 +35,14 @@ class NavigationPermissions(BaseModel):
 
 
 class LaboratoryManagementPermissions(BaseModel):
+    """Права доступа к управлению лабораторией."""
+
     access: bool = False
 
 
 class SamplesPermissions(BaseModel):
+    """Права на просмотр и изменение проб."""
+
     visible_fields: list[str] = Field(default_factory=list)
     update: bool = False
     delete: bool = False
@@ -50,6 +54,8 @@ class SamplesPermissions(BaseModel):
 
 
 class CrudPermissions(BaseModel):
+    """Права на создание, чтение, изменение и удаление."""
+
     read: bool = False
     create: bool = False
     update: bool = False
@@ -57,6 +63,8 @@ class CrudPermissions(BaseModel):
 
 
 class CalculationsPermissions(BaseModel):
+    """Права на выполнение и управление расчётами."""
+
     execute: bool = False
     create: bool = False
     update: bool = False
@@ -65,6 +73,8 @@ class CalculationsPermissions(BaseModel):
 
 
 class RolePermissions(BaseModel):
+    """Матрица прав роли пользователя."""
+
     navigation: NavigationPermissions = Field(default_factory=NavigationPermissions)
     laboratory_management: LaboratoryManagementPermissions = Field(default_factory=LaboratoryManagementPermissions)
     samples: SamplesPermissions = Field(default_factory=SamplesPermissions)
@@ -75,22 +85,11 @@ class RolePermissions(BaseModel):
     refraction_tables: CrudPermissions = Field(default_factory=CrudPermissions)
     test_objects: CrudPermissions = Field(default_factory=CrudPermissions)
     calculations: CalculationsPermissions = Field(default_factory=CalculationsPermissions)
-    sampling_terminology: SamplingTerminologyValue = "well_mode"
+    sampling_terminology: SamplingTerminology = "well_mode"
 
     @classmethod
     def default(cls) -> RolePermissions:
         return cls.model_validate(default_role_permissions())
-
-
-def permissions_to_dict(
-    permissions: RolePermissions | dict[str, Any] | None,
-) -> dict[str, Any]:
-    """Сериализация permissions в dict для БД."""
-    if permissions is None:
-        return default_role_permissions()
-    if isinstance(permissions, RolePermissions):
-        return normalize_permissions(permissions.model_dump())
-    return normalize_permissions(permissions)
 
 
 class RoleScopeBinding(BaseModel):
@@ -117,29 +116,16 @@ class RoleScopeBinding(BaseModel):
 
 
 class RoleScopeBindingInput(BaseModel):
-    """Входная привязка без подписей."""
+    """Привязка прав роли к лаборатории или подразделению на входе (только id)."""
 
     laboratory_id: int = Field(..., gt=0)
     department_id: int | None = Field(default=None, gt=0)
     permissions: RolePermissions = Field(default_factory=RolePermissions.default)
 
 
-def scopes_to_storage(
-    scopes: list[RoleScopeBindingInput] | list[RoleScopeBinding],
-) -> list[dict[str, Any]]:
-    """Сериализация привязок для сохранения в БД."""
-    raw = [
-        {
-            "laboratory_id": item.laboratory_id,
-            "department_id": item.department_id,
-            "permissions": permissions_to_dict(item.permissions),
-        }
-        for item in scopes
-    ]
-    return normalize_role_scopes(raw)
-
-
 class RoleBase(BaseModel):
+    """Общие поля роли пользователя."""
+
     name: Annotated[NonEmptyStr, Field(max_length=255)] = Field(..., description="Наименование роли")
     role_type: RoleTypeField = Field(..., description="Тип роли: laborant, engineer")
     scopes: list[RoleScopeBindingInput] = Field(
@@ -149,16 +135,20 @@ class RoleBase(BaseModel):
 
 
 class RoleCreate(RoleBase):
-    pass
+    """Запрос на создание роли пользователя."""
 
 
 class RoleUpdate(BaseModel):
-    name: Annotated[OptionalNonEmptyStr, Field(max_length=255)] = None
+    """Частичное обновление роли пользователя."""
+
+    name: OptionalNonEmptyStr = Field(None, max_length=255)
     role_type: RoleTypeField | None = None
     scopes: list[RoleScopeBindingInput] | None = None
 
 
 class RoleResponse(BaseModel):
+    """Ответ API с данными роли пользователя."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -201,6 +191,4 @@ __all__ = [
     "RoleTypeField",
     "RoleUpdate",
     "UserPermissionsResponse",
-    "permissions_to_dict",
-    "scopes_to_storage",
 ]

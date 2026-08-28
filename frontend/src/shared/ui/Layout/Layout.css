@@ -1,7 +1,9 @@
 .layout-wrapper {
   flex: 1;
+  min-width: 0;
   height: 100vh;
   background-color: #d3ebf8;
+  overflow: hidden;
 }
 
 .layout-wrapper .layout {
@@ -43,17 +45,30 @@
 }
 
 .layout-wrapper .header-settings {
-  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   margin-right: 10px;
+  padding: 0;
+  border: none;
+  background: transparent;
   color: #bdbfc1;
+  cursor: pointer;
 }
 
 .layout-wrapper .header-settings:hover {
   color: #8a8c8e;
 }
 
+.layout-wrapper .header-settings:focus-visible {
+  outline: 2px solid #1890ff;
+  outline-offset: 2px;
+}
+
 .layout-wrapper .content {
   flex: 1;
+  display: flex;
+  flex-direction: column;
   overflow-y: auto;
   overflow-x: hidden;
   min-height: 0;
@@ -61,6 +76,19 @@
   height: 0;
   box-sizing: border-box;
   position: relative;
+}
+
+/* NavigationBar — прямой потомок content: прилипает к краю карточки Layout */
+.layout-wrapper .content > .navigation-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  margin: 0;
+  border-radius: 0 0 12px 12px;
+  width: 100%;
+  z-index: 10;
+  border-top: 1px solid rgba(44, 82, 130, 0.1);
 }
 
 .layout-wrapper .content.loading-active {

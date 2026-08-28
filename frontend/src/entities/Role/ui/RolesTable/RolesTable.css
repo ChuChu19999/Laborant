@@ -1,0 +1,197 @@
+.roles-table-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  background: #fcfcfc;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(40, 40, 40, 0.12);
+  border: 1px solid #babfc7;
+  overflow: hidden;
+  font-family: 'HeliosCondC';
+  box-sizing: border-box;
+}
+
+.roles-table-wrapper {
+  flex: 1;
+  overflow-x: hidden;
+  overflow-y: auto;
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.roles-table {
+  min-width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 14px;
+  font-family: 'HeliosCondC';
+  transition: opacity 0.3s ease;
+  box-sizing: border-box;
+}
+
+.roles-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #efeff0;
+}
+
+.roles-table th {
+  position: relative;
+  padding: 8px 10px;
+  text-align: left;
+  font-weight: 400;
+  color: #282828;
+  background: #efeff0;
+  font-family: 'HeliosCondC';
+  user-select: none;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.roles-table-header-row th {
+  border-bottom: 1px solid #e4e6e8;
+}
+
+.roles-table-filter-row th {
+  padding: 8px 10px;
+  border-bottom: 2px solid #e4e6e8;
+  background: #ffffff;
+  transform: translateY(-1px);
+}
+
+.roles-table-filter-cell {
+  padding: 8px 10px;
+}
+
+.roles-table-header-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+}
+
+button.roles-table-header-content {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  width: 100%;
+  text-align: left;
+}
+
+.roles-table-header-content.sortable {
+  cursor: pointer;
+  transition: color 0.25s ease;
+}
+
+.roles-table-header-content.sortable:hover {
+  color: #282828;
+}
+
+.roles-table-sort-icon {
+  display: flex;
+  align-items: center;
+  color: #bdbfc1;
+  transition: color 0.25s ease;
+}
+
+.roles-table-header-content:hover .roles-table-sort-icon {
+  color: #282828;
+}
+
+.roles-table tbody tr {
+  transition: background-color 0.25s ease;
+  border-bottom: 1px solid #e4e6e8;
+}
+
+.roles-table tbody tr:hover {
+  background-color: #e9f7ff;
+}
+
+.roles-table td {
+  padding: 8px 10px;
+  color: #282828;
+  font-family: 'HeliosCondC';
+  overflow: hidden;
+  box-sizing: border-box;
+  word-wrap: break-word;
+}
+
+.roles-table-empty-cell {
+  text-align: center;
+  padding: 48px 16px;
+  color: #5f6770;
+  font-size: 14px;
+  font-family: 'HeliosCondC';
+}
+
+.roles-table-actions {
+  display: flex;
+  align-items: center;
+}
+
+.roles-table-configure-button,
+.roles-table-edit-button {
+  color: #1890ff !important;
+  font-family: 'HeliosCondC';
+  font-size: 14px;
+}
+
+.roles-table-configure-button:hover,
+.roles-table-edit-button:hover {
+  background-color: rgba(24, 144, 255, 0.1) !important;
+  color: #1890ff !important;
+}
+
+.roles-table-delete-button {
+  font-family: 'HeliosCondC';
+  font-size: 14px;
+}
+
+.roles-table-resizer {
+  position: absolute;
+  right: 0;
+  top: 0;
+  height: 100%;
+  width: 5px;
+  cursor: col-resize;
+  user-select: none;
+  touch-action: none;
+  z-index: 1;
+}
+
+.roles-table-resizer:hover {
+  background-color: #282828;
+  opacity: 0.5;
+}
+
+.roles-table-resizer.isResizing {
+  background-color: #282828;
+  opacity: 1;
+}
+
+.roles-table th:hover .roles-table-resizer {
+  background-color: #bdbfc1;
+}
+
+.roles-table th.is-resizing,
+.roles-table td.is-resizing {
+  transition: none;
+}
+
+@media (max-width: 768px) {
+  .roles-table th,
+  .roles-table td {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+}

@@ -1,29 +1,37 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { Suspense, useEffect, useMemo } from 'react';
 import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { App as AntApp, ConfigProvider, message } from 'antd';
+import { App as AntApp, ConfigProvider } from 'antd';
 import ruRU from 'antd/locale/ru_RU';
-import '../shared/assets/fonts/fonts.css';
+import { LoadingPage } from '@/pages/LoadingPage';
+import { sidebarRoutes } from '@/widgets/SideBar';
+import { NotifyProvider } from '@/shared/lib/notify';
+import { RouteFallback } from '@/shared/ui/RouteFallback';
+import { ProtectedRoute, useAxiosInterceptors, useCurrentPermissions, useKeycloak } from './auth';
+import { AppLayout } from './layouts';
+import {
+  AdminPage,
+  HelpPage,
+  CalculationsPage,
+  EquipmentPage,
+  ForbiddenPage,
+  LaboratoryManagementPage,
+  NdNormsPage,
+  NotFoundPage,
+  ProtocolsPage,
+  RefractionTablesPage,
+  RolesPage,
+  RolePermissionsPage,
+  SamplesPage,
+  SamplingLocationsPage,
+  TestObjectsPage,
+  MainPage,
+} from './lazyPages';
+import { preloadAppPages } from './preloadPages';
+import type { UserPermissions } from './auth';
+import type { SidebarRouteItem } from '@/widgets/SideBar';
+import '@/shared/assets';
 import './App.css';
-import AdminPage from '../pages/AdminPage/AdminPage';
-import CalculationsPage from '../pages/CalculationsPage/CalculationsPage';
-import EquipmentPage from '../pages/EquipmentPage/EquipmentPage';
-import Page403 from '../pages/ErrorPages/Page403/Page403';
-import Page404 from '../pages/ErrorPages/Page404/Page404';
-import LoadingPage from '../pages/LoadingPage/LoadingPage';
-import NdNormsPage from '../pages/NdNormsPage/NdNormsPage';
-import ProtocolsPage from '../pages/ProtocolsPage/ProtocolsPage';
-import RefractionTablesPage from '../pages/RefractionTablesPage/RefractionTablesPage';
-import RolePermissionsPage from '../pages/RolePermissionsPage/RolePermissionsPage';
-import SamplesPage from '../pages/SamplesPage/SamplesPage';
-import SamplingLocationsPage from '../pages/SamplingLocationsPage/SamplingLocationsPage';
-import { useAxiosInterceptors } from '../shared/model/auth/useAxiosInterceptors';
-import { useCurrentPermissions } from '../shared/model/auth/useCurrentPermissions';
-import { useKeycloak } from '../shared/model/auth/useKeycloak';
-import ProtectedRoute from '../shared/ui/ProtectedRoute';
-import Content from './Content/Content';
-import { routersData } from './data';
-import type { UserPermissions } from '../shared/api/userRole';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -38,13 +46,6 @@ const queryClient = new QueryClient({
   },
 });
 
-interface RouteItem {
-  path: string;
-  element?: React.ReactElement;
-  children?: RouteItem[];
-  menuGroup?: boolean;
-}
-
 function AppRoutes({
   username,
   permissionsData,
@@ -54,16 +55,30 @@ function AppRoutes({
 }) {
   const isAdmin = permissionsData.is_admin;
 
-  const ReloadComponent = () => {
-    return <Navigate to="/" replace />;
-  };
+  useEffect(() => {
+    preloadAppPages();
+  }, []);
 
   const getAllRoutes = useMemo(() => {
+    const elementByPath: Record<string, React.ReactElement> = {
+      '/': <MainPage />,
+      '/samples': <SamplesPage />,
+      '/protocols': <ProtocolsPage />,
+      '/equipment': <EquipmentPage />,
+      '/sampling-locations': <SamplingLocationsPage />,
+      '/nd-norms': <NdNormsPage />,
+      '/refraction-tables': <RefractionTablesPage />,
+      '/laboratory-management': <LaboratoryManagementPage />,
+      '/test-objects': <TestObjectsPage />,
+      '/roles': <RolesPage />,
+      '/help': <HelpPage />,
+    };
+
     const getAllRoutesRecursive = (
-      routes: RouteItem[],
+      routes: SidebarRouteItem[],
       basePath = ''
-    ): Array<{ path: string; element: React.ReactElement }> => {
-      let allRoutes: Array<{ path: string; element: React.ReactElement }> = [];
+    ): { path: string; element: React.ReactElement }[] => {
+      let allRoutes: { path: string; element: React.ReactElement }[] = [];
 
       routes.forEach(route => {
         if (route.menuGroup) {
@@ -74,12 +89,13 @@ function AppRoutes({
         }
 
         const fullPath = route.path.startsWith('/') ? route.path : `${basePath}${route.path}`;
-        if (!route.element) {
+        const element = elementByPath[fullPath];
+        if (!element) {
           return;
         }
         const protectedElement = (
           <ProtectedRoute permissionsData={permissionsData} path={fullPath}>
-            {route.element}
+            {element}
           </ProtectedRoute>
         );
         allRoutes.push({ path: fullPath, element: protectedElement });
@@ -92,15 +108,17 @@ function AppRoutes({
       return allRoutes;
     };
 
-    return getAllRoutesRecursive(routersData as RouteItem[]);
+    return getAllRoutesRecursive(sidebarRoutes);
   }, [permissionsData]);
 
   if (!permissionsData.access_granted) {
     return (
       <BrowserRouter>
-        <Routes>
-          <Route path="*" element={<Page403 />} />
-        </Routes>
+        <Suspense fallback={<RouteFallback />}>
+          <Routes>
+            <Route path="*" element={<ForbiddenPage />} />
+          </Routes>
+        </Suspense>
       </BrowserRouter>
     );
   }
@@ -117,15 +135,15 @@ function AppRoutes({
         <Route
           path="/"
           element={
-            <Content
+            <AppLayout
               username={username || ''}
               isAdmin={isAdmin}
               permissionsData={permissionsData}
             />
           }
         >
-          <Route path="/reload" element={<ReloadComponent />} />
-          <Route path="/403" element={<Page403 />} />
+          <Route path="/reload" element={<Navigate to="/" replace />} />
+          <Route path="/403" element={<ForbiddenPage />} />
           <>
             {getAllRoutes.map((item, index) => (
               <Route key={`${item.path}-${index}`} path={item.path} element={item.element} />
@@ -145,7 +163,6 @@ function AppRoutes({
                 <AdminPage />
               )}
             />
-            <Route path="/samples" element={wrap('/samples', <SamplesPage />)} />
             <Route
               path="/samples/laboratory/:laboratoryId/calculations"
               element={wrap('/samples/laboratory/:laboratoryId/calculations', <CalculationsPage />)}
@@ -168,7 +185,6 @@ function AppRoutes({
                 <CalculationsPage />
               )}
             />
-            <Route path="/protocols" element={wrap('/protocols', <ProtocolsPage />)} />
             <Route
               path="/protocols/laboratory/:laboratoryId"
               element={wrap('/protocols/laboratory/:laboratoryId', <ProtocolsPage />)}
@@ -180,7 +196,6 @@ function AppRoutes({
                 <ProtocolsPage />
               )}
             />
-            <Route path="/equipment" element={wrap('/equipment', <EquipmentPage />)} />
             <Route
               path="/equipment/laboratory/:laboratoryId"
               element={wrap('/equipment/laboratory/:laboratoryId', <EquipmentPage />)}
@@ -191,10 +206,6 @@ function AppRoutes({
                 '/equipment/laboratory/:laboratoryId/department/:departmentId',
                 <EquipmentPage />
               )}
-            />
-            <Route
-              path="/sampling-locations"
-              element={wrap('/sampling-locations', <SamplingLocationsPage />)}
             />
             <Route
               path="/sampling-locations/laboratory/:laboratoryId"
@@ -210,7 +221,6 @@ function AppRoutes({
                 <SamplingLocationsPage />
               )}
             />
-            <Route path="/nd-norms" element={wrap('/nd-norms', <NdNormsPage />)} />
             <Route
               path="/nd-norms/laboratory/:laboratoryId"
               element={wrap('/nd-norms/laboratory/:laboratoryId', <NdNormsPage />)}
@@ -221,10 +231,6 @@ function AppRoutes({
                 '/nd-norms/laboratory/:laboratoryId/department/:departmentId',
                 <NdNormsPage />
               )}
-            />
-            <Route
-              path="/refraction-tables"
-              element={wrap('/refraction-tables', <RefractionTablesPage />)}
             />
             <Route
               path="/refraction-tables/laboratory/:laboratoryId"
@@ -240,7 +246,7 @@ function AppRoutes({
                 <RefractionTablesPage />
               )}
             />
-            <Route path="*" element={<Page404 />} />
+            <Route path="*" element={<NotFoundPage />} />
           </>
         </Route>
       </Routes>
@@ -252,28 +258,9 @@ function AppContent() {
   const { isLoading: isKeycloakLoading, username } = useKeycloak();
   useAxiosInterceptors();
 
-  const messageConfigRef = useRef(false);
   const { isLoading: isPermissionsLoading, data: permissionsData } = useCurrentPermissions({
     isKeycloakReady: !isKeycloakLoading,
   });
-
-  useEffect(() => {
-    if (messageConfigRef.current) return;
-    messageConfigRef.current = true;
-
-    message.destroy();
-
-    const existingContainers = document.querySelectorAll('.ant-message');
-    existingContainers.forEach(container => container.remove());
-
-    message.config({
-      top: 20,
-      duration: 3,
-      maxCount: 3,
-      rtl: false,
-      getContainer: () => document.body,
-    });
-  }, []);
 
   if (isKeycloakLoading || isPermissionsLoading) {
     return <LoadingPage isLoading />;
@@ -285,11 +272,58 @@ function AppContent() {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ConfigProvider locale={ruRU}>
-        <AntApp>
-          <div>
+      <ConfigProvider
+        locale={ruRU}
+        theme={{
+          token: {
+            fontFamily: 'HeliosCondC, sans-serif',
+            borderRadius: 8,
+            colorPrimary: '#1677ff',
+            colorBorder: '#d9d9d9',
+            fontSize: 14,
+            colorError: '#ff4d4f',
+            colorWarning: '#faad14',
+            colorSuccess: '#52c41a',
+            colorTextLightSolid: '#ffffff',
+            colorTextDisabled: 'rgba(0, 0, 0, 0.65)',
+            colorBgContainerDisabled: '#f5f5f5',
+          },
+          components: {
+            Button: {
+              dangerColor: '#ff4d07',
+              primaryColor: '#ffffff',
+              solidTextColor: '#ffffff',
+            },
+            Select: {
+              optionFontSize: 14,
+              optionPadding: '6px 12px',
+              borderRadius: 8,
+            },
+            Input: {
+              fontSize: 14,
+              borderRadius: 8,
+            },
+            DatePicker: {
+              fontSize: 14,
+              borderRadius: 8,
+            },
+            Message: {
+              contentBg: '#ffffff',
+              contentPadding: '12px 20px',
+            },
+          },
+        }}
+      >
+        <AntApp
+          message={{
+            top: 20,
+            duration: 3,
+            maxCount: 3,
+          }}
+        >
+          <NotifyProvider>
             <AppContent />
-          </div>
+          </NotifyProvider>
         </AntApp>
       </ConfigProvider>
     </QueryClientProvider>

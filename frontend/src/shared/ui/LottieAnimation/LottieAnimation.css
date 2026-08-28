@@ -1,0 +1,7 @@
+.lottie-animation-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  width: 100%;
+}

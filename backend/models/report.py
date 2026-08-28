@@ -1,13 +1,14 @@
 from __future__ import annotations
 from enum import Enum as PyEnum
 from typing import TYPE_CHECKING
-from sqlalchemy import ForeignKey, Index, Integer, String
+from sqlalchemy import CheckConstraint, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from core.config import get_database_schema
 from models.base import BaseModel
 
 if TYPE_CHECKING:
-    from models.laboratory import Department, Laboratory
+    from models.department import Department
+    from models.laboratory import Laboratory
 
 
 class ReportType(PyEnum):
@@ -45,11 +46,17 @@ class ReportTemplate(BaseModel):
     department: Mapped["Department | None"] = relationship(back_populates="report_templates")
 
     __table_args__ = (
+        CheckConstraint(
+            "report_type IN ("
+            + ", ".join(f"'{member.value.replace(chr(39), chr(39) * 2)}'" for member in ReportType)
+            + ")",
+            name="ck_report_templates_report_type",
+        ),
         Index("idx_report_template_type", "report_type"),
         Index("idx_report_template_laboratory", "laboratory_id"),
         Index("idx_report_template_department", "department_id"),
         {"schema": get_database_schema()},
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<ReportTemplate(id={self.id}, report_type='{self.report_type}', version='{self.version}')>"

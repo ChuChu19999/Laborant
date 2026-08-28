@@ -1,3 +1,4 @@
+from __future__ import annotations
 import re
 import subprocess
 import sys
@@ -7,68 +8,36 @@ from colorama import Fore, Style, init
 init(autoreset=True)
 
 
+def _configure_stdio_utf8() -> None:
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            reconfigure(encoding="utf-8", errors="replace")
+
+
+_configure_stdio_utf8()
+
+
 def colorize_log_line(line: str) -> str:
-    """Добавляет цвета к логам uvicorn."""
-    # Цвета для разных типов сообщений
+    """Добавить цвета к логам uvicorn / Loguru по уровню сообщения."""
     if "INFO:" in line or "Starting" in line:
         return f"{Fore.CYAN}{line}{Style.RESET_ALL}"
 
-    if "ERROR:" in line or "error" in line.lower():
+    if "ERROR:" in line or re.search(r"\berror\b", line, re.IGNORECASE):
         return f"{Fore.RED}{line}{Style.RESET_ALL}"
 
-    if "WARNING:" in line or "warning" in line.lower():
+    if "WARNING:" in line or re.search(r"\bwarning\b", line, re.IGNORECASE):
         return f"{Fore.YELLOW}{line}{Style.RESET_ALL}"
 
-    # Парсинг access log формата: [time] addr - "method path protocol" status dt_ms
-    access_log_pattern = r'\[([^\]]+)\] ([^\s]+) - "(\w+) ([^"]+) ([^"]+)" (\d+) ([\d.]+)ms'
-    match = re.match(access_log_pattern, line.strip())
-
-    if match:
-        time_str, addr, method, path, protocol, status, dt_ms = match.groups()
-        status_code = int(status)
-
-        # Цвета для HTTP методов
-        method_colors = {
-            "GET": Fore.BLUE,
-            "POST": Fore.GREEN,
-            "PUT": Fore.YELLOW,
-            "DELETE": Fore.RED,
-            "PATCH": Fore.MAGENTA,
-        }
-        method_color = method_colors.get(method, Fore.WHITE)
-
-        # Цвета для статус кодов
-        if 200 <= status_code < 300:
-            status_color = Fore.GREEN
-        elif 300 <= status_code < 400:
-            status_color = Fore.CYAN
-        elif 400 <= status_code < 500:
-            status_color = Fore.YELLOW
-        elif status_code >= 500:
-            status_color = Fore.RED
-        else:
-            status_color = Fore.WHITE
-
-        # Форматирование с цветами
-        colored_line = (
-            f"{Fore.WHITE}[{Fore.CYAN}{time_str}{Fore.WHITE}] "
-            f"{Fore.BLUE}{addr}{Fore.WHITE} - "
-            f'"{method_color}{method}{Fore.WHITE} '
-            f"{Fore.WHITE}{path} "
-            f'{Fore.WHITE}{protocol}{Fore.WHITE}" '
-            f"{status_color}{status_code}{Fore.WHITE} "
-            f"{Fore.MAGENTA}{dt_ms}ms{Style.RESET_ALL}"
-        )
-        return colored_line
-
-    # Обычные логи без специального форматирования
     return line
 
 
-def run_uvicorn_with_colors():
-    """Запускает uvicorn с перехватом и цветным форматированием вывода."""
+def run_uvicorn_with_colors() -> None:
+    """Запустить uvicorn с перехватом и цветным форматированием вывода."""
     process = subprocess.Popen(
         [
+            sys.executable,
+            "-m",
             "uvicorn",
             "main:app",
             "--host",
@@ -81,14 +50,17 @@ def run_uvicorn_with_colors():
         ],
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
-        universal_newlines=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
         bufsize=1,
     )
 
     try:
-        for line in process.stdout:
-            colored_line = colorize_log_line(line.rstrip())
-            print(colored_line, flush=True)
+        if process.stdout is not None:
+            for line in process.stdout:
+                colored_line = colorize_log_line(line.rstrip())
+                print(colored_line, flush=True)
     except KeyboardInterrupt:
         print(f"{Fore.YELLOW}Получен сигнал завершения, ожидание корректного завершения uvicorn...{Style.RESET_ALL}")
         process.terminate()

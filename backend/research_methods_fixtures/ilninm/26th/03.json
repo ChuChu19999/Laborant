@@ -16,25 +16,25 @@
                 "name": "V₀₁",
                 "unit": "см³",
                 "card_index": 1,
-                "description": "Объем воды в ловушке для первой параллели"
+                "description": "Объём воды в ловушке для первой параллели"
             },
             {
                 "name": "Vпр₁",
                 "unit": "см³",
                 "card_index": 1,
-                "description": "Объем пробы для первой параллели"
+                "description": "Объём пробы для первой параллели"
             },
             {
                 "name": "V₀₂",
                 "unit": "см³",
                 "card_index": 2,
-                "description": "Объем воды в ловушке для второй параллели"
+                "description": "Объём воды в ловушке для второй параллели"
             },
             {
                 "name": "Vпр₂",
                 "unit": "см³",
                 "card_index": 2,
-                "description": "Объем пробы для второй параллели"
+                "description": "Объём пробы для второй параллели"
             },
             {
                 "name": "ρпр",
@@ -56,7 +56,7 @@
                 "name": "X₁",
                 "unit": "%",
                 "formula": "(V₀₁*100)/(ρпр*100)",
-                "description": "Расчет массовой доли воды для первой параллели",
+                "description": "Расчёт массовой доли воды для первой параллели",
                 "multiple_value": "",
                 "show_calculation": true,
                 "use_multiple_rounding": false
@@ -65,7 +65,7 @@
                 "name": "X₂",
                 "unit": "%",
                 "formula": "(V₀₂*100)/(ρпр*100)",
-                "description": "Расчет массовой доли воды для второй параллели",
+                "description": "Расчёт массовой доли воды для второй параллели",
                 "multiple_value": "",
                 "show_calculation": true,
                 "range_calculation": null,

@@ -15,7 +15,10 @@ _public_key_cache_expires_at: float | None = None
 
 
 async def get_public_key() -> str:
-    """Получение публичного ключа Keycloak с кэшированием и TTL (через requests)."""
+    """Получить публичный ключ Keycloak с кэшированием и TTL.
+
+    HTTP — через requests в thread pool: httpx для этого endpoint не подходит.
+    """
     global _public_key_cache, _public_key_cache_expires_at
 
     current_time = time.time()
@@ -55,14 +58,14 @@ async def get_public_key() -> str:
         return public_key
 
     except requests.exceptions.RequestException as e:
-        logger.error(f"Request failed: {e}")
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Request failed")
+        logger.error("Request failed: {}", e)
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Request failed") from e
 
 
 async def verify_token(
     credentials: HTTPAuthorizationCredentials | None = Security(security_optional),
 ) -> dict:
-    """Проверка и расшифровка JWT токена из заголовка Authorization."""
+    """Проверить и расшифровать JWT из заголовка Authorization."""
     mock_token = {
         "hashSnils": "e1cee128188b77f382eec32ca80494e6",
         "fullName": "Тестовый Пользователь",
@@ -83,7 +86,6 @@ async def verify_token(
             algorithms=["RS256"],
             options={"verify_signature": False, "verify_exp": False},
         )
-        logger.info(f"Decoded token: {decoded_token}")
 
         decoded_token["hashSnils"] = mock_token["hashSnils"]
 
@@ -98,15 +100,15 @@ async def verify_token(
         return decoded_token
 
     except jwt.InvalidTokenError as e:
-        logger.warning(f"Invalid token: {e}, using mock data")
+        logger.warning("Invalid token: {}, using mock data", e)
         return mock_token
-    except Exception as e:
-        logger.warning(f"Error decoding token: {e}, using mock data")
+    except (AttributeError, KeyError, TypeError, ValueError) as e:
+        logger.warning("Error decoding token: {}, using mock data", e)
         return mock_token
 
 
 def get_user_roles(decoded_token: dict) -> list[str]:
-    """Извлечение ролей пользователя из токена (access_groups.appRoleName)."""
+    """Извлечь роли пользователя из токена (appRoleName)."""
     access_groups = decoded_token.get("access_groups", [])
     if not isinstance(access_groups, list):
         return []
@@ -121,17 +123,17 @@ def get_user_roles(decoded_token: dict) -> list[str]:
 
 
 def is_admin_role(role_name: str) -> bool:
-    """Проверка, что имя роли содержит подстроку admin."""
+    """Проверить, что имя роли - admin."""
     return "admin" in role_name.lower()
 
 
 def is_admin_user(decoded_token: dict) -> bool:
-    """Проверка, есть ли у пользователя admin-роль в токене."""
+    """Проверить, есть ли у пользователя admin-роль в токене."""
     return any(is_admin_role(role) for role in get_user_roles(decoded_token))
 
 
 async def get_current_user(decoded_token: dict = Security(verify_token)) -> dict:
-    """Получение информации о текущем пользователе из токена."""
+    """Вернуть данные текущего пользователя из токена."""
     full_name = decoded_token.get("fullName") or ""
     hsnils = decoded_token.get("hashSnils") or ""
     if full_name and hsnils:

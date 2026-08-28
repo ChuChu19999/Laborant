@@ -1,7 +1,7 @@
 from __future__ import annotations
 from enum import Enum as PyEnum
 from typing import Any
-from sqlalchemy import JSON, Index, Integer, String, text
+from sqlalchemy import JSON, CheckConstraint, Index, Integer, String, text
 from sqlalchemy.orm import Mapped, mapped_column
 from core.config import get_database_schema
 from models.base import BaseModel
@@ -34,6 +34,12 @@ class Role(BaseModel):
     )
 
     __table_args__ = (
+        CheckConstraint(
+            "role_type IN ("
+            + ", ".join(f"'{member.value.replace(chr(39), chr(39) * 2)}'" for member in RoleType)
+            + ")",
+            name="ck_roles_role_type",
+        ),
         Index(
             "unique_role_name_type",
             "name",
@@ -44,5 +50,5 @@ class Role(BaseModel):
         {"schema": get_database_schema()},
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Role(id={self.id}, name='{self.name}', role_type='{self.role_type}')>"

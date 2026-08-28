@@ -1,46 +1,43 @@
 from __future__ import annotations
 from sqlalchemy.ext.asyncio import AsyncSession
-from core.exceptions import ConflictError, NotFoundError, ValidationError
+from sqlalchemy.orm.attributes import set_committed_value
+from core.exceptions import ConflictError, DomainValidationError, NotFoundError
 from core.logger import logger
 from models.research import ResearchMethod, ResearchMethodGroup
-from repositories import calculation as calculation_repo, laboratory as laboratory_repo, research as research_repo
+from repositories import (
+    calculation as calculation_repo,
+    research as research_repo,
+)
 from repositories.base import flush_entity
 from schemas.research import (
     AvailableResearchMethodBrief,
     AvailableResearchMethodEntry,
     AvailableResearchMethodsResponse,
-    ResearchMethodBrief,
     ResearchMethodCreate,
     ResearchMethodGroupCreate,
-    ResearchMethodGroupResponse,
     ResearchMethodGroupUpdate,
-    ResearchMethodResponse,
     ResearchMethodSortOrderUpdate,
     ResearchMethodUpdate,
     SortOrderBatchUpdate,
+    SortOrderBatchUpdateResponse,
 )
-from services.sample import get_sample_by_id
+from services.department import require_department_by_id
+from services.laboratory import require_laboratory_by_id
+from services.sample.service import require_sample_by_id
 from services.test_object import (
     resolve_tag_by_name,
     validate_research_method_sample_types,
 )
-from utils.pagination import calculate_total_pages
 
 
-def build_research_method_group_response(
-    group: ResearchMethodGroup,
-) -> ResearchMethodGroupResponse:
-    """Собрать ответ по группе без скрытых методов в списке members."""
-    return ResearchMethodGroupResponse(
-        id=group.id,
-        name=group.name,
-        sort_order=group.sort_order,
-        created_at=group.created_at,
-        deleted_at=group.deleted_at,
-        methods=[
-            ResearchMethodBrief(id=method.id, name=method.name) for method in group.methods if method.deleted_at is None
-        ],
+def _normalize_research_method_group(group: ResearchMethodGroup) -> ResearchMethodGroup:
+    """Оставить в группе только активные методы для ответа API."""
+    set_committed_value(
+        group,
+        "methods",
+        [method for method in group.methods if method.deleted_at is None],
     )
+    return group
 
 
 def method_belongs_to_active_group(method: ResearchMethod) -> bool:
@@ -58,7 +55,7 @@ async def get_research_method_by_id(
 async def require_research_method_by_id(
     db: AsyncSession, method_id: int, include_deleted: bool = False
 ) -> ResearchMethod:
-    """Получить метод исследования по ID или вернуть 404."""
+    """Вернуть метод исследования по ID, иначе вызвать NotFoundError."""
     method = await get_research_method_by_id(db, method_id, include_deleted)
     if not method:
         raise NotFoundError("Метод исследования не найден")
@@ -113,7 +110,7 @@ async def get_active_research_method_by_name(
         group_name=group_name,
     )
     if len(methods) > 1:
-        raise ValidationError("Найдено несколько актуальных методик с одинаковым наименованием")
+        raise DomainValidationError("Найдено несколько актуальных методик с одинаковым наименованием")
     return methods[0] if methods else None
 
 
@@ -127,7 +124,7 @@ async def get_research_methods(
     rounding_type: str | None = None,
     sort_by: str | None = None,
     sort_order: str | None = None,
-) -> tuple[list[ResearchMethod], int, int]:
+) -> tuple[list[ResearchMethod], int]:
     """Получить список методов исследования."""
     methods, total = await research_repo.get_research_methods(
         db,
@@ -141,26 +138,18 @@ async def get_research_methods(
         sort_order,
     )
 
-    if page is not None and page_size is not None:
-        total_pages = calculate_total_pages(total, page_size)
-    else:
-        total_pages = 1 if total > 0 else 0
-
-    return methods, total, total_pages
+    return methods, total
 
 
 async def create_research_method(db: AsyncSession, method_data: ResearchMethodCreate) -> ResearchMethod:
     """Создать метод исследования."""
-    if method_data.laboratory_id:
-        if not await laboratory_repo.get_laboratory_by_id(db, method_data.laboratory_id):
-            raise NotFoundError("Лаборатория не найдена")
+    if method_data.laboratory_id is not None:
+        await require_laboratory_by_id(db, method_data.laboratory_id, include_deleted=True)
 
-    if method_data.department_id:
-        dept = await laboratory_repo.get_department_by_id(db, method_data.department_id)
-        if not dept:
-            raise NotFoundError("Подразделение не найдено")
-        if method_data.laboratory_id and dept.laboratory_id != method_data.laboratory_id:
-            raise ValidationError("Подразделение должно принадлежать выбранной лаборатории")
+    if method_data.department_id is not None:
+        department = await require_department_by_id(db, method_data.department_id, include_deleted=True)
+        if method_data.laboratory_id is not None and department.laboratory_id != method_data.laboratory_id:
+            raise DomainValidationError("Подразделение должно принадлежать выбранной лаборатории")
 
     sort_order = method_data.sort_order
     if sort_order is None and not method_data.is_group_member:
@@ -191,45 +180,53 @@ async def create_research_method(db: AsyncSession, method_data: ResearchMethodCr
         laboratory_id=method_data.laboratory_id,
         department_id=method_data.department_id,
     )
-    return await research_repo.add_research_method(db, method)
+    method = await research_repo.add_research_method(db, method)
+    return await require_research_method_by_id(db, method.id)
 
 
-async def update_research_method(db: AsyncSession, method_id: int, method_data: ResearchMethodUpdate) -> ResearchMethod:
+async def update_research_method(
+    db: AsyncSession, method: ResearchMethod, method_data: ResearchMethodUpdate
+) -> ResearchMethod:
     """Обновить метод исследования."""
-    method = await get_research_method_by_id(db, method_id)
-    if not method:
-        raise NotFoundError("Метод исследования не найден")
-
     if method_data.sample_type is not None:
         await validate_research_method_sample_types(db, method_data.sample_type)
-
-    update_data = method_data.model_dump(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(method, key, value)
 
     if method_data.laboratory_id is not None or method_data.department_id is not None:
         lab_id = method_data.laboratory_id if method_data.laboratory_id is not None else method.laboratory_id
         dept_id = method_data.department_id if method_data.department_id is not None else method.department_id
 
-        if dept_id:
-            dept = await laboratory_repo.get_department_by_id(db, dept_id)
-            if not dept:
-                raise NotFoundError("Подразделение не найдено")
-            if lab_id and dept.laboratory_id != lab_id:
-                raise ValidationError("Подразделение должно принадлежать выбранной лаборатории")
+        if dept_id is not None:
+            department = await require_department_by_id(db, dept_id, include_deleted=True)
+            if lab_id is not None and department.laboratory_id != lab_id:
+                raise DomainValidationError("Подразделение должно принадлежать выбранной лаборатории")
+
+    update_data = method_data.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(method, key, value)
 
     await flush_entity(db)
-    return method
+    return await require_research_method_by_id(db, method.id)
 
 
-async def delete_research_method(db: AsyncSession, method_id: int) -> None:
-    """Удалить метод исследования (мягкое удаление)."""
-    method = await get_research_method_by_id(db, method_id)
-    if not method:
-        raise NotFoundError("Метод исследования не найден")
-
+async def delete_research_method(db: AsyncSession, method: ResearchMethod) -> None:
+    """Мягко удалить метод исследования."""
     method.soft_delete()
     await flush_entity(db)
+
+
+def resolve_research_method_update_scope(
+    method: ResearchMethod,
+    method_data: ResearchMethodUpdate,
+) -> tuple[int | None, int | None]:
+    """Определить область доступа после PATCH метода исследования."""
+    fields_set = method_data.model_fields_set
+    laboratory_id = (
+        method_data.laboratory_id
+        if "laboratory_id" in fields_set and method_data.laboratory_id is not None
+        else method.laboratory_id
+    )
+    department_id = method_data.department_id if "department_id" in fields_set else method.department_id
+    return (laboratory_id, department_id)
 
 
 async def _resolve_sort_order_conflict(
@@ -239,7 +236,7 @@ async def _resolve_sort_order_conflict(
     exclude_method_id: int | None = None,
     exclude_group_id: int | None = None,
 ) -> None:
-    """Решение конфликта sort_order между методами и группами."""
+    """Разрешить конфликт sort_order между методами и группами."""
     if old_sort_order == new_sort_order:
         return
 
@@ -250,75 +247,44 @@ async def _resolve_sort_order_conflict(
         db, new_sort_order, exclude_group_id
     )
 
-    has_conflict = conflicting_method_obj is not None or conflicting_group_obj is not None
-    if has_conflict:
-        logger.info(
-            f"Обнаружен конфликт sort_order: new={new_sort_order}, old={old_sort_order}, "
-            f"conflicting_method_id={conflicting_method_obj.id if conflicting_method_obj else None}, "
-            f"conflicting_group_id={conflicting_group_obj.id if conflicting_group_obj else None}"
-        )
+    if conflicting_method_obj is not None or conflicting_group_obj is not None:
+        logger.info("Конфликт sort_order при значении {}", new_sort_order)
 
     if conflicting_method_obj:
         if old_sort_order is not None:
-            logger.info(
-                f"Меняем местами метод: method_id={conflicting_method_obj.id}, "
-                f"old_sort_order={conflicting_method_obj.sort_order} -> {old_sort_order}"
-            )
             conflicting_method_obj.sort_order = old_sort_order
         else:
-            new_max_sort_order = await research_repo.get_max_sort_order(db)
-            conflicting_method_obj.sort_order = new_max_sort_order + 1
-            logger.info(
-                f"Перемещаем метод в конец: method_id={conflicting_method_obj.id}, "
-                f"new_sort_order={conflicting_method_obj.sort_order}"
-            )
+            conflicting_method_obj.sort_order = await research_repo.get_max_sort_order(db) + 1
         await flush_entity(db)
 
     if conflicting_group_obj:
         if old_sort_order is not None:
-            logger.info(
-                f"Меняем местами группу: group_id={conflicting_group_obj.id}, "
-                f"old_sort_order={conflicting_group_obj.sort_order} -> {old_sort_order}"
-            )
             conflicting_group_obj.sort_order = old_sort_order
         else:
-            new_max_sort_order = await research_repo.get_max_sort_order(db)
-            conflicting_group_obj.sort_order = new_max_sort_order + 1
-            logger.info(
-                f"Перемещаем группу в конец: group_id={conflicting_group_obj.id}, "
-                f"new_sort_order={conflicting_group_obj.sort_order}"
-            )
+            conflicting_group_obj.sort_order = await research_repo.get_max_sort_order(db) + 1
         await flush_entity(db)
 
     if conflicting_method_obj and conflicting_group_obj:
-        logger.warning(
-            f"Одновременный конфликт метода и группы: method_id={conflicting_method_obj.id}, "
-            f"group_id={conflicting_group_obj.id}, sort_order={new_sort_order}. "
-            f"Оба элемента обработаны."
-        )
+        logger.warning("Одновременный конфликт метода и группы при sort_order {}", new_sort_order)
 
 
 async def update_research_method_sort_order(
-    db: AsyncSession, method_id: int, sort_data: ResearchMethodSortOrderUpdate
+    db: AsyncSession, method: ResearchMethod, sort_data: ResearchMethodSortOrderUpdate
 ) -> ResearchMethod:
     """Обновить порядок сортировки метода исследования."""
-    method = await get_research_method_by_id(db, method_id)
-    if not method:
-        raise NotFoundError("Метод исследования не найден")
-
     if method.is_group_member:
-        raise ValidationError("Нельзя изменить sort_order для метода, входящего в группу")
+        raise DomainValidationError("Нельзя изменить sort_order для метода, входящего в группу")
 
     old_sort_order = method.sort_order
     await _resolve_sort_order_conflict(
         db,
         sort_data.sort_order,
         old_sort_order=old_sort_order,
-        exclude_method_id=method_id,
+        exclude_method_id=method.id,
     )
     method.sort_order = sort_data.sort_order
     await flush_entity(db)
-    return method
+    return await require_research_method_by_id(db, method.id)
 
 
 async def get_research_method_group_by_id(
@@ -329,12 +295,18 @@ async def get_research_method_group_by_id(
 
 
 async def require_research_method_group_by_id(
-    db: AsyncSession, group_id: int, include_deleted: bool = False
+    db: AsyncSession,
+    group_id: int,
+    include_deleted: bool = False,
+    *,
+    normalize: bool = True,
 ) -> ResearchMethodGroup:
-    """Получить группу методов исследования по ID или вернуть 404."""
+    """Вернуть группу методов исследования по ID, иначе вызвать NotFoundError."""
     group = await get_research_method_group_by_id(db, group_id, include_deleted)
     if not group:
         raise NotFoundError("Группа методов исследования не найдена")
+    if normalize:
+        return _normalize_research_method_group(group)
     return group
 
 
@@ -345,22 +317,17 @@ async def get_research_method_groups(
     search: str | None = None,
     sort_by: str | None = None,
     sort_order: str | None = None,
-) -> tuple[list[ResearchMethodGroup], int, int]:
+) -> tuple[list[ResearchMethodGroup], int]:
     """Получить список групп методов исследования."""
     groups, total = await research_repo.get_research_method_groups(db, page, page_size, search, sort_by, sort_order)
 
-    if page is not None and page_size is not None:
-        total_pages = calculate_total_pages(total, page_size)
-    else:
-        total_pages = 1 if total > 0 else 0
-
-    return groups, total, total_pages
+    return [_normalize_research_method_group(group) for group in groups], total
 
 
 async def create_research_method_group(db: AsyncSession, group_data: ResearchMethodGroupCreate) -> ResearchMethodGroup:
     """Создать группу методов исследования."""
     if not group_data.method_ids:
-        raise ValidationError("Необходимо выбрать хотя бы один метод")
+        raise DomainValidationError("Необходимо выбрать хотя бы один метод")
 
     methods_list = await research_repo.get_research_methods_by_ids(db, group_data.method_ids)
 
@@ -391,17 +358,16 @@ async def create_research_method_group(db: AsyncSession, group_data: ResearchMet
         await research_repo.insert_method_group_associations(db, group.id, [method.id for method in methods_list])
 
     await flush_entity(db)
-    return await research_repo.get_research_method_group_by_id(db, group.id)
+    reloaded = await get_research_method_group_by_id(db, group.id)
+    if not reloaded:
+        raise NotFoundError("Группа методов исследования не найдена")
+    return _normalize_research_method_group(reloaded)
 
 
 async def update_research_method_group(
-    db: AsyncSession, group_id: int, group_data: ResearchMethodGroupUpdate
+    db: AsyncSession, group: ResearchMethodGroup, group_data: ResearchMethodGroupUpdate
 ) -> ResearchMethodGroup:
     """Обновить группу методов исследования."""
-    group = await get_research_method_group_by_id(db, group_id, include_deleted=True)
-    if not group:
-        raise NotFoundError("Группа методов исследования не найдена")
-
     if group_data.name is not None:
         group.name = group_data.name.strip()
 
@@ -411,7 +377,7 @@ async def update_research_method_group(
             db,
             group_data.sort_order,
             old_sort_order=old_sort_order,
-            exclude_group_id=group_id,
+            exclude_group_id=group.id,
         )
         group.sort_order = group_data.sort_order
     elif group.sort_order is None:
@@ -419,7 +385,7 @@ async def update_research_method_group(
 
     if group_data.method_ids is not None:
         if not group_data.method_ids:
-            raise ValidationError("Необходимо выбрать хотя бы один метод")
+            raise DomainValidationError("Необходимо выбрать хотя бы один метод")
 
         old_method_ids = {method.id for method in group.methods}
         new_method_ids = set(group_data.method_ids)
@@ -430,7 +396,9 @@ async def update_research_method_group(
         methods_to_add = new_method_ids - old_method_ids
 
         if methods_to_remove:
-            for method in await research_repo.get_research_methods_by_ids_any(db, list(methods_to_remove)):
+            for method in await research_repo.get_research_methods_by_ids(
+                db, list(methods_to_remove), include_deleted=True
+            ):
                 method.is_group_member = False
 
             await research_repo.delete_method_group_associations(db, group.id, list(methods_to_remove))
@@ -449,15 +417,14 @@ async def update_research_method_group(
             await research_repo.insert_method_group_associations(db, group.id, [method.id for method in methods_list])
 
     await flush_entity(db)
-    return await research_repo.get_research_method_group_by_id(db, group.id)
-
-
-async def delete_research_method_group(db: AsyncSession, group_id: int) -> None:
-    """Удалить группу методов исследования (мягкое удаление)."""
-    group = await get_research_method_group_by_id(db, group_id)
-    if not group:
+    reloaded = await get_research_method_group_by_id(db, group.id)
+    if not reloaded:
         raise NotFoundError("Группа методов исследования не найдена")
+    return _normalize_research_method_group(reloaded)
 
+
+async def delete_research_method_group(db: AsyncSession, group: ResearchMethodGroup) -> None:
+    """Мягко удалить группу методов исследования вместе с активными методами."""
     if group.methods:
         for method in group.methods:
             if method.deleted_at is None:
@@ -467,8 +434,8 @@ async def delete_research_method_group(db: AsyncSession, group_id: int) -> None:
     await flush_entity(db)
 
 
-async def batch_update_sort_order(db: AsyncSession, batch_data: SortOrderBatchUpdate) -> None:
-    """Массовое обновление sort_order для методов и групп."""
+async def batch_update_sort_order(db: AsyncSession, batch_data: SortOrderBatchUpdate) -> SortOrderBatchUpdateResponse:
+    """Выполнить массовое обновление sort_order для методов и групп."""
     methods_to_update: list[tuple[int, int]] = []
     groups_to_update: list[tuple[int, int]] = []
 
@@ -478,14 +445,14 @@ async def batch_update_sort_order(db: AsyncSession, batch_data: SortOrderBatchUp
         elif item.type == "group":
             groups_to_update.append((item.id, item.sort_order))
         else:
-            raise ValidationError(f"Неизвестный тип элемента: {item.type}")
+            raise DomainValidationError(f"Неизвестный тип элемента: {item.type}")
 
     for method_id, new_sort_order in methods_to_update:
         method = await get_research_method_by_id(db, method_id)
         if not method:
             raise NotFoundError(f"Метод исследования с ID {method_id} не найден")
         if method.is_group_member:
-            raise ValidationError(f"Нельзя изменить sort_order для метода {method_id}, входящего в группу")
+            raise DomainValidationError(f"Нельзя изменить sort_order для метода {method_id}, входящего в группу")
 
         old_sort_order = method.sort_order
         await _resolve_sort_order_conflict(
@@ -511,14 +478,7 @@ async def batch_update_sort_order(db: AsyncSession, batch_data: SortOrderBatchUp
         group.sort_order = new_sort_order
 
     await flush_entity(db)
-
-
-async def get_research_method_response_data(db: AsyncSession, method_id: int) -> ResearchMethodResponse:
-    """Получить метод исследования с данными для ответа API."""
-    method = await research_repo.get_research_method_by_id(db, method_id)
-    if not method:
-        raise NotFoundError("Метод исследования не найден")
-    return ResearchMethodResponse.model_validate(method)
+    return SortOrderBatchUpdateResponse(message="Порядок сортировки успешно обновлен")
 
 
 async def get_research_methods_for_select(
@@ -527,7 +487,12 @@ async def get_research_methods_for_select(
     department_id: int | None = None,
 ) -> list[ResearchMethod]:
     """Получить методы исследования для селекта."""
-    return await research_repo.get_research_methods_for_select(db, laboratory_id, department_id)
+    methods, _ = await research_repo.get_research_methods(
+        db,
+        laboratory_id=laboratory_id,
+        department_id=department_id,
+    )
+    return methods
 
 
 def _available_method_brief(method: ResearchMethod) -> AvailableResearchMethodBrief:
@@ -536,9 +501,9 @@ def _available_method_brief(method: ResearchMethod) -> AvailableResearchMethodBr
         id=method.id,
         name=method.name,
         sort_order=method.sort_order or 0,
-        input_data=method.input_data,
-        intermediate_data=method.intermediate_data,
-        unit=method.unit,
+        input_data=method.input_data or {},
+        intermediate_data=method.intermediate_data or {},
+        unit=method.unit or "",
         equipment_data_default=method.equipment_data_default,
     )
 
@@ -551,15 +516,13 @@ async def get_available_research_methods(
 ) -> AvailableResearchMethodsResponse:
     """Вернуть доступные методы исследования, сгруппированные для селекта."""
     sample = None
-    if sample_id:
-        sample = await get_sample_by_id(db, sample_id)
-        if not sample:
-            raise NotFoundError("Проба не найдена")
+    if sample_id is not None:
+        sample = await require_sample_by_id(db, sample_id)
 
     methods = await get_research_methods_for_select(db, laboratory_id=laboratory_id, department_id=department_id)
 
-    if sample_id and sample:
-        calculations, _ = await calculation_repo.get_calculations(db, sample_id=sample_id, include_deleted=False)
+    if sample is not None:
+        calculations, _ = await calculation_repo.get_calculations(db, sample_id=sample.id, include_deleted=False)
         used_method_ids = {calc.research_method_id for calc in calculations}
         methods = [method for method in methods if method.id not in used_method_ids]
 
@@ -578,14 +541,13 @@ async def get_available_research_methods(
                 methods = filtered_methods
 
     all_methods: list[AvailableResearchMethodEntry] = []
+    groups_by_id: dict[int, AvailableResearchMethodEntry] = {}
+
     for method in methods:
         if method.groups:
             group = method.groups[0]
-            group_entry = next(
-                (item for item in all_methods if item.group_id == group.id),
-                None,
-            )
-            if not group_entry:
+            group_entry = groups_by_id.get(group.id)
+            if group_entry is None:
                 group_entry = AvailableResearchMethodEntry(
                     id=f"group_{group.id}",
                     name=group.name,
@@ -593,8 +555,15 @@ async def get_available_research_methods(
                     group_id=group.id,
                     methods=[],
                     sort_order=group.sort_order or 0,
+                    input_data=None,
+                    intermediate_data=None,
+                    unit=None,
+                    equipment_data_default=None,
                 )
+                groups_by_id[group.id] = group_entry
                 all_methods.append(group_entry)
+            if group_entry.methods is None:
+                group_entry.methods = []
             group_entry.methods.append(_available_method_brief(method))
         else:
             all_methods.append(
@@ -607,12 +576,14 @@ async def get_available_research_methods(
                     unit=method.unit,
                     equipment_data_default=method.equipment_data_default,
                     is_group=False,
+                    group_id=None,
+                    methods=None,
                 )
             )
 
     all_methods.sort(key=lambda item: (item.sort_order, item.name))
-    for method in all_methods:
-        if method.is_group and method.methods:
-            method.methods.sort(key=lambda item: (item.sort_order, item.name))
+    for entry in all_methods:
+        if entry.is_group and entry.methods:
+            entry.methods.sort(key=lambda item: (item.sort_order, item.name))
 
     return AvailableResearchMethodsResponse(methods=all_methods)

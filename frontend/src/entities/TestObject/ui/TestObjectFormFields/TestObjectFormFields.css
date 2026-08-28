@@ -1,0 +1,45 @@
+.test-object-form {
+  padding: 0;
+  padding-bottom: 10px;
+  width: 100%;
+  color: #5f6770;
+  font-size: 13px;
+}
+
+.test-object-form-group {
+  margin-bottom: 16px;
+}
+
+.test-object-form-group:last-child {
+  margin-bottom: 0;
+}
+
+.test-object-form label:not(.ant-checkbox-wrapper) {
+  display: block;
+  margin-bottom: 8px;
+  color: #333333;
+  font-weight: 500;
+  font-family: 'HeliosCondC';
+  font-size: 14px;
+}
+
+.test-object-form-required {
+  color: #ff4d4f !important;
+  margin-left: 2px;
+}
+
+.test-object-form .visibility-scope-form-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333333;
+}
+
+.test-object-form .visibility-scope-form-lab-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #333333;
+}
+
+.test-object-form .visibility-scope-form-select {
+  width: 100%;
+}

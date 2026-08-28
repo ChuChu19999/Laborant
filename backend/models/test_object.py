@@ -28,7 +28,7 @@ class TestObject(BaseModel):
     visibility_scope: Mapped[dict[str, Any]] = mapped_column(
         JSON,
         nullable=False,
-        default=lambda: {"laboratory_ids": [], "department_ids": []},
+        default=dict,
         comment="Область видимости: laboratory_ids, department_ids",
     )
 
@@ -43,5 +43,5 @@ class TestObject(BaseModel):
         {"schema": get_database_schema()},
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<TestObject(id={self.id}, name='{self.name}', tag='{self.tag}')>"

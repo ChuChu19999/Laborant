@@ -1,15 +1,15 @@
 from __future__ import annotations
-from fastapi import APIRouter, Depends
-from core.deps import DbSession, NdNormListFilters, UserPermissions
+from fastapi import APIRouter
+from core.deps import DbSession, NdNormListFiltersDep, UserPermissions
 from schemas.nd_norm import NdNormCreate, NdNormResponse, NdNormUpdate
-from schemas.pagination import PaginatedResponse
+from schemas.pagination import PaginatedResponse, build_paginated_response
 from services.access_control import enforce_crud_access
 from services.nd_norm import (
-    build_nd_norm_response,
     create_nd_norm,
     delete_nd_norm,
     get_nd_norms,
     require_nd_norm_by_id,
+    resolve_nd_norm_update_scope,
     update_nd_norm,
 )
 
@@ -25,15 +25,17 @@ router = APIRouter()
         "Если page и page_size не указаны, возвращает все записи. "
         "Поддерживает фильтрацию по лаборатории и подразделению, поиск и сортировку."
     ),
-    responses={200: {"description": "Список норм НД успешно получен"}},
+    responses={
+        200: {"description": "Список норм НД успешно получен"},
+        403: {"description": "Отказано в доступе"},
+    },
 )
 # @IsAuthenticated
 async def list_nd_norms(
     db: DbSession,
     effective: UserPermissions,
-    filters: NdNormListFilters = Depends(),
+    filters: NdNormListFiltersDep,
 ):
-    """Возвращает список норм НД с пагинацией или без."""
     enforce_crud_access(
         effective,
         "nd_norms",
@@ -41,30 +43,21 @@ async def list_nd_norms(
         filters.laboratory_id,
         filters.department_id,
     )
-    nd_norms_list, total, total_pages = await get_nd_norms(
+    nd_norms_list, total = await get_nd_norms(
         db,
         laboratory_id=filters.laboratory_id,
         department_id=filters.department_id,
         page=filters.page,
         page_size=filters.page_size,
         search=filters.search,
-        test_object=filters.test_object,
-        test_objects=filters.test_objects,
+        test_object=None,
+        test_objects=filters.test_objects_list,
         sort_by=filters.sort_by,
         sort_order=filters.sort_order,
         created_at_from=filters.created_at_from,
         created_at_to=filters.created_at_to,
     )
-
-    items = [build_nd_norm_response(item) for item in nd_norms_list]
-
-    return PaginatedResponse(
-        items=items,
-        total=total,
-        page=filters.page if filters.page is not None else 1,
-        page_size=filters.page_size if filters.page_size is not None else total,
-        total_pages=total_pages,
-    )
+    return build_paginated_response(nd_norms_list, total, filters.page, filters.page_size)
 
 
 @router.post(
@@ -76,6 +69,7 @@ async def list_nd_norms(
     responses={
         201: {"description": "Норма НД успешно добавлена"},
         400: {"description": "Некорректные данные для добавления нормы НД"},
+        403: {"description": "Отказано в доступе"},
     },
 )
 # @IsAuthenticated
@@ -84,7 +78,6 @@ async def create_nd_norm_endpoint(
     db: DbSession,
     effective: UserPermissions,
 ):
-    """Добавляет новую норму НД на основе переданных данных."""
     enforce_crud_access(
         effective,
         "nd_norms",
@@ -92,17 +85,17 @@ async def create_nd_norm_endpoint(
         nd_norm_data.laboratory_id,
         nd_norm_data.department_id,
     )
-    nd_norm = await create_nd_norm(db, nd_norm_data)
-    return build_nd_norm_response(nd_norm)
+    return await create_nd_norm(db, nd_norm_data)
 
 
 @router.get(
-    "/nd-norms/{nd_norm_id}/",
+    "/nd-norms/{nd_norm_id:int}/",
     response_model=NdNormResponse,
     summary="Получение нормы НД по ID",
-    description="Возвращает информацию о норме НД по ее идентификатору.",
+    description="Возвращает информацию о норме НД по её идентификатору.",
     responses={
         200: {"description": "Норма НД успешно получена"},
+        403: {"description": "Отказано в доступе"},
         404: {"description": "Норма НД не найдена"},
     },
 )
@@ -112,7 +105,6 @@ async def get_nd_norm(
     db: DbSession,
     effective: UserPermissions,
 ):
-    """Возвращает информацию о норме НД по ее идентификатору."""
     nd_norm = await require_nd_norm_by_id(db, nd_norm_id)
     enforce_crud_access(
         effective,
@@ -121,16 +113,17 @@ async def get_nd_norm(
         nd_norm.laboratory_id,
         nd_norm.department_id,
     )
-    return build_nd_norm_response(nd_norm)
+    return nd_norm
 
 
 @router.patch(
-    "/nd-norms/{nd_norm_id}/",
+    "/nd-norms/{nd_norm_id:int}/",
     response_model=NdNormResponse,
     summary="Обновление нормы НД",
     description="Обновляет существующую норму НД.",
     responses={
         200: {"description": "Норма НД успешно обновлена"},
+        403: {"description": "Отказано в доступе"},
         404: {"description": "Норма НД не найдена"},
     },
 )
@@ -141,22 +134,20 @@ async def update_nd_norm_endpoint(
     db: DbSession,
     effective: UserPermissions,
 ):
-    """Обновляет существующую норму НД."""
     existing = await require_nd_norm_by_id(db, nd_norm_id)
-    lab_id = nd_norm_data.laboratory_id or existing.laboratory_id
-    dept_id = nd_norm_data.department_id or existing.department_id
+    lab_id, dept_id = resolve_nd_norm_update_scope(existing, nd_norm_data)
     enforce_crud_access(effective, "nd_norms", "update", lab_id, dept_id)
-    nd_norm = await update_nd_norm(db, nd_norm_id, nd_norm_data)
-    return build_nd_norm_response(nd_norm)
+    return await update_nd_norm(db, existing, nd_norm_data)
 
 
 @router.delete(
-    "/nd-norms/{nd_norm_id}/",
+    "/nd-norms/{nd_norm_id:int}/",
     status_code=204,
     summary="Удаление нормы НД",
     description="Выполняет мягкое удаление нормы НД.",
     responses={
         204: {"description": "Норма НД успешно удалена"},
+        403: {"description": "Отказано в доступе"},
         404: {"description": "Норма НД не найдена"},
     },
 )
@@ -165,8 +156,7 @@ async def delete_nd_norm_endpoint(
     nd_norm_id: int,
     db: DbSession,
     effective: UserPermissions,
-):
-    """Выполняет мягкое удаление нормы НД."""
+) -> None:
     nd_norm = await require_nd_norm_by_id(db, nd_norm_id)
     enforce_crud_access(
         effective,
@@ -175,4 +165,4 @@ async def delete_nd_norm_endpoint(
         nd_norm.laboratory_id,
         nd_norm.department_id,
     )
-    await delete_nd_norm(db, nd_norm_id)
+    await delete_nd_norm(db, nd_norm)

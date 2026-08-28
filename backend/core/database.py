@@ -1,10 +1,11 @@
+from collections.abc import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.pool import AsyncAdaptedQueuePool
 from core.config import get_database_schema, settings
 
 engine = create_async_engine(
-    settings.DATABASE_URL,
+    str(settings.DATABASE_URL),
     poolclass=AsyncAdaptedQueuePool,
     pool_size=10,
     max_overflow=20,
@@ -15,13 +16,13 @@ engine = create_async_engine(
 
 AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
-Base = declarative_base()
+
+class Base(DeclarativeBase):
+    """Базовый класс декларативных ORM-моделей."""
 
 
-async def get_db() -> AsyncSession:
-    """Dependency для получения сессии БД с автокоммитом/откатом."""
-    if AsyncSessionLocal is None:
-        raise RuntimeError("База данных временно отключена")
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    """Выдать сессию БД с автокоммитом или откатом транзакции."""
     async with AsyncSessionLocal() as session:
         try:
             yield session

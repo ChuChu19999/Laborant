@@ -1,58 +1,84 @@
 from __future__ import annotations
+from collections.abc import Callable
 from core.exceptions import ForbiddenError
 from schemas.role import RolePermissions, UserPermissionsResponse
 from services.user_permissions import (
-    get_scope_filter_dict,
+    get_effective_role_permissions,
     require_permission_in_effective,
     require_scope_access,
-    scopes_dicts_from_bindings,
 )
-from utils.role_scopes import resolve_permissions_for_scope
+from utils.permissions_constants import (
+    EnforceCrudAction,
+    EnforceCrudResource,
+    NavigationKey,
+    PermissionAction,
+    PermissionResource,
+    SamplesMutationAction,
+)
+
+
+def _enforce_permission_and_scope(
+    effective: UserPermissionsResponse,
+    resource: PermissionResource,
+    action: PermissionAction,
+    laboratory_id: int | None = None,
+    department_id: int | None = None,
+) -> None:
+    """Проверить одно право и область видимости."""
+    require_permission_in_effective(effective, resource, action, laboratory_id, department_id)
+    require_scope_access(effective, laboratory_id, department_id)
+
+
+def _enforce_any_permission_and_scope(
+    effective: UserPermissionsResponse,
+    is_allowed: Callable[[RolePermissions], bool],
+    laboratory_id: int | None = None,
+    department_id: int | None = None,
+) -> None:
+    """Проверить, что есть хотя бы одно из прав, и область видимости."""
+    perms = get_effective_role_permissions(effective, laboratory_id, department_id)
+    if not is_allowed(perms):
+        raise ForbiddenError("Отказано в доступе")
+    require_scope_access(effective, laboratory_id, department_id)
 
 
 def enforce_nav_access(
     effective: UserPermissionsResponse,
-    nav_key: str,
+    nav_key: NavigationKey,
     laboratory_id: int | None = None,
     department_id: int | None = None,
-) -> dict[str, list[int]]:
-    """Проверка доступа к разделу навигации и области видимости."""
-    require_permission_in_effective(effective, "navigation", nav_key, laboratory_id, department_id)
-    require_scope_access(effective, laboratory_id, department_id)
-    return get_scope_filter_dict(effective)
+) -> None:
+    """Разрешить доступ к разделу навигации в выбранной области."""
+    _enforce_permission_and_scope(effective, "navigation", nav_key, laboratory_id, department_id)
 
 
 def enforce_crud_access(
     effective: UserPermissionsResponse,
-    resource: str,
-    action: str,
+    resource: EnforceCrudResource,
+    action: EnforceCrudAction,
     laboratory_id: int | None = None,
     department_id: int | None = None,
-) -> dict[str, list[int]]:
-    """Проверка CRUD-права и области видимости."""
-    require_permission_in_effective(effective, resource, action, laboratory_id, department_id)
-    require_scope_access(effective, laboratory_id, department_id)
-    return get_scope_filter_dict(effective)
+) -> None:
+    """Разрешить CRUD-действие над ресурсом в выбранной области."""
+    _enforce_permission_and_scope(effective, resource, action, laboratory_id, department_id)
 
 
 def enforce_lab_management_access(
     effective: UserPermissionsResponse,
     laboratory_id: int | None = None,
     department_id: int | None = None,
-) -> dict[str, list[int]]:
-    """Проверка доступа к управлению лабораториями / методам / fixtures."""
-    require_permission_in_effective(effective, "laboratory_management", "access", laboratory_id, department_id)
-    require_scope_access(effective, laboratory_id, department_id)
-    return get_scope_filter_dict(effective)
+) -> None:
+    """Разрешить управление лабораториями, методами и фикстурами в области."""
+    _enforce_permission_and_scope(effective, "laboratory_management", "access", laboratory_id, department_id)
 
 
 def enforce_samples_mutation(
     effective: UserPermissionsResponse,
-    action: str,
+    action: SamplesMutationAction,
     laboratory_id: int | None = None,
     department_id: int | None = None,
 ) -> None:
-    """Проверка прав на изменение/удаление проб."""
+    """Разрешить изменение или удаление проб при доступе к разделу проб."""
     require_permission_in_effective(effective, "navigation", "samples", laboratory_id, department_id)
     require_permission_in_effective(effective, "samples", action, laboratory_id, department_id)
     require_scope_access(effective, laboratory_id, department_id)
@@ -62,60 +88,47 @@ def enforce_research_methods_read(
     effective: UserPermissionsResponse,
     laboratory_id: int | None = None,
     department_id: int | None = None,
-) -> dict[str, list[int]]:
-    """Чтение методов: управление лабораториями, приборы, нормы, расчёты или пробы."""
-    if effective.is_admin:
-        require_scope_access(effective, laboratory_id, department_id)
-        return get_scope_filter_dict(effective)
-
-    if laboratory_id is None and department_id is None:
-        perms = effective.permissions
-    else:
-        resolved = resolve_permissions_for_scope(
-            scopes_dicts_from_bindings(effective.scopes), laboratory_id, department_id
-        )
-        if resolved is None:
-            raise ForbiddenError("Отказано в доступе")
-        perms = RolePermissions.model_validate(resolved)
-
-    allowed = (
-        perms.laboratory_management.access
-        or perms.equipment.read
-        or perms.nd_norms.read
-        or perms.refraction_tables.read
-        or perms.calculations.execute
-        or perms.navigation.samples
+) -> None:
+    """Разрешить чтение методов при праве на лаборатории, приборы, нормы, расчёты или пробы."""
+    _enforce_any_permission_and_scope(
+        effective,
+        lambda perms: (
+            perms.laboratory_management.access
+            or perms.equipment.read
+            or perms.nd_norms.read
+            or perms.refraction_tables.read
+            or perms.calculations.execute
+            or perms.navigation.samples
+        ),
+        laboratory_id,
+        department_id,
     )
-    if not allowed:
-        raise ForbiddenError("Отказано в доступе")
-    require_scope_access(effective, laboratory_id, department_id)
-    return get_scope_filter_dict(effective)
 
 
 def enforce_selection_conditions_read(
     effective: UserPermissionsResponse,
     laboratory_id: int | None = None,
     department_id: int | None = None,
-) -> dict[str, list[int]]:
-    """Чтение справочника условий отбора: управление лабораториями или пробы."""
-    if effective.is_admin:
-        require_scope_access(effective, laboratory_id, department_id)
-        return get_scope_filter_dict(effective)
+) -> None:
+    """Разрешить чтение условий отбора при управлении лабораториями или доступе к пробам."""
+    _enforce_any_permission_and_scope(
+        effective,
+        lambda perms: perms.laboratory_management.access or perms.navigation.samples,
+        laboratory_id,
+        department_id,
+    )
 
-    if laboratory_id is None and department_id is None:
-        perms = effective.permissions
-    else:
-        resolved = resolve_permissions_for_scope(
-            scopes_dicts_from_bindings(effective.scopes), laboratory_id, department_id
-        )
-        if resolved is None:
-            raise ForbiddenError("Отказано в доступе")
-        perms = RolePermissions.model_validate(resolved)
 
-    if not (perms.laboratory_management.access or perms.navigation.samples):
-        raise ForbiddenError("Отказано в доступе")
-    require_scope_access(effective, laboratory_id, department_id)
-    return get_scope_filter_dict(effective)
+def resolve_calculations_read_access(
+    effective: UserPermissionsResponse,
+    laboratory_id: int | None,
+    department_id: int | None,
+) -> None:
+    """Разрешить чтение расчётов по пробе: через раздел проб или право выполнять расчёты."""
+    try:
+        enforce_nav_access(effective, "samples", laboratory_id, department_id)
+    except ForbiddenError:
+        enforce_crud_access(effective, "calculations", "execute", laboratory_id, department_id)
 
 
 __all__ = [
@@ -125,4 +138,5 @@ __all__ = [
     "enforce_research_methods_read",
     "enforce_samples_mutation",
     "enforce_selection_conditions_read",
+    "resolve_calculations_read_access",
 ]

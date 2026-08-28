@@ -1,7 +1,8 @@
 from __future__ import annotations
-from fastapi import APIRouter, Depends
-from core.security import get_current_user
+from fastapi import APIRouter
+from core.deps import CurrentUser
 from schemas.user import UserResponse
+from services.user import build_user_response_from_token
 
 router = APIRouter()
 
@@ -31,14 +32,5 @@ router = APIRouter()
     },
 )
 # @IsAuthenticated
-async def get_current_user_info(decoded_token: dict = Depends(get_current_user)):
-    """Возвращает информацию о текущем авторизованном пользователе на основе JWT токена."""
-    return UserResponse(
-        personnel_number=decoded_token.get("personnelNumber"),
-        department_number=decoded_token.get("departmentNumber"),
-        full_name=decoded_token.get("fullName"),
-        ad_login=decoded_token.get("preferred_username"),
-        email=decoded_token.get("email"),
-        hsnils=decoded_token.get("hashSnils"),
-        is_staff=False,
-    )
+async def get_current_user_info(decoded_token: CurrentUser) -> UserResponse:
+    return build_user_response_from_token(decoded_token)

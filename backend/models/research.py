@@ -1,7 +1,7 @@
 from __future__ import annotations
 from enum import Enum as PyEnum
 from typing import TYPE_CHECKING, Any
-from sqlalchemy import JSON, Boolean, Column, ForeignKey, Index, Integer, String, Table
+from sqlalchemy import JSON, Boolean, CheckConstraint, Column, ForeignKey, Index, Integer, String, Table
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from core.config import get_database_schema
 from core.database import Base
@@ -9,7 +9,8 @@ from models.base import BaseModel
 
 if TYPE_CHECKING:
     from models.calculation import Calculation
-    from models.laboratory import Department, Laboratory
+    from models.department import Department
+    from models.laboratory import Laboratory
     from models.mass_fraction import MassFractionOilRefractionTable
 
 
@@ -48,7 +49,7 @@ class ResearchMethod(BaseModel):
         comment="Наименование метода исследования",
     )
     sample_type: Mapped[list[Any]] = mapped_column(JSON, nullable=False, default=list, comment="Типы исследуемых проб")
-    formula: Mapped[str] = mapped_column(String(255), nullable=False, comment="Формула для расчета")
+    formula: Mapped[str] = mapped_column(String(255), nullable=False, comment="Формула для расчёта")
     measurement_error: Mapped[dict[str, Any]] = mapped_column(
         JSON, nullable=False, default=dict, comment="Погрешность измерения"
     )
@@ -65,7 +66,7 @@ class ResearchMethod(BaseModel):
     convergence_conditions: Mapped[dict[str, Any]] = mapped_column(
         JSON,
         nullable=False,
-        default=lambda: {"formulas": [{"formula": "", "convergence_value": "satisfactory"}]},
+        default=dict,
         comment="Условия повторяемости",
     )
     rounding_type: Mapped[str] = mapped_column(String(20), nullable=False, comment="Тип округления")
@@ -98,6 +99,12 @@ class ResearchMethod(BaseModel):
     refraction_tables: Mapped[list["MassFractionOilRefractionTable"]] = relationship(back_populates="research_method")
 
     __table_args__ = (
+        CheckConstraint(
+            "rounding_type IN ("
+            + ", ".join(f"'{member.value.replace(chr(39), chr(39) * 2)}'" for member in RoundingType)
+            + ")",
+            name="ck_research_methods_rounding_type",
+        ),
         Index("idx_research_method_name", "name"),
         Index("idx_research_method_rounding_type", "rounding_type"),
         Index("idx_research_method_laboratory", "laboratory_id"),
@@ -106,7 +113,7 @@ class ResearchMethod(BaseModel):
         {"schema": get_database_schema()},
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<ResearchMethod(id={self.id}, name='{self.name}', nd_code='{self.nd_code}')>"
 
 
@@ -133,5 +140,5 @@ class ResearchMethodGroup(BaseModel):
         {"schema": get_database_schema()},
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<ResearchMethodGroup(id={self.id}, name='{self.name}')>"

@@ -1,0 +1,44 @@
+.select-option-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.form-item-control {
+  width: 100%;
+}
+
+/*
+  Почему CSS, а не theme: позиция крестика удаления тега в multiple Select
+  (всегда справа сверху) в theme ConfigProvider не задаётся.
+*/
+.form-item-control.ant-select-multiple .ant-select-selection-item {
+  position: relative;
+  align-items: flex-start;
+  padding-inline-end: 18px;
+}
+
+.form-item-control.ant-select-multiple .ant-select-selection-item-remove {
+  position: absolute;
+  top: 2px;
+  inset-inline-end: 4px;
+  margin-inline-start: 0;
+  transform: none;
+}
+
+/*
+  Почему CSS, а не theme: скрытие стрелки/суффикса при показе clear —
+  поведение бренда; цвет clear уже в App.css.
+*/
+.form-item-control.ant-select:not(.ant-select-disabled) .ant-select-clear ~ .ant-select-arrow,
+.form-item-control.ant-select:not(.ant-select-disabled):has(.ant-select-clear) .ant-select-arrow {
+  display: none;
+}
+
+.form-item-control.ant-picker:not(.ant-picker-disabled)
+  .ant-picker-clear
+  ~ .ant-picker-suffix:not(.ant-picker-clear),
+.form-item-control.ant-picker:not(.ant-picker-disabled):has(.ant-picker-clear)
+  .ant-picker-suffix:not(.ant-picker-clear) {
+  display: none;
+}

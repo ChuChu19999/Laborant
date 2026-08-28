@@ -1,15 +1,15 @@
 from __future__ import annotations
-from fastapi import APIRouter, Depends
-from core.deps import DbSession, EquipmentListFilters, UserPermissions
+from fastapi import APIRouter
+from core.deps import DbSession, EquipmentListFiltersDep, UserPermissions
 from schemas.equipment import EquipmentCreate, EquipmentResponse, EquipmentUpdate
-from schemas.pagination import PaginatedResponse
+from schemas.pagination import PaginatedResponse, build_paginated_response
 from services.access_control import enforce_crud_access
 from services.equipment import (
-    build_equipment_response,
     create_equipment,
     delete_equipment,
-    get_equipment as get_equipment_list,
+    get_equipment,
     require_equipment_by_id,
+    resolve_equipment_update_scope,
     update_equipment,
 )
 
@@ -25,15 +25,17 @@ router = APIRouter()
         "Если page и page_size не указаны, возвращает все записи. "
         "Поддерживает фильтрацию по лабораториям, подразделениям и типу оборудования, поиск и сортировку."
     ),
-    responses={200: {"description": "Список оборудования успешно получен"}},
+    responses={
+        200: {"description": "Список оборудования успешно получен"},
+        403: {"description": "Отказано в доступе"},
+    },
 )
 # @IsAuthenticated
 async def list_equipment(
     db: DbSession,
     effective: UserPermissions,
-    filters: EquipmentListFilters = Depends(),
+    filters: EquipmentListFiltersDep,
 ):
-    """Возвращает список оборудования с пагинацией или без."""
     enforce_crud_access(
         effective,
         "equipment",
@@ -41,7 +43,7 @@ async def list_equipment(
         filters.laboratory_id,
         filters.department_id,
     )
-    equipment_list, total, total_pages = await get_equipment_list(
+    equipment_list, total = await get_equipment(
         db,
         laboratory_id=filters.laboratory_id,
         department_id=filters.department_id,
@@ -58,16 +60,7 @@ async def list_equipment(
         created_at_from=filters.created_at_from,
         created_at_to=filters.created_at_to,
     )
-
-    items = [build_equipment_response(eq) for eq in equipment_list]
-
-    return PaginatedResponse(
-        items=items,
-        total=total,
-        page=filters.page if filters.page is not None else 1,
-        page_size=filters.page_size if filters.page_size is not None else total,
-        total_pages=total_pages,
-    )
+    return build_paginated_response(equipment_list, total, filters.page, filters.page_size)
 
 
 @router.post(
@@ -79,6 +72,8 @@ async def list_equipment(
     responses={
         201: {"description": "Оборудование успешно добавлено"},
         400: {"description": "Некорректные данные для добавления оборудования"},
+        403: {"description": "Отказано в доступе"},
+        409: {"description": "Оборудование с таким наименованием уже существует"},
     },
 )
 # @IsAuthenticated
@@ -87,7 +82,6 @@ async def create_equipment_endpoint(
     db: DbSession,
     effective: UserPermissions,
 ):
-    """Добавляет новое оборудование на основе переданных данных."""
     enforce_crud_access(
         effective,
         "equipment",
@@ -95,17 +89,17 @@ async def create_equipment_endpoint(
         equipment_data.laboratory_id,
         equipment_data.department_id,
     )
-    equipment = await create_equipment(db, equipment_data)
-    return build_equipment_response(equipment)
+    return await create_equipment(db, equipment_data)
 
 
 @router.get(
-    "/equipment/{equipment_id}/",
+    "/equipment/{equipment_id:int}/",
     response_model=EquipmentResponse,
     summary="Получение оборудования по ID",
     description="Возвращает информацию об оборудовании по его идентификатору.",
     responses={
         200: {"description": "Оборудование успешно получено"},
+        403: {"description": "Отказано в доступе"},
         404: {"description": "Оборудование не найдено"},
     },
 )
@@ -115,7 +109,6 @@ async def get_equipment_endpoint(
     db: DbSession,
     effective: UserPermissions,
 ):
-    """Возвращает информацию об оборудовании по его идентификатору."""
     equipment = await require_equipment_by_id(db, equipment_id)
     enforce_crud_access(
         effective,
@@ -124,17 +117,19 @@ async def get_equipment_endpoint(
         equipment.laboratory_id,
         equipment.department_id,
     )
-    return build_equipment_response(equipment)
+    return equipment
 
 
 @router.patch(
-    "/equipment/{equipment_id}/",
+    "/equipment/{equipment_id:int}/",
     response_model=EquipmentResponse,
     summary="Обновление оборудования",
     description="Обновляет существующее оборудование.",
     responses={
         200: {"description": "Оборудование успешно обновлено"},
+        403: {"description": "Отказано в доступе"},
         404: {"description": "Оборудование не найдено"},
+        409: {"description": "Оборудование с таким наименованием уже существует"},
     },
 )
 # @IsAuthenticated
@@ -144,22 +139,20 @@ async def update_equipment_endpoint(
     db: DbSession,
     effective: UserPermissions,
 ):
-    """Обновляет существующее оборудование."""
     existing = await require_equipment_by_id(db, equipment_id)
-    lab_id = equipment_data.laboratory_id or existing.laboratory_id
-    dept_id = equipment_data.department_id or existing.department_id
+    lab_id, dept_id = resolve_equipment_update_scope(existing, equipment_data)
     enforce_crud_access(effective, "equipment", "update", lab_id, dept_id)
-    equipment = await update_equipment(db, equipment_id, equipment_data)
-    return build_equipment_response(equipment)
+    return await update_equipment(db, existing, equipment_data)
 
 
 @router.delete(
-    "/equipment/{equipment_id}/",
+    "/equipment/{equipment_id:int}/",
     status_code=204,
     summary="Удаление оборудования",
     description="Выполняет мягкое удаление оборудования.",
     responses={
         204: {"description": "Оборудование успешно удалено"},
+        403: {"description": "Отказано в доступе"},
         404: {"description": "Оборудование не найдено"},
     },
 )
@@ -168,8 +161,7 @@ async def delete_equipment_endpoint(
     equipment_id: int,
     db: DbSession,
     effective: UserPermissions,
-):
-    """Выполняет мягкое удаление оборудования."""
+) -> None:
     equipment = await require_equipment_by_id(db, equipment_id)
     enforce_crud_access(
         effective,
@@ -178,4 +170,4 @@ async def delete_equipment_endpoint(
         equipment.laboratory_id,
         equipment.department_id,
     )
-    await delete_equipment(db, equipment_id)
+    await delete_equipment(db, equipment)

@@ -1,0 +1,68 @@
+.table-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 10px;
+  border-top: 1px solid #e4e6e8;
+  border-bottom: 1px solid #e4e6e8;
+  background: #ffffff;
+  flex-shrink: 0;
+  min-width: 0;
+  font-family: 'HeliosCondC';
+}
+
+.table-pagination-info {
+  font-size: 14px;
+  color: #5f6770;
+  font-family: 'HeliosCondC';
+}
+
+.table-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+}
+
+.table-pagination-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: #5f6770;
+  cursor: pointer;
+  transition: color 0.25s ease;
+  padding: 4px;
+  font-family: 'HeliosCondC';
+}
+
+.table-pagination-icon:hover:not(:disabled) {
+  color: #282828;
+}
+
+.table-pagination-icon:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.table-pagination-page-info {
+  font-size: 14px;
+  color: #5f6770;
+  margin: 0 8px;
+  white-space: nowrap;
+  font-family: 'HeliosCondC';
+}
+
+.table-pagination-page-size-select {
+  font-family: 'HeliosCondC', sans-serif;
+  width: 100px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .table-pagination {
+    flex-direction: column;
+    gap: 12px;
+  }
+}

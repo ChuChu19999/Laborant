@@ -1,24 +1,23 @@
 from __future__ import annotations
 import pendulum
 from sqlalchemy.ext.asyncio import AsyncSession
-from core.exceptions import NotFoundError, ValidationError
+from core.exceptions import DomainValidationError, NotFoundError
 from models.nd_norm import NdNorm
-from repositories import nd_norm as nd_norm_repo
+from repositories import nd_norm as nd_norm_repo, research as research_repo
 from repositories.base import flush_entity
 from schemas.nd_norm import (
     NdNormCreate,
     NdNormMethodDataItem,
-    NdNormResponse,
     NdNormUpdate,
 )
 from services.test_object import get_test_object_names
 from services.visibility import validate_lab_and_department
-from utils.pagination import calculate_total_pages
 
 
 def _normalize_method_data(
     method_data: list[NdNormMethodDataItem] | None,
 ) -> list[dict]:
+    """Привести method_data нормы НД к списку словарей."""
     if not method_data:
         return []
     return [{"method_id": item.method_id, "value": item.value} for item in method_data]
@@ -30,10 +29,11 @@ async def _validate_test_object(
     laboratory_id: int,
     department_id: int | None,
 ) -> None:
+    """Проверить, что объект испытаний есть в справочнике области."""
     names = await get_test_object_names(db, laboratory_id, department_id)
     normalized = test_object.strip().lower()
     if not any(name.lower() == normalized for name in names):
-        raise ValidationError("Объект испытаний не найден в справочнике")
+        raise DomainValidationError("Объект испытаний не найден в справочнике")
 
 
 async def _validate_method_data(
@@ -42,14 +42,15 @@ async def _validate_method_data(
     laboratory_id: int,
     department_id: int | None,
 ) -> None:
+    """Проверить, что method_id в method_data существуют в области."""
     if not method_data:
         return
 
     method_ids = {item.method_id for item in method_data}
-    found_ids = await nd_norm_repo.get_valid_method_ids(db, method_ids, laboratory_id, department_id)
+    found_ids = await research_repo.get_valid_method_ids(db, method_ids, laboratory_id, department_id)
     missing_ids = method_ids - found_ids
     if missing_ids:
-        raise ValidationError(
+        raise DomainValidationError(
             f"Некорректные методы исследования: {', '.join(str(method_id) for method_id in sorted(missing_ids))}"
         )
 
@@ -68,21 +69,11 @@ async def require_nd_norm_by_id(
     nd_norm_id: int,
     include_deleted: bool = False,
 ) -> NdNorm:
-    """Получить норму НД по ID или вернуть 404."""
+    """Вернуть норму НД по ID, иначе вызвать NotFoundError."""
     nd_norm = await get_nd_norm_by_id(db, nd_norm_id, include_deleted)
     if not nd_norm:
         raise NotFoundError("Норма НД не найдена")
     return nd_norm
-
-
-def build_nd_norm_response(nd_norm: NdNorm) -> NdNormResponse:
-    """Собрать ответ API по норме НД с наименованиями связей."""
-    response_data = NdNormResponse.model_validate(nd_norm).model_dump()
-    if nd_norm.laboratory:
-        response_data["laboratory_name"] = nd_norm.laboratory.name
-    if nd_norm.department:
-        response_data["department_name"] = nd_norm.department.name
-    return NdNormResponse(**response_data)
 
 
 async def get_nd_norms(
@@ -98,9 +89,9 @@ async def get_nd_norms(
     sort_order: str | None = None,
     created_at_from: pendulum.DateTime | None = None,
     created_at_to: pendulum.DateTime | None = None,
-) -> tuple[list[NdNorm], int, int]:
+) -> tuple[list[NdNorm], int]:
     """Получить список норм НД."""
-    items, total = await nd_norm_repo.get_nd_norms(
+    return await nd_norm_repo.get_nd_norms(
         db,
         laboratory_id,
         department_id,
@@ -114,13 +105,6 @@ async def get_nd_norms(
         created_at_from,
         created_at_to,
     )
-
-    if page is not None and page_size is not None:
-        total_pages = calculate_total_pages(total, page_size)
-    else:
-        total_pages = 1 if total > 0 else 0
-
-    return items, total, total_pages
 
 
 async def create_nd_norm(db: AsyncSession, data: NdNormCreate) -> NdNorm:
@@ -138,26 +122,21 @@ async def create_nd_norm(db: AsyncSession, data: NdNormCreate) -> NdNorm:
     )
     nd_norm = await nd_norm_repo.add_nd_norm(db, nd_norm)
 
-    result = await get_nd_norm_by_id(db, nd_norm.id)
-    assert result is not None
-    return result
+    return await require_nd_norm_by_id(db, nd_norm.id)
 
 
 async def update_nd_norm(
     db: AsyncSession,
-    nd_norm_id: int,
+    nd_norm: NdNorm,
     data: NdNormUpdate,
 ) -> NdNorm:
     """Обновить норму НД."""
-    nd_norm = await get_nd_norm_by_id(db, nd_norm_id)
-    if not nd_norm:
-        raise NotFoundError("Норма НД не найдена")
-
     update_data = data.model_dump(exclude_unset=True)
     laboratory_id = update_data.get("laboratory_id", nd_norm.laboratory_id)
     department_id = update_data.get("department_id", nd_norm.department_id)
+    scope_changed = "laboratory_id" in update_data or "department_id" in update_data
 
-    if "laboratory_id" in update_data or "department_id" in update_data:
+    if scope_changed:
         await validate_lab_and_department(db, laboratory_id, department_id)
 
     if "method_data" in update_data and update_data["method_data"] is not None:
@@ -177,15 +156,22 @@ async def update_nd_norm(
         nd_norm.department_id = update_data["department_id"]
 
     await flush_entity(db)
-    result = await get_nd_norm_by_id(db, nd_norm.id)
-    assert result is not None
-    return result
+    return await require_nd_norm_by_id(db, nd_norm.id)
 
 
-async def delete_nd_norm(db: AsyncSession, nd_norm_id: int) -> None:
+async def delete_nd_norm(db: AsyncSession, nd_norm: NdNorm) -> None:
     """Мягко удалить норму НД."""
-    nd_norm = await get_nd_norm_by_id(db, nd_norm_id)
-    if not nd_norm:
-        raise NotFoundError("Норма НД не найдена")
     nd_norm.soft_delete()
     await flush_entity(db)
+
+
+def resolve_nd_norm_update_scope(nd_norm: NdNorm, data: NdNormUpdate) -> tuple[int, int | None]:
+    """Определить область доступа после PATCH нормы НД."""
+    fields_set = data.model_fields_set
+    laboratory_id = (
+        data.laboratory_id
+        if "laboratory_id" in fields_set and data.laboratory_id is not None
+        else nd_norm.laboratory_id
+    )
+    department_id = data.department_id if "department_id" in fields_set else nd_norm.department_id
+    return (laboratory_id, department_id)

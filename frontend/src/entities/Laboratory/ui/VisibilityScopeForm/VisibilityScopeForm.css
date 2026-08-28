@@ -1,0 +1,16 @@
+.visibility-scope-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.visibility-scope-form-select {
+  width: 100%;
+}
+
+.visibility-scope-form-empty {
+  display: block;
+  font-family: 'HeliosCondC';
+  font-size: 13px;
+}

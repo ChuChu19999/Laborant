@@ -1,7 +1,6 @@
 import React from 'react';
 import { Tooltip as AntTooltip } from 'antd';
 import { CircleHelpIcon } from '../icons';
-import '../icons/icons.css';
 import './Tooltip.css';
 
 interface TooltipLocalProps extends Omit<

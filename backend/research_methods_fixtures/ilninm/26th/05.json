@@ -68,7 +68,7 @@
                 "name": "M₁",
                 "unit": "у.е",
                 "formula": "(a₁*5.12*1000)/(B₁*(Tб₁-Tр₁))",
-                "description": "Расчет молекулярной массы для первой параллели",
+                "description": "Расчёт молекулярной массы для первой параллели",
                 "show_calculation": true,
                 "range_calculation": null,
                 "use_multiple_rounding": false
@@ -77,7 +77,7 @@
                 "name": "M₂",
                 "unit": "у.е",
                 "formula": "(a₂*5.12*1000)/(B₂*(Tб₂-Tр₂))",
-                "description": "Расчет молекулярной массы для второй параллели",
+                "description": "Расчёт молекулярной массы для второй параллели",
                 "show_calculation": true,
                 "range_calculation": null,
                 "use_multiple_rounding": false

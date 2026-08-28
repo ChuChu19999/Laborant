@@ -7,7 +7,7 @@ import {
   getSortingFromUrl,
   updateUrlParams,
   normalizeUrlFilters,
-} from '../../lib/urlParams';
+} from '../../lib/routing/urlParams';
 
 export interface UseUrlSyncOptions {
   filterKeys: string[];
@@ -23,10 +23,48 @@ function isFilterValueEmpty(value: unknown): boolean {
   return Array.isArray(value) && value.length === 0;
 }
 
-/**
- * Хук для синхронизации store с URL параметрами
- * Полезен для сохранения состояния фильтров, пагинации и сортировки в URL
- */
+function areFiltersEqual<T extends Record<string, unknown>>(
+  left: T | undefined,
+  right: T | undefined
+): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right) {
+    return !left && !right;
+  }
+
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) {
+    return false;
+  }
+
+  for (const key of leftKeys) {
+    const leftValue = left[key];
+    const rightValue = right[key];
+
+    if (Array.isArray(leftValue) && Array.isArray(rightValue)) {
+      if (leftValue.length !== rightValue.length) {
+        return false;
+      }
+      for (let index = 0; index < leftValue.length; index += 1) {
+        if (leftValue[index] !== rightValue[index]) {
+          return false;
+        }
+      }
+      continue;
+    }
+
+    if (leftValue !== rightValue) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/** Синхронизирует store с параметрами URL. */
 export function useUrlSync<TFilters extends Record<string, unknown> = Record<string, unknown>>(
   options: UseUrlSyncOptions,
   storeState: {
@@ -82,7 +120,7 @@ export function useUrlSync<TFilters extends Record<string, unknown> = Record<str
     }
 
     previousPathRef.current = location.pathname;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- сброс store при смене pathname; searchParams и storeState намеренно не в deps
   }, [location.pathname, defaultPage, defaultPageSize, setSearchParams, storeActions]);
 
   // Инициализация из URL при первой загрузке
@@ -110,7 +148,7 @@ export function useUrlSync<TFilters extends Record<string, unknown> = Record<str
       }
       const hasUrlFilters = Object.keys(urlFilters).length > 0;
       const hasStoreFilters = storeState.filters && Object.keys(storeState.filters).length > 0;
-      if (hasUrlFilters && JSON.stringify(urlFilters) !== JSON.stringify(storeState.filters)) {
+      if (hasUrlFilters && !areFiltersEqual(urlFilters, storeState.filters)) {
         storeActions.setFilters(urlFilters);
       } else if (!hasUrlFilters && hasStoreFilters) {
         // Если в URL нет фильтров, но в store есть - очищаем store (но не обновляем URL, чтобы избежать цикла)
@@ -125,7 +163,7 @@ export function useUrlSync<TFilters extends Record<string, unknown> = Record<str
         }
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- только URL → store при монтировании; searchParams/store в deps зациклили бы sync
   }, []); // Только при монтировании
 
   // Синхронизация store -> URL (только при изменении store, не при монтировании)

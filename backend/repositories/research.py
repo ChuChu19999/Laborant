@@ -1,5 +1,6 @@
 from __future__ import annotations
-from sqlalchemy import delete, func, insert, or_, select
+from sqlalchemy import ColumnElement, delete, func, insert, or_, select
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from models.research import (
@@ -12,9 +13,47 @@ from repositories.base import (
     execute_scalar_one_or_none,
     execute_scalars_all,
     filter_not_deleted,
+    filter_not_deleted_unless,
 )
 from utils.pagination import apply_pagination, get_total_count
 from utils.sorting import build_order_by
+
+
+def _build_research_method_conditions(
+    *,
+    laboratory_id: int | None = None,
+    department_id: int | None = None,
+    search: str | None = None,
+    rounding_type: str | None = None,
+) -> list[ColumnElement[bool]]:
+    """Собрать условия фильтрации методов исследования."""
+    conditions: list[ColumnElement[bool]] = []
+    if laboratory_id:
+        conditions.append(ResearchMethod.laboratory_id == laboratory_id)
+    if department_id:
+        conditions.append(ResearchMethod.department_id == department_id)
+    if rounding_type:
+        conditions.append(ResearchMethod.rounding_type == rounding_type)
+    if search:
+        conditions.append(
+            or_(
+                ResearchMethod.name.ilike(f"%{search}%"),
+                ResearchMethod.nd_code.ilike(f"%{search}%"),
+                ResearchMethod.nd_name.ilike(f"%{search}%"),
+            )
+        )
+    return conditions
+
+
+def _build_research_method_group_conditions(
+    *,
+    search: str | None = None,
+) -> list[ColumnElement[bool]]:
+    """Собрать условия фильтрации групп методов исследования."""
+    conditions: list[ColumnElement[bool]] = []
+    if search:
+        conditions.append(ResearchMethodGroup.name.ilike(f"%{search}%"))
+    return conditions
 
 
 async def get_research_method_by_id(
@@ -30,8 +69,7 @@ async def get_research_method_by_id(
             selectinload(ResearchMethod.groups),
         )
     )
-    if not include_deleted:
-        query = filter_not_deleted(query, ResearchMethod.deleted_at)
+    query = filter_not_deleted_unless(query, ResearchMethod.deleted_at, include_deleted)
     return await execute_scalar_one_or_none(db, query)
 
 
@@ -86,32 +124,26 @@ async def get_research_methods(
     rounding_type: str | None = None,
     sort_by: str | None = None,
     sort_order: str | None = None,
+    *,
+    load_relations: bool = True,
 ) -> tuple[list[ResearchMethod], int]:
     """Получить список методов исследования."""
-    query = filter_not_deleted(select(ResearchMethod), ResearchMethod.deleted_at).options(
-        selectinload(ResearchMethod.laboratory),
-        selectinload(ResearchMethod.department),
-        selectinload(ResearchMethod.groups),
-    )
+    query = filter_not_deleted(select(ResearchMethod), ResearchMethod.deleted_at)
+    if load_relations:
+        query = query.options(
+            selectinload(ResearchMethod.laboratory),
+            selectinload(ResearchMethod.department),
+            selectinload(ResearchMethod.groups),
+        )
 
-    conditions = []
-    if laboratory_id:
-        conditions.append(ResearchMethod.laboratory_id == laboratory_id)
-    if department_id:
-        conditions.append(ResearchMethod.department_id == department_id)
-    if rounding_type:
-        conditions.append(ResearchMethod.rounding_type == rounding_type)
+    conditions = _build_research_method_conditions(
+        laboratory_id=laboratory_id,
+        department_id=department_id,
+        search=search,
+        rounding_type=rounding_type,
+    )
     if conditions:
         query = query.where(*conditions)
-
-    if search:
-        query = query.where(
-            or_(
-                ResearchMethod.name.ilike(f"%{search}%"),
-                ResearchMethod.nd_code.ilike(f"%{search}%"),
-                ResearchMethod.nd_name.ilike(f"%{search}%"),
-            )
-        )
 
     sort_mapping = {
         "name": ResearchMethod.name,
@@ -125,23 +157,8 @@ async def get_research_methods(
         select(func.count()).select_from(ResearchMethod),
         ResearchMethod.deleted_at,
     )
-    count_conditions = []
-    if laboratory_id:
-        count_conditions.append(ResearchMethod.laboratory_id == laboratory_id)
-    if department_id:
-        count_conditions.append(ResearchMethod.department_id == department_id)
-    if rounding_type:
-        count_conditions.append(ResearchMethod.rounding_type == rounding_type)
-    if count_conditions:
-        count_query = count_query.where(*count_conditions)
-    if search:
-        count_query = count_query.where(
-            or_(
-                ResearchMethod.name.ilike(f"%{search}%"),
-                ResearchMethod.nd_code.ilike(f"%{search}%"),
-                ResearchMethod.nd_name.ilike(f"%{search}%"),
-            )
-        )
+    if conditions:
+        count_query = count_query.where(*conditions)
 
     total = await get_total_count(db, count_query)
 
@@ -154,27 +171,39 @@ async def get_research_methods(
 
 async def get_max_sort_order(db: AsyncSession) -> int:
     """Получить максимальный sort_order среди методов и групп."""
-    max_method_sort_order = await db.execute(
+    max_method = await execute_scalar_one_or_none(
+        db,
         filter_not_deleted(
             select(func.max(ResearchMethod.sort_order)).where(
-                ResearchMethod.is_group_member == False,
+                ResearchMethod.is_group_member.is_(False),
             ),
             ResearchMethod.deleted_at,
-        )
+        ),
     )
-    max_group_sort_order = await db.execute(
+    max_group = await execute_scalar_one_or_none(
+        db,
         filter_not_deleted(
             select(func.max(ResearchMethodGroup.sort_order)),
             ResearchMethodGroup.deleted_at,
-        )
+        ),
     )
-    max_method = max_method_sort_order.scalar() or 0
-    max_group = max_group_sort_order.scalar() or 0
-    return max(max_method, max_group)
+    return max(max_method or 0, max_group or 0)
+
+
+async def get_research_methods_referencing_equipment(
+    db: AsyncSession,
+    equipment_id: int,
+) -> list[ResearchMethod]:
+    """Вернуть методы, у которых в equipment_data_default есть указанный прибор."""
+    query = filter_not_deleted(
+        select(ResearchMethod).where(func.cast(ResearchMethod.equipment_data_default, JSONB).contains([equipment_id])),
+        ResearchMethod.deleted_at,
+    )
+    return await execute_scalars_all(db, query)
 
 
 async def add_research_method(db: AsyncSession, method: ResearchMethod) -> ResearchMethod:
-    """Добавить метод исследования в сессию."""
+    """Добавить метод исследования."""
     await add_and_flush(db, method)
     return method
 
@@ -188,7 +217,7 @@ async def get_conflicting_method_by_sort_order(
     query = filter_not_deleted(
         select(ResearchMethod).where(
             ResearchMethod.sort_order == sort_order,
-            ResearchMethod.is_group_member == False,
+            ResearchMethod.is_group_member.is_(False),
         ),
         ResearchMethod.deleted_at,
     )
@@ -225,8 +254,7 @@ async def get_research_method_group_by_id(
         .where(ResearchMethodGroup.id == group_id)
         .options(selectinload(ResearchMethodGroup.methods))
     )
-    if not include_deleted:
-        query = filter_not_deleted(query, ResearchMethodGroup.deleted_at)
+    query = filter_not_deleted_unless(query, ResearchMethodGroup.deleted_at, include_deleted)
     return await execute_scalar_one_or_none(db, query)
 
 
@@ -243,8 +271,9 @@ async def get_research_method_groups(
         selectinload(ResearchMethodGroup.methods)
     )
 
-    if search:
-        query = query.where(ResearchMethodGroup.name.ilike(f"%{search}%"))
+    conditions = _build_research_method_group_conditions(search=search)
+    if conditions:
+        query = query.where(*conditions)
 
     sort_mapping = {
         "name": ResearchMethodGroup.name,
@@ -258,8 +287,8 @@ async def get_research_method_groups(
         select(func.count()).select_from(ResearchMethodGroup),
         ResearchMethodGroup.deleted_at,
     )
-    if search:
-        count_query = count_query.where(ResearchMethodGroup.name.ilike(f"%{search}%"))
+    if conditions:
+        count_query = count_query.where(*conditions)
 
     total = await get_total_count(db, count_query)
 
@@ -270,25 +299,41 @@ async def get_research_method_groups(
     return groups, total
 
 
-async def get_research_methods_by_ids(db: AsyncSession, method_ids: list[int]) -> list[ResearchMethod]:
+async def get_research_methods_by_ids(
+    db: AsyncSession,
+    method_ids: list[int],
+    include_deleted: bool = False,
+) -> list[ResearchMethod]:
     """Получить методы исследования по списку ID."""
-    query = filter_not_deleted(
-        select(ResearchMethod).where(ResearchMethod.id.in_(method_ids)),
-        ResearchMethod.deleted_at,
-    ).options(selectinload(ResearchMethod.groups))
-    return await execute_scalars_all(db, query)
-
-
-async def get_research_methods_by_ids_any(db: AsyncSession, method_ids: list[int]) -> list[ResearchMethod]:
-    """Получить методы исследования по списку ID без фильтра deleted."""
     if not method_ids:
         return []
     query = select(ResearchMethod).where(ResearchMethod.id.in_(method_ids)).options(selectinload(ResearchMethod.groups))
+    query = filter_not_deleted_unless(query, ResearchMethod.deleted_at, include_deleted)
     return await execute_scalars_all(db, query)
 
 
+async def get_valid_method_ids(
+    db: AsyncSession,
+    method_ids: set[int],
+    laboratory_id: int,
+    department_id: int | None,
+) -> set[int]:
+    """Получить ID методов исследования, существующих в лаборатории."""
+    query = filter_not_deleted(
+        select(ResearchMethod.id).where(
+            ResearchMethod.id.in_(method_ids),
+            ResearchMethod.laboratory_id == laboratory_id,
+        ),
+        ResearchMethod.deleted_at,
+    )
+    if department_id:
+        query = query.where(ResearchMethod.department_id == department_id)
+
+    return set(await execute_scalars_all(db, query))
+
+
 async def add_research_method_group(db: AsyncSession, group: ResearchMethodGroup) -> ResearchMethodGroup:
-    """Добавить группу методов в сессию."""
+    """Добавить группу методов."""
     await add_and_flush(db, group)
     return group
 
@@ -316,67 +361,3 @@ async def delete_method_group_associations(db: AsyncSession, group_id: int, meth
             research_method_groups_association.c.research_method_id.in_(method_ids),
         )
     )
-
-
-async def get_all_active_research_method_groups(
-    db: AsyncSession,
-) -> list[ResearchMethodGroup]:
-    """Получить все активные группы методов исследования."""
-    query = filter_not_deleted(select(ResearchMethodGroup), ResearchMethodGroup.deleted_at)
-    return await execute_scalars_all(db, query)
-
-
-async def get_research_methods_for_select(
-    db: AsyncSession,
-    laboratory_id: int | None = None,
-    department_id: int | None = None,
-) -> list[ResearchMethod]:
-    """Получить методы исследования для селекта."""
-    query = filter_not_deleted(select(ResearchMethod), ResearchMethod.deleted_at).options(
-        selectinload(ResearchMethod.laboratory),
-        selectinload(ResearchMethod.department),
-        selectinload(ResearchMethod.groups),
-    )
-    if laboratory_id:
-        query = query.where(ResearchMethod.laboratory_id == laboratory_id)
-    if department_id:
-        query = query.where(ResearchMethod.department_id == department_id)
-
-    return await execute_scalars_all(db, query)
-
-
-async def get_all_active_research_methods_for_tree(
-    db: AsyncSession,
-) -> list[ResearchMethod]:
-    """Все активные методики с лабораторией, подразделением и группами."""
-    query = filter_not_deleted(select(ResearchMethod), ResearchMethod.deleted_at).options(
-        selectinload(ResearchMethod.laboratory),
-        selectinload(ResearchMethod.department),
-        selectinload(ResearchMethod.groups),
-    )
-    return await execute_scalars_all(db, query)
-
-
-async def get_research_methods_for_equipment_update(
-    db: AsyncSession,
-    laboratory_id: int,
-    department_id: int | None,
-) -> list[ResearchMethod]:
-    """Получить методы исследования для обновления при смене версии прибора."""
-    methods_query = filter_not_deleted(
-        select(ResearchMethod).where(ResearchMethod.laboratory_id == laboratory_id),
-        ResearchMethod.deleted_at,
-    )
-
-    if department_id:
-        methods_query = methods_query.where(ResearchMethod.department_id == department_id)
-
-    return await execute_scalars_all(db, methods_query)
-
-
-async def get_all_research_methods_for_equipment_removal(
-    db: AsyncSession,
-) -> list[ResearchMethod]:
-    """Получить все неудалённые методы исследования."""
-    methods_query = filter_not_deleted(select(ResearchMethod), ResearchMethod.deleted_at)
-    return await execute_scalars_all(db, methods_query)

@@ -1,5 +1,8 @@
+from __future__ import annotations
+
+
 def next_version_string(current_version: str | None) -> str:
-    """Следующая версия шаблона или прибора в формате vN."""
+    """Вернуть следующую версию шаблона или прибора в формате vN."""
     if not current_version:
         return "v1"
     try:

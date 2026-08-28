@@ -1,24 +1,50 @@
-export type { AnimatedIconHandle } from './createAnimatedAntdIcon';
-export { AimAntdIcon, ExperimentAntdIcon } from './antdNavIcons';
-export { BookTextIcon } from './book-text';
-export type { BookTextIconHandle } from './book-text';
-export { CalculatorIcon } from './calculator';
-export type { CalculatorIconHandle } from './calculator';
-export { CircleHelpIcon } from './circle-help';
-export type { CircleHelpIconHandle } from './circle-help';
-export { FileTextIcon } from './file-text';
-export type { FileTextIconHandle } from './file-text';
-export { FlaskIcon } from './flask';
-export type { FlaskIconHandle } from './flask';
-export { HomeIcon } from './home';
-export type { HomeIconHandle } from './home';
-export { MapPinIcon } from './map-pin';
-export type { MapPinIconHandle } from './map-pin';
-export { RefreshCWIcon } from './refresh-cw';
-export type { RefreshCWIconHandle } from './refresh-cw';
-export { SettingsIcon } from './settings';
-export type { SettingsIconHandle } from './settings';
-export { UsersIcon } from './users';
-export type { UsersIconHandle } from './users';
-export { WrenchIcon } from './wrench';
-export type { WrenchIconHandle } from './wrench';
+import './icons.css';
+
+export {
+  ArrowLeftOutlined,
+  BankOutlined,
+  BarChartOutlined,
+  BoldOutlined,
+  BranchesOutlined,
+  CalculatorOutlined,
+  ClusterOutlined,
+  DashboardOutlined,
+  DeleteOutlined,
+  DeploymentUnitOutlined,
+  DownloadOutlined,
+  EditOutlined,
+  EnvironmentOutlined,
+  ExperimentOutlined,
+  FileExcelOutlined,
+  FileTextOutlined,
+  HolderOutlined,
+  InboxOutlined,
+  ItalicOutlined,
+  LoadingOutlined,
+  PlusOutlined,
+  SettingOutlined,
+} from '@ant-design/icons';
+export type { AnimatedIconHandle } from './CreateAnimatedAntdIcon';
+export { AimAntdIcon, ExperimentAntdIcon } from './AntdNavIcons';
+export { BookTextIcon } from './BookTextIcon';
+export type { BookTextIconHandle } from './BookTextIcon';
+export { CalculatorIcon } from './CalculatorIcon';
+export type { CalculatorIconHandle } from './CalculatorIcon';
+export { CircleHelpIcon } from './CircleHelpIcon';
+export type { CircleHelpIconHandle } from './CircleHelpIcon';
+export { FileTextIcon } from './FileTextIcon';
+export type { FileTextIconHandle } from './FileTextIcon';
+export { FlaskIcon } from './FlaskIcon';
+export type { FlaskIconHandle } from './FlaskIcon';
+export { HomeIcon } from './HomeIcon';
+export type { HomeIconHandle } from './HomeIcon';
+export { MapPinIcon } from './MapPinIcon';
+export type { MapPinIconHandle } from './MapPinIcon';
+export { RefreshCwIcon } from './RefreshCwIcon';
+export type { RefreshCwIconHandle } from './RefreshCwIcon';
+export { SettingsIcon } from './SettingsIcon';
+export type { SettingsIconHandle } from './SettingsIcon';
+export { UsersIcon } from './UsersIcon';
+export type { UsersIconHandle } from './UsersIcon';
+export { WrenchIcon } from './WrenchIcon';
+export type { WrenchIconHandle } from './WrenchIcon';

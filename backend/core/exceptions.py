@@ -1,82 +1,29 @@
-from typing import Any
-from fastapi import Request, status
-from fastapi.exceptions import RequestValidationError
-from core.logger import logger
-from core.responses import ORJSONResponse
-
-
-def _json_safe_value(value: Any) -> Any:
-    """Приводит значение к виду, совместимому с orjson."""
-    if isinstance(value, BaseException):
-        return str(value)
-    if isinstance(value, dict):
-        return {key: _json_safe_value(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [_json_safe_value(item) for item in value]
-    return value
-
-
 class BusinessLogicError(Exception):
     """Базовое исключение для ошибок бизнес-логики."""
 
-    def __init__(self, message: str, status_code: int = status.HTTP_400_BAD_REQUEST):
+    def __init__(self, message: str):
         self.message = message
-        self.status_code = status_code
         super().__init__(self.message)
 
 
 class NotFoundError(BusinessLogicError):
     """Исключение для случаев, когда ресурс не найден."""
 
-    def __init__(self, message: str):
-        super().__init__(message, status_code=status.HTTP_404_NOT_FOUND)
 
-
-class ValidationError(BusinessLogicError):
-    """Исключение для ошибок валидации данных."""
-
-    def __init__(self, message: str):
-        super().__init__(message, status_code=status.HTTP_400_BAD_REQUEST)
+class DomainValidationError(BusinessLogicError):
+    """Исключение для ошибок доменной валидации."""
 
 
 class ConflictError(BusinessLogicError):
     """Исключение для конфликтов (дублирование, нарушение ограничений)."""
-
-    def __init__(self, message: str):
-        super().__init__(message, status_code=status.HTTP_409_CONFLICT)
 
 
 class ForbiddenError(BusinessLogicError):
     """Исключение при отказе в доступе."""
 
     def __init__(self, message: str = "Отказано в доступе"):
-        super().__init__(message, status_code=status.HTTP_403_FORBIDDEN)
+        super().__init__(message)
 
 
 class ServiceUnavailableError(BusinessLogicError):
     """Исключение при недоступности внешнего сервиса."""
-
-    def __init__(self, message: str):
-        super().__init__(message, status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
-
-
-async def validation_exception_handler(request: Request, exc: RequestValidationError) -> ORJSONResponse:
-    """Обработчик ошибок валидации с логированием."""
-    logger.error(f"Ошибка валидации для {request.url.path}: {exc.errors()}")
-    logger.error(f"Тело запроса: {await request.body() if hasattr(request, 'body') else 'N/A'}")
-    return ORJSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={
-            "detail": _json_safe_value(exc.errors()),
-            "body": str(exc.body),
-        },
-    )
-
-
-async def business_logic_exception_handler(request: Request, exc: BusinessLogicError) -> ORJSONResponse:
-    """Обработчик ошибок бизнес-логики."""
-    logger.warning(f"Ошибка бизнес-логики для {request.url.path}: {exc.message}")
-    return ORJSONResponse(
-        status_code=exc.status_code,
-        content={"detail": exc.message},
-    )

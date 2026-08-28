@@ -1,34 +1,38 @@
-import { AxiosError } from 'axios';
+import { isAxiosError, AxiosError } from 'axios';
 
-/**
- * Извлекает детальное сообщение об ошибке из ответа сервера
- * @param error - ошибка (обычно AxiosError)
- * @param defaultMessage - сообщение по умолчанию, если не удалось извлечь
- * @returns детальное сообщение об ошибке
- */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+/** Извлекает детальное сообщение об ошибке из ответа сервера. */
 export const extractErrorMessage = (error: unknown, defaultMessage: string): string => {
-  if (error instanceof AxiosError && error.response?.data) {
-    const detail = error.response.data.detail;
+  if (!isAxiosError(error) && !(error instanceof AxiosError)) {
+    return defaultMessage;
+  }
 
-    if (typeof detail === 'string') {
-      return detail;
-    }
+  const data: unknown = error.response?.data;
+  if (!isRecord(data)) {
+    return defaultMessage;
+  }
 
-    if (Array.isArray(detail)) {
-      // Если detail - массив (ошибки валидации), берем первое сообщение
-      const firstError = detail[0];
-      if (firstError?.msg) {
-        return firstError.msg;
-      }
-      if (typeof firstError === 'string') {
-        return firstError;
-      }
-    }
+  const detail: unknown = data.detail;
 
-    // Если есть общее сообщение об ошибке
-    if (error.response.data.message && typeof error.response.data.message === 'string') {
-      return error.response.data.message;
+  if (typeof detail === 'string') {
+    return detail;
+  }
+
+  if (Array.isArray(detail)) {
+    const firstError: unknown = detail[0];
+    if (isRecord(firstError) && typeof firstError.msg === 'string') {
+      return firstError.msg;
     }
+    if (typeof firstError === 'string') {
+      return firstError;
+    }
+  }
+
+  if (typeof data.message === 'string') {
+    return data.message;
   }
 
   return defaultMessage;

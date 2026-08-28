@@ -1,16 +1,31 @@
 from __future__ import annotations
-from sqlalchemy import func, select
+from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from models.sample import SelectionConditions
+from models.selection_conditions import SelectionConditions
 from repositories.base import (
     add_and_flush,
     execute_scalar_one_or_none,
     execute_scalars_all,
     filter_not_deleted,
+    filter_not_deleted_unless,
 )
 from utils.pagination import apply_pagination, get_total_count
 from utils.sorting import build_order_by
+
+
+def _build_selection_conditions_filters(
+    *,
+    laboratory_id: int | None = None,
+    department_id: int | None = None,
+) -> list[ColumnElement[bool]]:
+    """Собрать фильтрацию условий отбора."""
+    conditions: list[ColumnElement[bool]] = []
+    if laboratory_id:
+        conditions.append(SelectionConditions.laboratory_id == laboratory_id)
+    if department_id:
+        conditions.append(SelectionConditions.department_id == department_id)
+    return conditions
 
 
 async def get_selection_conditions_by_id(
@@ -25,8 +40,7 @@ async def get_selection_conditions_by_id(
             selectinload(SelectionConditions.department),
         )
     )
-    if not include_deleted:
-        query = filter_not_deleted(query, SelectionConditions.deleted_at)
+    query = filter_not_deleted_unless(query, SelectionConditions.deleted_at, include_deleted)
     return await execute_scalar_one_or_none(db, query)
 
 
@@ -45,11 +59,10 @@ async def get_selection_conditions(
         selectinload(SelectionConditions.department),
     )
 
-    conditions = []
-    if laboratory_id:
-        conditions.append(SelectionConditions.laboratory_id == laboratory_id)
-    if department_id:
-        conditions.append(SelectionConditions.department_id == department_id)
+    conditions = _build_selection_conditions_filters(
+        laboratory_id=laboratory_id,
+        department_id=department_id,
+    )
     if conditions:
         query = query.where(*conditions)
 
@@ -63,13 +76,8 @@ async def get_selection_conditions(
         select(func.count()).select_from(SelectionConditions),
         SelectionConditions.deleted_at,
     )
-    count_conditions = []
-    if laboratory_id:
-        count_conditions.append(SelectionConditions.laboratory_id == laboratory_id)
-    if department_id:
-        count_conditions.append(SelectionConditions.department_id == department_id)
-    if count_conditions:
-        count_query = count_query.where(*count_conditions)
+    if conditions:
+        count_query = count_query.where(*conditions)
 
     total = await get_total_count(db, count_query)
 
@@ -81,6 +89,6 @@ async def get_selection_conditions(
 
 
 async def add_selection_conditions(db: AsyncSession, selection_conditions: SelectionConditions) -> SelectionConditions:
-    """Добавить условия отбора в сессию."""
+    """Добавить условия отбора."""
     await add_and_flush(db, selection_conditions)
     return selection_conditions

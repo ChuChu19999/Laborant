@@ -56,7 +56,7 @@
                 "name": "X₁",
                 "unit": "%",
                 "formula": "(M₁₁-M₁₀)/M₁*100",
-                "description": "Первый расчет массовой доли смол",
+                "description": "Первый расчёт массовой доли смол",
                 "show_calculation": true,
                 "range_calculation": null,
                 "use_multiple_rounding": false
@@ -65,7 +65,7 @@
                 "name": "X₂",
                 "unit": "%",
                 "formula": "(M₂₁-M₂₀)/M₂*100",
-                "description": "Второй расчет массовой доли смол",
+                "description": "Второй расчёт массовой доли смол",
                 "show_calculation": true,
                 "range_calculation": null,
                 "use_multiple_rounding": false

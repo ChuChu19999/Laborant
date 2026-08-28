@@ -6,7 +6,8 @@ from core.config import get_database_schema
 from models.base import BaseModel
 
 if TYPE_CHECKING:
-    from models.laboratory import Department, Laboratory
+    from models.department import Department
+    from models.laboratory import Laboratory
 
 
 class NdNorm(BaseModel):
@@ -49,5 +50,5 @@ class NdNorm(BaseModel):
         {"schema": get_database_schema()},
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<NdNorm(id={self.id}, name='{self.name}', laboratory_id={self.laboratory_id})>"

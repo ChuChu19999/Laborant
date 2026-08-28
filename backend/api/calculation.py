@@ -1,31 +1,31 @@
 from __future__ import annotations
-from fastapi import APIRouter, Depends, Query
-from core.deps import DbSession, ScopeSortPaginationParams, UserPermissions
-from core.exceptions import ForbiddenError, ValidationError
+from fastapi import APIRouter, Query
+from core.deps import CalculationListFiltersDep, DbSession, UserPermissions
 from schemas.calculation import (
     CalculateRequest,
+    CalculateResponse,
     CalculationCreate,
     CalculationResponse,
     CalculationUpdate,
     MethodologyChoiceResponse,
 )
-from schemas.pagination import PaginatedResponse
-from services.access_control import enforce_crud_access, enforce_nav_access
-from services.calculation import (
-    create_calculation,
+from schemas.pagination import PaginatedResponse, build_paginated_response
+from services.access_control import enforce_crud_access, resolve_calculations_read_access
+from services.calculation.service import (
+    create_calculation_for_response,
     delete_calculation,
-    execute_calculation,
+    execute_calculation_with_access,
+    get_calculation_for_response,
     get_calculation_methodology_choice,
-    get_calculation_response_data,
     get_calculations,
     get_calculations_by_sample,
-    get_calculations_response_data,
-    replace_calculation,
+    replace_calculation_for_response,
     require_calculation_by_id,
-    update_calculation,
+    resolve_calculation_replace_scope,
+    resolve_calculation_update_scope,
+    update_calculation_for_response,
 )
-from services.research import require_research_method_by_id
-from services.sample import require_sample_by_id
+from services.sample.service import require_sample_by_id
 
 router = APIRouter()
 
@@ -33,74 +33,55 @@ router = APIRouter()
 @router.get(
     "/calculations/",
     response_model=PaginatedResponse[CalculationResponse],
-    summary="Получение списка расчетов",
+    summary="Получение списка расчётов",
     description=(
-        "Возвращает список расчетов с пагинацией или без. "
+        "Возвращает список расчётов с пагинацией или без. "
         "Если page и page_size не указаны, возвращает все записи. "
         "Поддерживает фильтрацию по пробам, лабораториям, подразделениям и методам исследования. "
         "Можно указать несколько ID проб через запятую в параметре sample_ids."
     ),
     responses={
-        200: {"description": "Список расчетов успешно получен"},
+        200: {"description": "Список расчётов успешно получен"},
+        403: {"description": "Отказано в доступе"},
     },
 )
 # @IsAuthenticated
 async def list_calculations(
     db: DbSession,
     effective: UserPermissions,
-    params: ScopeSortPaginationParams = Depends(),
-    sample_id: int | None = Query(None),
-    sample_ids: str | None = Query(None, description="Список ID проб через запятую"),
-    research_method_id: int | None = Query(None),
-    include_deleted: bool = Query(False),
+    filters: CalculationListFiltersDep,
 ):
-    """Возвращает список расчетов с пагинацией или без."""
     enforce_crud_access(
         effective,
         "calculations",
         "execute",
-        params.laboratory_id,
-        params.department_id,
+        filters.laboratory_id,
+        filters.department_id,
     )
-    sample_ids_list = None
-    if sample_ids:
-        try:
-            sample_ids_list = [int(id.strip()) for id in sample_ids.split(",") if id.strip()]
-        except ValueError as exc:
-            raise ValidationError("Некорректный формат sample_ids: ожидаются целые числа через запятую") from exc
-
-    calculations, total, total_pages = await get_calculations(
+    calculations, total = await get_calculations(
         db,
-        sample_id=sample_id,
-        sample_ids=sample_ids_list,
-        laboratory_id=params.laboratory_id,
-        department_id=params.department_id,
-        research_method_id=research_method_id,
-        include_deleted=include_deleted,
-        page=params.page,
-        page_size=params.page_size,
-        sort_by=params.sort_by,
-        sort_order=params.sort_order,
+        sample_id=filters.sample_id,
+        sample_ids=filters.sample_ids,
+        laboratory_id=filters.laboratory_id,
+        department_id=filters.department_id,
+        research_method_id=filters.research_method_id,
+        include_deleted=filters.include_deleted,
+        page=filters.page,
+        page_size=filters.page_size,
+        sort_by=filters.sort_by,
+        sort_order=filters.sort_order,
     )
-
-    items = await get_calculations_response_data(db, calculations)
-
-    return PaginatedResponse(
-        items=items,
-        total=total,
-        page=params.page if params.page is not None else 1,
-        page_size=params.page_size if params.page_size is not None else total,
-        total_pages=total_pages,
-    )
+    return build_paginated_response(calculations, total, filters.page, filters.page_size)
 
 
 @router.get(
-    "/calculations/by-sample/{sample_id}/",
+    "/calculations/by-sample/{sample_id:int}/",
     response_model=list[CalculationResponse],
-    summary="Получение расчетов по пробе",
-    description="Возвращает все расчеты для указанной пробы без пагинации.",
+    summary="Получение расчётов по пробе",
+    description="Возвращает все расчёты для указанной пробы без пагинации.",
     responses={
-        200: {"description": "Список расчетов успешно получен"},
+        200: {"description": "Список расчётов успешно получен"},
+        403: {"description": "Отказано в доступе"},
     },
 )
 # @IsAuthenticated
@@ -111,40 +92,30 @@ async def get_calculations_by_sample_endpoint(
     include_deleted: bool = Query(False),
     sort_by: str | None = Query(None),
     sort_order: str | None = Query("desc"),
-):
-    """Возвращает все расчеты для указанной пробы без пагинации."""
+) -> list[CalculationResponse]:
     sample = await require_sample_by_id(db, sample_id)
-    try:
-        enforce_nav_access(effective, "samples", sample.laboratory_id, sample.department_id)
-    except ForbiddenError:
-        enforce_crud_access(
-            effective,
-            "calculations",
-            "execute",
-            sample.laboratory_id,
-            sample.department_id,
-        )
-    calculations = await get_calculations_by_sample(
+    resolve_calculations_read_access(effective, sample.laboratory_id, sample.department_id)
+    return await get_calculations_by_sample(
         db,
         sample_id=sample_id,
         include_deleted=include_deleted,
         sort_by=sort_by,
         sort_order=sort_order,
     )
-    return await get_calculations_response_data(db, calculations)
 
 
 @router.post(
     "/calculations/",
     response_model=CalculationResponse,
     status_code=201,
-    summary="Добавление нового расчета",
+    summary="Добавление нового расчёта",
     description=(
-        "Добавляет новый расчет на основе переданных данных. Расчет привязывается к пробе и методу исследования."
+        "Добавляет новый расчёт на основе переданных данных. Расчёт привязывается к пробе и методу исследования."
     ),
     responses={
-        201: {"description": "Расчет успешно добавлен"},
-        400: {"description": "Некорректные данные для добавления расчета"},
+        201: {"description": "Расчёт успешно добавлен"},
+        400: {"description": "Некорректные данные для добавления расчёта"},
+        403: {"description": "Отказано в доступе"},
     },
 )
 # @IsAuthenticated
@@ -152,8 +123,7 @@ async def create_calculation_endpoint(
     calculation_data: CalculationCreate,
     db: DbSession,
     effective: UserPermissions,
-):
-    """Добавляет новый расчет на основе переданных данных."""
+) -> CalculationResponse:
     enforce_crud_access(
         effective,
         "calculations",
@@ -161,20 +131,20 @@ async def create_calculation_endpoint(
         calculation_data.laboratory_id,
         calculation_data.department_id,
     )
-    calculation = await create_calculation(db, calculation_data)
-    return await get_calculation_response_data(db, calculation.id)
+    return await create_calculation_for_response(db, calculation_data)
 
 
 @router.get(
-    "/calculations/{calculation_id}/methodology-choice/",
+    "/calculations/{calculation_id:int}/methodology-choice/",
     response_model=MethodologyChoiceResponse,
-    summary="Проверка версии методики при редактировании расчета",
+    summary="Проверка версии методики при редактировании расчёта",
     description=(
-        "Возвращает статус изменения методики с момента сохранения расчета и идентификаторы старой и актуальной версий."
+        "Возвращает статус изменения методики с момента сохранения расчёта и идентификаторы старой и актуальной версий."
     ),
     responses={
         200: {"description": "Статус методики успешно получен"},
-        404: {"description": "Расчет или метод не найден"},
+        403: {"description": "Отказано в доступе"},
+        404: {"description": "Расчёт или метод не найден"},
     },
 )
 # @IsAuthenticated
@@ -182,8 +152,7 @@ async def get_calculation_methodology_choice_endpoint(
     calculation_id: int,
     db: DbSession,
     effective: UserPermissions,
-):
-    """Возвращает статус изменения методики при редактировании расчета."""
+) -> MethodologyChoiceResponse:
     calculation = await require_calculation_by_id(db, calculation_id)
     enforce_crud_access(
         effective,
@@ -192,17 +161,18 @@ async def get_calculation_methodology_choice_endpoint(
         calculation.laboratory_id,
         calculation.department_id,
     )
-    return await get_calculation_methodology_choice(db, calculation_id)
+    return await get_calculation_methodology_choice(db, calculation)
 
 
 @router.get(
-    "/calculations/{calculation_id}/",
+    "/calculations/{calculation_id:int}/",
     response_model=CalculationResponse,
-    summary="Получение расчета по ID",
-    description="Возвращает информацию о расчете по его идентификатору.",
+    summary="Получение расчёта по ID",
+    description="Возвращает информацию о расчёте по его идентификатору.",
     responses={
-        200: {"description": "Расчет успешно получен"},
-        404: {"description": "Расчет не найден"},
+        200: {"description": "Расчёт успешно получен"},
+        403: {"description": "Отказано в доступе"},
+        404: {"description": "Расчёт не найден"},
     },
 )
 # @IsAuthenticated
@@ -210,8 +180,7 @@ async def get_calculation(
     calculation_id: int,
     db: DbSession,
     effective: UserPermissions,
-):
-    """Возвращает информацию о расчете по его идентификатору."""
+) -> CalculationResponse:
     calculation = await require_calculation_by_id(db, calculation_id)
     enforce_crud_access(
         effective,
@@ -220,17 +189,18 @@ async def get_calculation(
         calculation.laboratory_id,
         calculation.department_id,
     )
-    return await get_calculation_response_data(db, calculation_id)
+    return await get_calculation_for_response(db, calculation)
 
 
 @router.patch(
-    "/calculations/{calculation_id}/",
+    "/calculations/{calculation_id:int}/",
     response_model=CalculationResponse,
-    summary="Обновление расчета",
-    description=("Обновляет существующий расчет."),
+    summary="Обновление расчёта",
+    description=("Обновляет существующий расчёт."),
     responses={
-        200: {"description": "Расчет успешно обновлен"},
-        404: {"description": "Расчет не найден"},
+        200: {"description": "Расчёт успешно обновлен"},
+        403: {"description": "Отказано в доступе"},
+        404: {"description": "Расчёт не найден"},
     },
 )
 # @IsAuthenticated
@@ -239,24 +209,22 @@ async def update_calculation_endpoint(
     calculation_data: CalculationUpdate,
     db: DbSession,
     effective: UserPermissions,
-):
-    """Обновляет существующий расчет."""
+) -> CalculationResponse:
     existing = await require_calculation_by_id(db, calculation_id)
-    lab_id = calculation_data.laboratory_id or existing.laboratory_id
-    dept_id = calculation_data.department_id or existing.department_id
+    lab_id, dept_id = resolve_calculation_update_scope(existing, calculation_data)
     enforce_crud_access(effective, "calculations", "update", lab_id, dept_id)
-    calculation = await update_calculation(db, calculation_id, calculation_data)
-    return await get_calculation_response_data(db, calculation.id)
+    return await update_calculation_for_response(db, calculation_id, calculation_data, calculation=existing)
 
 
 @router.delete(
-    "/calculations/{calculation_id}/",
+    "/calculations/{calculation_id:int}/",
     status_code=204,
-    summary="Удаление расчета",
-    description=("Выполняет мягкое удаление расчета."),
+    summary="Удаление расчёта",
+    description=("Выполняет мягкое удаление расчёта."),
     responses={
-        204: {"description": "Расчет успешно удален"},
-        404: {"description": "Расчет не найден"},
+        204: {"description": "Расчёт успешно удалён"},
+        403: {"description": "Отказано в доступе"},
+        404: {"description": "Расчёт не найден"},
     },
 )
 # @IsAuthenticated
@@ -264,8 +232,7 @@ async def delete_calculation_endpoint(
     calculation_id: int,
     db: DbSession,
     effective: UserPermissions,
-):
-    """Выполняет мягкое удаление расчета."""
+) -> None:
     calculation = await require_calculation_by_id(db, calculation_id)
     enforce_crud_access(
         effective,
@@ -274,22 +241,23 @@ async def delete_calculation_endpoint(
         calculation.laboratory_id,
         calculation.department_id,
     )
-    await delete_calculation(db, calculation_id)
+    await delete_calculation(db, calculation)
 
 
 @router.post(
-    "/calculations/{calculation_id}/replace/",
+    "/calculations/{calculation_id:int}/replace/",
     response_model=CalculationResponse,
     status_code=201,
-    summary="Замена расчета новой версией",
+    summary="Замена расчёта новой версией",
     description=(
-        "Выполняет замену расчета: помечает текущую запись как удаленную "
-        "и создает новую для той же пробы и метода исследования."
+        "Выполняет замену расчёта: помечает текущую запись как удалённую "
+        "и создаёт новую для той же пробы и метода исследования."
     ),
     responses={
-        201: {"description": "Расчет успешно заменен"},
+        201: {"description": "Расчёт успешно заменён"},
         400: {"description": "Некорректные данные или попытка сменить пробу или метод"},
-        404: {"description": "Расчет не найден"},
+        403: {"description": "Отказано в доступе"},
+        404: {"description": "Расчёт не найден"},
     },
 )
 async def replace_calculation_endpoint(
@@ -297,26 +265,30 @@ async def replace_calculation_endpoint(
     calculation_data: CalculationCreate,
     db: DbSession,
     effective: UserPermissions,
-):
-    """Выполняет замену расчета: помечает текущую запись как удаленную и создает новую."""
+) -> CalculationResponse:
     existing = await require_calculation_by_id(db, calculation_id)
-    lab_id = calculation_data.laboratory_id or existing.laboratory_id
-    dept_id = calculation_data.department_id or existing.department_id
+    lab_id, dept_id = resolve_calculation_replace_scope(existing, calculation_data)
     enforce_crud_access(effective, "calculations", "create", lab_id, dept_id)
-    calculation = await replace_calculation(db, calculation_id, calculation_data)
-    return await get_calculation_response_data(db, calculation.id)
+    return await replace_calculation_for_response(
+        db,
+        calculation_id,
+        calculation_data,
+        calculation=existing,
+    )
 
 
 @router.post(
     "/calculate/",
-    summary="Выполнение расчета",
+    response_model=CalculateResponse,
+    summary="Выполнение расчёта",
     description=(
-        "Выполняет расчет результата на основе входных данных и метода исследования. "
-        "Возвращает результат расчета с промежуточными результатами, условиями повторяемости и погрешностью."
+        "Выполняет расчёт результата на основе входных данных и метода исследования. "
+        "Возвращает результат расчёта с промежуточными результатами, условиями повторяемости и погрешностью."
     ),
     responses={
-        200: {"description": "Расчет успешно выполнен"},
+        200: {"description": "Расчёт успешно выполнен"},
         400: {"description": "Некорректные входные данные"},
+        403: {"description": "Отказано в доступе"},
         404: {"description": "Метод исследования не найден"},
     },
 )
@@ -325,14 +297,5 @@ async def calculate_endpoint(
     request: CalculateRequest,
     db: DbSession,
     effective: UserPermissions,
-):
-    """Выполняет расчет результата на основе входных данных и метода исследования."""
-    method = await require_research_method_by_id(db, request.research_method_id)
-    enforce_crud_access(
-        effective,
-        "calculations",
-        "execute",
-        method.laboratory_id,
-        method.department_id,
-    )
-    return await execute_calculation(db, request)
+) -> CalculateResponse:
+    return await execute_calculation_with_access(db, effective, request)

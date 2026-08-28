@@ -1,121 +1,62 @@
+from __future__ import annotations
 import asyncio
-import logging
 from logging.config import fileConfig
-import os
+from pathlib import Path
 import sys
 from sqlalchemy import pool
+from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 from alembic import context
 
-base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, base_dir)
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from core.config import get_database_schema, settings
 from core.database import Base
-from models import (  # noqa: F401
-    BaseModel,
-    Branch,
-    Calculation,
-    Department,
-    Equipment,
-    EquipmentType,
-    Laboratory,
-    MassFractionOilRefractionTable,
-    NdNorm,
-    Protocol,
-    ProtocolTemplate,
-    ReportTemplate,
-    ResearchMethod,
-    ResearchMethodGroup,
-    Role,
-    Sample,
-    SamplingLocation,
-    SelectionConditions,
-    TestObject,
-    WellMode,
-)
-from models.research import research_method_groups_association  # noqa: F401
+import models as _models  # noqa: F401
 
 config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+config.set_main_option("sqlalchemy.url", str(settings.DATABASE_URL))
 
 target_metadata = Base.metadata
-
-logging.getLogger("alembic.ddl.postgresql").setLevel(logging.WARNING)
-
-
-def include_object(object, name, type_, reflected, compare_to):
-    """
-    Ограничиваем автогенерацию Alembic только нашей схемой.
-    Это предотвращает попытки удалить/создать объекты из чужих схем.
-    """
-    schema_name = get_database_schema()
-
-    # Ранний выход для отраженных объектов из чужих схем
-    if reflected:
-        obj_schema = getattr(object, "schema", None)
-        if obj_schema != schema_name:
-            return False
-
-    try:
-        if type_ == "table":
-            object_schema = getattr(object, "schema", None)
-            return object_schema == schema_name
-        if type_ == "index":
-            table = getattr(object, "table", None)
-            if table is not None:
-                table_schema = getattr(table, "schema", None)
-                return table_schema == schema_name
-            return False
-        if type_ == "column":
-            table = getattr(object, "table", None)
-            if table is not None:
-                table_schema = getattr(table, "schema", None)
-                return table_schema == schema_name
-            return False
-        if type_ == "sequence":
-            object_schema = getattr(object, "schema", None)
-            if object_schema is None or object_schema != schema_name:
-                return False
-            return True
-        parent_table = getattr(object, "table", None) or getattr(object, "parent", None)
-        if parent_table is not None:
-            parent_schema = getattr(parent_table, "schema", None)
-            return parent_schema == schema_name
-    except Exception:
-        return False
-    return False
+SCHEMA_NAME = get_database_schema()
 
 
-def do_run_migrations(connection):
-    schema_name = get_database_schema()
+def include_object(obj, _name, type_, _reflected, _compare_to) -> bool:
+    """Сравнивать/мигрировать только объекты целевой схемы приложения."""
+    if type_ == "table":
+        return getattr(obj, "schema", None) == SCHEMA_NAME
+    if type_ in {"index", "unique_constraint", "foreign_key_constraint", "check_constraint"}:
+        table = getattr(obj, "table", None)
+        if table is not None:
+            return getattr(table, "schema", None) == SCHEMA_NAME
+    return True
 
+
+def do_run_migrations(connection: Connection) -> None:
+    """Применить миграции в рамках переданного соединения."""
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
-        version_table_schema=schema_name,
+        version_table_schema=SCHEMA_NAME,
         include_schemas=True,
         include_object=include_object,
-        compare_type=True,
-        compare_server_default=True,
     )
-
     with context.begin_transaction():
         context.run_migrations()
 
 
 async def run_migrations_online() -> None:
-    schema_name = get_database_schema()
+    """Онлайн-режим: применить миграции через async-движок."""
     connectable = create_async_engine(
-        settings.DATABASE_URL,
+        str(settings.DATABASE_URL),
         poolclass=pool.NullPool,
         connect_args={
             "server_settings": {
-                "search_path": schema_name,
+                "search_path": SCHEMA_NAME,
             }
         },
         echo=False,
@@ -128,20 +69,17 @@ async def run_migrations_online() -> None:
 
 
 def run_migrations_offline() -> None:
+    """Офлайн-режим: сгенерировать SQL миграций без подключения к БД."""
     url = config.get_main_option("sqlalchemy.url")
-    schema_name = get_database_schema()
     context.configure(
         url=url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
-        version_table_schema=schema_name,
+        version_table_schema=SCHEMA_NAME,
         include_schemas=True,
         include_object=include_object,
-        compare_type=True,
-        compare_server_default=True,
     )
-
     with context.begin_transaction():
         context.run_migrations()
 

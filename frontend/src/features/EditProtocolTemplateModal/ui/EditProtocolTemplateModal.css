@@ -1,0 +1,312 @@
+.edit-protocol-template-modal-content {
+  padding: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.edit-protocol-template-modal-content * {
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
+.template-select-section {
+  padding: 0 24px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.sections-list {
+  width: 100%;
+  max-width: 100%;
+  padding: 0 24px;
+  box-sizing: border-box;
+}
+
+.section-item {
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  margin-bottom: 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.section-item:hover {
+  background-color: #f5f5f5 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(25, 118, 210, 0.15) !important;
+  border-color: #1890ff !important;
+}
+
+.section-icon {
+  margin-right: 16px;
+  font-size: 20px;
+  color: #1890ff !important;
+}
+
+.section-info {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.section-name {
+  color: #1890ff !important;
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin-bottom: 4px;
+  font-family: 'HeliosCondC', sans-serif;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.section-description {
+  color: #666 !important;
+  font-size: 0.85rem;
+  font-family: 'HeliosCondC', sans-serif;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.section-arrow {
+  color: #1890ff !important;
+  font-size: 1.2rem;
+}
+
+.editor-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.editor-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 10px;
+  padding: 0 24px;
+  border-bottom: 1px solid #e0e0e0;
+  padding-bottom: 16px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.editor-header .editor-back-button:hover,
+.editor-header .editor-back-button:hover * {
+  color: #1890ff !important;
+}
+
+.editor-header .editor-back-button:hover {
+  border-color: #1890ff !important;
+}
+
+.editor-content {
+  flex: 1;
+  overflow: visible;
+  padding: 0 16px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.edit-protocol-template-loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  min-height: 200px;
+  gap: 16px;
+}
+
+.edit-protocol-template-upload-container {
+  background: #fafafa !important;
+  border: 1px dashed #e8e8e8 !important;
+  border-radius: 6px;
+  padding: 0;
+  transition: all 0.3s;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.edit-protocol-template-upload-container:hover {
+  border-color: #1890ff !important;
+  background: #f5f5f5 !important;
+}
+
+/* В theme Upload нет настройки внутреннего drag-area у Dragger */
+.template-upload-dragger {
+  border: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+}
+
+.upload-drag-icon {
+  color: #1890ff !important;
+  font-size: 24px;
+  margin-bottom: 5px;
+}
+
+.upload-text {
+  color: #262626 !important;
+  font-size: 14px;
+  margin-bottom: 4px;
+  font-family: 'HeliosCondC', sans-serif;
+}
+
+.upload-hint {
+  color: #8c8c8c !important;
+  font-size: 12px;
+  font-family: 'HeliosCondC', sans-serif;
+}
+
+.template-select {
+  font-size: 16px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 24px;
+}
+
+.select-dropdown-divider {
+  margin: 4px 0;
+  border-top: 1px solid #f0f0f0;
+}
+
+.select-dropdown-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #1890ff !important;
+  transition: background 0.3s;
+  font-family: 'HeliosCondC', sans-serif;
+  width: 100%;
+  border: none;
+  background: none;
+  text-align: left;
+}
+
+.select-dropdown-item:hover {
+  background: #f5f5f5 !important;
+}
+
+.new-template-form {
+  width: 100%;
+  max-width: 100%;
+  padding: 0 24px;
+  box-sizing: border-box;
+}
+
+.edit-protocol-template-form-group {
+  margin-bottom: 16px;
+  max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.edit-protocol-template-form-group-spaced {
+  margin-top: 24px;
+}
+
+.edit-protocol-template-form-label {
+  display: block;
+  margin-bottom: 6px;
+  color: #262626 !important;
+  font-weight: 500;
+  font-size: 13px;
+  font-family: 'HeliosCondC', sans-serif;
+}
+
+.template-name-input {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.selected-file {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #fff !important;
+  border: 1px solid #e8e8e8 !important;
+  border-radius: 6px;
+  transition: all 0.3s;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.selected-file:hover {
+  border-color: #1890ff !important;
+  background: #f8f8f8 !important;
+}
+
+.edit-protocol-template-file-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.file-icon {
+  font-size: 20px;
+  color: #1890ff !important;
+}
+
+.file-name {
+  font-size: 13px;
+  color: #1890ff !important;
+  font-weight: 500;
+  font-family: 'HeliosCondC', sans-serif;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.protocol-template-delete-button {
+  color: #ff4d4f !important;
+  font-family: 'HeliosCondC';
+  font-size: 14px;
+  margin-left: auto !important;
+  flex-shrink: 0 !important;
+}
+
+.protocol-template-delete-button:hover {
+  background-color: rgba(255, 77, 79, 0.1) !important;
+  color: #ff4d4f !important;
+}
+
+.select-template-message,
+.no-template-message {
+  text-align: center;
+  padding: 40px;
+  color: #8c8c8c !important;
+  font-family: 'HeliosCondC', sans-serif;
+}
+
+.form-label-required {
+  color: red !important;
+}

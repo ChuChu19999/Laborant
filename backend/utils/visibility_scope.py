@@ -1,10 +1,11 @@
 from __future__ import annotations
 from typing import Any
+from schemas.visibility import ScopeIdFilter
 
 
 def normalize_visibility_scope(
-    scope: dict[str, Any] | None,
-) -> dict[str, list[int]]:
+    scope: ScopeIdFilter | dict[str, Any] | None,
+) -> ScopeIdFilter:
     """Привести область видимости к виду со списками id лабораторий и подразделений."""
     if not scope or not isinstance(scope, dict):
         return {"laboratory_ids": [], "department_ids": []}
@@ -19,7 +20,7 @@ def normalize_visibility_scope(
 
 
 def is_visible_in_scope(
-    visibility_scope: dict[str, Any] | None,
+    visibility_scope: ScopeIdFilter | dict[str, Any] | None,
     laboratory_id: int | None = None,
     department_id: int | None = None,
 ) -> bool:
@@ -38,7 +39,10 @@ def is_visible_in_scope(
     if department_id and department_id in department_ids:
         return True
 
-    if laboratory_id and laboratory_id in laboratory_ids:
-        return True
+    return bool(laboratory_id and laboratory_id in laboratory_ids)
 
-    return False
+
+__all__ = [
+    "is_visible_in_scope",
+    "normalize_visibility_scope",
+]

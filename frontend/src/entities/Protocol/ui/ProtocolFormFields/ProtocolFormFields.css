@@ -1,0 +1,66 @@
+.protocol-form {
+  padding: 0;
+  padding-bottom: 10px;
+  width: 100%;
+}
+
+.protocol-form-group {
+  margin-bottom: 16px;
+}
+
+.protocol-form-group:last-child {
+  margin-bottom: 0;
+}
+
+.protocol-form-group label:not(.ant-checkbox-wrapper) {
+  display: block;
+  margin-bottom: 8px;
+  color: #333333;
+  font-weight: 500;
+}
+
+.protocol-form-required {
+  color: #ff4d4f !important;
+  margin-left: 2px;
+}
+
+.protocol-form-checkbox {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  font-family: 'HeliosCondC';
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.protocol-form .protocol-form-group .protocol-form-checkbox {
+  margin-bottom: 0;
+}
+
+.protocol-form .template-option-deleted {
+  opacity: 0.5;
+  color: #999;
+}
+
+.protocol-form .template-name-deleted {
+  text-decoration: line-through;
+  color: #999;
+}
+
+.protocol-form .template-current-badge {
+  color: #52c41a;
+  font-weight: 500;
+  margin-left: 4px;
+}
+
+.protocol-form .template-deleted-badge {
+  color: #999;
+  font-style: italic;
+  margin-left: 4px;
+}
+
+/* В theme Select нет настройки opacity для disabled option в dropdown */
+.protocol-form .ant-select-item-option-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

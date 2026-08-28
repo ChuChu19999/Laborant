@@ -1,0 +1,195 @@
+.test-objects-table-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  background: #fcfcfc;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(40, 40, 40, 0.12);
+  border: 1px solid #babfc7;
+  overflow: hidden;
+  font-family: 'HeliosCondC';
+  box-sizing: border-box;
+}
+
+.test-objects-table-wrapper {
+  flex: 1;
+  overflow-x: hidden;
+  overflow-y: auto;
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.test-objects-table {
+  min-width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 14px;
+  font-family: 'HeliosCondC';
+  transition: opacity 0.3s ease;
+  box-sizing: border-box;
+}
+
+.test-objects-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #efeff0;
+}
+
+.test-objects-table th {
+  position: relative;
+  padding: 8px 10px;
+  text-align: left;
+  font-weight: 400;
+  color: #282828;
+  background: #efeff0;
+  font-family: 'HeliosCondC';
+  user-select: none;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.test-objects-table-header-row th {
+  border-bottom: 1px solid #e4e6e8;
+}
+
+.test-objects-table-filter-row th {
+  padding: 8px 10px;
+  border-bottom: 2px solid #e4e6e8;
+  background: #ffffff;
+  transform: translateY(-1px);
+}
+
+.test-objects-table-filter-cell {
+  padding: 8px 10px;
+}
+
+.test-objects-table-header-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+}
+
+button.test-objects-table-header-content {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  width: 100%;
+  text-align: left;
+}
+
+.test-objects-table-header-content.sortable {
+  cursor: pointer;
+  transition: color 0.25s ease;
+}
+
+.test-objects-table-header-content.sortable:hover {
+  color: #282828;
+}
+
+.test-objects-table-sort-icon {
+  display: flex;
+  align-items: center;
+  color: #bdbfc1;
+  transition: color 0.25s ease;
+}
+
+.test-objects-table-header-content:hover .test-objects-table-sort-icon {
+  color: #282828;
+}
+
+.test-objects-table tbody tr {
+  transition: background-color 0.25s ease;
+  border-bottom: 1px solid #e4e6e8;
+}
+
+.test-objects-table tbody tr:hover {
+  background-color: #e9f7ff;
+}
+
+.test-objects-table td {
+  padding: 8px 10px;
+  color: #282828;
+  font-family: 'HeliosCondC';
+  overflow: hidden;
+  box-sizing: border-box;
+  word-wrap: break-word;
+}
+
+.test-objects-table-empty-cell {
+  text-align: center;
+  padding: 48px 16px;
+  color: #5f6770;
+  font-size: 14px;
+  font-family: 'HeliosCondC';
+}
+
+.test-objects-table-actions {
+  display: flex;
+  align-items: center;
+}
+
+.test-objects-table-edit-button {
+  color: #1890ff !important;
+  font-family: 'HeliosCondC';
+  font-size: 14px;
+}
+
+.test-objects-table-edit-button:hover {
+  background-color: rgba(24, 144, 255, 0.1) !important;
+  color: #1890ff !important;
+}
+
+.test-objects-table-delete-button {
+  font-family: 'HeliosCondC';
+  font-size: 14px;
+}
+
+.test-objects-table-resizer {
+  position: absolute;
+  right: 0;
+  top: 0;
+  height: 100%;
+  width: 5px;
+  cursor: col-resize;
+  user-select: none;
+  touch-action: none;
+  z-index: 1;
+}
+
+.test-objects-table-resizer:hover {
+  background-color: #282828;
+  opacity: 0.5;
+}
+
+.test-objects-table-resizer.isResizing {
+  background-color: #282828;
+  opacity: 1;
+}
+
+.test-objects-table th:hover .test-objects-table-resizer {
+  background-color: #bdbfc1;
+}
+
+.test-objects-table th.is-resizing,
+.test-objects-table td.is-resizing {
+  transition: none;
+}
+
+@media (max-width: 768px) {
+  .test-objects-table th,
+  .test-objects-table td {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+}

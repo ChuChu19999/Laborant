@@ -1,0 +1,170 @@
+.method-list-item {
+  padding: 5px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: 'HeliosCondC';
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+button.method-list-item {
+  border: 1px solid rgba(44, 82, 130, 0.08);
+  color: inherit;
+}
+
+.method-list-item-editable {
+  background: transparent;
+  border: 1px solid transparent;
+  box-shadow: none;
+}
+
+.method-list-item-editable:hover {
+  background-color: #edf2f7;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
+}
+
+.method-list-item-editable.active {
+  background-color: #e2e8f0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  border: 1px solid #cbd5e0;
+}
+
+.method-list-item-non-editable {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.6) 100%);
+  border: 1px solid rgba(44, 82, 130, 0.08);
+  box-shadow:
+    0 1px 3px rgba(44, 82, 130, 0.05),
+    inset 0 1px 1px rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(8px);
+}
+
+.method-list-item-non-editable:hover {
+  background: linear-gradient(135deg, rgba(44, 82, 130, 0.08) 0%, rgba(26, 54, 93, 0.12) 100%);
+  transform: translateY(-1px);
+  box-shadow:
+    0 4px 12px rgba(44, 82, 130, 0.08),
+    inset 0 1px 1px rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(44, 82, 130, 0.12);
+}
+
+.method-list-item-non-editable.active {
+  background: linear-gradient(135deg, rgba(44, 82, 130, 0.1) 0%, rgba(26, 54, 93, 0.15) 100%);
+  box-shadow:
+    0 4px 12px rgba(44, 82, 130, 0.1),
+    inset 0 1px 1px rgba(255, 255, 255, 0.5);
+}
+
+.method-list-item-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  z-index: 1;
+  flex: 1;
+}
+
+.method-list-item-drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  padding: 4px;
+  margin-right: 4px;
+  color: #718096;
+  transition: color 0.2s ease;
+  flex-shrink: 0;
+}
+
+.method-list-item-drag-handle:active {
+  cursor: grabbing;
+}
+
+.method-list-item-drag-handle:hover {
+  color: #2c5282;
+}
+
+.drag-indicator-icon {
+  font-size: 18px !important;
+  width: 18px !important;
+  height: 18px !important;
+}
+
+.method-list-item-name {
+  font-size: 14px;
+  font-family: 'HeliosCondC';
+  color: #2c5282;
+  font-weight: 400;
+}
+
+.method-list-item.active .method-list-item-name {
+  font-weight: 500;
+}
+
+.method-list-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.method-list-item-edit,
+.method-list-item-delete,
+.method-list-item-disconnect {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  font-size: 21px;
+  color: #666;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+}
+
+.method-list-item-edit-icon {
+  font-size: 13px;
+}
+
+.method-list-item-edit:hover {
+  color: #2c5282;
+}
+
+.method-list-item-delete:hover {
+  color: #ff4d4f;
+}
+
+.method-list-item-disconnect-icon {
+  font-size: 16px !important;
+  width: 16px !important;
+  height: 16px !important;
+}
+
+.method-list-item-disconnect:hover {
+  color: #d97706;
+}
+
+.method-list-item-indicator {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(44, 82, 130, 0.2);
+  transform: translateY(-50%);
+  transition: all 0.3s ease;
+}
+
+.method-list-item.active .method-list-item-indicator {
+  background: #2c5282;
+}

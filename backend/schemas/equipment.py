@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import date, datetime
-from typing import Annotated
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator
+from typing import Annotated, Any
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, computed_field
 from models.equipment import EquipmentType
 from schemas.common import (
     MethodDataDefault,
@@ -9,31 +9,36 @@ from schemas.common import (
     OptionalNonEmptyStr,
     PositiveIntList,
     make_enum_validator,
+    related_entity_name,
 )
 
 _validate_equipment_type = make_enum_validator(EquipmentType, "Тип прибора")
 EquipmentTypeField = Annotated[str, AfterValidator(_validate_equipment_type)]
 EquipmentName = Annotated[NonEmptyStr, Field(max_length=255)]
 EquipmentSerialNumber = Annotated[NonEmptyStr, Field(max_length=100)]
+EquipmentVerificationInfo = Annotated[NonEmptyStr, Field(max_length=255)]
 
 
-class EquipmentBase(BaseModel):
+class EquipmentFieldsBase(BaseModel):
+    """Общие поля прибора или оборудования без версии."""
+
     type: EquipmentTypeField = Field(..., description="Тип прибора или оборудования")
     name: EquipmentName = Field(..., description="Наименование прибора или оборудования")
     serial_number: EquipmentSerialNumber = Field(..., description="Заводской номер прибора или оборудования")
-    verification_info: str = Field(..., max_length=255, description="Сведения о результатах поверки")
+    verification_info: EquipmentVerificationInfo = Field(..., description="Сведения о результатах поверки")
     verification_date: date = Field(..., description="Дата поверки")
     verification_end_date: date = Field(..., description="Дата окончания срока действия поверки")
+
+
+class EquipmentBase(EquipmentFieldsBase):
+    """Общие поля прибора или оборудования."""
+
     version: str = Field(..., max_length=8, description="Версия прибора (например, v1)")
 
 
-class EquipmentCreate(BaseModel):
-    type: EquipmentTypeField = Field(..., description="Тип прибора или оборудования")
-    name: EquipmentName = Field(..., description="Наименование прибора или оборудования")
-    serial_number: EquipmentSerialNumber = Field(..., description="Заводской номер прибора или оборудования")
-    verification_info: str = Field(..., max_length=255, description="Сведения о результатах поверки")
-    verification_date: date = Field(..., description="Дата поверки")
-    verification_end_date: date = Field(..., description="Дата окончания срока действия поверки")
+class EquipmentCreate(EquipmentFieldsBase):
+    """Запрос на создание прибора или оборудования."""
+
     laboratory_id: int = Field(..., description="ID лаборатории")
     department_id: int | None = Field(None, description="ID подразделения")
     method_data_default: MethodDataDefault = Field(
@@ -43,37 +48,40 @@ class EquipmentCreate(BaseModel):
 
 
 class EquipmentUpdate(BaseModel):
+    """Частичное обновление прибора или оборудования."""
+
     type: EquipmentTypeField | None = None
-    name: Annotated[OptionalNonEmptyStr, Field(max_length=255)] = None
-    serial_number: Annotated[OptionalNonEmptyStr, Field(max_length=100)] = None
-    verification_info: str | None = Field(None, max_length=255)
+    name: OptionalNonEmptyStr = Field(None, max_length=255)
+    serial_number: OptionalNonEmptyStr = Field(None, max_length=100)
+    verification_info: OptionalNonEmptyStr = Field(None, max_length=255)
     verification_date: date | None = None
     verification_end_date: date | None = None
-    version: str | None = Field(None, max_length=8)
     laboratory_id: int | None = None
     department_id: int | None = None
     method_data_default: PositiveIntList | None = None
 
-    @field_validator("method_data_default", mode="before")
-    @classmethod
-    def validate_method_data_default(cls, value: list[int] | None) -> list[int] | None:
-        if value is None:
-            return None
-        for item in value:
-            if item <= 0:
-                raise ValueError("Каждый ID метода должен быть положительным целым числом")
-        return value
-
 
 class EquipmentResponse(EquipmentBase):
+    """Ответ API с данными прибора или оборудования."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     laboratory_id: int
     department_id: int | None = None
     method_data_default: list[int] | None = None
-    laboratory_name: str | None = None
-    department_name: str | None = None
+    laboratory: Any = Field(default=None, exclude=True)
+    department: Any = Field(default=None, exclude=True)
     created_at: datetime
     updated_at: datetime
     deleted_at: datetime | None = None
+
+    @computed_field
+    @property
+    def laboratory_name(self) -> str | None:
+        return related_entity_name(self.laboratory)
+
+    @computed_field
+    @property
+    def department_name(self) -> str | None:
+        return related_entity_name(self.department)

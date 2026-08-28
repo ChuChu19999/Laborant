@@ -1,0 +1,38 @@
+.fill-calculations-modal-content {
+  display: flex;
+  flex-direction: column;
+  min-height: 400px;
+  max-height: 70vh;
+  gap: 16px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.fill-calculations-modal-content--loading {
+  align-items: center;
+  justify-content: center;
+}
+
+.fill-calculations-modal-content--loading > :only-child {
+  flex: 0 0 auto;
+}
+
+.fill-calculations-modal-header {
+  display: flex;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.fill-calculations-modal-add-button {
+  font-family: 'HeliosCondC';
+}
+
+.fill-calculations-modal-content > .calculations-table-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: auto;
+  min-height: 0;
+  width: 100%;
+  max-width: 100%;
+}

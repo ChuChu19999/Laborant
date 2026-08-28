@@ -1,12 +1,14 @@
 from __future__ import annotations
 from datetime import datetime
 from typing import Annotated, Any
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from schemas.common import NonEmptyStr, OptionalNonEmptyStr
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator, model_validator
+from schemas.common import NonEmptyStr, OptionalNonEmptyStr, related_entity_name
 
 
 class NdNormMethodDataItem(BaseModel):
-    method_id: int = Field(..., description="ID метода исследования")
+    """Значение нормы для одного метода исследования."""
+
+    method_id: Annotated[int, Field(gt=0, description="ID метода исследования")]
     value: str = Field(default="", description="Значение нормы для метода")
 
     @model_validator(mode="before")
@@ -16,13 +18,6 @@ class NdNormMethodDataItem(BaseModel):
             return {**data, "value": data["text"]}
         return data
 
-    @field_validator("method_id")
-    @classmethod
-    def validate_method_id(cls, value: int) -> int:
-        if value <= 0:
-            raise ValueError("ID метода должен быть положительным числом")
-        return value
-
     @field_validator("value", mode="before")
     @classmethod
     def normalize_value(cls, value: str | None) -> str:
@@ -31,7 +26,9 @@ class NdNormMethodDataItem(BaseModel):
         return str(value).strip()
 
 
-class NdNormCreate(BaseModel):
+class NdNormBase(BaseModel):
+    """Общие поля нормы НД."""
+
     name: Annotated[NonEmptyStr, Field(max_length=255)] = Field(..., description="Наименование нормы")
     test_object: Annotated[NonEmptyStr, Field(max_length=255)] = Field(..., description="Объект испытаний")
     laboratory_id: int = Field(..., description="ID лаборатории")
@@ -42,25 +39,38 @@ class NdNormCreate(BaseModel):
     )
 
 
+class NdNormCreate(NdNormBase):
+    """Запрос на создание нормы НД."""
+
+
 class NdNormUpdate(BaseModel):
-    name: Annotated[OptionalNonEmptyStr, Field(max_length=255)] = None
-    test_object: Annotated[OptionalNonEmptyStr, Field(max_length=255)] = None
+    """Частичное обновление нормы НД."""
+
+    name: OptionalNonEmptyStr = Field(None, max_length=255)
+    test_object: OptionalNonEmptyStr = Field(None, max_length=255)
     laboratory_id: int | None = None
     department_id: int | None = None
     method_data: list[NdNormMethodDataItem] | None = None
 
 
-class NdNormResponse(BaseModel):
+class NdNormResponse(NdNormBase):
+    """Ответ API с данными нормы НД."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    name: str
-    test_object: str
-    laboratory_id: int
-    department_id: int | None = None
-    method_data: list[NdNormMethodDataItem] = Field(default_factory=list)
-    laboratory_name: str | None = None
-    department_name: str | None = None
+    laboratory: Any = Field(default=None, exclude=True)
+    department: Any = Field(default=None, exclude=True)
     created_at: datetime
     updated_at: datetime
     deleted_at: datetime | None = None
+
+    @computed_field
+    @property
+    def laboratory_name(self) -> str | None:
+        return related_entity_name(self.laboratory)
+
+    @computed_field
+    @property
+    def department_name(self) -> str | None:
+        return related_entity_name(self.department)

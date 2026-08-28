@@ -1,16 +1,65 @@
-.button-wrapper .ant-btn {
-  font-family: 'HeliosCondC';
-}
+/* Шрифт — token fontFamily в app ConfigProvider. */
 
-.button-wrapper .ant-btn-color-dangerous {
-  color: #ff4d07;
-}
-
+/*
+  Почему CSS, а не theme: бренд danger #ff4d07 нельзя через colorError —
+  затронет Form/Alert. Button.dangerColor в theme задаёт текст; border outlined —
+  только здесь.
+*/
 .button-wrapper .ant-btn-color-dangerous .ant-btn-variant-outlined {
   border-color: #ff4d07;
 }
 
-.button-wrapper :focus,
+/*
+  Почему CSS + !important: глобальный color на :root/body (#213547) и слой antd
+  CSS-in-JS дают тёмный текст на primary solid (иконка и подпись). Theme
+  primaryColor/solidTextColor недостаточно надёжны для потомков (.anticon, span).
+*/
+.button-wrapper .ant-btn-color-primary.ant-btn-variant-solid,
+.button-wrapper
+  .ant-btn-primary:not(.ant-btn-background-ghost):not(.ant-btn-variant-outlined):not(
+    .ant-btn-variant-dashed
+  ):not(.ant-btn-variant-text):not(.ant-btn-variant-link) {
+  color: #ffffff !important;
+}
+
+.button-wrapper .ant-btn-color-primary.ant-btn-variant-solid .anticon,
+.button-wrapper .ant-btn-color-primary.ant-btn-variant-solid > span,
+.button-wrapper
+  .ant-btn-primary:not(.ant-btn-background-ghost):not(.ant-btn-variant-outlined):not(
+    .ant-btn-variant-dashed
+  ):not(.ant-btn-variant-text):not(.ant-btn-variant-link)
+  .anticon,
+.button-wrapper
+  .ant-btn-primary:not(.ant-btn-background-ghost):not(.ant-btn-variant-outlined):not(
+    .ant-btn-variant-dashed
+  ):not(.ant-btn-variant-text):not(.ant-btn-variant-link)
+  > span {
+  color: inherit !important;
+}
+
+.button-wrapper .ant-btn-color-dangerous.ant-btn-variant-text,
+.button-wrapper .ant-btn-color-dangerous.ant-btn-variant-link,
+.button-wrapper .ant-btn.ant-btn-dangerous.ant-btn-variant-text,
+.button-wrapper .ant-btn.ant-btn-dangerous.ant-btn-variant-link {
+  color: #ff4d07 !important;
+}
+
+.button-wrapper .ant-btn-color-dangerous.ant-btn-variant-text .anticon,
+.button-wrapper .ant-btn-color-dangerous.ant-btn-variant-link .anticon,
+.button-wrapper .ant-btn.ant-btn-dangerous.ant-btn-variant-text .anticon,
+.button-wrapper .ant-btn.ant-btn-dangerous.ant-btn-variant-link .anticon,
+.button-wrapper .ant-btn-color-dangerous.ant-btn-variant-text > span,
+.button-wrapper .ant-btn-color-dangerous.ant-btn-variant-link > span,
+.button-wrapper .ant-btn.ant-btn-dangerous.ant-btn-variant-text > span,
+.button-wrapper .ant-btn.ant-btn-dangerous.ant-btn-variant-link > span {
+  color: inherit !important;
+}
+
 .button-wrapper :focus-visible {
-  outline: none;
+  outline: 2px solid #1890ff;
+  outline-offset: 2px;
+}
+
+.button-wrapper .ant-btn-color-dangerous:focus-visible {
+  outline-color: #ff4d07;
 }

@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from 'react';
 import './Bubble.css';
 
 interface BubbleProps {
@@ -7,16 +8,17 @@ interface BubbleProps {
 }
 
 const Bubble = ({ text, color = '#007DFE', textColor = '#fff' }: BubbleProps) => {
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    el.style.setProperty('--bubble-bg-color', color);
+    el.style.setProperty('--bubble-text-color', textColor);
+  }, [color, textColor]);
+
   return (
-    <div
-      className="bubble-wrapper"
-      style={
-        {
-          '--bubble-bg-color': color,
-          '--bubble-text-color': textColor,
-        } as React.CSSProperties
-      }
-    >
+    <div ref={wrapperRef} className="bubble-wrapper">
       <p>{text}</p>
     </div>
   );

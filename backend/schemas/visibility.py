@@ -1,15 +1,26 @@
 from __future__ import annotations
-from typing import Any
+from typing import TypedDict
 from pydantic import BaseModel, Field
 from schemas.common import PositiveIntList
 
 
+class ScopeIdFilter(TypedDict):
+    """Фильтр списков по id лабораторий и подразделений."""
+
+    laboratory_ids: list[int]
+    department_ids: list[int]
+
+
 class VisibilityScopeEntity(BaseModel):
+    """Лаборатория или подразделение в области видимости (id и название)."""
+
     id: int
     name: str
 
 
 class VisibilityScope(BaseModel):
+    """Область видимости объекта по лабораториям и подразделениям."""
+
     laboratory_ids: PositiveIntList = Field(
         default_factory=list,
         description="ID лабораторий, для которых доступен объект",
@@ -28,9 +39,8 @@ class VisibilityScope(BaseModel):
     )
 
 
-def visibility_scope_to_dict(scope: VisibilityScope) -> dict[str, Any]:
-    """Сериализовать область видимости для сохранения в JSON."""
-    return {
-        "laboratory_ids": scope.laboratory_ids,
-        "department_ids": scope.department_ids,
-    }
+__all__ = [
+    "ScopeIdFilter",
+    "VisibilityScope",
+    "VisibilityScopeEntity",
+]

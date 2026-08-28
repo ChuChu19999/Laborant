@@ -1,0 +1,271 @@
+.excel-editor {
+  padding: 12px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin: 8px auto;
+  overflow: visible;
+  width: 95%;
+  max-width: 875px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* Глобально :root { font-synthesis: none } — иначе жирный/курсив не синтезируются */
+  font-synthesis: weight style;
+}
+
+.toolbar {
+  width: 100%;
+  padding: 8px;
+  background-color: #f5f5f5;
+  border-bottom: 1px solid #e8e8e8;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e0e0e0;
+  margin-bottom: 12px;
+  border-radius: 5px;
+}
+
+.toolbar-separator {
+  width: 1px;
+  height: 24px;
+  background-color: #e8e8e8;
+  margin: 0 8px;
+}
+
+.toolbar-btn {
+  min-width: 40px;
+  min-height: 40px;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: none !important;
+  transform: none !important;
+  scale: 1 !important;
+  -webkit-tap-highlight-color: transparent !important;
+  touch-action: manipulation;
+}
+
+/*
+  Почему CSS, а не theme: wave/press у Button в theme ConfigProvider не отключается —
+  локально через ConfigProvider wave + overrides active.
+*/
+.toolbar-btn::before,
+.toolbar-btn::after {
+  transition: none !important;
+  transform: none !important;
+  scale: 1 !important;
+}
+
+.toolbar-btn:active::before,
+.toolbar-btn:active::after,
+.toolbar-btn:focus:active::before,
+.toolbar-btn:focus:active::after {
+  transform: none !important;
+  scale: 1 !important;
+  opacity: 1 !important;
+}
+
+.toolbar-btn.active {
+  background: #e6f4ff;
+  border-color: #1890ff;
+  color: #1890ff;
+}
+
+.toolbar-btn:hover:not(:disabled) {
+  color: #1890ff;
+  border-color: #1890ff;
+}
+
+.toolbar-btn:hover:not(:disabled) .toolbar-btn-icon {
+  color: #1890ff;
+}
+
+.toolbar-btn:hover:not(:disabled):active {
+  color: #1890ff !important;
+  border-color: #1890ff !important;
+  background-color: transparent !important;
+}
+
+.toolbar-btn:hover:not(:disabled):active .toolbar-btn-icon {
+  color: #1890ff !important;
+}
+
+.toolbar-btn:active,
+.toolbar-btn:focus:active,
+.toolbar-btn:active:hover,
+.toolbar-btn:focus:active:hover {
+  transform: none !important;
+  scale: 1 !important;
+  box-shadow: none !important;
+  transition: none !important;
+  border-color: inherit !important;
+  border-width: inherit !important;
+  border-style: inherit !important;
+  background-color: inherit !important;
+  color: inherit !important;
+  opacity: 1 !important;
+  filter: none !important;
+  outline: none !important;
+  outline-offset: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  min-width: 40px !important;
+  min-height: 40px !important;
+  padding: 8px !important;
+  margin: 0 !important;
+  position: relative !important;
+  top: 0 !important;
+  left: 0 !important;
+  border-radius: inherit !important;
+}
+
+.toolbar-btn:focus-visible {
+  outline: 2px solid #1890ff;
+  outline-offset: 2px;
+}
+
+.toolbar-btn:active .toolbar-btn-icon,
+.toolbar-btn:focus:active .toolbar-btn-icon,
+.toolbar-btn:active:hover .toolbar-btn-icon,
+.toolbar-btn:focus:active:hover .toolbar-btn-icon {
+  transform: none !important;
+  scale: 1 !important;
+  transition: none !important;
+  color: inherit !important;
+  opacity: 1 !important;
+  filter: none !important;
+}
+
+.toolbar .font-size-select {
+  min-width: 80px;
+}
+
+.excel-editor-table-container {
+  width: 100%;
+  margin-bottom: 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+}
+
+.excel-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+}
+
+.excel-table thead {
+  background-color: #f5f5f5;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.excel-table th,
+.excel-table td {
+  border: 1px solid #e0e0e0;
+  padding: 8px;
+  text-align: center;
+  color: #000000;
+}
+
+.excel-table .row-header {
+  background-color: #f5f5f5;
+  font-weight: bold;
+  min-width: 40px;
+  width: 40px;
+}
+
+.excel-table td {
+  min-width: 600px;
+  position: relative;
+  font-size: var(--excel-cell-font-size, 14px);
+  font-family: var(--excel-cell-font-family, inherit);
+}
+
+.excel-table td.selected {
+  background-color: #e6f4ff;
+  border: 2px solid #1890ff;
+}
+
+.excel-table td:focus-visible {
+  outline: none;
+}
+
+.excel-table td.excel-cell-bold,
+.excel-editor-cell-textarea.excel-cell-bold {
+  font-weight: 700 !important;
+}
+
+.excel-table td.excel-cell-italic,
+.excel-editor-cell-textarea.excel-cell-italic {
+  font-style: italic !important;
+}
+
+.excel-table td.excel-cell-align-left,
+.excel-editor-cell-textarea.excel-cell-align-left {
+  text-align: left;
+}
+
+.excel-table td.excel-cell-align-center,
+.excel-editor-cell-textarea.excel-cell-align-center {
+  text-align: center;
+}
+
+.excel-table td.excel-cell-align-right,
+.excel-editor-cell-textarea.excel-cell-align-right {
+  text-align: right;
+}
+
+.excel-editor-cell-textarea {
+  width: 100%;
+  min-height: 40px;
+  border: none;
+  outline: none;
+  resize: none;
+  background: transparent;
+  font-family: var(--excel-cell-font-family, inherit);
+  font-size: var(--excel-cell-font-size, 14px) !important;
+  padding: 4px;
+  color: #000000;
+}
+
+.toolbar-font-label {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: #595959;
+  padding: 0 4px;
+}
+
+.excel-editor-cell-textarea:focus,
+.excel-editor-cell-textarea:focus-visible {
+  outline: none;
+}
+
+.error-message {
+  color: #ff4d4f;
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 4px;
+  background-color: #fff2f0;
+  border: 1px solid #ffccc7;
+  width: 100%;
+}
+
+.loading-overlay {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  font-size: 16px;
+  color: #666;
+  width: 100%;
+}

@@ -1,3 +1,5 @@
+from utils.calculation.constants import INPUT_FIELD_COLOR
+
 # Лаборатория, для которой доступны отчёты ИЛНиНМ.
 LABORATORY_NAME_ILNINM = "ИЛНиНМ"
 
@@ -36,15 +38,10 @@ SAMPLING_LOCATION_PREFIXES_VALANZHIN_UKPG = (
     "УКПГ-8В",
 )
 
-# Совместимость префиксов ГКП.
-SAMPLING_LOCATION_GKP_21 = GKP_SAMPLING_NAME_PREFIX_21
-SAMPLING_LOCATION_GKP_22 = GKP_SAMPLING_NAME_PREFIX_22
-SAMPLING_LOCATIONS_GKP = (SAMPLING_LOCATION_GKP_21, SAMPLING_LOCATION_GKP_22)
-
 # Тип пробы для строки «Внеплановые».
 SAMPLE_TYPE_VNEPLANOVYE = "Внеплановые"
 
-# Ключи строк отчёта «Количество проб» (значения столбца A для сопоставления).
+# Ключи строк отчёта «Количество проб» (значения столбца B для сопоставления).
 ROW_TITLE_TOVARNAYA_NEFT_NGDU = "Товарная нефть НГДУ"
 ROW_TITLE_EKSPLUATACIONNAYA_NEFT_NGDU = "Эксплуатационная нефть НГДУ"
 ROW_TITLE_KALIBROVOCHNAYA_NEFT_UGPU = "Калибровочная нефть УГПУ"
@@ -61,15 +58,41 @@ ROW_TITLE_NEFTECONDENSATNAYA_SMES = "Нефтеконденсатная смес
 ROW_TITLE_DIZTOPIVO = "Дизтопливо"
 ROW_TITLE_INGIBITOR = "Ингибитор коррозии"
 
+SAMPLE_COUNT_ROW_TITLES = frozenset(
+    {
+        ROW_TITLE_TOVARNAYA_NEFT_NGDU,
+        ROW_TITLE_EKSPLUATACIONNAYA_NEFT_NGDU,
+        ROW_TITLE_KALIBROVOCHNAYA_NEFT_UGPU,
+        ROW_TITLE_VNEPLANOVYE,
+        ROW_TITLE_PASPORTIZACIYA,
+        ROW_TITLE_GKP_21_GKP_22,
+        ROW_TITLE_OIS_ACHIMOVKA,
+        ROW_TITLE_OIS_VALANZHIN,
+        ROW_TITLE_OIS_EN_YAHA,
+        ROW_TITLE_OIS,
+        ROW_TITLE_TOVARNAYA_PRODUKCIYA_OIS,
+        ROW_TITLE_PROCHIE,
+        ROW_TITLE_NEFTECONDENSATNAYA_SMES,
+        ROW_TITLE_DIZTOPIVO,
+        ROW_TITLE_INGIBITOR,
+    }
+)
+
 # Отчёт «Количество проб»: шапка (не участвует в строках категорий).
 SAMPLE_COUNT_TEMPLATE_HEADER_ROW_COUNT = 3
 SAMPLE_COUNT_PLACEHOLDER_PERIOD = "{period}"
 SAMPLE_COUNT_PLACEHOLDER_KOL_VO = "{kol-vo}"
+# Пустая ячейка столбца C в отчёте «Количество проб» (длинное тире).
+SAMPLE_COUNT_EMPTY_CELL_VALUE = "—"
+
+TEST_OBJECT_DIESEL = "дизельное топливо"
+TEST_OBJECT_CORROSION_INHIBITOR = "ингибитор коррозии"
+SAMPLE_TYPE_RESEARCH_OIS = "Исследования - ОИС"
+SAMPLE_TYPE_RESEARCH_OTHER = "Исследования - прочие"
 
 # Отчёт «Физико-химическая характеристика».
 REPORT_EMPTY_CELL_VALUE = "-"
 
-PHYSICOCHEMICAL_TEMPLATE_HEADER_ROW = 1
 PHYSICOCHEMICAL_TEMPLATE_HEADER_LAST_ROW = 5
 PHYSICOCHEMICAL_TEMPLATE_DATA_ROW = 6
 PHYSICOCHEMICAL_PLACEHOLDER_PERIOD = "{period}"
@@ -106,6 +129,7 @@ METHOD_CHLORIDE_SALTS = "Массовая концентрация хлорис�
 SAMPLE_TYPE_PASPORTIZACIYA = "Паспортизация"
 TEST_OBJECT_DEGASSED_CONDENSATE = "дегазированный конденсат"
 
+KGS_ABSENCE_DISPLAY = "отсутствие"
 KGS_AVERAGE_ROW_LABEL = "Среднее зн."
 KGS_TEMPLATE_HEADER_LAST_ROW = 17
 KGS_TEMPLATE_DATA_ROW = 18
@@ -126,21 +150,23 @@ NKS_TEMPLATE_HEADER_LAST_ROW = 18
 NKS_TEMPLATE_DATA_ROW = 19
 NKS_PLACEHOLDER_PERIOD = "{period}"
 NKS_REPORT_FONT_SIZE = 10
+NKS_SELECTION_PRESSURE = "Давление"
+NKS_SELECTION_TEMPERATURE = "Температура"
 
 GROUP_MASS_FRACTION_OIL = "Массовая доля нефти"
 GROUP_DENSITY_20 = "Плотность при температуре 20 °C"
 METHOD_MASS_FRACTION_OIL = "Массовая доля нефти"
 METHOD_FRACTIONAL_CONDENSATE = "Фракционный состав (конденсат)"
 
-NKS_MF_OIL_COLOR_FIELD = "Цвет"
+NKS_MF_OIL_COLOR_FIELD = INPUT_FIELD_COLOR
 NKS_FS_FIELD_NK = "Температура н.к."
 NKS_FS_FIELD_10 = "10% отгона при температуре"
 NKS_FS_FIELD_50 = "50% отгона при температуре"
 NKS_FS_FIELD_90 = "90% отгона при температуре"
 NKS_FS_FIELD_END_BOIL = "Температура к.к."
-NKS_FS_FIELD_DISTILLATE = "Объемная доля отгона"
-NKS_FS_FIELD_RESIDUE = "Объемная доля остатка"
-NKS_FS_FIELD_LOSSES = "Объемная доля потерь"
+NKS_FS_FIELD_DISTILLATE = "Объёмная доля отгона"
+NKS_FS_FIELD_RESIDUE = "Объёмная доля остатка"
+NKS_FS_FIELD_LOSSES = "Объёмная доля потерь"
 
 NKS_COL_LAB_ACTIVITY = 4
 NKS_COL_PRESSURE = 5

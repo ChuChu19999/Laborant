@@ -1,0 +1,250 @@
+import { axiosInstance } from '@/shared/config';
+
+/** Запрос на расчёт. */
+export interface CalculateRequest {
+  input_data: Record<string, string | number | Record<string, Record<string, string>>>;
+  research_method_id: number;
+  equipment_data?: number[];
+}
+
+/** Промежуточный результат расчёта. */
+export interface IntermediateResultValue {
+  value: string;
+  reference: string;
+}
+
+/** Результат расчёта. */
+export interface CalculationResult {
+  result?: string;
+  result_reference?: string;
+  result_display?: string;
+  measurement_error?: string;
+  unit?: string;
+  convergence?: string;
+  intermediate_results?: Record<string, string | IntermediateResultValue>;
+  conditions_info?: {
+    satisfied: boolean;
+    formula?: string;
+    calculation_steps?: {
+      type?: string;
+      step?: {
+        evaluated?: string;
+      };
+      steps?: {
+        evaluated?: string;
+      }[];
+      step2?: string;
+    };
+    convergence_value?: string;
+  }[];
+  is_fractional_composition?: boolean;
+  updated_input_data?: Record<string, unknown>;
+}
+
+/** Оборудование. */
+export interface EquipmentBrief {
+  id: number;
+  name: string;
+  serial_number: string;
+  verification_info: string;
+  verification_date: string;
+  verification_end_date: string;
+  type: string;
+  version: string;
+}
+
+/** Расчёт. */
+export interface Calculation {
+  id: number;
+  sample_id: number;
+  laboratory_id: number;
+  department_id?: number;
+  research_method_id: number;
+  input_data: Record<string, unknown>;
+  equipment_data?: number[];
+  equipment?: EquipmentBrief[];
+  result: string;
+  executor: string;
+  measurement_error?: string;
+  unit?: string;
+  laboratory_activity_date: string;
+  research_method?: {
+    id: number;
+    name: string;
+  };
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string;
+}
+
+/** Фильтры списка расчётов. */
+export interface CalculationFilters {
+  sample_id?: number;
+  research_method_id?: number;
+}
+
+/** Кандидат методики при выборе. */
+export interface MethodologyChoiceCandidate {
+  id: number;
+  name: string;
+}
+
+/** Выбор методики для расчёта. */
+export interface MethodologyChoice {
+  methodology_changed: boolean;
+  method_name: string;
+  stored_method_id: number;
+  stored_method_deleted: boolean;
+  current_method_id: number | null;
+  methodology_ambiguous?: boolean;
+  candidate_methods?: MethodologyChoiceCandidate[];
+  stored_method_group_id?: number | null;
+  stored_method_group_name?: string | null;
+}
+
+/** API расчётов. */
+export const calculationApi = {
+  calculate: async (request: CalculateRequest): Promise<CalculationResult> => {
+    const response = await axiosInstance.post<CalculationResult>('/api/calculate/', request);
+    return response.data;
+  },
+
+  getCalculations: async (
+    page?: number,
+    pageSize?: number,
+    filters?: CalculationFilters,
+    sorting?: { sort_by?: string; sort_order?: 'asc' | 'desc' }
+  ): Promise<{
+    items: Calculation[];
+    total: number;
+    page: number;
+    page_size: number;
+    total_pages: number;
+  }> => {
+    const params: Record<string, unknown> = {};
+
+    if (page !== undefined) {
+      params.page = page;
+    }
+
+    if (pageSize !== undefined) {
+      params.page_size = pageSize;
+    }
+
+    if (filters?.sample_id) {
+      params.sample_id = filters.sample_id;
+    }
+
+    if (filters?.research_method_id) {
+      params.research_method_id = filters.research_method_id;
+    }
+
+    if (sorting?.sort_by) {
+      params.sort_by = sorting.sort_by;
+      params.sort_order = sorting.sort_order || 'desc';
+    }
+
+    const response = await axiosInstance.get<{
+      items: Calculation[];
+      total: number;
+      page: number;
+      page_size: number;
+      total_pages: number;
+    }>('/api/calculations/', { params });
+    return response.data;
+  },
+
+  getCalculationsBySample: async (
+    sampleId: number,
+    sorting?: { sort_by?: string; sort_order?: 'asc' | 'desc' }
+  ): Promise<Calculation[]> => {
+    const params: Record<string, unknown> = {};
+
+    if (sorting?.sort_by) {
+      params.sort_by = sorting.sort_by;
+      params.sort_order = sorting.sort_order || 'desc';
+    }
+
+    const response = await axiosInstance.get<Calculation[]>(
+      `/api/calculations/by-sample/${sampleId}/`,
+      { params }
+    );
+    return response.data;
+  },
+
+  createCalculation: async (data: {
+    sample_id: number;
+    laboratory_id: number;
+    department_id?: number;
+    research_method_id: number;
+    input_data: Record<string, unknown>;
+    equipment_data?: number[];
+    result: string;
+    executor: string;
+    measurement_error?: string;
+    unit?: string;
+    laboratory_activity_date: string;
+  }): Promise<Calculation> => {
+    const response = await axiosInstance.post<Calculation>('/api/calculations/', data);
+    return response.data;
+  },
+
+  replaceCalculation: async (
+    calculationId: number,
+    data: {
+      sample_id: number;
+      laboratory_id: number;
+      department_id?: number;
+      research_method_id: number;
+      input_data: Record<string, unknown>;
+      equipment_data?: number[];
+      result: string;
+      executor: string;
+      measurement_error?: string;
+      unit?: string;
+      laboratory_activity_date: string;
+    }
+  ): Promise<Calculation> => {
+    const response = await axiosInstance.post<Calculation>(
+      `/api/calculations/${calculationId}/replace/`,
+      data
+    );
+    return response.data;
+  },
+
+  deleteCalculation: async (id: number): Promise<void> => {
+    await axiosInstance.delete(`/api/calculations/${id}/`);
+  },
+
+  getCalculation: async (id: number): Promise<Calculation> => {
+    const response = await axiosInstance.get<Calculation>(`/api/calculations/${id}/`);
+    return response.data;
+  },
+
+  getMethodologyChoice: async (calculationId: number): Promise<MethodologyChoice> => {
+    const response = await axiosInstance.get<MethodologyChoice>(
+      `/api/calculations/${calculationId}/methodology-choice/`
+    );
+    return response.data;
+  },
+
+  updateCalculation: async (
+    id: number,
+    data: {
+      input_data?: Record<string, unknown>;
+      equipment_data?: number[];
+      result?: string;
+      executor?: string;
+      measurement_error?: string;
+      unit?: string;
+      laboratory_activity_date?: string;
+      sample_id?: number;
+      laboratory_id?: number;
+      department_id?: number;
+      research_method_id?: number;
+    }
+  ): Promise<Calculation> => {
+    const response = await axiosInstance.patch<Calculation>(`/api/calculations/${id}/`, data);
+    return response.data;
+  },
+};

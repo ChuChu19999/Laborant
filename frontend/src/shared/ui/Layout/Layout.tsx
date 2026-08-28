@@ -1,6 +1,5 @@
 import { Helmet } from 'react-helmet';
 import { SettingsIcon } from '../icons';
-import '../icons/icons.css';
 import './Layout.css';
 
 interface LayoutProps {
@@ -8,6 +7,7 @@ interface LayoutProps {
   settings?: boolean;
   headerClassName?: string;
   bodyClassName?: string;
+  contentClassName?: string;
   onSettingsClick?: () => void;
   children?: React.ReactNode;
 }
@@ -17,6 +17,7 @@ const Layout = ({
   settings,
   headerClassName,
   bodyClassName,
+  contentClassName,
   onSettingsClick,
   children,
 }: LayoutProps) => (
@@ -28,14 +29,17 @@ const Layout = ({
       <div className={`${headerClassName || ''} header`}>
         <p className="header-text">{title}</p>
         {settings && (
-          <SettingsIcon
-            size={25}
-            className="header-settings animated-icon"
+          <button
+            type="button"
+            className="header-settings"
+            aria-label="Настройки"
             onClick={onSettingsClick}
-          />
+          >
+            <SettingsIcon size={25} className="animated-icon" />
+          </button>
         )}
       </div>
-      <div className="content">{children}</div>
+      <div className={['content', contentClassName].filter(Boolean).join(' ')}>{children}</div>
     </div>
   </div>
 );

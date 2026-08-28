@@ -33,7 +33,7 @@ class MassFractionOilRefractionTable(BaseModel):
         {"schema": get_database_schema()},
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
             f"<MassFractionOilRefractionTable(id={self.id}, "
             f"research_method_id={self.research_method_id}, "

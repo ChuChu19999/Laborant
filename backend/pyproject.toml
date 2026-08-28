@@ -27,6 +27,7 @@ select = [
   "TID",
   "BLE",
   "RUF",
+  "ARG",
 ]
 ignore = [
   "E501",
@@ -39,6 +40,10 @@ ignore = [
   # Кавычки в Mapped["Model"] / forward refs — SQLAlchemy.
   "UP037",
 ]
+
+[tool.ruff.lint.flake8-unused-arguments]
+# Аргументы с префиксом _ считаются намеренно неиспользуемыми.
+ignore-variadic-names = true
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401", "E402"]
@@ -95,7 +100,17 @@ venv = "venv"
 typeCheckingMode = "standard"
 reportMissingImports = true
 reportMissingTypeStubs = false
-reportImportCycles = "warning"
+# Взаимные relationship и TYPE_CHECKING в models дают ложные циклы импортов; между моделями нет runtime-импортов.
+reportImportCycles = "none"
+# Неиспользуемый код.
+reportUnusedImport = "error"
+reportUnusedClass = "error"
+reportUnusedFunction = "error"
+reportUnusedVariable = "error"
+reportUnusedCoroutine = "error"
+reportUnusedExcept = "error"
+reportUnusedExpression = "error"
+reportUnusedParameter = "none"
 
 # --- import-linter ---
 [tool.importlinter]
@@ -189,7 +204,9 @@ ignore_imports = [
 name = "repositories are independent of each other"
 type = "independence"
 modules = [
+  "repositories.branch",
   "repositories.calculation",
+  "repositories.department",
   "repositories.equipment",
   "repositories.laboratory",
   "repositories.mass_fraction",
@@ -199,6 +216,8 @@ modules = [
   "repositories.research",
   "repositories.role",
   "repositories.sample",
+  "repositories.sampling_location",
   "repositories.selection_conditions",
   "repositories.test_object",
+  "repositories.well_mode",
 ]

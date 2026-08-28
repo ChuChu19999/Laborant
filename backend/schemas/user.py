@@ -3,6 +3,8 @@ from pydantic import BaseModel, ConfigDict
 
 
 class UserResponse(BaseModel):
+    """Ответ API с данными пользователя из кадрового сервиса."""
+
     model_config = ConfigDict(from_attributes=True)
 
     personnel_number: str | None = None

@@ -14,13 +14,6 @@ SAMPLE_OPTIONAL_FIELDS = (
     "receipt_date",
 )
 
-SAMPLE_REQUIRED_FIELDS = (
-    "registration_number",
-    "test_object",
-    "indicators_count",
-    "added_by",
-)
-
 NAVIGATION_KEYS = (
     "home",
     "samples",
@@ -39,6 +32,64 @@ CRUD_RESOURCES = (
     "nd_norms",
     "refraction_tables",
 )
+
+NavigationKey = Literal[
+    "home",
+    "samples",
+    "protocols",
+    "equipment",
+    "sampling_locations",
+    "nd_norms",
+    "refraction_tables",
+    "test_objects",
+]
+CrudCatalogResource = Literal[
+    "protocols",
+    "equipment",
+    "sampling_locations",
+    "nd_norms",
+    "refraction_tables",
+]
+EnforceCrudResource = Literal[
+    "protocols",
+    "equipment",
+    "sampling_locations",
+    "nd_norms",
+    "refraction_tables",
+    "test_objects",
+    "calculations",
+]
+EnforceCrudAction = Literal["read", "create", "update", "delete", "execute"]
+SamplesMutationAction = Literal["update", "delete"]
+PermissionResource = Literal[
+    "navigation",
+    "laboratory_management",
+    "samples",
+    "protocols",
+    "equipment",
+    "sampling_locations",
+    "nd_norms",
+    "refraction_tables",
+    "test_objects",
+    "calculations",
+]
+PermissionAction = Literal[
+    "home",
+    "samples",
+    "protocols",
+    "equipment",
+    "sampling_locations",
+    "nd_norms",
+    "refraction_tables",
+    "test_objects",
+    "access",
+    "read",
+    "create",
+    "update",
+    "delete",
+    "execute",
+    "show_equipment",
+]
 
 
 def default_role_permissions() -> dict[str, Any]:
@@ -219,8 +270,8 @@ def merge_permissions(items: list[dict[str, Any]]) -> dict[str, Any]:
 
 def has_permission(
     permissions: dict[str, Any] | None,
-    resource: str,
-    action: str,
+    resource: PermissionResource,
+    action: PermissionAction,
 ) -> bool:
     """Проверить наличие конкретного права."""
     perms = normalize_permissions(permissions)

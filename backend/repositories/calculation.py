@@ -1,5 +1,5 @@
 from __future__ import annotations
-from sqlalchemy import func, select
+from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from models.calculation import Calculation
@@ -7,31 +7,58 @@ from models.research import ResearchMethod
 from models.sample import Sample
 from repositories.base import (
     add_and_flush,
+    execute_exists,
     execute_scalar_one_or_none,
     execute_scalars_all,
     filter_not_deleted,
+    filter_not_deleted_unless,
 )
 from utils.pagination import apply_pagination, get_total_count
 from utils.sorting import build_order_by
 
 
+def _build_calculation_conditions(
+    *,
+    sample_id: int | None = None,
+    sample_ids: list[int] | None = None,
+    laboratory_id: int | None = None,
+    department_id: int | None = None,
+    research_method_id: int | None = None,
+) -> list[ColumnElement[bool]]:
+    """Собрать условия фильтрации расчётов."""
+    conditions: list[ColumnElement[bool]] = []
+    if sample_id:
+        conditions.append(Calculation.sample_id == sample_id)
+    elif sample_ids:
+        conditions.append(Calculation.sample_id.in_(sample_ids))
+    if laboratory_id:
+        conditions.append(Calculation.laboratory_id == laboratory_id)
+    if department_id:
+        conditions.append(Calculation.department_id == department_id)
+    if research_method_id:
+        conditions.append(Calculation.research_method_id == research_method_id)
+    return conditions
+
+
+def _calculation_response_load_options():
+    """Eager load для CalculationResponse (вложенный SampleResponse со связями)."""
+    return (
+        selectinload(Calculation.sample).selectinload(Sample.laboratory),
+        selectinload(Calculation.sample).selectinload(Sample.department),
+        selectinload(Calculation.sample).selectinload(Sample.branch),
+        selectinload(Calculation.sample).selectinload(Sample.sampling_location),
+        selectinload(Calculation.laboratory),
+        selectinload(Calculation.department),
+        selectinload(Calculation.research_method),
+    )
+
+
 async def get_calculation_by_id(
     db: AsyncSession, calculation_id: int, include_deleted: bool = False
 ) -> Calculation | None:
-    """Получить расчет по ID."""
-    query = (
-        select(Calculation)
-        .where(Calculation.id == calculation_id)
-        .options(
-            selectinload(Calculation.sample).selectinload(Sample.laboratory),
-            selectinload(Calculation.sample).selectinload(Sample.department),
-            selectinload(Calculation.laboratory),
-            selectinload(Calculation.department),
-            selectinload(Calculation.research_method),
-        )
-    )
-    if not include_deleted:
-        query = filter_not_deleted(query, Calculation.deleted_at)
+    """Получить расчёт по ID."""
+    query = select(Calculation).where(Calculation.id == calculation_id).options(*_calculation_response_load_options())
+    query = filter_not_deleted_unless(query, Calculation.deleted_at, include_deleted)
     return await execute_scalar_one_or_none(db, query)
 
 
@@ -43,22 +70,12 @@ async def get_calculations_by_sample(
     sort_by: str | None = None,
     sort_order: str | None = None,
 ) -> list[Calculation]:
-    """Получить список расчетов по пробе без пагинации."""
-    query = select(Calculation).options(
-        selectinload(Calculation.sample),
-        selectinload(Calculation.laboratory),
-        selectinload(Calculation.department),
-        selectinload(Calculation.research_method),
-    )
+    """Получить список расчётов по пробе без пагинации."""
+    query = select(Calculation).options(*_calculation_response_load_options())
 
-    if not include_deleted:
-        query = filter_not_deleted(query, Calculation.deleted_at)
+    query = filter_not_deleted_unless(query, Calculation.deleted_at, include_deleted)
 
-    conditions = []
-    if sample_id:
-        conditions.append(Calculation.sample_id == sample_id)
-    elif sample_ids:
-        conditions.append(Calculation.sample_id.in_(sample_ids))
+    conditions = _build_calculation_conditions(sample_id=sample_id, sample_ids=sample_ids)
     if conditions:
         query = query.where(*conditions)
 
@@ -85,28 +102,18 @@ async def get_calculations(
     sort_by: str | None = None,
     sort_order: str | None = None,
 ) -> tuple[list[Calculation], int]:
-    """Получить список расчетов."""
-    query = select(Calculation).options(
-        selectinload(Calculation.sample),
-        selectinload(Calculation.laboratory),
-        selectinload(Calculation.department),
-        selectinload(Calculation.research_method),
+    """Получить список расчётов."""
+    query = select(Calculation).options(*_calculation_response_load_options())
+
+    query = filter_not_deleted_unless(query, Calculation.deleted_at, include_deleted)
+
+    conditions = _build_calculation_conditions(
+        sample_id=sample_id,
+        sample_ids=sample_ids,
+        laboratory_id=laboratory_id,
+        department_id=department_id,
+        research_method_id=research_method_id,
     )
-
-    if not include_deleted:
-        query = filter_not_deleted(query, Calculation.deleted_at)
-
-    conditions = []
-    if sample_id:
-        conditions.append(Calculation.sample_id == sample_id)
-    elif sample_ids:
-        conditions.append(Calculation.sample_id.in_(sample_ids))
-    if laboratory_id:
-        conditions.append(Calculation.laboratory_id == laboratory_id)
-    if department_id:
-        conditions.append(Calculation.department_id == department_id)
-    if research_method_id:
-        conditions.append(Calculation.research_method_id == research_method_id)
     if conditions:
         query = query.where(*conditions)
 
@@ -118,21 +125,9 @@ async def get_calculations(
     query = query.order_by(order_by)
 
     count_query = select(func.count()).select_from(Calculation)
-    if not include_deleted:
-        count_query = filter_not_deleted(count_query, Calculation.deleted_at)
-    count_conditions = []
-    if sample_id:
-        count_conditions.append(Calculation.sample_id == sample_id)
-    elif sample_ids:
-        count_conditions.append(Calculation.sample_id.in_(sample_ids))
-    if laboratory_id:
-        count_conditions.append(Calculation.laboratory_id == laboratory_id)
-    if department_id:
-        count_conditions.append(Calculation.department_id == department_id)
-    if research_method_id:
-        count_conditions.append(Calculation.research_method_id == research_method_id)
-    if count_conditions:
-        count_query = count_query.where(*count_conditions)
+    count_query = filter_not_deleted_unless(count_query, Calculation.deleted_at, include_deleted)
+    if conditions:
+        count_query = count_query.where(*conditions)
 
     total = await get_total_count(db, count_query)
 
@@ -151,7 +146,7 @@ async def exists_calculation_by_sample_and_method(
 ) -> bool:
     """Проверить существование расчёта для пробы и метода."""
     query = filter_not_deleted(
-        select(Calculation).where(
+        select(Calculation.id).where(
             Calculation.sample_id == sample_id,
             Calculation.research_method_id == research_method_id,
         ),
@@ -159,13 +154,11 @@ async def exists_calculation_by_sample_and_method(
     )
     if exclude_id is not None:
         query = query.where(Calculation.id != exclude_id)
-
-    existing = await execute_scalar_one_or_none(db, query)
-    return existing is not None
+    return await execute_exists(db, query)
 
 
 async def add_calculation(db: AsyncSession, calculation: Calculation) -> Calculation:
-    """Добавить расчёт в сессию."""
+    """Добавить расчёт."""
     await add_and_flush(db, calculation)
     return calculation
 
@@ -189,3 +182,39 @@ async def get_calculations_grouped_by_sample_ids(
     for calc in calculations:
         by_sample.setdefault(calc.sample_id, []).append(calc)
     return by_sample
+
+
+async def get_executor_sample_pairs(
+    db: AsyncSession,
+    sample_ids: list[int],
+) -> list[tuple[str, int]]:
+    """Вернуть пары (executor, sample_id) неудалённых расчётов с исполнителем."""
+    if not sample_ids:
+        return []
+    query = (
+        select(Calculation.executor, Calculation.sample_id)
+        .where(Calculation.sample_id.in_(sample_ids))
+        .where(Calculation.deleted_at.is_(None))
+        .where(Calculation.executor.isnot(None))
+    )
+    result = await db.execute(query)
+    return [(str(executor), int(sample_id)) for executor, sample_id in result.all()]
+
+
+async def get_sample_ids_with_deleted_research_methods(
+    db: AsyncSession,
+    sample_ids: list[int],
+) -> set[int]:
+    """ID проб, у которых есть расчёт с мягко удалённым методом исследования."""
+    if not sample_ids:
+        return set()
+    query = (
+        select(Calculation.sample_id)
+        .join(ResearchMethod, Calculation.research_method_id == ResearchMethod.id)
+        .where(Calculation.sample_id.in_(sample_ids))
+        .where(Calculation.deleted_at.is_(None))
+        .where(ResearchMethod.deleted_at.isnot(None))
+        .distinct()
+    )
+    result = await db.execute(query)
+    return {row[0] for row in result.all()}

@@ -1,0 +1,34 @@
+.sampling-location-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.sampling-location-form-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sampling-location-form-label {
+  font-family: 'HeliosCondC';
+  font-size: 14px;
+  color: #282828;
+  font-weight: 500;
+}
+
+.sampling-location-form-label .sampling-location-form-required {
+  color: #ff4d4f !important;
+}
+
+.sampling-location-form-error {
+  margin: 0;
+  padding: 8px;
+  background-color: #fff1f0;
+  border: 1px solid #ffccc7;
+  border-radius: 4px;
+  color: #ff4d4f;
+  font-family: 'HeliosCondC';
+  font-size: 13px;
+}

@@ -1,43 +1,61 @@
 from __future__ import annotations
 from datetime import date, datetime
-from typing import Annotated
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field
+from typing import Annotated, Any
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, computed_field
 from models.report import ReportType
-from schemas.common import make_enum_validator
+from schemas.common import NonEmptyStr, OptionalNonEmptyStr, make_enum_validator, related_entity_name
 
 _validate_report_type = make_enum_validator(ReportType, "Тип отчёта")
 ReportTypeField = Annotated[str, AfterValidator(_validate_report_type)]
 
 
 class ReportTemplateBase(BaseModel):
+    """Общие поля шаблона отчёта."""
+
     report_type: Annotated[ReportTypeField, Field(max_length=255)] = Field(..., description="Тип отчёта")
-    file_name: str = Field(..., max_length=255, description="Оригинальное имя файла")
+    file_name: Annotated[NonEmptyStr, Field(max_length=255)] = Field(..., description="Оригинальное имя файла")
 
 
 class ReportTemplateCreate(ReportTemplateBase):
-    file: str = Field(..., description="Файл (base64)")
+    """Запрос на создание шаблона отчёта."""
+
+    file: NonEmptyStr = Field(..., description="Файл (base64)")
     laboratory_id: int = Field(..., description="ID лаборатории")
     department_id: int | None = Field(None, description="ID подразделения")
 
 
 class ReportTemplateUpdate(BaseModel):
+    """Частичное обновление шаблона отчёта."""
+
     report_type: Annotated[ReportTypeField, Field(max_length=255)] | None = None
-    file: str | None = None
-    file_name: str | None = Field(None, max_length=255)
+    file: OptionalNonEmptyStr = None
+    file_name: OptionalNonEmptyStr = Field(None, max_length=255)
 
 
 class ReportTemplateResponse(ReportTemplateBase):
+    """Ответ API с данными шаблона отчёта."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     version: str
     laboratory_id: int
     department_id: int | None = None
-    laboratory_name: str | None = None
-    department_name: str | None = None
+    laboratory: Any = Field(default=None, exclude=True)
+    department: Any = Field(default=None, exclude=True)
     created_at: datetime
     updated_at: datetime
     deleted_at: datetime | None = None
+
+    @computed_field
+    @property
+    def laboratory_name(self) -> str | None:
+        return related_entity_name(self.laboratory)
+
+    @computed_field
+    @property
+    def department_name(self) -> str | None:
+        return related_entity_name(self.department)
 
 
 class GenerateSampleCountReportRequest(BaseModel):
@@ -70,7 +88,7 @@ class GeneratePhysicochemicalReportRequest(BaseModel):
     )
     date_from: date = Field(..., description="Начало периода по дате отбора пробы (YYYY-MM-DD)")
     date_to: date = Field(..., description="Конец периода по дате отбора пробы (YYYY-MM-DD)")
-    sampling_location: str = Field(
+    sampling_location: NonEmptyStr = Field(
         ...,
         description="Место отбора: «ЦДГГКН №1», «ЦДГГКН №2» или имя цеха в справочнике",
     )

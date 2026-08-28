@@ -7,7 +7,8 @@ from core.config import get_database_schema
 from models.base import BaseModel
 
 if TYPE_CHECKING:
-    from models.laboratory import Department, Laboratory
+    from models.department import Department
+    from models.laboratory import Laboratory
     from models.research import ResearchMethod
     from models.sample import Sample
 
@@ -18,14 +19,14 @@ class Calculation(BaseModel):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
     input_data: Mapped[dict[str, Any]] = mapped_column(
-        JSON, nullable=False, default=dict, comment="Входные данные для расчета"
+        JSON, nullable=False, default=dict, comment="Входные данные для расчёта"
     )
     equipment_data: Mapped[list[Any] | None] = mapped_column(
         JSON, nullable=True, default=list, comment="Список ID приборов"
     )
-    result: Mapped[str] = mapped_column(Text, nullable=False, comment="Итоговый результат расчета")
+    result: Mapped[str] = mapped_column(Text, nullable=False, comment="Итоговый результат расчёта")
     executor: Mapped[str] = mapped_column(
-        String(150), nullable=False, comment="hsnils исполнителя, производившего расчет"
+        String(150), nullable=False, comment="hsnils исполнителя, производившего расчёт"
     )
     measurement_error: Mapped[str | None] = mapped_column(
         String(20),
@@ -70,12 +71,11 @@ class Calculation(BaseModel):
             unique=True,
             postgresql_where=text("deleted_at IS NULL"),
         ),
-        Index("idx_calculation_sample", "sample_id"),
         Index("idx_calculation_laboratory", "laboratory_id"),
         Index("idx_calculation_department", "department_id"),
         Index("idx_calculation_research_method", "research_method_id"),
         {"schema": get_database_schema()},
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Calculation(id={self.id}, sample_id={self.sample_id}, research_method_id={self.research_method_id})>"

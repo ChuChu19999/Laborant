@@ -1,0 +1,25 @@
+.sample-form {
+  padding: 0;
+  padding-bottom: 10px;
+  width: 100%;
+}
+
+.sample-form-group {
+  margin-bottom: 16px;
+}
+
+.sample-form-group:last-child {
+  margin-bottom: 0;
+}
+
+.sample-form-group label:not(.ant-checkbox-wrapper) {
+  display: block;
+  margin-bottom: 8px;
+  color: #333333;
+  font-weight: 500;
+}
+
+.sample-form-required {
+  color: #ff4d4f !important;
+  margin-left: 2px;
+}

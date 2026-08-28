@@ -1,3 +1,4 @@
+from __future__ import annotations
 from pathlib import Path
 from typing import Any
 import orjson
@@ -12,21 +13,43 @@ FIXTURE_SUBDIR_LABELS = {
 }
 
 
+def resolve_fixture_path(relative_path: str) -> Path | None:
+    """
+    Разрешить относительный путь внутри каталога фикстур.
+
+    Пустой, абсолютный или выходящий за базу путь даёт None.
+    """
+    if not relative_path or not str(relative_path).strip():
+        return None
+
+    cleaned = str(relative_path).strip().replace("\\", "/")
+    path = Path(cleaned)
+    if path.is_absolute() or any(part == ".." for part in path.parts):
+        return None
+
+    base = FIXTURES_BASE_PATH.resolve()
+    candidate = (base / path).resolve()
+    try:
+        candidate.relative_to(base)
+    except ValueError:
+        return None
+    return candidate
+
+
 def get_available_fixtures(
     laboratory_name: str | None = None,
     department_name: str | None = None,
 ) -> list[str]:
     """
-    Получить список доступных фикстур методов исследования.
+    Список относительных путей каталогов фикстур по лаборатории и подразделению.
 
-    Фикстуры привязаны к названиям лабораторий/подразделений.
-    Структура: research_methods_fixtures/{lab_name}/{fixture_type}/
+    Структура в проекте: research_methods_fixtures/{lab_name}/{fixture_type}/.
     """
     if not FIXTURES_BASE_PATH.exists():
         logger.warning(f"Директория фикстур не найдена: {FIXTURES_BASE_PATH}")
         return []
 
-    available_fixtures = []
+    available_fixtures: list[str] = []
 
     if laboratory_name and department_name:
         lab_name_normalized = _normalize_name(laboratory_name)
@@ -65,27 +88,33 @@ def get_available_fixtures(
     return sorted(available_fixtures)
 
 
-def get_fixture_data(fixture_path: str) -> dict[str, Any] | None:
-    """Получить данные фикстуры по пути."""
+def read_fixture_json(fixture_file: Path) -> dict[str, Any] | None:
+    """Прочитать JSON-файл фикстуры; при ошибке чтения или разбора — None."""
     try:
-        fixture_file = FIXTURES_BASE_PATH / fixture_path
-        if not fixture_file.exists() or not fixture_file.is_file():
-            logger.warning(f"Файл фикстуры не найден: {fixture_file}")
-            return None
-
         with open(fixture_file, "rb") as f:
-            return orjson.loads(f.read())
-    except Exception as e:
-        logger.error(f"Ошибка при чтении фикстуры {fixture_path}: {e!s}")
+            payload = orjson.loads(f.read())
+        if not isinstance(payload, dict):
+            logger.error(f"Корень фикстуры должен быть объектом: {fixture_file}")
+            return None
+        return payload
+    except (OSError, orjson.JSONDecodeError, ValueError) as e:
+        logger.error(f"Ошибка при чтении фикстуры {fixture_file}: {e!s}")
         return None
+
+
+def get_fixture_data(fixture_path: str) -> dict[str, Any] | None:
+    """Прочитать данные фикстуры по относительному пути; вне базы или нет файла — None."""
+    fixture_file = resolve_fixture_path(fixture_path)
+    if fixture_file is None or not fixture_file.is_file():
+        return None
+    return read_fixture_json(fixture_file)
 
 
 def list_fixture_subdirectories(laboratory_name: str) -> list[dict[str, Any]]:
     """
-    Подкаталоги лаборатории с JSON-фикстурами для дерева выбора на фронтенде.
+    Подкаталоги лаборатории с JSON-фикстурами для дерева выбора.
 
-    Возвращает подкаталоги с JSON; отображаемое название берётся из FIXTURE_SUBDIR_LABELS (имя каталога на диске не меняется).
-    Каталоги с одинаковой меткой объединяются в одну группу (paths).
+    Метки берутся из FIXTURE_SUBDIR_LABELS; каталоги с одной меткой объединяются в paths.
     """
     lab_name_normalized = _normalize_name(laboratory_name)
     lab_path = FIXTURES_BASE_PATH / lab_name_normalized
@@ -114,22 +143,29 @@ def list_fixture_subdirectories(laboratory_name: str) -> list[dict[str, Any]]:
     return entries
 
 
-def list_fixture_files(fixture_path: str) -> list[str]:
-    """Получить список файлов в директории фикстуры."""
+def list_json_filenames(directory: Path) -> list[str]:
+    """Имена JSON-файлов в каталоге по алфавиту."""
     try:
-        fixture_dir = FIXTURES_BASE_PATH / fixture_path
-        if not fixture_dir.exists() or not fixture_dir.is_dir():
-            return []
-
-        json_files = [f.name for f in fixture_dir.iterdir() if f.is_file() and f.suffix == ".json"]
-        return sorted(json_files)
-    except Exception as e:
-        logger.error(f"Ошибка при получении списка файлов фикстуры {fixture_path}: {e!s}")
+        return sorted(f.name for f in directory.iterdir() if f.is_file() and f.suffix == ".json")
+    except OSError as e:
+        logger.error(f"Ошибка при чтении каталога фикстур {directory}: {e!s}")
         return []
 
 
+def list_fixture_files(fixture_path: str) -> list[str] | None:
+    """
+    Список JSON в каталоге фикстуры.
+
+    None — путь вне базы или каталога нет; пустой список — каталог есть, JSON нет.
+    """
+    fixture_dir = resolve_fixture_path(fixture_path)
+    if fixture_dir is None or not fixture_dir.is_dir():
+        return None
+    return list_json_filenames(fixture_dir)
+
+
 def _normalize_name(name: str) -> str:
-    """Нормализация названия для поиска в файловой системе."""
+    """Нормализует название лаборатории/подразделения для поиска на диске."""
     name_lower = name.lower().strip()
     name_mapping = {
         "илнинм": "ilninm",
@@ -141,7 +177,7 @@ def _normalize_name(name: str) -> str:
 
 
 def _matches_department_name(fixture_type: str, department_name_normalized: str) -> bool:
-    """Проверка соответствия типа фикстуры нормализованному названию подразделения."""
+    """Проверяет, соответствует ли тип каталога фикстур подразделению."""
     fixture_type_normalized = _normalize_name(fixture_type)
     return (
         department_name_normalized == fixture_type_normalized or fixture_type_normalized in department_name_normalized
@@ -149,5 +185,5 @@ def _matches_department_name(fixture_type: str, department_name_normalized: str)
 
 
 def _has_json_files(directory: Path) -> bool:
-    """Проверка наличия JSON файлов в директории."""
+    """Проверяет, есть ли в каталоге хотя бы один JSON-файл."""
     return any(f.is_file() and f.suffix == ".json" for f in directory.iterdir())

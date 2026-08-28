@@ -1,0 +1,1 @@
+export { AntdWavelessProvider } from './AntdWavelessProvider';

@@ -5,7 +5,7 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  transition: all 0.4s ease;
+  flex-shrink: 0;
   background: linear-gradient(180deg, rgb(0, 121, 194) 40%, rgb(0, 74, 119));
   color: #fff;
   z-index: 20;
@@ -50,9 +50,16 @@
 }
 
 .sidebar-wrapper .arrowButton {
-  transition: 0.4s;
+  transition: transform 0.4s ease;
   margin: 20px;
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
 }
 
 .sidebar-wrapper.collapsed .arrowButton {
@@ -94,7 +101,14 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  transition: 0.3s;
+  transition: background-color 0.3s ease;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 .sidebar-wrapper .menu-item svg {
@@ -118,9 +132,7 @@
   opacity: 1;
   max-width: 160px;
   margin-left: 0;
-  transition:
-    opacity 0.15s ease-in-out 0.12s,
-    max-width 0.2s ease-in-out;
+  transition: opacity 0.15s ease-in-out 0.12s;
   flex: 1;
   min-width: 0;
   line-height: 1.25;
@@ -129,7 +141,7 @@
   text-overflow: ellipsis;
 }
 
-/* Перенос после анимации появления текста (max-width 0.2s + opacity delay 0.12s). */
+/* Перенос после анимации появления текста (opacity delay 0.12s). */
 .sidebar-wrapper:not(.collapsed) .menu-item .menu-item-label {
   animation: sidebar-label-allow-wrap 0s linear 0.32s forwards;
 }
@@ -143,7 +155,6 @@
   font-size: 18px !important;
   transition:
     opacity 0.15s ease-in-out 0.12s,
-    max-width 0.2s ease-in-out,
     transform 0.3s ease;
 }
 
@@ -165,9 +176,7 @@
   min-width: 0;
   margin: 0;
   pointer-events: none;
-  transition:
-    opacity 0.1s ease-in-out 0s,
-    max-width 0.2s ease-in-out 0s;
+  transition: opacity 0.1s ease-in-out 0s;
 }
 
 .sidebar-wrapper .menu-item:hover {
@@ -186,12 +195,18 @@
   font-family: 'HeliosCondC';
   font-size: 15px;
   background-color: rgba(4, 59, 107, 0.39);
+  border: none;
+  border-radius: 0;
   border-left: 5px solid #ff4d07;
+  color: inherit;
+  text-align: left;
   white-space: normal;
   overflow: hidden;
   display: flex;
   align-items: center;
   gap: 8px;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 .sidebar-wrapper .menu-item-active svg {
@@ -215,9 +230,7 @@
   opacity: 1;
   max-width: 160px;
   margin-left: 0;
-  transition:
-    opacity 0.15s ease-in-out 0.12s,
-    max-width 0.2s ease-in-out;
+  transition: opacity 0.15s ease-in-out 0.12s;
   flex: 1;
   min-width: 0;
   line-height: 1.25;
@@ -264,9 +277,7 @@
   min-width: 0;
   margin: 0;
   pointer-events: none;
-  transition:
-    opacity 0.1s ease-in-out 0s,
-    max-width 0.2s ease-in-out 0s;
+  transition: opacity 0.1s ease-in-out 0s;
 }
 
 .sidebar-wrapper .user-name {
@@ -275,23 +286,20 @@
   font-size: 15px;
   padding-left: 10px;
   margin: 0;
-  transition: all 0.2s ease;
 }
 
 .sidebar-wrapper.collapsed .user-name {
   opacity: 0;
   width: 0;
-  transition: all 0.05s linear;
 }
 
 .sidebar-wrapper:not(.collapsed) .user-name {
   opacity: 1;
   width: auto;
-  transition: all 0.2s ease;
 }
 
 .sidebar-wrapper a.menu-item {
-  transition: 0.3s;
+  transition: background-color 0.3s ease;
   text-decoration: none;
   color: inherit;
   display: flex;
@@ -372,7 +380,6 @@
   width: 100%;
   padding: 20px;
   border-top: 1px solid #bdbfc1;
-  transition: all 0.4s ease;
   height: 75px;
   box-sizing: border-box;
 }
@@ -406,9 +413,7 @@
   transition:
     opacity 0.2s ease-in-out 0.3s,
     visibility 0.2s ease-in-out 0.3s,
-    transform 0.2s ease-in-out 0.3s,
-    max-width 0.2s ease-in-out 0.3s,
-    min-width 0.2s ease-in-out 0.3s;
+    transform 0.2s ease-in-out 0.3s;
 }
 
 .sidebar-wrapper.collapsed .user-name {
@@ -420,9 +425,7 @@
   transition:
     opacity 0.2s ease-in-out 0s,
     visibility 0.2s ease-in-out 0s,
-    transform 0.2s ease-in-out 0s,
-    max-width 0.2s ease-in-out 0s,
-    min-width 0.2s ease-in-out 0s;
+    transform 0.2s ease-in-out 0s;
 }
 
 .sidebar-wrapper.collapsed .user-name::before {
@@ -484,8 +487,20 @@
   background-color: rgba(25, 118, 210, 0.04);
 }
 
+.sidebar-logo-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
 .sidebar-logo {
-  transition: all 0.3s ease-in-out;
+  transition:
+    opacity 0.3s ease-in-out,
+    transform 0.3s ease-in-out;
   cursor: pointer;
   filter: brightness(0) invert(1);
 }
@@ -506,5 +521,5 @@
 }
 
 .menu-item-transition {
-  transition: 0.3s;
+  transition: background-color 0.3s ease;
 }

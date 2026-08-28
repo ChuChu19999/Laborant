@@ -4,24 +4,28 @@ from core.logger import logger
 _hr_client: httpx.AsyncClient | None = None
 
 
-async def get_hr_client() -> httpx.AsyncClient:
-    """
-    Переиспользуемый HTTP-клиент для HR API.
-
-    verify=False — осознанно (внутренняя сеть; CERT_PATH для HR не применяем).
-    """
+def init_hr_client() -> None:
+    """Создать переиспользуемый HTTP-клиент для HR API."""
     global _hr_client
+    if _hr_client is not None:
+        return
+    # verify=False: внутренний HR API без доверенного CA; осознанное отключение проверки TLS.
+    _hr_client = httpx.AsyncClient(
+        verify=False,
+        timeout=10.0,
+        limits=httpx.Limits(max_keepalive_connections=10, max_connections=20),
+    )
+
+
+def get_hr_client() -> httpx.AsyncClient:
+    """Вернуть уже созданный HR-клиент."""
     if _hr_client is None:
-        _hr_client = httpx.AsyncClient(
-            verify=False,
-            timeout=10.0,
-            limits=httpx.Limits(max_keepalive_connections=10, max_connections=20),
-        )
+        raise RuntimeError("HR HTTP-клиент не инициализирован. Вызовите init_hr_client() при старте.")
     return _hr_client
 
 
-async def close_all_clients():
-    """Закрытие всех HTTP клиентов (вызывается при завершении приложения)."""
+async def close_all_clients() -> None:
+    """Закрыть все HTTP-клиенты (при завершении приложения)."""
     global _hr_client
 
     if _hr_client is not None:

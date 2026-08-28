@@ -1,22 +1,28 @@
-import builtins
+from __future__ import annotations
 import logging
 import sys
 from loguru import logger
 from core.config import settings
 
 
-class InterceptHandler(logging.Handler):
-    """Перехватчик стандартного logging для перенаправления в Loguru."""
+def _configure_stdio_utf8() -> None:
+    """Windows-консоль по умолчанию cp1251/cp866 — принудительно UTF-8 для кириллицы в логах."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            reconfigure(encoding="utf-8", errors="replace")
 
-    def emit(self, record):
-        # Получаем соответствующий уровень Loguru
+
+class InterceptHandler(logging.Handler):
+    """Перехватить стандартный logging и перенаправить сообщения в Loguru."""
+
+    def emit(self, record: logging.LogRecord) -> None:
         try:
-            level = logger.level(record.levelname).name
+            level: str | int = logger.level(record.levelname).name
         except ValueError:
             level = record.levelno
 
-        # Находим вызывающий фрейм
-        frame, depth = sys._getframe(6), 6
+        frame, depth = logging.currentframe(), 2
         while frame and frame.f_code.co_filename == logging.__file__:
             frame = frame.f_back
             depth += 1
@@ -24,8 +30,9 @@ class InterceptHandler(logging.Handler):
         logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
 
 
-def setup_logger():
-    """Настройка глобального логгера Loguru."""
+def setup_logger() -> None:
+    """Настроить глобальный логгер Loguru."""
+    _configure_stdio_utf8()
     logger.remove()
 
     log_format = (
@@ -34,28 +41,22 @@ def setup_logger():
         "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | "
         "<level>{message}</level>"
     )
+    debug = settings.DEBUG
 
     logger.add(
         sys.stderr,
         format=log_format,
-        level="DEBUG" if settings.DEBUG else "INFO",
+        level="DEBUG" if debug else "INFO",
         colorize=True,
-        backtrace=True,
-        diagnose=True,
+        backtrace=debug,
+        diagnose=debug,
     )
 
-    # Перехватываем стандартный logging и перенаправляем в Loguru
     logging.basicConfig(handlers=[InterceptHandler()], level=0, force=True)
 
-    # Отключаем логирование для некоторых библиотек
     for logger_name in ["uvicorn.access", "uvicorn.error"]:
         logging_logger = logging.getLogger(logger_name)
         logging_logger.handlers = [InterceptHandler()]
-
-    # Добавляем logger в builtins для глобального доступа
-    builtins.logger = logger  # type: ignore[assignment]
-
-    return logger
 
 
 setup_logger()

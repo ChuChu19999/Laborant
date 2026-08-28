@@ -1,21 +1,38 @@
 from pathlib import Path
-from pydantic_settings import BaseSettings
+from typing import Annotated, Any
+from pydantic import BeforeValidator, PostgresDsn
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 env_path = Path(__file__).parent.parent / ".env"
+
+
+def _split_cors_values(value: Any) -> Any:
+    """Разбирает CORS-строку из env: '*' или список по пробелам."""
+    if isinstance(value, str):
+        if value == "*":
+            return ["*"]
+        if not value.strip():
+            return []
+        return [item.strip() for item in value.split(" ") if item.strip()]
+    return value
+
+
+CorsSpaceSeparated = Annotated[list[str], NoDecode, BeforeValidator(_split_cors_values)]
 
 
 class Settings(BaseSettings):
     """Настройки приложения из переменных окружения."""
 
-    SECRET_KEY: str
+    model_config = SettingsConfigDict(env_file=str(env_path), case_sensitive=True)
+
     DEBUG: bool
 
-    DATABASE_URL: str
+    DATABASE_URL: PostgresDsn
     POSTGRES_DB_SCHEMA: str
 
-    CORS_ALLOWED_ORIGINS: str
-    CORS_ALLOW_METHODS: str
-    CORS_ALLOW_HEADERS: str
+    CORS_ALLOWED_ORIGINS: CorsSpaceSeparated
+    CORS_ALLOW_METHODS: CorsSpaceSeparated
+    CORS_ALLOW_HEADERS: CorsSpaceSeparated
     CORS_ALLOW_CREDENTIALS: bool
 
     KEYCLOAK_PUBLIC_KEY_URL: str
@@ -26,44 +43,10 @@ class Settings(BaseSettings):
 
     LOG_HEADERS: bool
 
-    @property
-    def DATABASE_SCHEMA(self) -> str:
-        """Название схемы PostgreSQL."""
-        return self.POSTGRES_DB_SCHEMA
 
-    @property
-    def cors_allowed_origins_list(self) -> list[str]:
-        """Список разрешенных origins для CORS."""
-        if not self.CORS_ALLOWED_ORIGINS or self.CORS_ALLOWED_ORIGINS.strip() == "":
-            return []
-        return [origin.strip() for origin in self.CORS_ALLOWED_ORIGINS.split(" ") if origin.strip()]
-
-    @property
-    def cors_allow_methods_list(self) -> list[str]:
-        """Список разрешенных методов для CORS."""
-        if self.CORS_ALLOW_METHODS == "*":
-            return ["*"]
-        if not self.CORS_ALLOW_METHODS or self.CORS_ALLOW_METHODS.strip() == "":
-            return []
-        return [method.strip() for method in self.CORS_ALLOW_METHODS.split(" ") if method.strip()]
-
-    @property
-    def cors_allow_headers_list(self) -> list[str]:
-        """Список разрешенных заголовков для CORS."""
-        if self.CORS_ALLOW_HEADERS == "*":
-            return ["*"]
-        if not self.CORS_ALLOW_HEADERS or self.CORS_ALLOW_HEADERS.strip() == "":
-            return []
-        return [header.strip() for header in self.CORS_ALLOW_HEADERS.split(" ") if header.strip()]
-
-    class Config:
-        env_file = str(env_path)
-        case_sensitive = True
-
-
-settings = Settings()
+settings = Settings()  # type: ignore[call-arg]
 
 
 def get_database_schema() -> str:
-    """Возвращает имя схемы базы данных."""
-    return settings.DATABASE_SCHEMA
+    """Вернуть имя схемы базы данных."""
+    return settings.POSTGRES_DB_SCHEMA

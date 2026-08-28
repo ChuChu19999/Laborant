@@ -1,26 +1,14 @@
 from __future__ import annotations
 from datetime import datetime
-from typing import Annotated, Any
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
-from schemas.common import NonEmptyStr, OptionalNonEmptyStr
+from typing import Annotated
+from pydantic import BaseModel, ConfigDict, Field
+from schemas.common import NonEmptyStr, OptionalNonEmptyStr, OptionalProtocolAbbreviation
 from schemas.visibility import VisibilityScope
 
 
-def _optional_protocol_abbreviation(value: Any) -> str | None:
-    if value is None:
-        return None
-    text = str(value).strip()
-    if not text:
-        return None
-    if len(text) > 8:
-        raise ValueError("Аббревиатура для протокола не должна превышать 8 символов")
-    return text
-
-
-OptionalProtocolAbbreviation = Annotated[str | None, BeforeValidator(_optional_protocol_abbreviation)]
-
-
 class TestObjectBase(BaseModel):
+    """Общие поля объекта испытаний."""
+
     name: Annotated[NonEmptyStr, Field(max_length=255)] = Field(..., description="Наименование объекта испытаний")
     tag: Annotated[NonEmptyStr, Field(max_length=50)] = Field(..., description="Тег для методов исследования")
     protocol_abbreviation: OptionalProtocolAbbreviation = Field(
@@ -34,17 +22,21 @@ class TestObjectBase(BaseModel):
 
 
 class TestObjectCreate(TestObjectBase):
-    pass
+    """Запрос на создание объекта испытаний."""
 
 
 class TestObjectUpdate(BaseModel):
-    name: Annotated[OptionalNonEmptyStr, Field(max_length=255)] = None
-    tag: Annotated[OptionalNonEmptyStr, Field(max_length=50)] = None
+    """Частичное обновление объекта испытаний."""
+
+    name: OptionalNonEmptyStr = Field(None, max_length=255)
+    tag: OptionalNonEmptyStr = Field(None, max_length=50)
     protocol_abbreviation: OptionalProtocolAbbreviation = None
     visibility_scope: VisibilityScope | None = None
 
 
 class TestObjectResponse(TestObjectBase):
+    """Ответ API с данными объекта испытаний."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -54,5 +46,7 @@ class TestObjectResponse(TestObjectBase):
 
 
 class TestObjectSelectItem(BaseModel):
+    """Краткие данные объекта испытаний для селекта."""
+
     name: str
     tag: str

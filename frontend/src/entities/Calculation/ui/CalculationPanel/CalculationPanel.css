@@ -1,0 +1,166 @@
+.calculation-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 100%;
+}
+
+.calculation-panel--fill {
+  flex: 1;
+  min-height: 0;
+}
+
+.calculation-panel--fill .calculation-panel-content {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+  padding-bottom: 24px;
+}
+
+.calculation-panel-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #4a5568;
+  text-align: center;
+  padding: 0 10px 10px 10px;
+}
+
+.calculation-panel-empty-title {
+  margin-bottom: 16px;
+  color: #2d3748;
+  font-family: 'HeliosCondC';
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.calculation-panel-empty-description {
+  margin-top: 0;
+  margin-bottom: 24px;
+  color: #718096;
+  font-family: 'HeliosCondC';
+  font-size: 14px;
+}
+
+.calculation-panel-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  overflow-y: auto;
+  height: 100%;
+}
+
+.calculation-panel-date-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.calculation-panel-date-label {
+  font-family: HeliosCondC;
+  color: #2c5282;
+  font-weight: 600;
+  font-size: 20px;
+}
+
+.calculation-panel-date-wrapper {
+  position: relative;
+  width: 470px;
+}
+
+.calculation-panel-date-picker {
+  width: 100%;
+}
+
+.calculation-panel-date-error {
+  color: #ff4d4f;
+  font-size: 12px;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  white-space: nowrap;
+}
+
+.calculation-panel-date-picker-error {
+  border-color: #ff4d4f;
+}
+
+.calculation-panel-method-title {
+  color: #2c5282;
+  font-size: 20px;
+  font-weight: 600;
+  text-align: left;
+  font-family: HeliosCondC;
+}
+
+.calculation-panel-group-selector {
+  display: inline-block;
+  max-width: 470px;
+}
+
+.calculation-panel-cards-wrapper {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  gap: 16px;
+  margin-bottom: 10px;
+  justify-content: left;
+  flex-wrap: wrap;
+}
+
+.calculation-panel-results-wrapper {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  gap: 5px;
+  margin-bottom: 5px;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.calculation-panel-actions {
+  display: flex;
+  justify-content: left;
+  width: 100%;
+  gap: 8px;
+}
+
+.calculation-panel-actions .button-wrapper {
+  flex-shrink: 0;
+  flex-grow: 0;
+  width: auto;
+}
+
+.calculation-panel-action-btn {
+  width: auto !important;
+  flex-shrink: 0 !important;
+  flex-grow: 0 !important;
+  min-width: auto !important;
+  display: inline-flex !important;
+  align-items: center !important;
+}
+
+.calculation-panel-action-btn .ant-btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: auto;
+  line-height: 0;
+}
+
+.calculation-panel-action-btn .ant-btn-icon .animated-icon,
+.calculation-panel-action-btn .ant-btn-icon svg {
+  display: block;
+}
+
+.calculation-panel-form-hidden {
+  display: none;
+}
+
+.wax-precipitation-wrapper .form-item-container {
+  gap: 0;
+}
