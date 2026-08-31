@@ -340,6 +340,7 @@ class ResearchMethodResponse(ResearchMethodBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+    unit: str = Field(..., max_length=20, description="Единица измерения результата")
     id: int
     groups: list[ResearchMethodGroupBrief] = Field(default_factory=list)
     created_at: datetime

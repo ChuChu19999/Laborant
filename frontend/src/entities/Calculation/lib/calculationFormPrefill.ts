@@ -5,6 +5,15 @@ import type { Calculation } from '../api/calculation';
 import type { ResearchMethod } from '@/entities/ResearchMethod/@x/Calculation';
 import type { Dayjs } from 'dayjs';
 
+function getCalculationFormFieldName(
+  methodId: number,
+  field: { name: string; card_index?: number }
+): string {
+  return field.card_index && field.card_index > 1
+    ? `${methodId}_${field.name}_card_${field.card_index}`
+    : `${methodId}_${field.name}`;
+}
+
 /** Преобразует сохраненный расчёт в значения полей формы CalculationPanel. */
 export function buildCalculationFormPrefill(
   currentMethod: ResearchMethod,
@@ -32,7 +41,10 @@ export function buildCalculationFormPrefill(
 
       if (fractionalData.card1) {
         Object.entries(fractionalData.card1).forEach(([fieldName, value]) => {
-          const formFieldName = `${currentMethod.id}_${fieldName}`;
+          const formFieldName = getCalculationFormFieldName(currentMethod.id, {
+            name: fieldName,
+            card_index: 1,
+          });
           initialValues[formFieldName] =
             value && (typeof value === 'string' || typeof value === 'number')
               ? formatNumberForDisplay(value)
@@ -42,7 +54,10 @@ export function buildCalculationFormPrefill(
 
       if (fractionalData.card2) {
         Object.entries(fractionalData.card2).forEach(([fieldName, value]) => {
-          const formFieldName = `${currentMethod.id}_${fieldName}_2`;
+          const formFieldName = getCalculationFormFieldName(currentMethod.id, {
+            name: fieldName,
+            card_index: 2,
+          });
           initialValues[formFieldName] =
             value && (typeof value === 'string' || typeof value === 'number')
               ? formatNumberForDisplay(value)
@@ -51,12 +66,14 @@ export function buildCalculationFormPrefill(
       }
     }
   } else {
-    Object.entries(targetCalculation.input_data || {}).forEach(([fieldName, value]) => {
-      if (fieldName.startsWith('_')) {
-        return;
+    const inputData = targetCalculation.input_data || {};
+    for (const field of currentMethod.input_data.fields) {
+      if (!(field.name in inputData)) {
+        continue;
       }
-      const formFieldName = `${currentMethod.id}_${fieldName}`;
-      const isColorField = isMassFractionOilResearchMethod(currentMethod) && fieldName === 'Цвет';
+      const value = inputData[field.name];
+      const formFieldName = getCalculationFormFieldName(currentMethod.id, field);
+      const isColorField = isMassFractionOilResearchMethod(currentMethod) && field.name === 'Цвет';
       if (isColorField) {
         initialValues[formFieldName] =
           value !== null &&
@@ -64,12 +81,12 @@ export function buildCalculationFormPrefill(
           (typeof value === 'string' || typeof value === 'number')
             ? String(value)
             : '';
-        return;
+        continue;
       }
 
       if (
         isMassFractionOilResearchMethod(currentMethod) &&
-        (fieldName === 'C₁' || fieldName === 'C1' || fieldName === 'C₂' || fieldName === 'C2')
+        (field.name === 'C₁' || field.name === 'C1' || field.name === 'C₂' || field.name === 'C2')
       ) {
         const rawStr =
           value !== null && value !== undefined
@@ -88,7 +105,7 @@ export function buildCalculationFormPrefill(
         (typeof value === 'string' || typeof value === 'number')
           ? formatNumberForDisplay(value)
           : '';
-    });
+    }
   }
 
   let laboratoryActivityDate: Dayjs | null = null;
