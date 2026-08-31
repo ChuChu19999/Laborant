@@ -1,0 +1,1 @@
+export { ReactErrorBoundary } from './ReactErrorBoundary';

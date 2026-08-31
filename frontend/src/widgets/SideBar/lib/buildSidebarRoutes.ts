@@ -20,7 +20,7 @@ export function isLeafRouteAccessible(
   if (navKey === 'help' || navKey === 'home') {
     return true;
   }
-  if (navKey === 'roles' || navKey === 'test_objects') {
+  if (navKey === 'roles' || navKey === 'test_objects' || navKey === 'monitoring') {
     return false;
   }
   if (navKey === 'admin') {

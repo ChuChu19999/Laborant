@@ -9,6 +9,7 @@ const pagePreloadByPath: Record<string, () => Promise<unknown>> = {
   '/laboratory-management': () => import('@/pages/LaboratoryManagementPage'),
   '/test-objects': () => import('@/pages/TestObjectsPage'),
   '/roles': () => import('@/pages/RolesPage'),
+  '/monitoring': () => import('@/pages/MonitoringPage'),
   '/help': () => import('@/pages/HelpPage'),
 };
 
@@ -23,6 +24,7 @@ const preloadTargets = [
   () => import('@/pages/LaboratoryManagementPage'),
   () => import('@/pages/TestObjectsPage'),
   () => import('@/pages/RolesPage'),
+  () => import('@/pages/MonitoringPage'),
   () => import('@/pages/HelpPage'),
   () => import('@/pages/CalculationsPage'),
   () => import('@/pages/AdminPage'),

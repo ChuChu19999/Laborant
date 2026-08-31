@@ -1,5 +1,6 @@
 from __future__ import annotations
-from typing import Any
+from collections.abc import Awaitable, Callable
+from typing import Any, Literal
 from fastapi import Request, status
 from fastapi.exceptions import RequestValidationError, ResponseValidationError
 from sqlalchemy.exc import SQLAlchemyError
@@ -13,6 +14,11 @@ from core.exceptions import (
 )
 from core.logger import logger
 from core.responses import ORJSONResponse
+
+MonitoringSeverityLiteral = Literal["warning", "error", "critical"]
+BackendMonitoringRecorder = Callable[[str, BaseException, MonitoringSeverityLiteral], Awaitable[None]]
+
+_backend_monitoring_recorder: BackendMonitoringRecorder | None = None
 
 _BUSINESS_STATUS_CODES: dict[type[BusinessLogicError], int] = {
     NotFoundError: status.HTTP_404_NOT_FOUND,
@@ -37,6 +43,26 @@ def _json_safe_value(value: Any) -> Any:
 
 
 _SAFE_FALLBACK_ERRORS = (AttributeError, RuntimeError, SQLAlchemyError, TypeError, ValueError)
+
+
+def register_backend_monitoring_recorder(recorder: BackendMonitoringRecorder) -> None:
+    """Зарегистрировать записыватель ошибок мониторинга для exception handlers."""
+    global _backend_monitoring_recorder
+    _backend_monitoring_recorder = recorder
+
+
+async def _try_record_backend_monitoring_error(
+    path: str,
+    exc: BaseException,
+    severity: MonitoringSeverityLiteral,
+) -> None:
+    """Записать ошибку мониторинга, если записыватель зарегистрирован."""
+    if _backend_monitoring_recorder is None:
+        return
+    try:
+        await _backend_monitoring_recorder(path, exc, severity)
+    except _SAFE_FALLBACK_ERRORS:
+        logger.exception("Не удалось записать событие мониторинга")
 
 
 def _safe_exc_message(exc: BaseException) -> str:
@@ -71,6 +97,7 @@ async def response_validation_exception_handler(request: Request, exc: ResponseV
     except _SAFE_FALLBACK_ERRORS:
         details = [{"msg": "Response validation failed"}]
     logger.error("Ошибка валидации ответа для {}: {}", request.url.path, details)
+    await _try_record_backend_monitoring_error(request.url.path, exc, "critical")
     return ORJSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": "Внутренняя ошибка сервера"},
@@ -89,6 +116,7 @@ async def business_logic_exception_handler(request: Request, exc: BusinessLogicE
 async def unhandled_exception_handler(request: Request, exc: Exception) -> ORJSONResponse:
     """Обработать непредвиденную ошибку."""
     logger.exception("Необработанная ошибка для {}: {}", request.url.path, _safe_exc_message(exc))
+    await _try_record_backend_monitoring_error(request.url.path, exc, "error")
     return ORJSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": "Внутренняя ошибка сервера"},

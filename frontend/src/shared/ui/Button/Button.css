@@ -9,6 +9,17 @@
   border-color: #ff4d07;
 }
 
+.button-wrapper .ant-btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.button-wrapper .ant-btn-icon .animated-icon svg {
+  display: block;
+}
+
 /*
   Почему CSS + !important: глобальный color на :root/body (#213547) и слой antd
   CSS-in-JS дают тёмный текст на primary solid (иконка и подпись). Theme

@@ -9,6 +9,7 @@ from api import (
     fixtures,
     laboratory,
     mass_fraction,
+    monitoring,
     nd_norm,
     protocol,
     protocol_template,
@@ -24,7 +25,9 @@ from api import (
     user_role,
     well_mode,
 )
+from core.deps import DbSession
 from schemas.meta import ApiIndexResponse, HealthResponse
+from services.health import get_application_health
 from services.meta import build_api_index
 
 api_router = APIRouter(prefix="/api")
@@ -50,6 +53,7 @@ api_router.include_router(protocol.router, tags=["protocols"])
 api_router.include_router(protocol_template.router, tags=["protocol_templates"])
 api_router.include_router(report.router, tags=["report_templates"])
 api_router.include_router(calculation.router, tags=["calculations"])
+api_router.include_router(monitoring.router, tags=["monitoring"])
 api_router.include_router(fixtures.router, tags=["fixtures"])
 
 
@@ -89,5 +93,5 @@ async def root(request: Request) -> ApiIndexResponse:
         }
     },
 )
-async def health() -> HealthResponse:
-    return HealthResponse(status="ok")
+async def health(db: DbSession) -> HealthResponse:
+    return await get_application_health(db)

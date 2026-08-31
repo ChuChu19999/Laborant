@@ -21,3 +21,4 @@ class HealthResponse(BaseModel):
     """Статус работоспособности приложения."""
 
     status: str
+    db_latency_ms: float | None = None

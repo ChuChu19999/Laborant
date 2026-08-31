@@ -5,6 +5,7 @@ export function tableFilterSelectProps(
   onOpenChange?: (open: boolean) => void
 ) {
   return {
+    allowClear: true,
     popupMatchSelectWidth: selectPopup.popupMatchSelectWidth,
     styles: selectPopup.styles,
     classNames: selectPopup.classNames,

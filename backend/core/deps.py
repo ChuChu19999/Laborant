@@ -8,6 +8,11 @@ from core.exceptions import DomainValidationError, ForbiddenError
 from core.security import get_current_user
 from schemas.role import UserPermissionsResponse
 from services.user_permissions import get_user_permissions_or_raise
+from utils.monitoring_period import (
+    DEFAULT_MONITORING_PERIOD,
+    MONITORING_PERIOD_QUERY_PATTERN,
+    MonitoringPeriodValue,
+)
 from utils.parsers import parse_query_datetime, parse_sample_ids
 
 SortOrder = Literal["asc", "desc"]
@@ -594,6 +599,63 @@ class TestObjectSelectFilters:
         self.department_id = department_id
 
 
+class MonitoringErrorListFilters:
+    """Фильтры списка ошибок мониторинга."""
+
+    page: int | None
+    page_size: int | None
+    severity: str | None
+    source: str | None
+    resolved: bool | None
+    search: str | None
+    occurrence_count: int | None
+    app_version: str | None
+    last_seen: str | None
+    period: MonitoringPeriodValue
+    sort_by: str | None
+    sort_order: SortOrder | None
+
+    def __init__(
+        self,
+        page: int | None = Query(None, ge=1),
+        page_size: int | None = Query(None, ge=1, le=200),
+        severity: str | None = Query(None, pattern="^(warning|error|critical)$"),
+        source: str | None = Query(None, pattern="^(backend|frontend)$"),
+        resolved: bool | None = Query(None),
+        search: str | None = Query(None, max_length=200),
+        occurrence_count: int | None = Query(None, ge=1),
+        app_version: str | None = Query(None, max_length=40),
+        last_seen: str | None = Query(None, max_length=40),
+        period: MonitoringPeriodValue = Query(DEFAULT_MONITORING_PERIOD, pattern=MONITORING_PERIOD_QUERY_PATTERN),
+        sort_by: str | None = Query(None),
+        sort_order: SortOrder | None = Query(None),
+    ):
+        self.page = page
+        self.page_size = page_size
+        self.severity = severity
+        self.source = source
+        self.resolved = resolved
+        self.search = search
+        self.occurrence_count = occurrence_count
+        self.app_version = app_version
+        self.last_seen = last_seen
+        self.period = period
+        self.sort_by = sort_by
+        self.sort_order = sort_order
+
+
+class MonitoringOverviewPeriod:
+    """Период сводки мониторинга."""
+
+    period: MonitoringPeriodValue
+
+    def __init__(
+        self,
+        period: MonitoringPeriodValue = Query(DEFAULT_MONITORING_PERIOD, pattern=MONITORING_PERIOD_QUERY_PATTERN),
+    ):
+        self.period = period
+
+
 ScopePaginationDep = Annotated[ScopePaginationParams, Depends()]
 ScopeSortPaginationDep = Annotated[ScopeSortPaginationParams, Depends()]
 PaginationSearchSortDep = Annotated[PaginationSearchSortParams, Depends()]
@@ -612,3 +674,5 @@ BranchListFiltersDep = Annotated[BranchListFilters, Depends()]
 BranchItemListFiltersDep = Annotated[BranchItemListFilters, Depends()]
 RegistrationNumbersFiltersDep = Annotated[RegistrationNumbersFilters, Depends()]
 TestObjectSelectFiltersDep = Annotated[TestObjectSelectFilters, Depends()]
+MonitoringErrorListFiltersDep = Annotated[MonitoringErrorListFilters, Depends()]
+MonitoringOverviewPeriodDep = Annotated[MonitoringOverviewPeriod, Depends()]

@@ -1,0 +1,8 @@
+.monitoring-error-status-modal {
+  margin: -6px 0 0;
+}
+
+.monitoring-error-status-modal .form-item-control {
+  font-size: 13px;
+  min-height: 52px;
+}

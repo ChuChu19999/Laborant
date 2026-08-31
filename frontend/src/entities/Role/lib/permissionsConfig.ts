@@ -179,12 +179,15 @@ export function syncCrudReadFromNavigation(permissions: RolePermissions): RolePe
 
 export function resolveNavigationKey(
   pathname: string
-): NavigationKey | 'help' | 'roles' | 'admin' | null {
+): NavigationKey | 'help' | 'roles' | 'monitoring' | 'admin' | null {
   if (pathname.startsWith('/admin') || pathname.startsWith('/laboratory-management')) {
     return 'admin';
   }
   if (pathname.startsWith('/roles')) {
     return 'roles';
+  }
+  if (pathname.startsWith('/monitoring')) {
+    return 'monitoring';
   }
   if (pathname.startsWith('/help')) {
     return 'help';

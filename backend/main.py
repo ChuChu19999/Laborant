@@ -10,6 +10,7 @@ from api import api_router
 from core.config import settings
 from core.exception_handlers import (
     business_logic_exception_handler,
+    register_backend_monitoring_recorder,
     response_validation_exception_handler,
     unhandled_exception_handler,
     validation_exception_handler,
@@ -20,12 +21,15 @@ from core.middleware import LogHeadersMiddleware
 from core.responses import ORJSONResponse
 from core.swagger import setup_swagger_ui
 from self_check import assert_all_self_checks
+from services.monitoring import record_unhandled_backend_error
+from utils.app_version import get_app_version
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """Запустить и остановить приложение."""
     assert_all_self_checks()
+    register_backend_monitoring_recorder(record_unhandled_backend_error)
     init_hr_client()
     yield
     await close_all_clients()
@@ -34,7 +38,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title="Laborant API",
     description="API системы Laborant с аутентификацией Keycloak",
-    version="1.0.0",
+    version=get_app_version(),
     lifespan=lifespan,
     docs_url=None,
     redoc_url=None,

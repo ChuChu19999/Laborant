@@ -28,7 +28,7 @@ const ProtectedRoute = ({ permissionsData, path, children }: ProtectedRouteProps
     return children;
   }
 
-  if (navKey === 'roles' || navKey === 'test_objects') {
+  if (navKey === 'roles' || navKey === 'test_objects' || navKey === 'monitoring') {
     return <Navigate to={FORBIDDEN_PATH} replace />;
   }
 

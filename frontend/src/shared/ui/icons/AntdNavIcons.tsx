@@ -1,4 +1,4 @@
-import { AimOutlined, ExperimentOutlined } from '@ant-design/icons';
+import { AimOutlined, DashboardOutlined, ExperimentOutlined } from '@ant-design/icons';
 import { createAnimatedAntdIcon } from './CreateAnimatedAntdIcon';
 
 /** Поступления проб — Antd Experiment с анимацией. */
@@ -10,6 +10,20 @@ export const ExperimentAntdIcon = createAnimatedAntdIcon({
     animate: {
       scale: [1, 1.1, 1],
       y: [0, -2, 0],
+      transition: { duration: 0.4, ease: 'easeInOut' },
+    },
+  },
+});
+
+/** Мониторинг — Antd Dashboard с анимацией. */
+export const DashboardAntdIcon = createAnimatedAntdIcon({
+  displayName: 'DashboardAntdIcon',
+  Icon: DashboardOutlined,
+  variants: {
+    normal: { scale: 1, opacity: 1 },
+    animate: {
+      scale: [1, 1.08, 1],
+      opacity: [1, 0.85, 1],
       transition: { duration: 0.4, ease: 'easeInOut' },
     },
   },

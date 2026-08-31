@@ -4,4 +4,9 @@
   justify-content: center;
   line-height: 0;
   flex-shrink: 0;
+  vertical-align: -0.125em;
+}
+
+.animated-icon svg {
+  display: block;
 }

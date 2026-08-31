@@ -186,7 +186,6 @@ const RolesTable = ({
                                     }}
                                     {...tableFilterSelectProps(selectPopup)}
                                     placeholder="Все типы"
-                                    allowClear
                                     className="table-filter-select"
                                     options={ROLE_TYPE_OPTIONS}
                                     onClick={(event: React.MouseEvent<HTMLElement>) =>

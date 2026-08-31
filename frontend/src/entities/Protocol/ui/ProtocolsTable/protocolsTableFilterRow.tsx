@@ -60,7 +60,6 @@ export function ProtocolsTableFilterRow({ applyFilters, headers }: ProtocolsTabl
                   placeholder="Выберите"
                   className="table-filter-select"
                   onClick={(e: React.MouseEvent) => e.stopPropagation()}
-                  allowClear
                   options={[
                     { label: 'Да', value: true },
                     { label: 'Нет', value: false },

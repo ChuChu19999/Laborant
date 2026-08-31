@@ -1,5 +1,7 @@
 # Рефакторинг от 28.08.2026
 
+Журнал рефакторинга приложения.
+
 ---
 
 ## Frontend
@@ -967,5 +969,93 @@ Verify: `self_check.services_update_flush.collect_errors()` → 0 на теку�
 - `@IsAuthenticated` в self_check fail — не включать, пока декораторы закомментированы (intentional_do_not_touch); включать только после решения раскомментировать auth на api.
 - `utils` → `core.logger` — исключение self_check / факт кода; полный отрыв utils от core — отдельное решение.
 - Single-select фильтры таблиц (например `is_accredited` в Protocols) — без **Ок**/**Отмена**; паттерн §85 только для `mode="multiple"` (как SmartCard).
+
+## §94. Мониторинг — сжатие стека ошибок (31.08.2026)
+
+**Сделано:** `utils/monitoring_error_format.py` — `compact_stack_trace` / `compact_error_message`: тип исключения, до 4 фреймов кода приложения, без site-packages/node_modules и фреймворков; лимит стека 1200. Фронт: `entities/Monitoring/lib/compactErrorTrace.ts`, отправка через `compactClientErrorPayload` в `clientErrorReporter`.
+
+## §95. Мониторинг — добивка UI и удаление моков (31.08.2026)
+
+**Сделано:**
+- Удалены dev-моки: `services/monitoring_mock_seed.py`, эндпоинты `POST/DELETE /api/monitoring/dev/mock-errors/`, `delete_monitoring_errors_by_fingerprint_prefix` в repository.
+- Таблица ошибок: ужаты колонки, ellipsis в «Описание», короткие placeholder фильтров, `overflow-x: auto`, `min-width: 760px`, кнопки `size="small"`.
+- Модалка деталей — `shared/ui/Modal`; скролл страницы — внутри таблицы, не под NavigationBar.
+- Смена статуса: `notify.success` / `notify.error` в `useMonitoringMutations`; обновление модалки только в `onSuccess` мутации.
+
+## §96. Мониторинг — двухколоночный layout (31.08.2026)
+
+**Сделано:** `MonitoringPanel` — grid: левая панель (`monitoring-page-sidebar`) со сводкой и онлайн, правая (`monitoring-page-main`) с журналом ошибок; на `<992px` — одна колонка, таблица ниже.
+
+## §97. Мониторинг — панель с границей и таблица без горизонтального скролла (31.08.2026)
+
+**Сделано:** обёртка `monitoring-page-panel` (border, единый фон); скролл левой колонки внутри панели у разделителя. `MonitoringErrorsTable` — prop `embedded`: рамка контейнера таблицы, `colgroup` с процентами, без resize колонок; фиксированные ширины колонок в embedded.
+
+## §98. Мониторинг — компактная модалка деталей (31.08.2026)
+
+**Сделано:** `modalWidth="550"`, сетка метаданных 2×N, сообщение и стек в отдельных блоках; бейджи уровня/статуса как в таблице.
+
+## §99. Мониторинг — health, период, аудит закрытия, путь онлайн (28.08.2026)
+
+**Сделано:** реальная проверка PostgreSQL (`SELECT 1`, latency, ok/degraded/down) в `/api/health/` и сводке; период 24h/7d/30d для сводки и журнала; версия приложения в ошибках (клиент/сервер); reporter, user_agent в БД и модалке; heartbeat с `current_path`; закрытие с optional comment и `resolved_by_name`; сортировка по умолчанию — повторы; колонка «Версия»; очистка закрытых >90 дней; `services/health.py` (api не импортирует utils). Миграция `b2c3d4e5f6a7`.
+
+## §100. Мониторинг — UI health, чипы онлайн, heartbeat (28.08.2026)
+
+**Сделано:** карточка «Статус работоспособности сервиса» (статус + подпись PostgreSQL · latency); чипы онлайн — скругление 6px, путь на второй строке; `usePresenceHeartbeat` — `window.location.pathname` вместо `useLocation`; `FEATURES.md` обновлён.
+
+## §101. Мониторинг — модалка примечания при закрытии/открытии (28.08.2026)
+
+**Сделано:** `MonitoringErrorStatusModal` — при «Закрыть»/«Открыть» в таблице и из деталей; необязательное примечание; при открытии дописка «Открыто снова: …» в `resolve_comment`, аудит закрытия не сбрасывается. Компакт: `modalWidth="450"`, 2 строки, без отдельного заголовка поля.
+
+## §102. Мониторинг — короткий браузер в деталях (31.08.2026)
+
+**Сделано:** `utils/format_short_browser.py`; в `MonitoringErrorResponse` — поле `browser` (`@computed_field` из `user_agent`, сырой UA в JSON не отдаётся); фронт показывает `browser` из API.
+
+## §103. Мониторинг — период «за всё время» и путь онлайн (31.08.2026)
+
+**Сделано:** период `all` в сводке и журнале ошибок; `PresenceHeartbeat` внутри Router — heartbeat при смене `pathname`, инвалидация overview после heartbeat.
+
+## §104. Мониторинг — период с бэкенда (31.08.2026)
+
+**Сделано:** `MONITORING_PERIOD_OPTIONS` и `DEFAULT_MONITORING_PERIOD` в `utils/monitoring_period.py`; в overview — `period_options`, `default_period`; список ошибок всегда фильтруется по `period` на бэкенде; фронт берёт варианты и подписи из API.
+
+## §105. Мониторинг — без сортировки по умолчанию (31.08.2026)
+
+**Сделано:** убрана начальная сортировка по `occurrence_count`; без выбора пользователя — порядок `last_seen_at desc` на бэкенде.
+
+## §106. Мониторинг — сжатие стека только на бэкенде (31.08.2026)
+
+**Сделано:** удалён `compactErrorTrace.ts`; `clientErrorReporter` отправляет сырой `message`/`stack_trace`; сжатие в `prepare_error_payload` при записи.
+
+## §107. Мониторинг — подписи и фильтры из API (31.08.2026)
+
+**Сделано:** `utils/monitoring_labels.py`; в overview — `severity_options`, `source_options`, `resolved_options`, `health_options`, `presence_options`; удалён `labels.ts` и `MONITORING_*_FILTER_OPTIONS` на фронте; `getMonitoringOptionLabel` для отображения.
+
+## §108. Мониторинг — фильтры колонок и модалка очистки (31.08.2026)
+
+**Сделано:** фильтры поиска по повторам, версии и последнему появлению (бэкенд + колонки таблицы); `MonitoringCleanupConfirmModal` вместо `AntModal.confirm`.
+
+## §109. «Показать» — prefill второй карточки фракционного состава (31.08.2026)
+
+**Сделано:** в `buildCalculationFormPrefill` ключ полей card2 приведён к `${methodId}_${fieldName}_card_2` (как в `ParallelCard` и `prepareInputData`); раньше использовался суффикс `_2`, из‑за чего «Показать» заполняло только первую карточку.
+
+## §110. Research methods — пустой unit в ответе и prefill всех карточек (31.08.2026)
+
+**Сделано:** в `ResearchMethodResponse` поле `unit` — обычная `str` (legacy-записи с `''` не ломают `/research-methods/`); в `buildCalculationFormPrefill` общий `getCalculationFormFieldName` и обход `input_data.fields` с `card_index` для всех методов, не только фракционного состава.
+
+## §111. Мониторинг — добивка аудита (31.08.2026)
+
+**Сделано:** heartbeat → 403 без доступа; `MonitoringMessageResponse` из service; `require_monitoring_error_by_id`; enum через `make_enum_validator`; `MonitoringErrorResponse` без импорта ORM; удалён мёртвый `/resolve/`; `MonitoringErrorListFiltersDep`; фронт — `monitoringQueryStore`, URL sync, модалки в `features/*`, `selectedErrorId` + `useMemo`, `monitoringKeys.overviews()`, функциональный `AppErrorBoundary` через `shared/ui/ReactErrorBoundary`.
+
+## §112. Мониторинг — границы слоёв для периода (31.08.2026)
+
+**Сделано:** константы периода (`DEFAULT_MONITORING_PERIOD`, `MONITORING_PERIOD_QUERY_PATTERN`, `MonitoringPeriodValue`) — канон в `utils/monitoring_period.py`; `core/deps.py` импортирует их из `utils`, не из `schemas` (import-linter: `core` → `schemas` запрещён); для overview — `MonitoringOverviewPeriodDep` вместо `Query(...)` в `api/monitoring.py`; `api` не импортирует `utils`. Проверки: `check.py` — ruff, basedpyright, import-linter, self-check OK.
+
+## §113. Мониторинг — категория присутствия без fallback (31.08.2026)
+
+**Сделано:** убран fallback `engineer` для пользователя без `laborant`/`engineer` и без `is_admin`; `resolve_presence_category` → `DomainValidationError`. В `resolve_user_permissions` не-админ с пустым `role_types` → `access_granted: false`.
+
+## §114. database_health — переименование utils-модуля (31.08.2026)
+
+**Сделано:** `utils/health_check.py` → `utils/database_health.py`; импорты в `services/health.py` и `services/monitoring.py`.
 
 ---

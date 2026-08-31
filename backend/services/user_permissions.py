@@ -107,6 +107,8 @@ async def resolve_user_permissions(
     visibility = scopes_to_visibility_scope(merged_scopes)
     labels = await enrich_visibility_scope_labels(db, visibility)
     role_types = sorted({role.role_type for role in catalog_roles})
+    if not role_types:
+        return _denied_payload()
 
     if merged_scopes:
         merged_permissions = merge_permissions([entry["permissions"] for entry in merged_scopes])

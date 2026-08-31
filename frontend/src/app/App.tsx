@@ -5,8 +5,10 @@ import { App as AntApp, ConfigProvider } from 'antd';
 import ruRU from 'antd/locale/ru_RU';
 import { LoadingPage } from '@/pages/LoadingPage';
 import { sidebarRoutes } from '@/widgets/SideBar';
+import { installClientErrorReporter } from '@/entities/Monitoring';
 import { NotifyProvider } from '@/shared/lib/notify';
 import { RouteFallback } from '@/shared/ui/RouteFallback';
+import { AppErrorBoundary } from './AppErrorBoundary';
 import { ProtectedRoute, useAxiosInterceptors, useCurrentPermissions, useKeycloak } from './auth';
 import { AppLayout } from './layouts';
 import {
@@ -26,8 +28,10 @@ import {
   SamplingLocationsPage,
   TestObjectsPage,
   MainPage,
+  MonitoringPage,
 } from './lazyPages';
 import { preloadAppPages } from './preloadPages';
+import { PresenceHeartbeat } from './PresenceHeartbeat';
 import type { UserPermissions } from './auth';
 import type { SidebarRouteItem } from '@/widgets/SideBar';
 import '@/shared/assets';
@@ -71,6 +75,7 @@ function AppRoutes({
       '/laboratory-management': <LaboratoryManagementPage />,
       '/test-objects': <TestObjectsPage />,
       '/roles': <RolesPage />,
+      '/monitoring': <MonitoringPage />,
       '/help': <HelpPage />,
     };
 
@@ -131,6 +136,7 @@ function AppRoutes({
 
   return (
     <BrowserRouter>
+      <PresenceHeartbeat enabled={permissionsData.access_granted} />
       <Routes>
         <Route
           path="/"
@@ -262,11 +268,19 @@ function AppContent() {
     isKeycloakReady: !isKeycloakLoading,
   });
 
+  useEffect(() => {
+    installClientErrorReporter();
+  }, []);
+
   if (isKeycloakLoading || isPermissionsLoading) {
     return <LoadingPage isLoading />;
   }
 
-  return <AppRoutes username={username || ''} permissionsData={permissionsData} />;
+  return (
+    <AppErrorBoundary>
+      <AppRoutes username={username || ''} permissionsData={permissionsData} />
+    </AppErrorBoundary>
+  );
 }
 
 export default function App() {

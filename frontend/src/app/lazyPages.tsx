@@ -44,6 +44,10 @@ export const TestObjectsPage = lazyNamedPage(
   'TestObjectsPage'
 );
 export const RolesPage = lazyNamedPage(() => import('@/pages/RolesPage'), 'RolesPage');
+export const MonitoringPage = lazyNamedPage(
+  () => import('@/pages/MonitoringPage'),
+  'MonitoringPage'
+);
 export const HelpPage = lazyNamedPage(() => import('@/pages/HelpPage'), 'HelpPage');
 export const AdminPage = lazyNamedPage(() => import('@/pages/AdminPage'), 'AdminPage');
 export const CalculationsPage = lazyNamedPage(

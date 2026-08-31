@@ -14,7 +14,7 @@ const ResetFiltersButton = ({ onReset, className }: ResetFiltersButtonProps) => 
     <Button
       type="default"
       onClick={onReset}
-      icon={<RefreshCwIcon ref={iconRef} size={18} className="animated-icon" />}
+      icon={<RefreshCwIcon ref={iconRef} size={14} className="animated-icon" />}
       className={className}
       onMouseEnter={() => iconRef.current?.startAnimation()}
       onMouseLeave={() => iconRef.current?.stopAnimation()}
