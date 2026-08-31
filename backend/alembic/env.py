@@ -19,7 +19,14 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-config.set_main_option("sqlalchemy.url", str(settings.DATABASE_URL))
+
+def get_database_url() -> str:
+    """Вернуть URL БД из настроек."""
+    return str(settings.DATABASE_URL)
+
+
+# ConfigParser трактует % как interpolation; в URL-encoded пароле %23 и т.п. нужно экранировать.
+config.set_main_option("sqlalchemy.url", get_database_url().replace("%", "%%"))
 
 target_metadata = Base.metadata
 SCHEMA_NAME = get_database_schema()
@@ -52,7 +59,7 @@ def do_run_migrations(connection: Connection) -> None:
 async def run_migrations_online() -> None:
     """Онлайн-режим: применить миграции через async-движок."""
     connectable = create_async_engine(
-        str(settings.DATABASE_URL),
+        get_database_url(),
         poolclass=pool.NullPool,
         connect_args={
             "server_settings": {
@@ -70,7 +77,7 @@ async def run_migrations_online() -> None:
 
 def run_migrations_offline() -> None:
     """Офлайн-режим: сгенерировать SQL миграций без подключения к БД."""
-    url = config.get_main_option("sqlalchemy.url")
+    url = get_database_url()
     context.configure(
         url=url,
         target_metadata=target_metadata,
