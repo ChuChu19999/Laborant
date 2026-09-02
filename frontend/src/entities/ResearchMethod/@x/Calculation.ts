@@ -8,6 +8,7 @@ export {
   roundValue,
   roundValueForCondensateFractional,
   roundValueForOilFractional,
+  normalizeFractionalKey,
   CHLORIDE_SALTS_RESULT_DISPLAY_KEY,
   isChlorideSaltsResearchMethod,
   isMassFractionOilResearchMethod,

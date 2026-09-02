@@ -1,4 +1,5 @@
 import {
+  normalizeFractionalKey,
   roundValueForCondensateFractional,
   roundValueForOilFractional,
 } from '@/entities/ResearchMethod/@x/Calculation';
@@ -158,7 +159,7 @@ export const formatFractionalResult = (result: string, methodName?: string): Rea
 
     const correctedParsed: Record<string, unknown> = {};
     Object.entries(parsed as Record<string, unknown>).forEach(([key, value]) => {
-      const correctedKey = key.replace(/н,к\./g, 'н.к.');
+      const correctedKey = normalizeFractionalKey(key);
       correctedParsed[correctedKey] = value;
     });
 
@@ -246,7 +247,7 @@ export const formatFractionalError = (
 
           if (isCondensate) {
             Object.keys(resultRecord).forEach(key => {
-              const correctedKey = key.replace(/н,к\./g, 'н.к.');
+              const correctedKey = normalizeFractionalKey(key);
               if (correctedKey === 'Температура н.к.') {
                 errorMap[correctedKey] = '±5';
               } else if (correctedKey === '10% отгона при температуре') {
@@ -265,7 +266,7 @@ export const formatFractionalError = (
             });
           } else if (isOil) {
             Object.keys(resultRecord).forEach(key => {
-              const correctedKey = key.replace(/н,к\./g, 'н.к.');
+              const correctedKey = normalizeFractionalKey(key);
               if (correctedKey === 'Температура н.к.') {
                 errorMap[correctedKey] = '±5';
               } else if (
@@ -282,7 +283,7 @@ export const formatFractionalError = (
 
           const errorValues = Object.entries(resultRecord)
             .map(([key, value]) => {
-              const correctedKey = key.replace(/н,к\./g, 'н.к.');
+              const correctedKey = normalizeFractionalKey(key);
               if (value !== null && value !== undefined && value !== '-') {
                 return { key: correctedKey, error: errorMap[correctedKey] || '-' };
               }

@@ -1,4 +1,7 @@
-import { getChlorideSaltsResultDisplay } from '@/entities/ResearchMethod/@x/Calculation';
+import {
+  getChlorideSaltsResultDisplay,
+  normalizeFractionalKey,
+} from '@/entities/ResearchMethod/@x/Calculation';
 import { formatDate } from '@/shared/lib/formatting';
 import { Button } from '@/shared/ui/Button';
 import { DeleteOutlined, EditOutlined } from '@/shared/ui/icons';
@@ -145,7 +148,7 @@ export const createCalculationsTableColumns = ({
 
           const unitValues = entries
             .map(([key, value]) => {
-              const correctedKey = key.replace(/н,к\./g, 'н.к.');
+              const correctedKey = normalizeFractionalKey(key);
               if (value === null || value === undefined || value === '-') {
                 return null;
               }

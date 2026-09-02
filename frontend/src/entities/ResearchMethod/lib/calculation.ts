@@ -184,6 +184,11 @@ export const roundValue = (value: string, mainResult: string): string => {
   return numValue.toFixed(decimalPlaces).replace('.', ',');
 };
 
+/** Привести название показателя фракционного состава к каноническому виду. */
+export const normalizeFractionalKey = (key: string): string => {
+  return key.replace(/н,к\./g, 'н.к.').replace(/Объемная/g, 'Объёмная');
+};
+
 /** Округляет значение для фракционного состава нефти. */
 export const roundValueForOilFractional = (value: string, fieldName: string): string => {
   const numValue = parseFloat(value.replace(',', '.'));

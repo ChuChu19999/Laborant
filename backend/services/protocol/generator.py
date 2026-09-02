@@ -1083,14 +1083,11 @@ def _iter_fractional_condensate_rows(
     if not isinstance(result_data, dict):
         return []
 
-    normalized = {}
+    normalized_data: dict[str, Any] = {}
     for key, value in result_data.items():
-        key_l = str(key).lower()
-        if key_l.startswith("температура н"):
-            normalized["Температура н.к."] = value
-        else:
-            normalized[key] = value
-    result_data = normalized
+        normalized_key = normalize_fractional_key(str(key))
+        normalized_data[normalized_key] = value
+    result_data = normalized_data
 
     error_map = {
         "Температура н.к.": "±5",

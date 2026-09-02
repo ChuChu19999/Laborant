@@ -11,7 +11,13 @@ from utils.calculation.engine import (
     parse_decimal_value,
     round_decimal_half_up,
 )
-from utils.calculation.fractional_keys import normalize_fractional_key
+from utils.calculation.fractional_keys import (
+    VOLUME_DISTILLATE_FIELD,
+    VOLUME_LOSSES_FIELD,
+    VOLUME_RESIDUE_FIELD,
+    get_fractional_card_value,
+    normalize_fractional_key,
+)
 
 _CALC_ERRORS = (ArithmeticError, InvalidOperation, TypeError, ValueError, ZeroDivisionError)
 
@@ -235,13 +241,13 @@ def calculate_fractional_condensate(input_data: dict[str, Any]) -> CalculateResp
         )
 
         average_volume_distillate = _average_optional_pair(
-            card_1.get("Объёмная доля отгона", "0"),
-            card_2.get("Объёмная доля отгона", "0"),
+            get_fractional_card_value(card_1, VOLUME_DISTILLATE_FIELD),
+            get_fractional_card_value(card_2, VOLUME_DISTILLATE_FIELD),
             rounder=round_condensate_distillate_volume,
         )
         average_volume_residue = _average_optional_pair(
-            card_1.get("Объёмная доля остатка", "0"),
-            card_2.get("Объёмная доля остатка", "0"),
+            get_fractional_card_value(card_1, VOLUME_RESIDUE_FIELD),
+            get_fractional_card_value(card_2, VOLUME_RESIDUE_FIELD),
             rounder=round_to_one_decimal,
         )
 
@@ -255,11 +261,11 @@ def calculate_fractional_condensate(input_data: dict[str, Any]) -> CalculateResp
 
         intermediate_results = _temps_to_intermediate(average_temps)
         if average_volume_distillate is not None:
-            intermediate_results["Объёмная доля отгона"] = _format_one_decimal_str(average_volume_distillate)
+            intermediate_results[VOLUME_DISTILLATE_FIELD] = _format_one_decimal_str(average_volume_distillate)
         if average_volume_residue is not None:
-            intermediate_results["Объёмная доля остатка"] = _format_one_decimal_str(average_volume_residue)
+            intermediate_results[VOLUME_RESIDUE_FIELD] = _format_one_decimal_str(average_volume_residue)
         if volume_losses is not None:
-            intermediate_results["Объёмная доля потерь"] = _format_one_decimal_str(volume_losses)
+            intermediate_results[VOLUME_LOSSES_FIELD] = _format_one_decimal_str(volume_losses)
 
         return _build_fractional_response(intermediate_results)
     except DomainValidationError:

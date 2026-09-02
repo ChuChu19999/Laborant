@@ -7,6 +7,7 @@ export {
   roundValue,
   roundValueForOilFractional,
   roundValueForCondensateFractional,
+  normalizeFractionalKey,
   getCardParallelLabel,
   type ConvergenceStepDisplay,
   type ConvergenceCalculationStepsDisplay,
