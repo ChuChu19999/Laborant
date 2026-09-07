@@ -86,6 +86,13 @@ const HelpPage = () => {
           <section className="help-guide-section">
             <p className="title">Новости обновлений</p>
             <div>
+              <p className="version-title">Версия 1.0.6:</p>
+              <ul className="list">
+                <li className="list-item">
+                  Поиск сотрудников по ФИО учитывает ввод в английской раскладке (например, bdfy →
+                  «иван»)
+                </li>
+              </ul>
               <p className="version-title">Версия 1.0.5:</p>
               <ul className="list">
                 <li className="list-item">
