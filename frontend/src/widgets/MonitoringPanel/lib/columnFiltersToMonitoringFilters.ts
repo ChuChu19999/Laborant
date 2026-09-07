@@ -1,3 +1,4 @@
+import dayjs, { type Dayjs } from 'dayjs';
 import type { MonitoringErrorFilters } from '@/entities/Monitoring';
 import type { ColumnFiltersState } from '@tanstack/react-table';
 
@@ -15,6 +16,24 @@ const readOccurrenceCountFilter = (columnFilters: ColumnFiltersState): number | 
   return value >= 1 ? value : undefined;
 };
 
+const readLastSeenDateRange = (
+  columnFilters: ColumnFiltersState
+): { last_seen_at_from?: string; last_seen_at_to?: string } => {
+  const filter = columnFilters.find(item => item.id === 'last_seen_at');
+  if (!filter?.value || !Array.isArray(filter.value) || filter.value.length !== 2) {
+    return {};
+  }
+  const [start, end] = filter.value as [Dayjs | null, Dayjs | null];
+  const result: { last_seen_at_from?: string; last_seen_at_to?: string } = {};
+  if (start && dayjs.isDayjs(start)) {
+    result.last_seen_at_from = start.format('YYYY-MM-DD');
+  }
+  if (end && dayjs.isDayjs(end)) {
+    result.last_seen_at_to = end.format('YYYY-MM-DD');
+  }
+  return result;
+};
+
 /** Преобразовать фильтры колонок таблицы в параметры API списка ошибок. */
 export function columnFiltersToMonitoringFilters(
   columnFilters: ColumnFiltersState
@@ -24,7 +43,7 @@ export function columnFiltersToMonitoringFilters(
   const searchRaw = readStringFilter(columnFilters, 'summary');
   const resolvedRaw = readStringFilter(columnFilters, 'resolved');
   const appVersionRaw = readStringFilter(columnFilters, 'app_version');
-  const lastSeenRaw = readStringFilter(columnFilters, 'last_seen_at');
+  const lastSeenRange = readLastSeenDateRange(columnFilters);
 
   let resolved: boolean | undefined;
   if (resolvedRaw === 'open') {
@@ -42,7 +61,7 @@ export function columnFiltersToMonitoringFilters(
     search: searchRaw || undefined,
     occurrence_count: readOccurrenceCountFilter(columnFilters),
     app_version: appVersionRaw || undefined,
-    last_seen: lastSeenRaw || undefined,
+    ...lastSeenRange,
     resolved,
   };
 }

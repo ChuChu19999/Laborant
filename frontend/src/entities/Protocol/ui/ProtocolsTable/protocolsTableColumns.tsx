@@ -1,7 +1,6 @@
-import { formatDate } from '@/shared/lib/formatting';
+import { formatDate, matchesDateRange } from '@/shared/lib/formatting';
 import { Button } from '@/shared/ui/Button';
 import { DeleteOutlined, EditOutlined, FileExcelOutlined } from '@/shared/ui/icons';
-import { matchesDateRange } from './tableUtils';
 import type { Protocol } from '../../api';
 import type { ColumnDef } from '@tanstack/react-table';
 

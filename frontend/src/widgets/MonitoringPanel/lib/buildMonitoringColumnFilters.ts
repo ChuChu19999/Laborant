@@ -1,3 +1,4 @@
+import dayjs from 'dayjs';
 import { urlParamsToFilters } from '@/shared/lib/routing';
 import type { ColumnFiltersState } from '@tanstack/react-table';
 
@@ -8,7 +9,8 @@ export const MONITORING_FILTER_KEYS: string[] = [
   'resolved',
   'app_version',
   'occurrence_count',
-  'last_seen_at',
+  'last_seen_at_from',
+  'last_seen_at_to',
   'period',
 ];
 
@@ -35,8 +37,15 @@ export function buildMonitoringColumnFilters(searchParams: URLSearchParams): Col
   if (urlFilters.occurrence_count && typeof urlFilters.occurrence_count === 'string') {
     columnFilters.push({ id: 'occurrence_count', value: urlFilters.occurrence_count });
   }
-  if (urlFilters.last_seen_at && typeof urlFilters.last_seen_at === 'string') {
-    columnFilters.push({ id: 'last_seen_at', value: urlFilters.last_seen_at });
+
+  const lastSeenFrom = urlFilters.last_seen_at_from;
+  const lastSeenTo = urlFilters.last_seen_at_to;
+  if (lastSeenFrom || lastSeenTo) {
+    const startDate = lastSeenFrom && typeof lastSeenFrom === 'string' ? dayjs(lastSeenFrom) : null;
+    const endDate = lastSeenTo && typeof lastSeenTo === 'string' ? dayjs(lastSeenTo) : null;
+    if (startDate || endDate) {
+      columnFilters.push({ id: 'last_seen_at', value: [startDate, endDate] });
+    }
   }
 
   return columnFilters;

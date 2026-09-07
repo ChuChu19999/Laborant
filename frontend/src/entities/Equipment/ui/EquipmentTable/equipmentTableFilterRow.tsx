@@ -1,7 +1,7 @@
 import React from 'react';
 import dayjs, { type Dayjs } from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
-import { getDateRangePresets } from '@/shared/lib/formatting';
+import { getDateRangeFilterValue, getDateRangePresets } from '@/shared/lib/formatting';
 import { Input, RangePicker } from '@/shared/ui/FormItems';
 import { MultiSelectColumnFilter } from '@/shared/ui/MultiSelectColumnFilter';
 import {
@@ -9,10 +9,8 @@ import {
   TableFilterTheme,
   tableFilterMultiSelectProps,
 } from '@/shared/ui/TableFilter';
-import { getDateRangeFilterValue } from './tableUtils';
 import type { Equipment } from '../../api';
 import type { Header } from '@tanstack/react-table';
-
 dayjs.extend(customParseFormat);
 
 const EQUIPMENT_TYPES = [
@@ -62,6 +60,7 @@ export function EquipmentTableFilterRow({
                   className="table-filter-datepicker"
                   onClick={(e: React.MouseEvent) => e.stopPropagation()}
                   allowClear
+                  allowEmpty={[true, true]}
                   presets={getDateRangePresets()}
                 />
               ) : header.column.getCanFilter() && header.column.id === 'type' ? (

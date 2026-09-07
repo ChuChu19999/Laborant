@@ -70,7 +70,8 @@ export interface MonitoringErrorFilters {
   search?: string;
   occurrence_count?: number;
   app_version?: string;
-  last_seen?: string;
+  last_seen_at_from?: string;
+  last_seen_at_to?: string;
   period: MonitoringPeriod;
   [key: string]: unknown;
 }
@@ -86,6 +87,7 @@ export interface ClientErrorReport {
 
 export interface HeartbeatPayload {
   current_path?: string | null;
+  from_app?: boolean;
 }
 
 export interface MonitoringErrorsListParams {

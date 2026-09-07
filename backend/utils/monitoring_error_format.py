@@ -282,13 +282,11 @@ def compute_error_fingerprint(
     source: str,
     severity: str,
     message: str,
-    path: str | None,
     top_frame: str,
 ) -> str:
-    """Построить стабильный fingerprint уникальной ошибки."""
+    """Построить стабильный fingerprint уникальной ошибки (без пути страницы)."""
     normalized_message = truncate_text(compact_error_message(message).strip(), 300)
-    normalized_path = normalize_path(path) or ""
-    key = f"{source}\0{severity}\0{normalized_message}\0{normalized_path}\0{top_frame}"
+    key = f"{source}\0{severity}\0{normalized_message}\0{top_frame}"
     return hashlib.sha256(key.encode("utf-8")).hexdigest()
 
 
@@ -296,14 +294,9 @@ def build_error_summary(
     *,
     message: str,
     stack_trace: str | None,
-    path: str | None,
 ) -> str:
     """Собрать короткое описание ошибки для списка мониторинга."""
-    parts: list[str] = []
-    normalized_path = normalize_path(path)
-    if normalized_path:
-        parts.append(normalized_path)
-    parts.append(truncate_text(compact_error_message(message).strip(), 120))
+    parts: list[str] = [truncate_text(compact_error_message(message).strip(), 120)]
     top_frame = extract_top_stack_frame(stack_trace)
     if top_frame:
         parts.append(top_frame)
@@ -314,11 +307,10 @@ def prepare_error_payload(
     *,
     message: str,
     stack_trace: str | None,
-    path: str | None,
 ) -> tuple[str, str | None, str, str]:
     """Подготовить укороченные поля ошибки и summary для записи в БД."""
     trimmed_message = truncate_text(compact_error_message(message), MESSAGE_MAX_LENGTH)
     trimmed_stack = compact_stack_trace(stack_trace)
-    summary = build_error_summary(message=trimmed_message, stack_trace=trimmed_stack, path=path)
+    summary = build_error_summary(message=trimmed_message, stack_trace=trimmed_stack)
     top_frame = extract_top_stack_frame(trimmed_stack or stack_trace)
     return trimmed_message, trimmed_stack, summary, top_frame

@@ -41,6 +41,10 @@
   word-break: break-word;
 }
 
+.monitoring-error-details-path {
+  color: #5f6770;
+}
+
 .monitoring-error-details-block {
   display: flex;
   flex-direction: column;

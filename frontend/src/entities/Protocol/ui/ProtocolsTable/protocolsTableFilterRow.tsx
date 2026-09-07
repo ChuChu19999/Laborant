@@ -1,13 +1,11 @@
 import React from 'react';
 import dayjs, { type Dayjs } from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
-import { getDateRangePresets } from '@/shared/lib/formatting';
+import { getDateRangeFilterValue, getDateRangePresets } from '@/shared/lib/formatting';
 import { Input, RangePicker, Select } from '@/shared/ui/FormItems';
 import { TableFilterCell, TableFilterTheme, tableFilterSelectProps } from '@/shared/ui/TableFilter';
-import { getDateRangeFilterValue } from './tableUtils';
 import type { Protocol } from '../../api';
 import type { Header } from '@tanstack/react-table';
-
 dayjs.extend(customParseFormat);
 
 const DATE_FILTER_COLUMN_IDS = new Set(['test_protocol_date', 'created_at']);
@@ -43,6 +41,7 @@ export function ProtocolsTableFilterRow({ applyFilters, headers }: ProtocolsTabl
                   className="table-filter-datepicker"
                   onClick={(e: React.MouseEvent) => e.stopPropagation()}
                   allowClear
+                  allowEmpty={[true, true]}
                   presets={getDateRangePresets()}
                 />
               ) : header.column.getCanFilter() && header.column.id === 'is_accredited' ? (

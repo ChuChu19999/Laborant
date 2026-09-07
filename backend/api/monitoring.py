@@ -76,7 +76,8 @@ async def list_monitoring_errors(
         search=filters.search,
         occurrence_count=filters.occurrence_count,
         app_version=filters.app_version,
-        last_seen=filters.last_seen,
+        last_seen_at_from=filters.last_seen_at_from,
+        last_seen_at_to=filters.last_seen_at_to,
         period=filters.period,
         sort_by=filters.sort_by,
         sort_order=filters.sort_order,
@@ -167,7 +168,7 @@ async def report_client_error(
     "/monitoring/presence/heartbeat/",
     response_model=MonitoringMessageResponse,
     summary="Heartbeat присутствия",
-    description="Обновляет время последней активности пользователя.",
+    description=("Обновляет online только при from_app=true. Без флага отвечает ok и presence не пишет."),
     responses={
         200: {"description": "Heartbeat обновлён"},
         403: {"description": "Отказано в доступе"},

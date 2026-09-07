@@ -45,8 +45,11 @@ export const monitoringApi = {
     if (params.filters?.app_version) {
       query.app_version = params.filters.app_version;
     }
-    if (params.filters?.last_seen) {
-      query.last_seen = params.filters.last_seen;
+    if (params.filters?.last_seen_at_from) {
+      query.last_seen_at_from = params.filters.last_seen_at_from;
+    }
+    if (params.filters?.last_seen_at_to) {
+      query.last_seen_at_to = params.filters.last_seen_at_to;
     }
     query.period = params.filters?.period ?? '24h';
     if (params.sorting?.sort_by) {
@@ -70,7 +73,10 @@ export const monitoringApi = {
   },
 
   sendHeartbeat: async (payload?: HeartbeatPayload): Promise<void> => {
-    await axiosInstance.post('/api/monitoring/presence/heartbeat/', payload ?? {});
+    await axiosInstance.post('/api/monitoring/presence/heartbeat/', {
+      ...payload,
+      from_app: true,
+    });
   },
 
   updateErrorStatus: async (

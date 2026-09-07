@@ -1,8 +1,7 @@
-import { formatDate } from '@/shared/lib/formatting';
+import { formatDate, matchesDateRange, matchesFioSearch } from '@/shared/lib/formatting';
 import { Button } from '@/shared/ui/Button';
 import { CalculatorOutlined, DeleteOutlined, EditOutlined } from '@/shared/ui/icons';
 import { formatWellDisplay } from '../../lib/sampleFormatting';
-import { matchesDateRange } from './tableUtils';
 import type { Sample } from '../../api';
 import type { ColumnDef } from '@tanstack/react-table';
 
@@ -128,6 +127,11 @@ export function createSamplesTableColumns({
     {
       accessorKey: 'added_by',
       header: 'Добавил пробу',
+      accessorFn: row => {
+        const addedBy = row.added_by;
+        if (!addedBy) return '';
+        return employeesMap[addedBy]?.fullName ?? '';
+      },
       cell: ({ row }) => {
         const addedBy = row.original.added_by;
         if (!addedBy) return '-';
@@ -136,6 +140,11 @@ export function createSamplesTableColumns({
       },
       enableSorting: false,
       enableColumnFilter: true,
+      filterFn: (row, _id, filterValue) =>
+        matchesFioSearch(
+          row.original.added_by ? employeesMap[row.original.added_by]?.fullName : '',
+          String(filterValue ?? '')
+        ),
       size: 200,
     },
     {

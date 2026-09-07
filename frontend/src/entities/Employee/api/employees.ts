@@ -1,4 +1,5 @@
 import { axiosInstance } from '@/shared/config';
+import { normalizeFioSearch } from '@/shared/lib/formatting';
 
 /** Фотография сотрудника. */
 export interface EmployeePhoto {
@@ -29,12 +30,13 @@ export const employeesApi = {
     searchFio: string,
     includePhoto: boolean = true
   ): Promise<EmployeeBrief[]> => {
-    if (!searchFio || searchFio.length < 3) {
+    const normalized = normalizeFioSearch(searchFio);
+    if (!normalized || normalized.length < 3) {
       return [];
     }
 
     const response = await axiosInstance.get<EmployeeBrief[]>('/api/employees/search/', {
-      params: { searchFio, includePhoto },
+      params: { searchFio: normalized, includePhoto },
     });
 
     return response.data;
@@ -46,7 +48,8 @@ export const employeesApi = {
     laboratoryName: string,
     includePhoto: boolean = true
   ): Promise<EmployeeBrief[]> => {
-    if (!searchFio || searchFio.length < 3) {
+    const normalized = normalizeFioSearch(searchFio);
+    if (!normalized || normalized.length < 3) {
       return [];
     }
 
@@ -58,7 +61,7 @@ export const employeesApi = {
       '/api/employees/search-by-laboratory/',
       {
         params: {
-          searchFio,
+          searchFio: normalized,
           laboratoryName,
           includePhoto,
         },

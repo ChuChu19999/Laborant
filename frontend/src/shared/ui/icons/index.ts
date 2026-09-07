@@ -25,7 +25,7 @@ export {
   SettingOutlined,
 } from '@ant-design/icons';
 export type { AnimatedIconHandle } from './CreateAnimatedAntdIcon';
-export { AimAntdIcon, DashboardAntdIcon, ExperimentAntdIcon } from './AntdNavIcons';
+export { AimAntdIcon, ExperimentAntdIcon, LineChartAntdIcon } from './AntdNavIcons';
 export { BookTextIcon } from './BookTextIcon';
 export type { BookTextIconHandle } from './BookTextIcon';
 export { CalculatorIcon } from './CalculatorIcon';
@@ -40,6 +40,8 @@ export { HomeIcon } from './HomeIcon';
 export type { HomeIconHandle } from './HomeIcon';
 export { MapPinIcon } from './MapPinIcon';
 export type { MapPinIconHandle } from './MapPinIcon';
+export { PulseIcon } from './PulseIcon';
+export type { PulseIconHandle } from './PulseIcon';
 export { RefreshCwIcon } from './RefreshCwIcon';
 export type { RefreshCwIconHandle } from './RefreshCwIcon';
 export { SettingsIcon } from './SettingsIcon';

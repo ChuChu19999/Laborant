@@ -8,6 +8,7 @@ import {
   type MonitoringPeriod,
 } from '@/entities/Monitoring';
 import { APP_VERSION } from '@/shared/config';
+import { formatNumberForDisplay } from '@/shared/lib/formatting';
 import { Button } from '@/shared/ui/Button';
 import { Select } from '@/shared/ui/FormItems';
 import { Layout } from '@/shared/ui/Layout';
@@ -33,7 +34,8 @@ const MonitoringPanel = () => {
       : healthStatus === 'degraded'
         ? 'monitoring-health-dot--warn'
         : 'monitoring-health-dot--bad';
-  const latencyText = overview?.db_latency_ms != null ? `${overview.db_latency_ms} мс` : '—';
+  const latencyText =
+    overview?.db_latency_ms != null ? `${formatNumberForDisplay(overview.db_latency_ms)} мс` : '—';
 
   return (
     <Layout title="Мониторинг">
@@ -144,7 +146,7 @@ const MonitoringPanel = () => {
                   loading={panel.cleanupMutation.isPending}
                   onClick={panel.modals.handleCleanupClosed}
                 >
-                  Очистить закрытые &gt;90 дней
+                  Очистить закрытые {'>'}90 дней
                 </Button>
                 <ResetFiltersButton onReset={panel.handleResetFilters} />
               </div>

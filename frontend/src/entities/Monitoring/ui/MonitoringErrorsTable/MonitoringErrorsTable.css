@@ -46,7 +46,7 @@
 }
 
 .monitoring-errors-table-container--embedded .monitoring-errors-col--last {
-  width: 112px;
+  width: 136px;
 }
 
 .monitoring-errors-table-container--embedded .monitoring-errors-col--status {
@@ -58,7 +58,7 @@
 }
 
 .monitoring-errors-table-container--embedded .monitoring-errors-table {
-  min-width: 720px;
+  min-width: 744px;
 }
 
 .monitoring-errors-table-container--embedded .monitoring-errors-table th,
@@ -68,14 +68,15 @@
 
 .monitoring-errors-table-container--embedded .monitoring-errors-table-header-label {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  max-width: 100%;
 }
 
 .monitoring-errors-table-header-label {
   flex: 1;
   min-width: 0;
+  max-width: 100%;
+  color: inherit;
+  font: inherit;
 }
 
 .monitoring-errors-col--severity {

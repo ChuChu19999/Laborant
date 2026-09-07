@@ -35,6 +35,10 @@ class HeartbeatCreate(BaseModel):
     """Heartbeat присутствия пользователя."""
 
     current_path: str | None = Field(None, max_length=500)
+    from_app: bool = Field(
+        False,
+        description="True только от UI приложения; без флага presence не обновляется",
+    )
 
 
 class MonitoringErrorResponse(BaseModel):

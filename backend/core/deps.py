@@ -610,7 +610,8 @@ class MonitoringErrorListFilters:
     search: str | None
     occurrence_count: int | None
     app_version: str | None
-    last_seen: str | None
+    last_seen_at_from: pendulum.DateTime | None
+    last_seen_at_to: pendulum.DateTime | None
     period: MonitoringPeriodValue
     sort_by: str | None
     sort_order: SortOrder | None
@@ -625,7 +626,8 @@ class MonitoringErrorListFilters:
         search: str | None = Query(None, max_length=200),
         occurrence_count: int | None = Query(None, ge=1),
         app_version: str | None = Query(None, max_length=40),
-        last_seen: str | None = Query(None, max_length=40),
+        last_seen_at_from: str | None = Query(None),
+        last_seen_at_to: str | None = Query(None),
         period: MonitoringPeriodValue = Query(DEFAULT_MONITORING_PERIOD, pattern=MONITORING_PERIOD_QUERY_PATTERN),
         sort_by: str | None = Query(None),
         sort_order: SortOrder | None = Query(None),
@@ -638,7 +640,7 @@ class MonitoringErrorListFilters:
         self.search = search
         self.occurrence_count = occurrence_count
         self.app_version = app_version
-        self.last_seen = last_seen
+        self.last_seen_at_from, self.last_seen_at_to = parse_date_range(last_seen_at_from, last_seen_at_to)
         self.period = period
         self.sort_by = sort_by
         self.sort_order = sort_order

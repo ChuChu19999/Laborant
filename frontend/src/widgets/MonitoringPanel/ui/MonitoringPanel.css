@@ -70,7 +70,6 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 12px;
 }
 
 .monitoring-overview-period-label {
@@ -225,12 +224,13 @@
 .monitoring-page-online-list {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 8px;
 }
 
 .monitoring-online-chip {
   display: block;
+  width: 100%;
   padding: 6px 10px;
   border-radius: 6px;
   background: rgba(44, 82, 130, 0.08);

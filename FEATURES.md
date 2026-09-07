@@ -14,9 +14,9 @@
 
 ### Ошибки
 
-- Уровни: **предупреждение**, **ошибка**, **критическая**.
+- Уровни: **предупреждение**, **ошибка**, **критическая**. Сообщения вида `Warning: …` из `console.error` (React/antd в DEV) пишутся как **предупреждение**, не как ошибка.
 - Источники: **бэкенд** (необработанные 500, `ResponseValidationError`) и **фронтенд** (`console.warn/error`, `window.error`, `unhandledrejection`, Error Boundary).
-- Дедупликация по fingerprint (SHA-256 нормализованного пути, сообщения и верхней строки стека); при повторе — `occurrence_count++`, без новой строки в БД.
+- Дедупликация по fingerprint (SHA-256 сообщения, источника, уровня и верхней строки стека; путь страницы не входит — одна ошибка на разных страницах сливается); при повторе — `occurrence_count++`, без новой строки в БД. Путь в записи — место последнего появления.
 - Текст укорочен: сообщение до 500 символов; стек сжимается до ключевых фреймов кода приложения (без `site-packages`, `node_modules`, uvicorn/starlette и т.п.), до 1200 символов; в таблице — `summary` до 280 символов.
 - 422 / 404 / 403 и `/api/health/` не записываются.
 - Статус ошибки: **открыта** / **закрыта** (`resolved_at`). Администратор может закрыть или снова открыть ошибку из таблицы и из модалки «Детали».
@@ -29,7 +29,7 @@
 
 ### Онлайн-пользователи
 
-- Heartbeat каждые **45 с** (`POST /api/monitoring/presence/heartbeat/`), в body — `current_path` (текущий путь страницы).
+- Heartbeat каждые **45 с** (`POST /api/monitoring/presence/heartbeat/`), в body — `current_path` и `from_app: true` (только UI Laborant; без флага presence не пишется).
 - Онлайн = активность за последние **2 минуты**.
 - Категория по приоритету (одна на пользователя): **лаборант** → **инженер** → **администратор** (типы из каталога ролей; админ — по флагу `is_admin`, не из `role_type`).
 - Без ролей в каталоге (`laborant`/`engineer`) и без прав админа — **доступ запрещён** (`access_granted: false`), heartbeat не пишется.
@@ -60,7 +60,7 @@
 | PATCH | `/api/monitoring/errors/{id}/status/` | admin (`resolved`, optional `comment`) |
 | POST | `/api/monitoring/errors/cleanup-closed/` | admin (закрытые > 90 дней) |
 | POST | `/api/monitoring/client-errors/` | авторизованный (`client_version`, `user_agent`) |
-| POST | `/api/monitoring/presence/heartbeat/` | авторизованный (`current_path`) |
+| POST | `/api/monitoring/presence/heartbeat/` | авторизованный (`current_path`, `from_app`) |
 
 ### Версии
 
@@ -135,6 +135,7 @@ alembic upgrade head
 | Шторм одинаковых ошибок с клиента | In-memory dedupe по `severity + message` до отправки; на сервере — fingerprint в БД. |
 | Длинный traceback / message | `compact_stack_trace` / `compact_error_message` в `utils/monitoring_error_format.py` при записи; клиент шлёт сырой текст в пределах лимитов схемы. |
 | Петля: ошибка при отправке ошибки | `SKIP_URL_PARTS` для `/api/monitoring/client-errors/` и heartbeat; `catch(() => undefined)` на fetch. |
+| React/antd Warning через `console.error` | `isConsoleWarningMessage` — префикс `Warning:` → severity `warning`. |
 | `event.error` / `event.reason` в обработчиках | Проверка `instanceof Error`; остальное через `as unknown` и `serializeValue`. |
 | 404 на API мониторинга | Пути клиента с префиксом `/api/...`, как у остальных entity. |
 | Heartbeat и путь страницы | `app/PresenceHeartbeat` внутри Router; путь через `useLocation` в entity-hook. |

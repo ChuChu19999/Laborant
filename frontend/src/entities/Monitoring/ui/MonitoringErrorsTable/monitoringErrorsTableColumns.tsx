@@ -87,7 +87,7 @@ export function createMonitoringErrorsTableColumns({
           {row.original.app_version || '—'}
         </span>
       ),
-      enableSorting: false,
+      enableSorting: true,
       enableColumnFilter: true,
       size: 72,
       minSize: 64,
@@ -99,8 +99,8 @@ export function createMonitoringErrorsTableColumns({
       cell: ({ row }) => dayjs(row.original.last_seen_at).format('DD.MM.YY HH:mm'),
       enableSorting: true,
       enableColumnFilter: true,
-      size: 124,
-      minSize: 112,
+      size: 136,
+      minSize: 120,
     },
     {
       id: 'resolved',

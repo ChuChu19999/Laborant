@@ -1,7 +1,7 @@
 {
   "name": "frontend",
   "private": true,
-  "version": "1.0.5",
+  "version": "1.0.6",
   "type": "module",
   "scripts": {
     "start": "vite",
@@ -23,6 +23,7 @@
     "antd": "^5.28.0",
     "axios": "^1.15.2",
     "color-convert": "^2.0.1",
+    "convert-layout": "^0.11.1",
     "dayjs": "^1.11.19",
     "keycloak-js": "^26.2.1",
     "lottie-react": "^2.4.1",

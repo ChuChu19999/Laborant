@@ -48,6 +48,16 @@ const buildDedupeKey = (severity: MonitoringSeverity, message: string): string =
   return `${severity}\0${message}`;
 };
 
+/** React/antd в DEV часто пишут Warning через console.error — считать предупреждением. */
+const isConsoleWarningMessage = (message: string): boolean => {
+  const trimmed = message.trimStart();
+  return (
+    trimmed.startsWith('Warning:') ||
+    trimmed.startsWith('warn:') ||
+    /^\[.*?\]\s*Warning:/i.test(trimmed)
+  );
+};
+
 const reportClientError = (payload: ClientErrorReport) => {
   if (shouldSkipUrl(payload.url || '')) {
     return;
@@ -96,7 +106,8 @@ export const installClientErrorReporter = () => {
   console.error = (...args: unknown[]) => {
     originalError(...args);
     const message = args.map(arg => serializeValue(arg)).join(' ');
-    reportMonitoringClientError('error', message);
+    const severity: MonitoringSeverity = isConsoleWarningMessage(message) ? 'warning' : 'error';
+    reportMonitoringClientError(severity, message);
   };
 
   window.addEventListener('error', event => {

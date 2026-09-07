@@ -12,3 +12,13 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+declare module 'convert-layout/ru' {
+  interface RuLayout {
+    fromEn: (text: string) => string;
+    toEn: (text: string) => string;
+  }
+
+  const ru: RuLayout;
+  export default ru;
+}

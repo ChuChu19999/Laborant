@@ -9,15 +9,21 @@ import {
   type PaginationState,
   type OnChangeFn,
   type ColumnSizingState,
+  type Header,
 } from '@tanstack/react-table';
-import { Input, Select } from '@/shared/ui/FormItems';
+import { getDateRangeFilterValue, getDateRangePresets } from '@/shared/lib/formatting';
+import { Input, RangePicker, Select } from '@/shared/ui/FormItems';
 import { LoadingCard } from '@/shared/ui/LoadingCard';
 import { TableFilterCell, TableFilterTheme, tableFilterSelectProps } from '@/shared/ui/TableFilter';
 import { TablePagination } from '@/shared/ui/TablePagination';
 import { TableSortIcon } from '@/shared/ui/TableSortIcon';
+import { Typography } from '@/shared/ui/Typography';
 import { createMonitoringErrorsTableColumns } from './monitoringErrorsTableColumns';
 import type { MonitoringErrorItem, MonitoringOption } from '../../api';
+import type { Dayjs } from 'dayjs';
 import './MonitoringErrorsTable.css';
+
+const { Text } = Typography;
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
@@ -25,8 +31,21 @@ const FILTER_PLACEHOLDERS: Record<string, string> = {
   summary: 'Поиск...',
   occurrence_count: 'Число',
   app_version: 'Версия',
-  last_seen_at: 'ДД.ММ...',
 };
+
+/** Заголовок колонки: при обрезке текста — Tooltip с полным названием (Typography.ellipsis). */
+function MonitoringHeaderLabel({ header }: { header: Header<MonitoringErrorItem, unknown> }) {
+  const title = header.column.columnDef.header;
+  if (typeof title !== 'string') {
+    return <>{flexRender(title, header.getContext())}</>;
+  }
+
+  return (
+    <Text className="monitoring-errors-table-header-label" ellipsis={{ tooltip: true }}>
+      {title}
+    </Text>
+  );
+}
 
 interface MonitoringErrorsTableProps {
   data: MonitoringErrorItem[];
@@ -184,16 +203,14 @@ const MonitoringErrorsTable = ({
                               className="monitoring-errors-table-header-content sortable"
                               onClick={header.column.getToggleSortingHandler()}
                             >
-                              <span className="monitoring-errors-table-header-label">
-                                {flexRender(header.column.columnDef.header, header.getContext())}
-                              </span>
+                              <MonitoringHeaderLabel header={header} />
                               <span className="monitoring-errors-table-sort-icon">
                                 <TableSortIcon sorted={header.column.getIsSorted()} />
                               </span>
                             </button>
                           ) : (
                             <div className="monitoring-errors-table-header-content">
-                              {flexRender(header.column.columnDef.header, header.getContext())}
+                              <MonitoringHeaderLabel header={header} />
                             </div>
                           )}
                           {header.column.getCanResize() && !embedded && (
@@ -263,6 +280,26 @@ const MonitoringErrorsTable = ({
                                     onClick={(event: React.MouseEvent<HTMLElement>) =>
                                       event.stopPropagation()
                                     }
+                                  />
+                                ) : header.id === 'last_seen_at' ? (
+                                  <RangePicker
+                                    value={getDateRangeFilterValue(header.column.getFilterValue())}
+                                    onChange={(dates: unknown) => {
+                                      const dateRange = dates as
+                                        | [Dayjs | null, Dayjs | null]
+                                        | null;
+                                      header.column.setFilterValue(dateRange);
+                                      setTimeout(() => {
+                                        applyFilters();
+                                      }, 0);
+                                    }}
+                                    placeholder={['С', 'По']}
+                                    format="DD.MM"
+                                    className="table-filter-datepicker"
+                                    onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                                    allowClear
+                                    allowEmpty={[true, true]}
+                                    presets={getDateRangePresets()}
                                   />
                                 ) : (
                                   <Input

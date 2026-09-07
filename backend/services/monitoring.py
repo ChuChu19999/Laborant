@@ -104,14 +104,12 @@ async def record_monitoring_error(
     trimmed_message, trimmed_stack, summary, top_frame = prepare_error_payload(
         message=message,
         stack_trace=stack_trace,
-        path=path,
     )
     normalized_path = normalize_path(path)
     fingerprint = compute_error_fingerprint(
         source=source,
         severity=severity,
         message=message,
-        path=path,
         top_frame=top_frame,
     )
     now = pendulum.now("UTC")
@@ -120,6 +118,9 @@ async def record_monitoring_error(
     if existing is not None:
         existing.occurrence_count += 1
         existing.updated_at = now
+        existing.summary = summary
+        if normalized_path:
+            existing.path = normalized_path
         if existing.resolved_at is not None:
             existing.resolved_at = None
             existing.resolved_by_name = None
@@ -288,7 +289,8 @@ async def get_monitoring_errors_list(
     search: str | None = None,
     occurrence_count: int | None = None,
     app_version: str | None = None,
-    last_seen: str | None = None,
+    last_seen_at_from: pendulum.DateTime | None = None,
+    last_seen_at_to: pendulum.DateTime | None = None,
     period: MonitoringPeriod = DEFAULT_MONITORING_PERIOD,
     sort_by: str | None = None,
     sort_order: str | None = None,
@@ -296,7 +298,7 @@ async def get_monitoring_errors_list(
     page_size: int | None = None,
 ) -> tuple[list[MonitoringError], int]:
     """Получить список ошибок мониторинга."""
-    last_seen_from = resolve_monitoring_period_since(period)
+    period_since = resolve_monitoring_period_since(period)
     return await monitoring_repo.get_monitoring_errors(
         db,
         severity=severity,
@@ -305,8 +307,9 @@ async def get_monitoring_errors_list(
         search=search,
         occurrence_count=occurrence_count,
         app_version=app_version,
-        last_seen=last_seen,
-        last_seen_from=last_seen_from,
+        period_since=period_since,
+        last_seen_at_from=last_seen_at_from,
+        last_seen_at_to=last_seen_at_to,
         sort_by=sort_by,
         sort_order=sort_order,
         page=page,
@@ -394,17 +397,19 @@ async def record_heartbeat(
     payload: HeartbeatCreate | None = None,
 ) -> MonitoringMessageResponse:
     """Обновить heartbeat присутствия текущего пользователя."""
+    if payload is None or not payload.from_app:
+        return MonitoringMessageResponse(message="Heartbeat обновлён")
+
     permissions = await resolve_user_permissions(db, decoded_token)
     if not permissions["access_granted"]:
         raise ForbiddenError("Отказано в доступе")
 
-    current_path = payload.current_path if payload else None
     await touch_user_presence(
         db,
         hsnils=decoded_token.get("hashSnils") or "",
         full_name=decoded_token.get("fullName") or "",
         is_admin=permissions["is_admin"],
         role_types=permissions["role_types"],
-        current_path=current_path,
+        current_path=payload.current_path,
     )
     return MonitoringMessageResponse(message="Heartbeat обновлён")

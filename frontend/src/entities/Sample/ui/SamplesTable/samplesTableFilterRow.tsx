@@ -2,7 +2,7 @@ import React from 'react';
 import dayjs, { type Dayjs } from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 import { useTestObjectNames } from '@/entities/TestObject/@x/Sample';
-import { getDateRangePresets } from '@/shared/lib/formatting';
+import { getDateRangeFilterValue, getDateRangePresets } from '@/shared/lib/formatting';
 import { Input, RangePicker } from '@/shared/ui/FormItems';
 import { MultiSelectColumnFilter } from '@/shared/ui/MultiSelectColumnFilter';
 import {
@@ -11,10 +11,8 @@ import {
   tableFilterMultiSelectProps,
 } from '@/shared/ui/TableFilter';
 import { useSampleTypes } from '../../model/useSampleLookups';
-import { getDateRangeFilterValue } from './tableUtils';
 import type { Sample } from '../../api';
 import type { Header } from '@tanstack/react-table';
-
 dayjs.extend(customParseFormat);
 
 const DATE_FILTER_COLUMN_IDS = new Set(['sampling_date', 'receiving_date', 'created_at']);
@@ -62,6 +60,7 @@ export function SamplesTableFilterRow({
                   className="table-filter-datepicker"
                   onClick={(e: React.MouseEvent) => e.stopPropagation()}
                   allowClear
+                  allowEmpty={[true, true]}
                   presets={getDateRangePresets()}
                 />
               ) : header.column.getCanFilter() && header.column.id === 'sample_type' ? (

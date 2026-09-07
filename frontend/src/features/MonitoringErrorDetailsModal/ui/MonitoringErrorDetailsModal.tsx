@@ -63,7 +63,7 @@ const MonitoringErrorDetailsModal = ({
           {error.path && (
             <div className="monitoring-error-details-item monitoring-error-details-item--wide">
               <dt>Путь</dt>
-              <dd>{error.path}</dd>
+              <dd className="monitoring-error-details-path">{error.path}</dd>
             </div>
           )}
           {error.app_version && (
@@ -118,7 +118,7 @@ const MonitoringErrorDetailsModal = ({
           </div>
           {error.resolved_by_name && (
             <div className="monitoring-error-details-item">
-              <dt>Закрыла</dt>
+              <dt>Закрыл</dt>
               <dd>{error.resolved_by_name}</dd>
             </div>
           )}

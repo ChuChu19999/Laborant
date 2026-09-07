@@ -1,5 +1,6 @@
 from __future__ import annotations
 from datetime import datetime
+import pendulum
 from sqlalchemy import ColumnElement, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from models.monitoring_error import MonitoringError
@@ -10,6 +11,7 @@ from repositories.base import (
     execute_scalars_all,
     flush_entity,
 )
+from utils.filters import add_date_range_filter
 from utils.pagination import apply_pagination, get_total_count
 from utils.sorting import build_order_by
 
@@ -22,8 +24,9 @@ def _build_error_conditions(
     search: str | None = None,
     occurrence_count: int | None = None,
     app_version: str | None = None,
-    last_seen: str | None = None,
-    last_seen_from: datetime | None = None,
+    period_since: datetime | None = None,
+    last_seen_at_from: pendulum.DateTime | None = None,
+    last_seen_at_to: pendulum.DateTime | None = None,
 ) -> list[ColumnElement[bool]]:
     """Собрать условия фильтрации ошибок мониторинга."""
     conditions: list[ColumnElement[bool]] = []
@@ -47,11 +50,9 @@ def _build_error_conditions(
     if app_version:
         pattern = f"%{app_version}%"
         conditions.append(MonitoringError.app_version.ilike(pattern))
-    if last_seen:
-        pattern = f"%{last_seen}%"
-        conditions.append(func.to_char(MonitoringError.updated_at, "DD.MM.YY HH24:MI").ilike(pattern))
-    if last_seen_from is not None:
-        conditions.append(MonitoringError.updated_at >= last_seen_from)
+    if period_since is not None:
+        conditions.append(MonitoringError.updated_at >= period_since)
+    add_date_range_filter(conditions, last_seen_at_from, last_seen_at_to, MonitoringError.updated_at)
     return conditions
 
 
@@ -96,8 +97,9 @@ async def get_monitoring_errors(
     search: str | None = None,
     occurrence_count: int | None = None,
     app_version: str | None = None,
-    last_seen: str | None = None,
-    last_seen_from: datetime | None = None,
+    period_since: datetime | None = None,
+    last_seen_at_from: pendulum.DateTime | None = None,
+    last_seen_at_to: pendulum.DateTime | None = None,
     sort_by: str | None = None,
     sort_order: str | None = None,
     page: int | None = None,
@@ -112,8 +114,9 @@ async def get_monitoring_errors(
         search=search,
         occurrence_count=occurrence_count,
         app_version=app_version,
-        last_seen=last_seen,
-        last_seen_from=last_seen_from,
+        period_since=period_since,
+        last_seen_at_from=last_seen_at_from,
+        last_seen_at_to=last_seen_at_to,
     )
     if conditions:
         query = query.where(*conditions)
@@ -122,6 +125,7 @@ async def get_monitoring_errors(
         "severity": MonitoringError.severity,
         "source": MonitoringError.source,
         "occurrence_count": MonitoringError.occurrence_count,
+        "app_version": MonitoringError.app_version,
         "first_seen_at": MonitoringError.created_at,
         "last_seen_at": MonitoringError.updated_at,
         "resolved_at": MonitoringError.resolved_at,
