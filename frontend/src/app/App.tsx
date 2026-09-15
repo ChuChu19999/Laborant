@@ -25,8 +25,10 @@ import {
   RolesPage,
   RolePermissionsPage,
   SamplesPage,
+  SampleTypesPage,
   SamplingLocationsPage,
   TestObjectsPage,
+  TestPurposesPage,
   MainPage,
   MonitoringPage,
 } from './lazyPages';
@@ -70,6 +72,8 @@ function AppRoutes({
       '/protocols': <ProtocolsPage />,
       '/equipment': <EquipmentPage />,
       '/sampling-locations': <SamplingLocationsPage />,
+      '/sample-types': <SampleTypesPage />,
+      '/test-purposes': <TestPurposesPage />,
       '/nd-norms': <NdNormsPage />,
       '/refraction-tables': <RefractionTablesPage />,
       '/laboratory-management': <LaboratoryManagementPage />,
@@ -236,6 +240,28 @@ function AppRoutes({
               element={wrap(
                 '/nd-norms/laboratory/:laboratoryId/department/:departmentId',
                 <NdNormsPage />
+              )}
+            />
+            <Route
+              path="/sample-types/laboratory/:laboratoryId"
+              element={wrap('/sample-types/laboratory/:laboratoryId', <SampleTypesPage />)}
+            />
+            <Route
+              path="/sample-types/laboratory/:laboratoryId/department/:departmentId"
+              element={wrap(
+                '/sample-types/laboratory/:laboratoryId/department/:departmentId',
+                <SampleTypesPage />
+              )}
+            />
+            <Route
+              path="/test-purposes/laboratory/:laboratoryId"
+              element={wrap('/test-purposes/laboratory/:laboratoryId', <TestPurposesPage />)}
+            />
+            <Route
+              path="/test-purposes/laboratory/:laboratoryId/department/:departmentId"
+              element={wrap(
+                '/test-purposes/laboratory/:laboratoryId/department/:departmentId',
+                <TestPurposesPage />
               )}
             />
             <Route

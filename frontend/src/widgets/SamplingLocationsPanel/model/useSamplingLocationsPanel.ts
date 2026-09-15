@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
+  ADMIN_SAMPLING_TERMINOLOGY_LABEL,
   resolvePermissionsForScope,
   SAMPLING_TERMINOLOGY_LABELS,
   useCan,
@@ -20,17 +21,21 @@ export const useSamplingLocationsPanel = (
   labId: number | undefined,
   deptId: number | undefined
 ) => {
-  const { permissionsData } = usePermissionsContext();
+  const { isAdmin, permissionsData } = usePermissionsContext();
   const { canAccessFeature } = useScopeAccess();
   const canCreate = useCan('sampling_locations', 'create', labId, deptId);
   const canUpdate = useCan('sampling_locations', 'update', labId, deptId);
   const canDelete = useCan('sampling_locations', 'delete', labId, deptId);
 
+  const isFullAccess = isAdmin || permissionsData.is_admin;
   const scopedPermissions =
     resolvePermissionsForScope(permissionsData.scopes, labId, deptId) ||
     permissionsData.permissions;
-  const terminologyLabel =
-    SAMPLING_TERMINOLOGY_LABELS[scopedPermissions.sampling_terminology || 'well_mode'];
+  const terminologyLabel = isFullAccess
+    ? ADMIN_SAMPLING_TERMINOLOGY_LABEL
+    : SAMPLING_TERMINOLOGY_LABELS[scopedPermissions.sampling_terminology || 'well_mode'];
+  const canShowPhone =
+    isFullAccess || scopedPermissions.sampling_locations.visible_fields.includes('phone');
 
   // selectedBranch живет здесь, чтобы queries могли зависеть от id до фильтрации списка
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
@@ -111,6 +116,7 @@ export const useSamplingLocationsPanel = (
     canCreate,
     canUpdate,
     canDelete,
+    canShowPhone,
     canAccessFeature,
     terminologyLabel,
     selectedBranch,

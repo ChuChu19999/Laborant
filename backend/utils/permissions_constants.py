@@ -6,13 +6,26 @@ SamplingTerminology = Literal["well_mode", "sampling_point"]
 
 SAMPLE_OPTIONAL_FIELDS = (
     "sample_type",
+    "test_purpose",
     "branch",
     "sampling_location",
     "well",
     "well_mode",
     "sampling_date",
     "receipt_date",
+    "customer_activity_place",
+    "test_object_nd",
 )
+
+PROTOCOL_OPTIONAL_FIELDS = (
+    "sampling_request_number",
+    "sampling_request_date",
+    "sampling_method_nd",
+    "sampling_plan_number",
+    "sampling_act_date",
+)
+
+SAMPLING_LOCATION_OPTIONAL_FIELDS = ("phone",)
 
 NAVIGATION_KEYS = (
     "home",
@@ -20,6 +33,8 @@ NAVIGATION_KEYS = (
     "protocols",
     "equipment",
     "sampling_locations",
+    "sample_types",
+    "test_purposes",
     "nd_norms",
     "refraction_tables",
     "test_objects",
@@ -29,6 +44,8 @@ CRUD_RESOURCES = (
     "protocols",
     "equipment",
     "sampling_locations",
+    "sample_types",
+    "test_purposes",
     "nd_norms",
     "refraction_tables",
 )
@@ -39,6 +56,8 @@ NavigationKey = Literal[
     "protocols",
     "equipment",
     "sampling_locations",
+    "sample_types",
+    "test_purposes",
     "nd_norms",
     "refraction_tables",
     "test_objects",
@@ -47,6 +66,8 @@ CrudCatalogResource = Literal[
     "protocols",
     "equipment",
     "sampling_locations",
+    "sample_types",
+    "test_purposes",
     "nd_norms",
     "refraction_tables",
 ]
@@ -54,6 +75,8 @@ EnforceCrudResource = Literal[
     "protocols",
     "equipment",
     "sampling_locations",
+    "sample_types",
+    "test_purposes",
     "nd_norms",
     "refraction_tables",
     "test_objects",
@@ -68,6 +91,8 @@ PermissionResource = Literal[
     "protocols",
     "equipment",
     "sampling_locations",
+    "sample_types",
+    "test_purposes",
     "nd_norms",
     "refraction_tables",
     "test_objects",
@@ -79,6 +104,8 @@ PermissionAction = Literal[
     "protocols",
     "equipment",
     "sampling_locations",
+    "sample_types",
+    "test_purposes",
     "nd_norms",
     "refraction_tables",
     "test_objects",
@@ -90,6 +117,10 @@ PermissionAction = Literal[
     "execute",
     "show_equipment",
 ]
+
+
+def _empty_crud() -> dict[str, Any]:
+    return {"read": False, "create": False, "update": False, "delete": False}
 
 
 def default_role_permissions() -> dict[str, Any]:
@@ -105,27 +136,20 @@ def default_role_permissions() -> dict[str, Any]:
             "update": False,
             "delete": False,
         },
-        "protocols": {"read": False, "create": False, "update": False, "delete": False},
-        "equipment": {"read": False, "create": False, "update": False, "delete": False},
+        "protocols": {
+            **_empty_crud(),
+            "visible_fields": [],
+        },
+        "equipment": _empty_crud(),
         "sampling_locations": {
-            "read": False,
-            "create": False,
-            "update": False,
-            "delete": False,
+            **_empty_crud(),
+            "visible_fields": [],
         },
-        "nd_norms": {"read": False, "create": False, "update": False, "delete": False},
-        "refraction_tables": {
-            "read": False,
-            "create": False,
-            "update": False,
-            "delete": False,
-        },
-        "test_objects": {
-            "read": False,
-            "create": False,
-            "update": False,
-            "delete": False,
-        },
+        "sample_types": _empty_crud(),
+        "test_purposes": _empty_crud(),
+        "nd_norms": _empty_crud(),
+        "refraction_tables": _empty_crud(),
+        "test_objects": _empty_crud(),
         "calculations": {
             "execute": False,
             "create": False,
@@ -153,6 +177,10 @@ def full_admin_permissions() -> dict[str, Any]:
             "update": True,
             "delete": True,
         }
+        if resource == "sampling_locations":
+            perms[resource]["visible_fields"] = list(SAMPLING_LOCATION_OPTIONAL_FIELDS)
+        if resource == "protocols":
+            perms[resource]["visible_fields"] = list(PROTOCOL_OPTIONAL_FIELDS)
     perms["test_objects"] = {
         "read": True,
         "create": True,
@@ -185,12 +213,7 @@ def normalize_permissions(raw: dict[str, Any] | None) -> dict[str, Any]:
     base["navigation"]["home"] = True
     # Объекты испытаний — только admin.
     base["navigation"]["test_objects"] = False
-    base["test_objects"] = {
-        "read": False,
-        "create": False,
-        "update": False,
-        "delete": False,
-    }
+    base["test_objects"] = _empty_crud()
 
     lab_mgmt = raw.get("laboratory_management")
     if isinstance(lab_mgmt, dict) and "access" in lab_mgmt:
@@ -214,6 +237,20 @@ def normalize_permissions(raw: dict[str, Any] | None) -> dict[str, Any]:
             for action in ("read", "create", "update", "delete"):
                 if action in section:
                     base[resource][action] = bool(section[action])
+            if resource == "sampling_locations":
+                fields = section.get("visible_fields")
+                if isinstance(fields, list):
+                    base[resource]["visible_fields"] = [
+                        field
+                        for field in fields
+                        if isinstance(field, str) and field in SAMPLING_LOCATION_OPTIONAL_FIELDS
+                    ]
+            if resource == "protocols":
+                fields = section.get("visible_fields")
+                if isinstance(fields, list):
+                    base[resource]["visible_fields"] = [
+                        field for field in fields if isinstance(field, str) and field in PROTOCOL_OPTIONAL_FIELDS
+                    ]
 
     calculations = raw.get("calculations")
     if isinstance(calculations, dict):
@@ -253,6 +290,14 @@ def merge_permissions(items: list[dict[str, Any]]) -> dict[str, Any]:
         for resource in CRUD_RESOURCES:
             for action in ("read", "create", "update", "delete"):
                 result[resource][action] = result[resource][action] or other[resource][action]
+            if resource == "sampling_locations":
+                result[resource]["visible_fields"] = sorted(
+                    set(result[resource].get("visible_fields", [])) | set(other[resource].get("visible_fields", []))
+                )
+            if resource == "protocols":
+                result[resource]["visible_fields"] = sorted(
+                    set(result[resource].get("visible_fields", [])) | set(other[resource].get("visible_fields", []))
+                )
         for action in ("execute", "create", "update", "delete", "show_equipment"):
             result["calculations"][action] = result["calculations"][action] or other["calculations"][action]
         # При расхождении терминологии приоритет у well_mode.

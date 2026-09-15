@@ -1,15 +1,8 @@
 from __future__ import annotations
 from datetime import date, datetime
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 from schemas.common import NonEmptyStr, OptionalExecutorHsnils, OptionalNonEmptyStr, related_entity_name
-
-SAMPLE_TYPE_CHOICES = Literal[
-    "Исследования - ОИС",
-    "Исследования - прочие",
-    "Паспортизация",
-    "Внеплановые",
-]
 
 
 class SampleProtocolSummary(BaseModel):
@@ -28,7 +21,7 @@ class SampleBase(BaseModel):
     registration_number: Annotated[NonEmptyStr, Field(max_length=50)] = Field(
         ..., description="Регистрационный номер пробы"
     )
-    sample_type: SAMPLE_TYPE_CHOICES | None = Field(None, description="Тип пробы")
+    sample_type: str | None = Field(None, max_length=255, description="Тип пробы")
     test_object: Annotated[NonEmptyStr, Field(max_length=255)] = Field(..., description="Объект испытаний")
     sampling_date: date | None = Field(None, description="Дата отбора пробы")
     receiving_date: date | None = Field(None, description="Дата получения пробы в лабораторию")
@@ -38,6 +31,11 @@ class SampleBase(BaseModel):
     mode: str | None = Field(None, max_length=255, description="Режим работы скважины")
     indicators_count: int = Field(..., ge=0, description="Количество показателей")
     phone: str | None = Field(None, max_length=50, description="Номер телефона филиала")
+    customer_activity_place: str | None = Field(
+        None, max_length=255, description="Место осуществления деятельности заказчика"
+    )
+    test_object_nd: str | None = Field(None, max_length=255, description="Нормативный документ на объект испытаний")
+    test_purpose: str | None = Field(None, max_length=255, description="Цель испытаний")
     selection_conditions: dict[str, Any] | None = Field(None, description="JSON с условиями отбора и их значениями")
     added_by: OptionalExecutorHsnils = Field(None, description="hsnils лица, добавившего пробу")
 
@@ -53,7 +51,7 @@ class SampleUpdate(BaseModel):
     """Частичное обновление пробы."""
 
     registration_number: OptionalNonEmptyStr = Field(None, max_length=50)
-    sample_type: SAMPLE_TYPE_CHOICES | None = None
+    sample_type: str | None = Field(None, max_length=255)
     test_object: OptionalNonEmptyStr = Field(None, max_length=255)
     sampling_date: date | None = None
     receiving_date: date | None = None
@@ -63,6 +61,9 @@ class SampleUpdate(BaseModel):
     mode: str | None = Field(None, max_length=255)
     indicators_count: int | None = Field(None, ge=0, description="Количество показателей")
     phone: str | None = Field(None, max_length=50)
+    customer_activity_place: str | None = Field(None, max_length=255)
+    test_object_nd: str | None = Field(None, max_length=255)
+    test_purpose: str | None = Field(None, max_length=255)
     selection_conditions: dict[str, Any] | None = None
     added_by: OptionalExecutorHsnils = None
     laboratory_id: int | None = None

@@ -22,6 +22,9 @@ export interface SampleFormValues {
   well: string;
   mode: string | undefined;
   indicators_count: number | undefined;
+  customer_activity_place: string;
+  test_object_nd: string;
+  test_purpose: string | undefined;
 }
 
 export interface SampleFormSelectOption {
@@ -35,7 +38,8 @@ interface SampleFormFieldsProps {
   errors?: Partial<Record<keyof SampleFormValues | 'added_by', boolean>>;
   canShow: (field: string) => boolean;
   terminologyLabel: string;
-  sampleTypes: string[];
+  sampleTypeOptions: SampleFormSelectOption[];
+  testPurposeOptions: SampleFormSelectOption[];
   testObjectOptions: string[];
   branchOptions: SampleFormSelectOption[];
   branchesLoading?: boolean;
@@ -58,7 +62,8 @@ const SampleFormFields = ({
   errors = {},
   canShow,
   terminologyLabel,
-  sampleTypes,
+  sampleTypeOptions,
+  testPurposeOptions,
   testObjectOptions,
   branchOptions,
   branchesLoading = false,
@@ -75,7 +80,8 @@ const SampleFormFields = ({
   onSelectionConditionChange,
 }: SampleFormFieldsProps) => {
   const handleInputChange =
-    (field: 'registration_number' | 'well') => (event: ChangeEvent<HTMLInputElement>) => {
+    (field: 'registration_number' | 'well' | 'customer_activity_place' | 'test_object_nd') =>
+    (event: ChangeEvent<HTMLInputElement>) => {
       onChange({ [field]: event.target.value });
     };
 
@@ -92,7 +98,15 @@ const SampleFormFields = ({
   };
 
   const handleSelectChange =
-    (field: 'sample_type' | 'test_object' | 'branch_id' | 'sampling_location_id' | 'mode') =>
+    (
+      field:
+        | 'sample_type'
+        | 'test_purpose'
+        | 'test_object'
+        | 'branch_id'
+        | 'sampling_location_id'
+        | 'mode'
+    ) =>
     (next: unknown) => {
       if (field === 'branch_id') {
         onChange({
@@ -135,10 +149,12 @@ const SampleFormFields = ({
               onChange={handleSelectChange('sample_type')}
               placeholder="Выберите тип пробы"
               allowClear
+              showSearch
+              optionFilterProp="children"
             >
-              {sampleTypes.map(type => (
-                <Option key={type} value={type}>
-                  {type}
+              {sampleTypeOptions.map(option => (
+                <Option key={option.value} value={option.label}>
+                  {option.label}
                 </Option>
               ))}
             </Select>
@@ -172,6 +188,44 @@ const SampleFormFields = ({
           </Select>
         )}
       </FormField>
+
+      {canShow('test_object_nd') ? (
+        <FormField
+          label="Нормативный документ на объект испытаний"
+          itemClassName="sample-form-group"
+        >
+          {fieldId => (
+            <Input
+              id={fieldId}
+              value={value.test_object_nd}
+              onChange={handleInputChange('test_object_nd')}
+              placeholder="Введите нормативный документ на объект испытаний"
+            />
+          )}
+        </FormField>
+      ) : null}
+
+      {canShow('test_purpose') ? (
+        <FormField label="Цель испытаний" itemClassName="sample-form-group">
+          {fieldId => (
+            <Select
+              id={fieldId}
+              value={value.test_purpose}
+              onChange={handleSelectChange('test_purpose')}
+              placeholder="Выберите цель испытаний"
+              allowClear
+              showSearch
+              optionFilterProp="children"
+            >
+              {testPurposeOptions.map(option => (
+                <Option key={option.value} value={option.label}>
+                  {option.label}
+                </Option>
+              ))}
+            </Select>
+          )}
+        </FormField>
+      ) : null}
 
       <FormField
         label={
@@ -214,6 +268,22 @@ const SampleFormFields = ({
                 </Option>
               ))}
             </Select>
+          )}
+        </FormField>
+      ) : null}
+
+      {canShow('customer_activity_place') ? (
+        <FormField
+          label="Место осуществления деятельности заказчика"
+          itemClassName="sample-form-group"
+        >
+          {fieldId => (
+            <Input
+              id={fieldId}
+              value={value.customer_activity_place}
+              onChange={handleInputChange('customer_activity_place')}
+              placeholder="Введите место осуществления деятельности заказчика"
+            />
           )}
         </FormField>
       ) : null}

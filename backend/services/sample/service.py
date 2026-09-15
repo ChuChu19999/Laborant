@@ -1,6 +1,4 @@
 from __future__ import annotations
-from typing import get_args
-import pendulum
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.exceptions import (
     ConflictError,
@@ -15,7 +13,6 @@ from repositories import (
 )
 from repositories.base import flush_entity
 from schemas.sample import (
-    SAMPLE_TYPE_CHOICES,
     RegistrationNumbersResponse,
     SampleCreate,
     SampleProtocolSummary,
@@ -27,11 +24,6 @@ from services.employee import search_employees_by_fio
 from services.protocol.sample_map import get_protocols_by_sample_ids
 from services.sampling_location import require_sampling_location_by_id
 from services.visibility import validate_lab_and_department
-
-
-def get_sample_type_choices() -> list[str]:
-    """Вернуть список допустимых типов проб для API."""
-    return list(get_args(SAMPLE_TYPE_CHOICES))
 
 
 async def _resolve_added_by_hsnils(
@@ -97,12 +89,12 @@ async def get_samples(
     test_objects: list[str] | None = None,
     sort_by: str | None = None,
     sort_order: str | None = None,
-    sampling_date_from: pendulum.DateTime | None = None,
-    sampling_date_to: pendulum.DateTime | None = None,
-    receiving_date_from: pendulum.DateTime | None = None,
-    receiving_date_to: pendulum.DateTime | None = None,
-    created_at_from: pendulum.DateTime | None = None,
-    created_at_to: pendulum.DateTime | None = None,
+    sampling_date_from=None,
+    sampling_date_to=None,
+    receiving_date_from=None,
+    receiving_date_to=None,
+    created_at_from=None,
+    created_at_to=None,
 ) -> tuple[list[SampleResponse], int]:
     """Получить список проб."""
     added_by_hsnils, no_added_by_match = await _resolve_added_by_hsnils(search_added_by)
@@ -186,6 +178,9 @@ async def create_sample(db: AsyncSession, sample_data: SampleCreate) -> Sample:
         mode=sample_data.mode,
         indicators_count=sample_data.indicators_count,
         phone=sample_data.phone,
+        customer_activity_place=sample_data.customer_activity_place,
+        test_object_nd=sample_data.test_object_nd,
+        test_purpose=sample_data.test_purpose,
         selection_conditions=sample_data.selection_conditions,
         added_by=sample_data.added_by,
     )

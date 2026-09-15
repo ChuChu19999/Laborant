@@ -17,9 +17,11 @@ from models.research import (
 )
 from models.role import Role, RoleType
 from models.sample import Sample
+from models.sample_type import SampleType
 from models.sampling_location import SamplingLocation
 from models.selection_conditions import SelectionConditions
 from models.test_object import TestObject
+from models.test_purpose import TestPurpose
 from models.user_presence import PresenceCategory, UserPresence
 from models.well_mode import WellMode
 
@@ -47,9 +49,11 @@ __all__ = [
     "RoleType",
     "RoundingType",
     "Sample",
+    "SampleType",
     "SamplingLocation",
     "SelectionConditions",
     "TestObject",
+    "TestPurpose",
     "UserPresence",
     "WellMode",
     "research_method_groups_association",

@@ -16,7 +16,9 @@ if TYPE_CHECKING:
     from models.report import ReportTemplate
     from models.research import ResearchMethod
     from models.sample import Sample
+    from models.sample_type import SampleType
     from models.selection_conditions import SelectionConditions
+    from models.test_purpose import TestPurpose
 
 
 class Department(BaseModel):
@@ -43,6 +45,8 @@ class Department(BaseModel):
     calculations: Mapped[list["Calculation"]] = relationship(back_populates="department")
     equipment: Mapped[list["Equipment"]] = relationship(back_populates="department")
     nd_norms: Mapped[list["NdNorm"]] = relationship(back_populates="department")
+    sample_types: Mapped[list["SampleType"]] = relationship(back_populates="department")
+    test_purposes: Mapped[list["TestPurpose"]] = relationship(back_populates="department")
     selection_conditions: Mapped[list["SelectionConditions"]] = relationship(back_populates="department")
     protocol_templates: Mapped[list["ProtocolTemplate"]] = relationship(back_populates="department")
     report_templates: Mapped[list["ReportTemplate"]] = relationship(back_populates="department")

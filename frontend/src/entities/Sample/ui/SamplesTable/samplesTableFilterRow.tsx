@@ -1,7 +1,6 @@
 import React from 'react';
 import dayjs, { type Dayjs } from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
-import { useTestObjectNames } from '@/entities/TestObject/@x/Sample';
 import { getDateRangeFilterValue, getDateRangePresets } from '@/shared/lib/formatting';
 import { Input, RangePicker } from '@/shared/ui/FormItems';
 import { MultiSelectColumnFilter } from '@/shared/ui/MultiSelectColumnFilter';
@@ -10,7 +9,6 @@ import {
   TableFilterTheme,
   tableFilterMultiSelectProps,
 } from '@/shared/ui/TableFilter';
-import { useSampleTypes } from '../../model/useSampleLookups';
 import type { Sample } from '../../api';
 import type { Header } from '@tanstack/react-table';
 dayjs.extend(customParseFormat);
@@ -20,21 +18,18 @@ const DATE_FILTER_COLUMN_IDS = new Set(['sampling_date', 'receiving_date', 'crea
 interface SamplesTableFilterRowProps {
   applyFilters: () => void;
   applyFiltersWithNewValue: (columnId: string, newValue: string[]) => void;
-  departmentId?: number;
   headers: Header<Sample, unknown>[];
-  laboratoryId?: number;
+  sampleTypes: string[];
+  testObjects: string[];
 }
 
 export function SamplesTableFilterRow({
   applyFilters,
   applyFiltersWithNewValue,
-  departmentId,
   headers,
-  laboratoryId,
+  sampleTypes,
+  testObjects,
 }: SamplesTableFilterRowProps) {
-  const { data: sampleTypes = [] } = useSampleTypes();
-  const { data: testObjects = [] } = useTestObjectNames(laboratoryId, departmentId, !!laboratoryId);
-
   return (
     <TableFilterTheme>
       <tr className="table-filter-row">

@@ -8,6 +8,11 @@ export interface Protocol {
   test_protocol_date?: string;
   is_accredited: boolean;
   sampling_act_number: string;
+  sampling_act_date?: string | null;
+  sampling_request_number?: string | null;
+  sampling_request_date?: string | null;
+  sampling_method_nd?: string | null;
+  sampling_plan_number?: string | null;
   issued?: string;
   approved?: string;
   issued_position?: string;
@@ -32,6 +37,11 @@ export interface ProtocolCreate {
   test_protocol_date?: string;
   is_accredited?: boolean;
   sampling_act_number: string;
+  sampling_act_date?: string | null;
+  sampling_request_number?: string | null;
+  sampling_request_date?: string | null;
+  sampling_method_nd?: string | null;
+  sampling_plan_number?: string | null;
   issued?: string;
   approved?: string;
   issued_position?: string;
@@ -48,6 +58,11 @@ export interface ProtocolUpdate {
   test_protocol_date?: string;
   is_accredited?: boolean;
   sampling_act_number?: string;
+  sampling_act_date?: string | null;
+  sampling_request_number?: string | null;
+  sampling_request_date?: string | null;
+  sampling_method_nd?: string | null;
+  sampling_plan_number?: string | null;
   issued?: string;
   approved?: string;
   issued_position?: string;

@@ -9,7 +9,6 @@ export { default as SampleFormFields } from './ui/SampleFormFields/SampleFormFie
 export type { SampleFormValues } from './ui/SampleFormFields/SampleFormFields';
 export { useSamples, useSample } from './model/useSamples';
 export {
-  useSampleTypes,
   useSamplesForProtocol,
   useSamplesForCalculation,
   useSampleQueries,

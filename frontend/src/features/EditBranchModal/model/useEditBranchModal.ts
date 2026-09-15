@@ -9,6 +9,7 @@ const NAME_REQUIRED = 'Название филиала обязательно';
 export type UseEditBranchModalParams = {
   open: boolean;
   branch: Branch | null;
+  showPhone: boolean;
   onClose: () => void;
   onSuccess?: () => void;
 };
@@ -17,6 +18,7 @@ export type UseEditBranchModalParams = {
 export const useEditBranchModal = ({
   open,
   branch,
+  showPhone,
   onClose,
   onSuccess,
 }: UseEditBranchModalParams) => {
@@ -62,7 +64,7 @@ export const useEditBranchModal = ({
       if (formData.name.trim() !== branch.name) {
         updateData.name = formData.name.trim();
       }
-      if (formData.phone.trim() !== (branch.phone || '')) {
+      if (showPhone && formData.phone.trim() !== (branch.phone || '')) {
         updateData.phone = formData.phone.trim() || undefined;
       }
 

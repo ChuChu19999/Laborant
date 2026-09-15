@@ -1170,6 +1170,90 @@ Verify: `npm run lint` OK.
 - В filter-row RangePicker: `allowEmpty={[true, true]}` (документация Ant Design).
 - Удалены дубли `tableUtils.matchesDateRange` у Sample/Protocol; Equipment `dateRangeFilterFn` делегирует в shared.
 
+#### §124. Frontend справочники SampleType и TestPurpose (08.09.2026)
+
+**Сделано:**
+
+- FSD-слайсы `entities/SampleType` и `entities/TestPurpose` (api, keys, hooks, FormFields) по образцу WellMode без `branch_id`.
+- Features Create/Edit/Delete модалки для обоих справочников.
+- Widgets `SampleTypesPanel` / `TestPurposesPanel` — простой список имён + CRUD; pages-обёртки.
+- SideBar «Справочники»: `/sample-types`, `/test-purposes`; lazy routes, preload; `ProtectedRoute` через уже существующие ключи `sample_types` / `test_purposes` в `NAVIGATION_PATH_MAP`.
+
+#### §130. sample_types/test_purposes: колонки audit hash (09.09.2026)
+
+**Сделано:**
+
+- В `c3d4e5f6a7b8` create_table выровнен с `BaseModel` (`*_by_hash`, `String(255)`, `DateTime(timezone=True)`).
+- Догоняющая `d4e5f6a7b8c9` добавляет недостающие hash-колонки на уже применённой БД (идемпотентно).
+
+#### §133. Сайдбар — разные иконки справочников (09.09.2026)
+
+**Сделано:**
+
+- Типы проб → `TagsAntdIcon`, цели испытаний → `FlagAntdIcon`, нормы НД → `FileProtectAntdIcon`.
+
+#### §132. README — поля Sample/Protocol после переноса (09.09.2026)
+
+**Сделано:**
+
+- Sample: убраны заявки/план/акт отбора; оставлены место деятельности заказчика и НД на объект.
+- Protocol: добавлены дата акта, заявка, НД метода отбора, план отбора.
+
+#### §131. Поля заявки/плана/акта отбора — с Sample на Protocol (09.09.2026)
+
+**Сделано:**
+
+- Миграция `e5f6a7b8c9d0`: колонки на `protocols`, drop с `samples`; в `roles.scopes` ключи `visible_fields` перенесены samples → protocols.
+- Backend/Frontend: `PROTOCOL_OPTIONAL_FIELDS`, форма протокола + canShow; порядок полей пробы по ТЗ.
+- SampleTypes/TestPurposes: синий edit-button как в таблицах; empty через `TableEmptyState`.
+
+#### §129. SampleType/TestPurpose — scope lab/dept + порядок полей формы (09.09.2026)
+
+**Сделано:**
+
+- Backend: `laboratory_id` / `department_id`, unique в scope, `enforce_crud_access` со scope, seed по lab/dept.
+- Frontend: Lab→Dept карточки, nested routes, create с lab/dept; форма пробы грузит опции в scope.
+- Порядок полей: после места отбора — скважина/режим, затем тип/цель и новые поля.
+
+#### §128. Filter options в Sample/model + create_sample без двойного require (08.09.2026)
+
+**Сделано:**
+
+- `useSamplesTableFilterOptions`: `useSampleTypesList` / `useTestObjectNames` через `@x`; filter-row только props.
+- `create_sample` api: `return await create_sample(...)` — re-fetch остаётся в service.
+
+#### §127. Аудит SampleType/TestPurpose/строки на пробе (08.09.2026)
+
+**Сделано:**
+
+- `schemas/__init__.__all__`: `SampleType*` / `TestPurpose*` (синхрон с импортами, как WellMode).
+- Filter-row: `SampleType/@x/Sample` вместо прямого импорта entity.
+- Help 1.0.6: шаг админа «Справочники» — типы проб и цели испытаний.
+- Миграция `c3d4e5f6a7b8` downgrade: откат `phone` из `sampling_locations.visible_fields`.
+
+**WONT_FIX / не нарушение:**
+
+- Новые поля проб не дописываются в `samples.visible_fields` существующих ролей — требование: у существующих **false**.
+- `useQuery` в filter-row / двойной require create sample — закрыты в §128.
+
+#### §126. Тип пробы и цель испытаний — строки на пробе, не FK (08.09.2026)
+
+**Сделано:**
+
+- В пробе снова `sample_type` / `test_purpose` как `String` (как `mode` у режимов скважин); справочники остаются отдельно для выбора.
+- Миграция `c3d4e5f6a7b8`: без `sample_type_id` / `test_purpose_id`; колонка `sample_type` расширена до 255; добавлен `test_purpose`.
+- Форма: Select value = название из справочника, не id.
+
+#### §125. Frontend: форма пробы, телефон филиала, wiring справочников (08.09.2026)
+
+**Сделано:**
+
+- Sample API-типы и новые опциональные поля; удалён `getSampleTypes` / `sampleKeys.types` (выбор из entity-справочников).
+- Create/Edit SampleModal + фильтр таблицы: `useSampleTypesList` / `useTestPurposesList`, даты `YYYY-MM-DD`.
+- RolePermissionsPanel: CRUD `sample_types` / `test_purposes`; `SAMPLING_LOCATION_OPTIONAL_FIELDS` (телефон); merge `sampling_locations.visible_fields`.
+- BranchFormFields `showPhone`; gating на местах отбора; admin-терминология `ADMIN_SAMPLING_TERMINOLOGY_LABEL`.
+- `keepPrevious=false` при смене филиала в SamplingLocationsPanelQueries; z-index sidebar / role-nav; Help 1.0.6 и README.
+
 ---
 
 ## Не входило / ждёт решения

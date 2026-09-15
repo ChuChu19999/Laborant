@@ -37,6 +37,7 @@ interface SamplingLocationsWorkspaceViewProps {
   canCreate: boolean;
   canUpdate: boolean;
   canDelete: boolean;
+  canShowPhone: boolean;
   selectedBranch: Branch | null;
   onSelectBranch: (branch: Branch) => void;
   branches: Branch[];
@@ -59,6 +60,7 @@ const SamplingLocationsWorkspaceView = ({
   canCreate,
   canUpdate,
   canDelete,
+  canShowPhone,
   selectedBranch,
   onSelectBranch,
   branches,
@@ -121,11 +123,11 @@ const SamplingLocationsWorkspaceView = ({
                           </div>
                           <div>
                             <span className="sampling-locations-branch-name">{branch.name}</span>
-                            {branch.phone && (
+                            {canShowPhone && branch.phone ? (
                               <span className="sampling-locations-branch-phone">
                                 {branch.phone}
                               </span>
-                            )}
+                            ) : null}
                           </div>
                         </div>
                       </div>
@@ -174,11 +176,11 @@ const SamplingLocationsWorkspaceView = ({
                 <div className="sampling-locations-list-header">
                   <div>
                     <h3 className="sampling-locations-list-title">{selectedBranch.name}</h3>
-                    {selectedBranch.phone && (
+                    {canShowPhone && selectedBranch.phone ? (
                       <p className="sampling-locations-list-subtitle">
                         Телефон: {selectedBranch.phone}
                       </p>
-                    )}
+                    ) : null}
                   </div>
                   <div className="sampling-locations-add-button-container">
                     {canCreate && (
@@ -333,6 +335,7 @@ const SamplingLocationsWorkspaceView = ({
         open={modals.isCreateBranchModalOpen}
         laboratoryId={labId}
         departmentId={deptId}
+        showPhone={canShowPhone}
         onClose={modals.closeCreateBranchModal}
         onSuccess={modals.handleCreateBranchSuccess}
       />
@@ -340,6 +343,7 @@ const SamplingLocationsWorkspaceView = ({
       <EditBranchModal
         open={modals.isEditBranchModalOpen}
         branch={modals.branchForModal}
+        showPhone={canShowPhone}
         onClose={modals.closeEditBranchModal}
         onSuccess={modals.handleEditBranchSuccess}
       />

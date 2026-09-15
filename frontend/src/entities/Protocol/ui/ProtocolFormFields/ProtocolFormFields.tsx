@@ -27,6 +27,11 @@ export interface ProtocolFormValues {
   test_protocol_date: Dayjs | null;
   is_accredited: boolean;
   sampling_act_number: string;
+  sampling_act_date: Dayjs | null;
+  sampling_request_number: string;
+  sampling_request_date: Dayjs | null;
+  sampling_method_nd: string;
+  sampling_plan_number: string;
   issued: Employee | null;
   approved: Employee | null;
   issued_position: string | undefined;
@@ -47,6 +52,7 @@ interface ProtocolFormFieldsProps {
   value: ProtocolFormValues;
   onChange: <K extends keyof ProtocolFormValues>(field: K, value: ProtocolFormValues[K]) => void;
   errors?: Partial<Record<keyof ProtocolFormValues, boolean>>;
+  canShow?: (field: string) => boolean;
   laboratoryName: string;
   templates: ProtocolTemplateOption[];
   templatesLoading?: boolean;
@@ -58,6 +64,7 @@ const ProtocolFormFields = ({
   value,
   onChange,
   errors = {},
+  canShow = () => true,
   laboratoryName,
   templates,
   templatesLoading = false,
@@ -65,7 +72,14 @@ const ProtocolFormFields = ({
   samplesLoading = false,
 }: ProtocolFormFieldsProps) => {
   const handleInputChange =
-    (field: 'test_protocol_number' | 'sampling_act_number') =>
+    (
+      field:
+        | 'test_protocol_number'
+        | 'sampling_act_number'
+        | 'sampling_request_number'
+        | 'sampling_method_nd'
+        | 'sampling_plan_number'
+    ) =>
     (event: ChangeEvent<HTMLInputElement>) => {
       onChange(field, event.target.value);
     };
@@ -123,6 +137,76 @@ const ProtocolFormFields = ({
           />
         )}
       </FormField>
+
+      {canShow('sampling_act_date') ? (
+        <FormField label="Дата акта отбора" itemClassName="protocol-form-group">
+          {fieldId => (
+            <DatePicker
+              id={fieldId}
+              value={value.sampling_act_date}
+              onChange={date => onChange('sampling_act_date', (date as Dayjs | null) || null)}
+              placeholder="ДД.ММ.ГГГГ"
+              format="DD.MM.YYYY"
+            />
+          )}
+        </FormField>
+      ) : null}
+
+      {canShow('sampling_request_number') ? (
+        <FormField label="Номер заявки на отбор пробы" itemClassName="protocol-form-group">
+          {fieldId => (
+            <Input
+              id={fieldId}
+              value={value.sampling_request_number}
+              onChange={handleInputChange('sampling_request_number')}
+              placeholder="Введите номер заявки"
+            />
+          )}
+        </FormField>
+      ) : null}
+
+      {canShow('sampling_request_date') ? (
+        <FormField label="Дата заявки отбора пробы" itemClassName="protocol-form-group">
+          {fieldId => (
+            <DatePicker
+              id={fieldId}
+              value={value.sampling_request_date}
+              onChange={date => onChange('sampling_request_date', (date as Dayjs | null) || null)}
+              placeholder="ДД.ММ.ГГГГ"
+              format="DD.MM.YYYY"
+            />
+          )}
+        </FormField>
+      ) : null}
+
+      {canShow('sampling_method_nd') ? (
+        <FormField
+          label="Нормативный документ на метод отбора пробы"
+          itemClassName="protocol-form-group"
+        >
+          {fieldId => (
+            <Input
+              id={fieldId}
+              value={value.sampling_method_nd}
+              onChange={handleInputChange('sampling_method_nd')}
+              placeholder="Введите нормативный документ на метод отбора"
+            />
+          )}
+        </FormField>
+      ) : null}
+
+      {canShow('sampling_plan_number') ? (
+        <FormField label="Номер плана отбора проб" itemClassName="protocol-form-group">
+          {fieldId => (
+            <Input
+              id={fieldId}
+              value={value.sampling_plan_number}
+              onChange={handleInputChange('sampling_plan_number')}
+              placeholder="Введите номер плана отбора проб"
+            />
+          )}
+        </FormField>
+      ) : null}
 
       <FormField label="Протокол оформил" itemClassName="protocol-form-group">
         {fieldId => (

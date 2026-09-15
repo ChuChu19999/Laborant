@@ -35,6 +35,15 @@ export function checkPermission(
     return permissions.samples.visible_fields.includes(action);
   }
 
+  if (resource === 'protocols' && action) {
+    if (action === 'visible_fields') {
+      return true;
+    }
+    if (!isCrudAction(action) && action !== 'read') {
+      return permissions.protocols.visible_fields.includes(action);
+    }
+  }
+
   if (resource === 'calculations' && action) {
     if (!hasOwnKey(permissions.calculations, action)) {
       return false;

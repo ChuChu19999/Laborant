@@ -19,7 +19,13 @@ import { normalizeScopePermissions } from '../lib/normalizeScopePermissions';
 export const CRUD_SECTIONS: {
   key: keyof Pick<
     RolePermissions,
-    'protocols' | 'equipment' | 'sampling_locations' | 'nd_norms' | 'refraction_tables'
+    | 'protocols'
+    | 'equipment'
+    | 'sampling_locations'
+    | 'sample_types'
+    | 'test_purposes'
+    | 'nd_norms'
+    | 'refraction_tables'
   >;
   title: string;
   navigationKey: NavigationKey;
@@ -27,6 +33,8 @@ export const CRUD_SECTIONS: {
   { key: 'protocols', title: 'Протоколы', navigationKey: 'protocols' },
   { key: 'equipment', title: 'Приборы', navigationKey: 'equipment' },
   { key: 'sampling_locations', title: 'Места отбора проб', navigationKey: 'sampling_locations' },
+  { key: 'sample_types', title: 'Типы проб', navigationKey: 'sample_types' },
+  { key: 'test_purposes', title: 'Цели испытаний', navigationKey: 'test_purposes' },
   { key: 'nd_norms', title: 'Нормы НД', navigationKey: 'nd_norms' },
   {
     key: 'refraction_tables',
@@ -194,6 +202,42 @@ export const useRolePermissionsPanel = () => {
     });
   };
 
+  const toggleSamplingLocationField = (field: string, checked: boolean) => {
+    updateActivePermissions(prev => {
+      const current = new Set(prev.sampling_locations.visible_fields);
+      if (checked) {
+        current.add(field);
+      } else {
+        current.delete(field);
+      }
+      return {
+        ...prev,
+        sampling_locations: {
+          ...prev.sampling_locations,
+          visible_fields: Array.from(current),
+        },
+      };
+    });
+  };
+
+  const toggleProtocolField = (field: string, checked: boolean) => {
+    updateActivePermissions(prev => {
+      const current = new Set(prev.protocols.visible_fields);
+      if (checked) {
+        current.add(field);
+      } else {
+        current.delete(field);
+      }
+      return {
+        ...prev,
+        protocols: {
+          ...prev.protocols,
+          visible_fields: Array.from(current),
+        },
+      };
+    });
+  };
+
   const breadcrumbsForRole = useMemo(
     () => [
       {
@@ -251,6 +295,8 @@ export const useRolePermissionsPanel = () => {
     handleSave,
     toggleNav,
     toggleSampleField,
+    toggleSamplingLocationField,
+    toggleProtocolField,
     breadcrumbsForRole,
     breadcrumbsNotFound,
     navigateToRoles: () => {

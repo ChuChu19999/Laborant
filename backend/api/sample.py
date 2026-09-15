@@ -25,7 +25,6 @@ from services.sample.service import (
     create_sample,
     delete_sample,
     get_registration_numbers_response,
-    get_sample_type_choices,
     get_samples,
     require_sample_by_id,
     update_sample,
@@ -61,18 +60,6 @@ async def _samples_export_prepared(
         created_at_from=filters.created_at_from,
         created_at_to=filters.created_at_to,
     )
-
-
-@router.get(
-    "/sample-types/",
-    response_model=list[str],
-    summary="Получение списка типов проб",
-    description="Возвращает список доступных типов проб.",
-    responses={200: {"description": "Список типов проб успешно получен"}},
-)
-# @IsAuthenticated
-async def get_sample_types(_effective: UserPermissions):
-    return get_sample_type_choices()
 
 
 @router.get(
@@ -166,8 +153,7 @@ async def create_sample_endpoint(
     effective: UserPermissions,
 ):
     enforce_nav_access(effective, "samples", sample_data.laboratory_id, sample_data.department_id)
-    sample = await create_sample(db, sample_data)
-    return await require_sample_by_id(db, sample.id)
+    return await create_sample(db, sample_data)
 
 
 @router.get(

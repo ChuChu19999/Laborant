@@ -5,19 +5,18 @@ import { formatBranchDisplay, useBranches } from '@/entities/Branch';
 import { type Employee } from '@/entities/Employee';
 import { useLaboratory } from '@/entities/Laboratory';
 import {
+  ADMIN_SAMPLING_TERMINOLOGY_LABEL,
   resolvePermissionsForScope,
+  SAMPLE_OPTIONAL_FIELDS,
   SAMPLING_TERMINOLOGY_LABELS,
   usePermissionsContext,
 } from '@/entities/Role';
-import {
-  useCreateSample,
-  useSampleTypes,
-  type SampleCreate,
-  type SampleFormValues,
-} from '@/entities/Sample';
+import { useCreateSample, type SampleCreate, type SampleFormValues } from '@/entities/Sample';
+import { useSampleTypesList } from '@/entities/SampleType';
 import { useSamplingLocationsByBranch } from '@/entities/SamplingLocation';
 import { useSelectionConditionsFields } from '@/entities/SelectionCondition';
 import { useTestObjectNames } from '@/entities/TestObject';
+import { useTestPurposesList } from '@/entities/TestPurpose';
 import { useWellModesByBranch } from '@/entities/WellMode';
 import { extractErrorMessage } from '@/shared/lib/errors';
 import { notify } from '@/shared/lib/notify';
@@ -35,9 +34,17 @@ const EMPTY_FORM: SampleFormValues = {
   well: '',
   mode: undefined,
   indicators_count: undefined,
+  customer_activity_place: '',
+  test_object_nd: '',
+  test_purpose: undefined,
 };
 
 const REQUIRED_FIELDS_MESSAGE = 'Пожалуйста, заполните все обязательные поля';
+
+const optionalText = (value: string) => {
+  const trimmed = value.trim();
+  return trimmed !== '' ? trimmed : undefined;
+};
 
 export type UseCreateSampleModalParams = {
   open: boolean;
@@ -56,37 +63,31 @@ export const useCreateSampleModal = ({
   departmentId,
 }: UseCreateSampleModalParams) => {
   const { isAdmin, permissionsData } = usePermissionsContext();
+  const isFullAccess = isAdmin || permissionsData.is_admin;
   const scopedPermissions = useMemo(() => {
-    if (isAdmin || permissionsData.is_admin) {
+    if (isFullAccess) {
       return null;
     }
     return (
       resolvePermissionsForScope(permissionsData.scopes, laboratoryId, departmentId) ||
       permissionsData.permissions
     );
-  }, [isAdmin, permissionsData, laboratoryId, departmentId]);
+  }, [isFullAccess, permissionsData, laboratoryId, departmentId]);
 
   const visibleFields = useMemo(() => {
-    if (isAdmin || permissionsData.is_admin) {
-      return new Set([
-        'sample_type',
-        'branch',
-        'sampling_location',
-        'well',
-        'well_mode',
-        'sampling_date',
-        'receipt_date',
-      ]);
+    if (isFullAccess) {
+      return new Set<string>(SAMPLE_OPTIONAL_FIELDS);
     }
     return new Set(scopedPermissions?.samples.visible_fields || []);
-  }, [isAdmin, permissionsData, scopedPermissions]);
+  }, [isFullAccess, scopedPermissions]);
 
-  const terminologyLabel =
-    SAMPLING_TERMINOLOGY_LABELS[
-      scopedPermissions?.sampling_terminology ||
-        permissionsData.permissions.sampling_terminology ||
-        'well_mode'
-    ];
+  const terminologyLabel = isFullAccess
+    ? ADMIN_SAMPLING_TERMINOLOGY_LABEL
+    : SAMPLING_TERMINOLOGY_LABELS[
+        scopedPermissions?.sampling_terminology ||
+          permissionsData.permissions.sampling_terminology ||
+          'well_mode'
+      ];
   const canShow = (field: string) => visibleFields.has(field);
 
   const createSampleMutation = useCreateSample();
@@ -97,7 +98,8 @@ export const useCreateSampleModal = ({
   >({});
   const [selectionConditions, setSelectionConditions] = useState<Record<string, string>>({});
 
-  const { data: sampleTypes = [] } = useSampleTypes();
+  const { data: sampleTypesData } = useSampleTypesList(laboratoryId, departmentId, open);
+  const { data: testPurposesData } = useTestPurposesList(laboratoryId, departmentId, open);
   const { data: testObjectOptions = [] } = useTestObjectNames(
     laboratoryId,
     departmentId,
@@ -125,6 +127,22 @@ export const useCreateSampleModal = ({
   const { data: laboratory } = useLaboratory(laboratoryId, !!laboratoryId);
   const laboratoryName = laboratory?.full_name || '';
 
+  const sampleTypeOptions = useMemo(
+    () =>
+      (sampleTypesData?.items || []).map(sampleType => ({
+        value: sampleType.id,
+        label: sampleType.name,
+      })),
+    [sampleTypesData?.items]
+  );
+  const testPurposeOptions = useMemo(
+    () =>
+      (testPurposesData?.items || []).map(testPurpose => ({
+        value: testPurpose.id,
+        label: testPurpose.name,
+      })),
+    [testPurposesData?.items]
+  );
   const branchOptions = useMemo(
     () =>
       (branchesData?.items || []).map(branch => ({
@@ -211,6 +229,7 @@ export const useCreateSampleModal = ({
     const sampleData: SampleCreate = {
       registration_number: formData.registration_number,
       sample_type: formData.sample_type || undefined,
+      test_purpose: formData.test_purpose || undefined,
       test_object: testObject,
       sampling_date: formData.sampling_date
         ? dayjs(formData.sampling_date).format('YYYY-MM-DD')
@@ -223,6 +242,8 @@ export const useCreateSampleModal = ({
       well: formData.well || undefined,
       mode: formData.mode || undefined,
       indicators_count: indicatorsCount,
+      customer_activity_place: optionalText(formData.customer_activity_place),
+      test_object_nd: optionalText(formData.test_object_nd),
       selection_conditions:
         Object.keys(processedSelectionConditions).length > 0
           ? processedSelectionConditions
@@ -271,7 +292,8 @@ export const useCreateSampleModal = ({
     errors,
     canShow,
     terminologyLabel,
-    sampleTypes,
+    sampleTypeOptions,
+    testPurposeOptions,
     testObjectOptions,
     branchOptions,
     branchesLoading,

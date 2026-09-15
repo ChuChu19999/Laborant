@@ -12,7 +12,9 @@ from models.role import RoleType
 from schemas.common import NonEmptyStr, OptionalNonEmptyStr, make_enum_validator
 from schemas.visibility import VisibilityScope
 from utils.permissions_constants import (
+    PROTOCOL_OPTIONAL_FIELDS,
     SAMPLE_OPTIONAL_FIELDS,
+    SAMPLING_LOCATION_OPTIONAL_FIELDS,
     SamplingTerminology,
     default_role_permissions,
 )
@@ -29,6 +31,8 @@ class NavigationPermissions(BaseModel):
     protocols: bool = False
     equipment: bool = False
     sampling_locations: bool = False
+    sample_types: bool = False
+    test_purposes: bool = False
     nd_norms: bool = False
     refraction_tables: bool = False
     test_objects: bool = False
@@ -62,6 +66,28 @@ class CrudPermissions(BaseModel):
     delete: bool = False
 
 
+class ProtocolsPermissions(CrudPermissions):
+    """Права на протоколы и опциональные поля формы протокола."""
+
+    visible_fields: list[str] = Field(default_factory=list)
+
+    @field_validator("visible_fields", mode="after")
+    @classmethod
+    def validate_visible_fields(cls, value: list[str]) -> list[str]:
+        return [field for field in value if field in PROTOCOL_OPTIONAL_FIELDS]
+
+
+class SamplingLocationsPermissions(CrudPermissions):
+    """Права на места отбора проб и поля формы филиала."""
+
+    visible_fields: list[str] = Field(default_factory=list)
+
+    @field_validator("visible_fields", mode="after")
+    @classmethod
+    def validate_visible_fields(cls, value: list[str]) -> list[str]:
+        return [field for field in value if field in SAMPLING_LOCATION_OPTIONAL_FIELDS]
+
+
 class CalculationsPermissions(BaseModel):
     """Права на выполнение и управление расчётами."""
 
@@ -78,9 +104,11 @@ class RolePermissions(BaseModel):
     navigation: NavigationPermissions = Field(default_factory=NavigationPermissions)
     laboratory_management: LaboratoryManagementPermissions = Field(default_factory=LaboratoryManagementPermissions)
     samples: SamplesPermissions = Field(default_factory=SamplesPermissions)
-    protocols: CrudPermissions = Field(default_factory=CrudPermissions)
+    protocols: ProtocolsPermissions = Field(default_factory=ProtocolsPermissions)
     equipment: CrudPermissions = Field(default_factory=CrudPermissions)
-    sampling_locations: CrudPermissions = Field(default_factory=CrudPermissions)
+    sampling_locations: SamplingLocationsPermissions = Field(default_factory=SamplingLocationsPermissions)
+    sample_types: CrudPermissions = Field(default_factory=CrudPermissions)
+    test_purposes: CrudPermissions = Field(default_factory=CrudPermissions)
     nd_norms: CrudPermissions = Field(default_factory=CrudPermissions)
     refraction_tables: CrudPermissions = Field(default_factory=CrudPermissions)
     test_objects: CrudPermissions = Field(default_factory=CrudPermissions)

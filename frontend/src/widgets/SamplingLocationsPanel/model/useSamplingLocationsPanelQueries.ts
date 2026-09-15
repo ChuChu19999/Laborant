@@ -14,8 +14,13 @@ export const useSamplingLocationsPanelQueries = (
   const laboratoryQuery = useLaboratory(labId, !!labId);
   const departmentsQuery = useDepartmentsByLaboratory(labId, !!labId);
   const branchesQuery = useBranches(labId, deptId, !!labId);
-  const samplingLocationsQuery = useSamplingLocationsByBranch(selectedBranchId, !!selectedBranchId);
-  const wellModesQuery = useWellModesByBranch(selectedBranchId, !!selectedBranchId);
+  const samplingLocationsQuery = useSamplingLocationsByBranch(
+    selectedBranchId,
+    !!selectedBranchId,
+    {},
+    false
+  );
+  const wellModesQuery = useWellModesByBranch(selectedBranchId, !!selectedBranchId, {}, false);
 
   return {
     laboratories: laboratoriesQuery.data,

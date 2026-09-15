@@ -9,6 +9,11 @@ import {
   type ProtocolFormValues,
   type ProtocolTemplate,
 } from '@/entities/Protocol';
+import {
+  PROTOCOL_OPTIONAL_FIELDS,
+  resolvePermissionsForScope,
+  usePermissionsContext,
+} from '@/entities/Role';
 import { useSamplesForProtocol } from '@/entities/Sample';
 import { extractErrorMessage } from '@/shared/lib/errors';
 import { notify } from '@/shared/lib/notify';
@@ -20,6 +25,11 @@ const EMPTY_FORM: ProtocolFormValues = {
   test_protocol_date: null,
   is_accredited: false,
   sampling_act_number: '',
+  sampling_act_date: null,
+  sampling_request_number: '',
+  sampling_request_date: null,
+  sampling_method_nd: '',
+  sampling_plan_number: '',
   issued: null,
   approved: null,
   issued_position: undefined,
@@ -29,6 +39,11 @@ const EMPTY_FORM: ProtocolFormValues = {
 };
 
 const REQUIRED_FIELDS_MESSAGE = 'Пожалуйста, заполните все обязательные поля';
+
+const optionalText = (value: string) => {
+  const trimmed = value.trim();
+  return trimmed !== '' ? trimmed : undefined;
+};
 
 export type UseCreateProtocolModalParams = {
   open: boolean;
@@ -46,6 +61,27 @@ export const useCreateProtocolModal = ({
   laboratoryId,
   departmentId,
 }: UseCreateProtocolModalParams) => {
+  const { isAdmin, permissionsData } = usePermissionsContext();
+  const isFullAccess = isAdmin || permissionsData.is_admin;
+  const scopedPermissions = useMemo(() => {
+    if (isFullAccess) {
+      return null;
+    }
+    return (
+      resolvePermissionsForScope(permissionsData.scopes, laboratoryId, departmentId) ||
+      permissionsData.permissions
+    );
+  }, [isFullAccess, permissionsData, laboratoryId, departmentId]);
+
+  const visibleFields = useMemo(() => {
+    if (isFullAccess) {
+      return new Set<string>(PROTOCOL_OPTIONAL_FIELDS);
+    }
+    return new Set(scopedPermissions?.protocols.visible_fields || []);
+  }, [isFullAccess, scopedPermissions]);
+
+  const canShow = (field: string) => visibleFields.has(field);
+
   const createProtocolMutation = useCreateProtocol();
   const [errors, setErrors] = useState<Partial<Record<keyof ProtocolFormValues, boolean>>>({});
   const [formData, setFormData] = useState<ProtocolFormValues>(EMPTY_FORM);
@@ -143,6 +179,15 @@ export const useCreateProtocolModal = ({
         : undefined,
       is_accredited: formData.is_accredited,
       sampling_act_number: formData.sampling_act_number,
+      sampling_act_date: formData.sampling_act_date
+        ? formData.sampling_act_date.format('YYYY-MM-DD')
+        : undefined,
+      sampling_request_number: optionalText(formData.sampling_request_number),
+      sampling_request_date: formData.sampling_request_date
+        ? formData.sampling_request_date.format('YYYY-MM-DD')
+        : undefined,
+      sampling_method_nd: optionalText(formData.sampling_method_nd),
+      sampling_plan_number: optionalText(formData.sampling_plan_number),
       issued: formData.issued?.hsnils || undefined,
       approved: formData.approved?.hsnils || undefined,
       issued_position: formData.issued_position || undefined,
@@ -170,6 +215,7 @@ export const useCreateProtocolModal = ({
   return {
     formData,
     errors,
+    canShow,
     laboratoryName,
     templateOptions,
     templatesLoading,

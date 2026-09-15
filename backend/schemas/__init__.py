@@ -100,6 +100,11 @@ from schemas.sample_export import (
     SampleExportItem,
     SamplesExportResponse,
 )
+from schemas.sample_type import (
+    SampleTypeCreate,
+    SampleTypeResponse,
+    SampleTypeUpdate,
+)
 from schemas.sampling_location import (
     SamplingLocationCreate,
     SamplingLocationResponse,
@@ -115,6 +120,11 @@ from schemas.test_object import (
     TestObjectResponse,
     TestObjectSelectItem,
     TestObjectUpdate,
+)
+from schemas.test_purpose import (
+    TestPurposeCreate,
+    TestPurposeResponse,
+    TestPurposeUpdate,
 )
 from schemas.user import UserResponse
 from schemas.visibility import (
@@ -200,6 +210,9 @@ __all__ = [
     "SampleExportCalculation",
     "SampleExportItem",
     "SampleResponse",
+    "SampleTypeCreate",
+    "SampleTypeResponse",
+    "SampleTypeUpdate",
     "SampleUpdate",
     "SamplesExportResponse",
     "SamplingLocationCreate",
@@ -221,6 +234,9 @@ __all__ = [
     "TestObjectResponse",
     "TestObjectSelectItem",
     "TestObjectUpdate",
+    "TestPurposeCreate",
+    "TestPurposeResponse",
+    "TestPurposeUpdate",
     "UserPermissionsResponse",
     "UserResponse",
     "VisibilityScope",

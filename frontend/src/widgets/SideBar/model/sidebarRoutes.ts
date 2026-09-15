@@ -3,13 +3,16 @@ import {
   BookTextIcon,
   CircleHelpIcon,
   ExperimentAntdIcon,
+  FileProtectAntdIcon,
   FileTextIcon,
+  FlagAntdIcon,
   FlaskIcon,
   HomeIcon,
   LineChartAntdIcon,
   MapPinIcon,
   PulseIcon,
   SettingsIcon,
+  TagsAntdIcon,
   UsersIcon,
   WrenchIcon,
 } from '@/shared/ui/icons';
@@ -48,9 +51,19 @@ export const sidebarRoutes: SidebarRouteItem[] = [
         Icon: MapPinIcon,
       },
       {
+        label: 'Типы проб',
+        path: '/sample-types',
+        Icon: TagsAntdIcon,
+      },
+      {
+        label: 'Цели испытаний',
+        path: '/test-purposes',
+        Icon: FlagAntdIcon,
+      },
+      {
         label: 'Нормы НД',
         path: '/nd-norms',
-        Icon: BookTextIcon,
+        Icon: FileProtectAntdIcon,
       },
       {
         label: 'Градуировочный график',

@@ -15,6 +15,13 @@ class ProtocolBase(BaseModel):
     test_protocol_date: date | None = Field(None, description="Дата протокола испытаний")
     is_accredited: bool = Field(default=False, description="Признак аккредитации протокола")
     sampling_act_number: SamplingActNumber = Field(..., description="Номер акта отбора")
+    sampling_act_date: date | None = Field(None, description="Дата акта отбора")
+    sampling_request_number: str | None = Field(None, max_length=100, description="Номер заявки на отбор пробы")
+    sampling_request_date: date | None = Field(None, description="Дата заявки отбора пробы")
+    sampling_method_nd: str | None = Field(
+        None, max_length=255, description="Нормативный документ на метод отбора пробы"
+    )
+    sampling_plan_number: str | None = Field(None, max_length=100, description="Номер плана отбора проб")
     issued: OptionalExecutorHsnils = Field(None, description="hsnils лица, оформившего протокол")
     approved: OptionalExecutorHsnils = Field(None, description="hsnils лица, утвердившего протокол")
     issued_position: str | None = Field(None, max_length=100, description="Должность оформившего")
@@ -37,6 +44,11 @@ class ProtocolUpdate(BaseModel):
     test_protocol_date: date | None = None
     is_accredited: bool | None = None
     sampling_act_number: OptionalNonEmptyStr = Field(None, max_length=50)
+    sampling_act_date: date | None = None
+    sampling_request_number: str | None = Field(None, max_length=100)
+    sampling_request_date: date | None = None
+    sampling_method_nd: str | None = Field(None, max_length=255)
+    sampling_plan_number: str | None = Field(None, max_length=100)
     issued: OptionalExecutorHsnils = None
     approved: OptionalExecutorHsnils = None
     issued_position: str | None = Field(None, max_length=100)
@@ -57,6 +69,13 @@ class ProtocolResponse(BaseModel):
     test_protocol_date: date | None = Field(None, description="Дата протокола испытаний")
     is_accredited: bool = Field(default=False, description="Признак аккредитации протокола")
     sampling_act_number: SamplingActNumber = Field(..., description="Номер акта отбора")
+    sampling_act_date: date | None = Field(None, description="Дата акта отбора")
+    sampling_request_number: str | None = Field(None, max_length=100, description="Номер заявки на отбор пробы")
+    sampling_request_date: date | None = Field(None, description="Дата заявки отбора пробы")
+    sampling_method_nd: str | None = Field(
+        None, max_length=255, description="Нормативный документ на метод отбора пробы"
+    )
+    sampling_plan_number: str | None = Field(None, max_length=100, description="Номер плана отбора проб")
     issued: OptionalExecutorHsnils = Field(None, description="hsnils лица, оформившего протокол")
     approved: OptionalExecutorHsnils = Field(None, description="hsnils лица, утвердившего протокол")
     issued_position: str | None = Field(None, max_length=100, description="Должность оформившего")

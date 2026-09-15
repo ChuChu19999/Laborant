@@ -18,9 +18,11 @@ from api import (
     research_method_group,
     role,
     sample,
+    sample_type,
     sampling_location,
     selection_condition,
     test_object,
+    test_purpose,
     user,
     user_role,
     well_mode,
@@ -43,6 +45,8 @@ api_router.include_router(branch.router, tags=["branches"])
 api_router.include_router(research_method.router, tags=["research_methods"])
 api_router.include_router(research_method_group.router, tags=["research_method_groups"])
 api_router.include_router(sample.router, tags=["samples"])
+api_router.include_router(sample_type.router, tags=["sample_types"])
+api_router.include_router(test_purpose.router, tags=["test_purposes"])
 api_router.include_router(selection_condition.router, tags=["selection_conditions"])
 api_router.include_router(mass_fraction.router, tags=["mass_fraction_oil"])
 api_router.include_router(equipment.router, tags=["equipment"])

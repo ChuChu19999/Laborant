@@ -24,6 +24,17 @@ class Protocol(BaseModel):
         Boolean, default=False, nullable=False, comment="Признак аккредитации протокола"
     )
     sampling_act_number: Mapped[str] = mapped_column(String(50), nullable=False, comment="Номер акта отбора")
+    sampling_act_date: Mapped[date | None] = mapped_column(Date, nullable=True, comment="Дата акта отбора")
+    sampling_request_number: Mapped[str | None] = mapped_column(
+        String(100), nullable=True, comment="Номер заявки на отбор пробы"
+    )
+    sampling_request_date: Mapped[date | None] = mapped_column(Date, nullable=True, comment="Дата заявки отбора пробы")
+    sampling_method_nd: Mapped[str | None] = mapped_column(
+        String(255), nullable=True, comment="Нормативный документ на метод отбора пробы"
+    )
+    sampling_plan_number: Mapped[str | None] = mapped_column(
+        String(100), nullable=True, comment="Номер плана отбора проб"
+    )
     issued: Mapped[str | None] = mapped_column(String(150), nullable=True, comment="hsnils лица, оформившего протокол")
     approved: Mapped[str | None] = mapped_column(
         String(150), nullable=True, comment="hsnils лица, утвердившего протокол"

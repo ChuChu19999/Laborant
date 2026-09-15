@@ -73,6 +73,7 @@ const SamplingLocationsPanel = () => {
       canCreate={panel.canCreate}
       canUpdate={panel.canUpdate}
       canDelete={panel.canDelete}
+      canShowPhone={panel.canShowPhone}
       selectedBranch={panel.selectedBranch}
       onSelectBranch={panel.setSelectedBranch}
       branches={panel.branchesList}

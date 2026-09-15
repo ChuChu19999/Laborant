@@ -30,6 +30,14 @@ export const SamplingLocationsPage = lazyNamedPage(
   () => import('@/pages/SamplingLocationsPage'),
   'SamplingLocationsPage'
 );
+export const SampleTypesPage = lazyNamedPage(
+  () => import('@/pages/SampleTypesPage'),
+  'SampleTypesPage'
+);
+export const TestPurposesPage = lazyNamedPage(
+  () => import('@/pages/TestPurposesPage'),
+  'TestPurposesPage'
+);
 export const NdNormsPage = lazyNamedPage(() => import('@/pages/NdNormsPage'), 'NdNormsPage');
 export const RefractionTablesPage = lazyNamedPage(
   () => import('@/pages/RefractionTablesPage'),

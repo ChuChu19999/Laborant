@@ -6,6 +6,7 @@ interface CreateBranchModalProps {
   open: boolean;
   laboratoryId: number;
   departmentId?: number;
+  showPhone: boolean;
   onClose: () => void;
   onSuccess?: () => void;
 }
@@ -14,6 +15,7 @@ const CreateBranchModal = ({
   open,
   laboratoryId,
   departmentId,
+  showPhone,
   onClose,
   onSuccess,
 }: CreateBranchModalProps) => {
@@ -21,6 +23,7 @@ const CreateBranchModal = ({
     open,
     laboratoryId,
     departmentId,
+    showPhone,
     onClose,
     onSuccess,
   });
@@ -44,6 +47,7 @@ const CreateBranchModal = ({
         value={modal.formData}
         onChange={modal.handleFieldChange}
         errors={modal.errors}
+        showPhone={showPhone}
       />
     </Modal>
   );

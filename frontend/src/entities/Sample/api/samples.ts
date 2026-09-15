@@ -16,6 +16,7 @@ export interface Sample {
   id: number;
   registration_number: string;
   sample_type?: string | null;
+  test_purpose?: string | null;
   test_object: string;
   sampling_date?: string;
   receiving_date?: string;
@@ -25,6 +26,8 @@ export interface Sample {
   well?: string;
   mode?: string;
   phone?: string;
+  customer_activity_place?: string | null;
+  test_object_nd?: string | null;
   selection_conditions?: Record<string, unknown>;
   added_by?: string;
   laboratory_id: number;
@@ -43,6 +46,7 @@ export interface Sample {
 export interface SampleCreate {
   registration_number: string;
   sample_type?: string | null;
+  test_purpose?: string | null;
   test_object: string;
   sampling_date?: string;
   receiving_date?: string;
@@ -52,6 +56,8 @@ export interface SampleCreate {
   well?: string;
   mode?: string;
   phone?: string;
+  customer_activity_place?: string | null;
+  test_object_nd?: string | null;
   selection_conditions?: Record<string, unknown>;
   added_by?: string;
   laboratory_id: number;
@@ -62,6 +68,7 @@ export interface SampleCreate {
 export interface SampleUpdate {
   registration_number?: string;
   sample_type?: string | null;
+  test_purpose?: string | null;
   test_object?: string;
   sampling_date?: string;
   receiving_date?: string;
@@ -71,6 +78,8 @@ export interface SampleUpdate {
   well?: string;
   mode?: string;
   phone?: string;
+  customer_activity_place?: string | null;
+  test_object_nd?: string | null;
   selection_conditions?: Record<string, unknown>;
   laboratory_id?: number;
   department_id?: number;
@@ -178,11 +187,6 @@ const buildSampleListParams = (
 
 /** API проб. */
 export const samplesApi = {
-  getSampleTypes: async (): Promise<string[]> => {
-    const response = await axiosInstance.get<string[]>('/api/sample-types/');
-    return response.data;
-  },
-
   getSamples: async (
     page?: number,
     pageSize?: number,

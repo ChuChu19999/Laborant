@@ -1,8 +1,12 @@
 import {
   CONFIGURABLE_NAVIGATION_KEYS,
   NAVIGATION_LABELS,
+  PROTOCOL_OPTIONAL_FIELDS,
+  PROTOCOL_OPTIONAL_FIELD_LABELS,
   SAMPLE_OPTIONAL_FIELDS,
   SAMPLE_OPTIONAL_FIELD_LABELS,
+  SAMPLING_LOCATION_OPTIONAL_FIELDS,
+  SAMPLING_LOCATION_OPTIONAL_FIELD_LABELS,
   SAMPLING_TERMINOLOGY_LABELS,
   formatRoleScopeLabel,
   scopeBindingKey,
@@ -226,6 +230,36 @@ const RolePermissionsPanel = () => {
                       </Checkbox>
                     ))}
                   </div>
+                  {section.key === 'protocols' ? (
+                    <div className="role-permissions-grid">
+                      {PROTOCOL_OPTIONAL_FIELDS.map(field => (
+                        <Checkbox
+                          key={field}
+                          checked={permissions.protocols.visible_fields.includes(field)}
+                          disabled={!permissions.navigation.protocols}
+                          onChange={event => panel.toggleProtocolField(field, event.target.checked)}
+                        >
+                          {PROTOCOL_OPTIONAL_FIELD_LABELS[field]}
+                        </Checkbox>
+                      ))}
+                    </div>
+                  ) : null}
+                  {section.key === 'sampling_locations' ? (
+                    <div className="role-permissions-grid">
+                      {SAMPLING_LOCATION_OPTIONAL_FIELDS.map(field => (
+                        <Checkbox
+                          key={field}
+                          checked={permissions.sampling_locations.visible_fields.includes(field)}
+                          disabled={!permissions.navigation.sampling_locations}
+                          onChange={event =>
+                            panel.toggleSamplingLocationField(field, event.target.checked)
+                          }
+                        >
+                          {SAMPLING_LOCATION_OPTIONAL_FIELD_LABELS[field]}
+                        </Checkbox>
+                      ))}
+                    </div>
+                  ) : null}
                 </section>
               ))}
 

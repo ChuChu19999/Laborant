@@ -18,6 +18,7 @@ import { ResetFiltersButton } from '@/shared/ui/ResetFiltersButton';
 import { TableEmptyState } from '@/shared/ui/TableEmptyState';
 import { TablePagination } from '@/shared/ui/TablePagination';
 import { TableSortIcon } from '@/shared/ui/TableSortIcon';
+import { useSamplesTableFilterOptions } from '../../model/useSamplesTableFilterOptions';
 import { createSamplesTableColumns } from './samplesTableColumns';
 import { SamplesTableFilterRow } from './samplesTableFilterRow';
 import type { Sample } from '../../api';
@@ -111,6 +112,7 @@ const SamplesTable = ({
   );
 
   const { data: employeesMap = {} } = useEmployeesByHsnils(uniqueAddedBy, data.length > 0);
+  const { sampleTypes, testObjects } = useSamplesTableFilterOptions(laboratoryId, departmentId);
 
   const columns = React.useMemo(
     () =>
@@ -232,8 +234,8 @@ const SamplesTable = ({
                       headers={headerGroup.headers}
                       applyFilters={applyFilters}
                       applyFiltersWithNewValue={applyFiltersWithNewValue}
-                      laboratoryId={laboratoryId}
-                      departmentId={departmentId}
+                      sampleTypes={sampleTypes}
+                      testObjects={testObjects}
                     />
                   </React.Fragment>
                 ))}

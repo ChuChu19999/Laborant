@@ -10,6 +10,7 @@ export type UseCreateBranchModalParams = {
   open: boolean;
   laboratoryId: number;
   departmentId?: number;
+  showPhone: boolean;
   onClose: () => void;
   onSuccess?: () => void;
 };
@@ -19,6 +20,7 @@ export const useCreateBranchModal = ({
   open,
   laboratoryId,
   departmentId,
+  showPhone,
   onClose,
   onSuccess,
 }: UseCreateBranchModalParams) => {
@@ -59,7 +61,7 @@ export const useCreateBranchModal = ({
       setLoading(true);
       await createBranchMutation.mutateAsync({
         name: formData.name.trim(),
-        phone: formData.phone.trim() || undefined,
+        phone: showPhone ? formData.phone.trim() || undefined : undefined,
         laboratory_id: laboratoryId,
         department_id: departmentId,
       });

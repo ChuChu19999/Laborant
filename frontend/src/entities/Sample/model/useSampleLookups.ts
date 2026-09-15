@@ -37,13 +37,6 @@ export const useSampleQueries = () => {
   };
 };
 
-/** Загружает типы проб. */
-export const useSampleTypes = (enabled = true) => {
-  return useAutoRefetchQuery<string[]>(sampleKeys.types(), () => samplesApi.getSampleTypes(), {
-    enabled,
-  });
-};
-
 /** Загружает пробы для формы протокола. */
 export const useSamplesForProtocol = (
   laboratoryId: number | undefined,

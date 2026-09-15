@@ -1,0 +1,86 @@
+.test-purposes-page-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 80px 20px 20px 20px;
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.test-purposes-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.test-purposes-page-header-left {
+  display: flex;
+  align-items: center;
+}
+
+.test-purposes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.test-purposes-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 10px;
+  background: #ffffff;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+}
+
+.test-purposes-list-name {
+  font-family: 'HeliosCondC';
+  font-size: 15px;
+  color: #282828;
+}
+
+.test-purposes-list-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.test-purposes-edit-button {
+  color: #1890ff !important;
+  font-family: 'HeliosCondC';
+  font-size: 14px;
+}
+
+.test-purposes-edit-button:hover {
+  background-color: rgba(24, 144, 255, 0.1) !important;
+  color: #1890ff !important;
+}
+
+.test-purposes-page-laboratories,
+.test-purposes-page-departments {
+  padding: 84px 20px 20px 20px;
+}
+
+.test-purposes-page-laboratories-grid,
+.test-purposes-page-departments-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}

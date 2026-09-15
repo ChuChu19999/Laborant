@@ -1,4 +1,11 @@
-import { AimOutlined, ExperimentOutlined, LineChartOutlined } from '@ant-design/icons';
+import {
+  AimOutlined,
+  ExperimentOutlined,
+  FileProtectOutlined,
+  FlagOutlined,
+  LineChartOutlined,
+  TagsOutlined,
+} from '@ant-design/icons';
 import { createAnimatedAntdIcon } from './CreateAnimatedAntdIcon';
 
 /** Поступления проб — Antd Experiment с анимацией. */
@@ -38,6 +45,48 @@ export const AimAntdIcon = createAnimatedAntdIcon({
     animate: {
       scale: [1, 1.15, 1],
       rotate: [0, 90],
+      transition: { duration: 0.45, ease: 'easeInOut' },
+    },
+  },
+});
+
+/** Типы проб — Antd Tags с анимацией. */
+export const TagsAntdIcon = createAnimatedAntdIcon({
+  displayName: 'TagsAntdIcon',
+  Icon: TagsOutlined,
+  variants: {
+    normal: { scale: 1, y: 0 },
+    animate: {
+      scale: [1, 1.1, 1],
+      y: [0, -2, 0],
+      transition: { duration: 0.4, ease: 'easeInOut' },
+    },
+  },
+});
+
+/** Цели испытаний — Antd Flag с анимацией. */
+export const FlagAntdIcon = createAnimatedAntdIcon({
+  displayName: 'FlagAntdIcon',
+  Icon: FlagOutlined,
+  variants: {
+    normal: { scale: 1, rotate: 0 },
+    animate: {
+      scale: [1, 1.1, 1],
+      rotate: [0, -8, 8, 0],
+      transition: { duration: 0.45, ease: 'easeInOut' },
+    },
+  },
+});
+
+/** Нормы НД — Antd FileProtect с анимацией. */
+export const FileProtectAntdIcon = createAnimatedAntdIcon({
+  displayName: 'FileProtectAntdIcon',
+  Icon: FileProtectOutlined,
+  variants: {
+    normal: { scale: 1, y: 0 },
+    animate: {
+      scale: [1, 1.1, 1],
+      y: [0, -1, 0],
       transition: { duration: 0.45, ease: 'easeInOut' },
     },
   },

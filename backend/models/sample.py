@@ -20,7 +20,7 @@ class Sample(BaseModel):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
     registration_number: Mapped[str] = mapped_column(String(50), nullable=False, comment="Регистрационный номер пробы")
-    sample_type: Mapped[str | None] = mapped_column(String(50), nullable=True, comment="Тип пробы")
+    sample_type: Mapped[str | None] = mapped_column(String(255), nullable=True, comment="Тип пробы")
     test_object: Mapped[str] = mapped_column(String(255), nullable=False, comment="Объект испытаний")
     sampling_date: Mapped[date | None] = mapped_column(Date, nullable=True, comment="Дата отбора пробы")
     receiving_date: Mapped[date | None] = mapped_column(
@@ -50,6 +50,13 @@ class Sample(BaseModel):
     mode: Mapped[str | None] = mapped_column(String(255), nullable=True, comment="Режим работы скважины")
     indicators_count: Mapped[int] = mapped_column(Integer, nullable=False, comment="Количество показателей")
     phone: Mapped[str | None] = mapped_column(String(50), nullable=True, comment="Номер телефона филиала")
+    customer_activity_place: Mapped[str | None] = mapped_column(
+        String(255), nullable=True, comment="Место осуществления деятельности заказчика"
+    )
+    test_object_nd: Mapped[str | None] = mapped_column(
+        String(255), nullable=True, comment="Нормативный документ на объект испытаний"
+    )
+    test_purpose: Mapped[str | None] = mapped_column(String(255), nullable=True, comment="Цель испытаний")
     selection_conditions: Mapped[dict[str, Any] | None] = mapped_column(
         JSON, nullable=True, comment="JSON с условиями отбора и их значениями"
     )

@@ -9,6 +9,8 @@ const CRUD_RESOURCES = [
   'protocols',
   'equipment',
   'sampling_locations',
+  'sample_types',
+  'test_purposes',
   'nd_norms',
   'refraction_tables',
 ] as const;
@@ -45,6 +47,15 @@ export function mergePermissions(items: RolePermissions[]): RolePermissions {
     result.samples.delete = result.samples.delete || other.samples.delete;
     result.samples.visible_fields = Array.from(
       new Set([...result.samples.visible_fields, ...other.samples.visible_fields])
+    ).sort();
+    result.protocols.visible_fields = Array.from(
+      new Set([...result.protocols.visible_fields, ...other.protocols.visible_fields])
+    ).sort();
+    result.sampling_locations.visible_fields = Array.from(
+      new Set([
+        ...result.sampling_locations.visible_fields,
+        ...other.sampling_locations.visible_fields,
+      ])
     ).sort();
 
     for (const resource of CRUD_RESOURCES) {

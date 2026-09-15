@@ -25,7 +25,15 @@ export {
   SettingOutlined,
 } from '@ant-design/icons';
 export type { AnimatedIconHandle } from './CreateAnimatedAntdIcon';
-export { AimAntdIcon, ExperimentAntdIcon, LineChartAntdIcon } from './AntdNavIcons';
+export {
+  AimAntdIcon,
+  ExperimentAntdIcon,
+  FileProtectAntdIcon,
+  FlagAntdIcon,
+  LineChartAntdIcon,
+  TagsAntdIcon,
+} from './AntdNavIcons';
+
 export { BookTextIcon } from './BookTextIcon';
 export type { BookTextIconHandle } from './BookTextIcon';
 export { CalculatorIcon } from './CalculatorIcon';

@@ -12,9 +12,10 @@ interface BranchFormFieldsProps {
   value: BranchFormValues;
   onChange: (field: keyof BranchFormValues, value: string) => void;
   errors?: Partial<Record<keyof BranchFormValues | 'general', string>>;
+  showPhone: boolean;
 }
 
-const BranchFormFields = ({ value, onChange, errors = {} }: BranchFormFieldsProps) => {
+const BranchFormFields = ({ value, onChange, errors = {}, showPhone }: BranchFormFieldsProps) => {
   const handleChange =
     (field: keyof BranchFormValues) => (event: ChangeEvent<HTMLInputElement>) => {
       onChange(field, event.target.value);
@@ -44,20 +45,22 @@ const BranchFormFields = ({ value, onChange, errors = {} }: BranchFormFieldsProp
           />
         )}
       </FormField>
-      <FormField
-        label="Номер телефона"
-        labelClassName="branch-form-label"
-        itemClassName="branch-form-item"
-      >
-        {fieldId => (
-          <Input
-            id={fieldId}
-            value={value.phone}
-            onChange={handleChange('phone')}
-            placeholder="Введите номер телефона (необязательно)"
-          />
-        )}
-      </FormField>
+      {showPhone ? (
+        <FormField
+          label="Номер телефона"
+          labelClassName="branch-form-label"
+          itemClassName="branch-form-item"
+        >
+          {fieldId => (
+            <Input
+              id={fieldId}
+              value={value.phone}
+              onChange={handleChange('phone')}
+              placeholder="Введите номер телефона (необязательно)"
+            />
+          )}
+        </FormField>
+      ) : null}
     </div>
   );
 };

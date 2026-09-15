@@ -6,12 +6,13 @@ import type { Branch } from '@/entities/Branch';
 interface EditBranchModalProps {
   open: boolean;
   branch: Branch | null;
+  showPhone: boolean;
   onClose: () => void;
   onSuccess?: () => void;
 }
 
-const EditBranchModal = ({ open, branch, onClose, onSuccess }: EditBranchModalProps) => {
-  const modal = useEditBranchModal({ open, branch, onClose, onSuccess });
+const EditBranchModal = ({ open, branch, showPhone, onClose, onSuccess }: EditBranchModalProps) => {
+  const modal = useEditBranchModal({ open, branch, showPhone, onClose, onSuccess });
 
   if (!open || !branch) {
     return null;
@@ -32,6 +33,7 @@ const EditBranchModal = ({ open, branch, onClose, onSuccess }: EditBranchModalPr
         value={modal.formData}
         onChange={modal.handleFieldChange}
         errors={modal.errors}
+        showPhone={showPhone}
       />
     </Modal>
   );

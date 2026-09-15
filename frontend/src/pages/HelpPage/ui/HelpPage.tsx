@@ -41,8 +41,8 @@ const HelpPage = () => {
                 <li className="help-guide-step">
                   <span className="help-guide-step-title">Справочники</span>
                   <span className="help-guide-step-text">
-                    При необходимости заполните приборы, места отбора проб, нормы НД и
-                    градуировочный график.
+                    При необходимости заполните приборы, места отбора проб, типы проб, цели
+                    испытаний, нормы НД и градуировочный график.
                   </span>
                 </li>
                 <li className="help-guide-step">
@@ -92,6 +92,7 @@ const HelpPage = () => {
                   Поиск сотрудников по ФИО учитывает ввод в английской раскладке (например, bdfy →
                   «иван»)
                 </li>
+                <li className="list-item">Добавлены справочники «Типы проб» и «Цели испытаний»</li>
               </ul>
               <p className="version-title">Версия 1.0.5:</p>
               <ul className="list">

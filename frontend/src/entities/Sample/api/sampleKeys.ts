@@ -12,7 +12,6 @@ export const sampleKeys = {
     [...sampleKeys.lists(), laboratoryId, departmentId, page, pageSize, filters, sorting] as const,
   details: () => [...sampleKeys.all, 'detail'] as const,
   detail: (id: number) => [...sampleKeys.details(), id] as const,
-  types: () => [...sampleKeys.all, 'types'] as const,
   forProtocol: (laboratoryId: number | undefined, departmentId: number | undefined) =>
     [...sampleKeys.all, 'for-protocol', laboratoryId, departmentId] as const,
   forCalculation: (laboratoryId: number | undefined, departmentId: number | undefined) =>

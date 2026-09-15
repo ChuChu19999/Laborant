@@ -25,6 +25,16 @@ from utils.sample.sort import (
 from utils.sorting import build_order_by
 
 
+def _sample_response_load_options():
+    """Eager load связей Sample для SampleResponse."""
+    return (
+        selectinload(Sample.laboratory),
+        selectinload(Sample.department),
+        selectinload(Sample.branch),
+        selectinload(Sample.sampling_location),
+    )
+
+
 def _sampling_location_display_expr():
     """SQL-выражение отображаемой строки места отбора (имя + скважина + режим)."""
     well_part = case(
@@ -102,10 +112,7 @@ async def get_sample_by_id(db: AsyncSession, sample_id: int, include_deleted: bo
         select(Sample)
         .where(Sample.id == sample_id)
         .options(
-            selectinload(Sample.laboratory),
-            selectinload(Sample.department),
-            selectinload(Sample.branch),
-            selectinload(Sample.sampling_location),
+            *_sample_response_load_options(),
         )
     )
     query = filter_not_deleted_unless(query, Sample.deleted_at, include_deleted)
@@ -118,10 +125,7 @@ async def get_samples_by_ids(db: AsyncSession, sample_ids: list[int]) -> list[Sa
         select(Sample)
         .where(Sample.id.in_(sample_ids))
         .options(
-            selectinload(Sample.laboratory),
-            selectinload(Sample.department),
-            selectinload(Sample.branch),
-            selectinload(Sample.sampling_location),
+            *_sample_response_load_options(),
         )
     )
     query = filter_not_deleted(query, Sample.deleted_at)
@@ -165,10 +169,7 @@ async def get_samples(
 ) -> tuple[list[Sample], int]:
     """Получить список проб."""
     query = filter_not_deleted(select(Sample), Sample.deleted_at).options(
-        selectinload(Sample.laboratory),
-        selectinload(Sample.department),
-        selectinload(Sample.branch),
-        selectinload(Sample.sampling_location),
+        *_sample_response_load_options(),
     )
 
     needs_sampling_location_join = bool(search_sampling_location) or sort_by == "sampling_location"
@@ -310,10 +311,7 @@ async def get_samples_by_research_method(
         select(Sample)
         .where(Sample.id.in_(subquery))
         .options(
-            selectinload(Sample.laboratory),
-            selectinload(Sample.department),
-            selectinload(Sample.branch),
-            selectinload(Sample.sampling_location),
+            *_sample_response_load_options(),
         )
     )
 

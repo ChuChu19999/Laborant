@@ -48,6 +48,7 @@ const EditProtocolModal = ({
         value={modal.formData}
         onChange={modal.handleFieldChange}
         errors={modal.errors}
+        canShow={modal.canShow}
         laboratoryName={modal.laboratoryName}
         templates={modal.templateOptions}
         templatesLoading={modal.templatesLoading}
